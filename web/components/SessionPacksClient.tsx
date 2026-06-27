@@ -28,9 +28,14 @@ let _packPlayers: Player[] = [];
 let _packAcademies: Academy[] = [];
 let _packBookings: Booking[] = [];
 
-function feeForAcademyAndType(academyId: string, type: BookingType): number {
+function feeForAcademyAndType(academyId: string, type: BookingType, playerId?: string): number {
   const academy = _packAcademies.find((a) => a.id === academyId);
-  return academy?.sessionTypeFees[type] ?? academy?.sessionFeeAud ?? 0;
+  if (!academy) return 0;
+  // Age-group fee → session-type fee → academy default
+  const player = playerId ? _packPlayers.find((p) => p.id === playerId) : undefined;
+  const ageFee = player ? (academy.ageFees[player.ageGroup] ?? 0) : 0;
+  if (ageFee > 0) return ageFee;
+  return academy.sessionTypeFees[type] ?? academy.sessionFeeAud ?? 0;
 }
 
 const today = new Date().toISOString().split("T")[0];
@@ -152,13 +157,18 @@ export function SessionPacksClient() {
   }
 
   function handleAcademyChange(academyId: string) {
-    const fee = feeForAcademyAndType(academyId, draft.sessionType);
+    const fee = feeForAcademyAndType(academyId, draft.sessionType, draft.playerId);
     setDraft({ ...draft, academyId, feePerSession: fee });
   }
 
   function handleSessionTypeChange(sessionType: BookingType) {
-    const fee = feeForAcademyAndType(draft.academyId, sessionType);
+    const fee = feeForAcademyAndType(draft.academyId, sessionType, draft.playerId);
     setDraft({ ...draft, sessionType, feePerSession: fee });
+  }
+
+  function handlePlayerChange(playerId: string) {
+    const fee = draft.academyId ? feeForAcademyAndType(draft.academyId, draft.sessionType, playerId) : 0;
+    setDraft({ ...draft, playerId, feePerSession: fee || draft.feePerSession });
   }
 
   function handleSave() {
@@ -278,7 +288,7 @@ export function SessionPacksClient() {
               <label className={lbl}>Player *</label>
               <select
                 value={draft.playerId}
-                onChange={(e) => setDraft({ ...draft, playerId: e.target.value })}
+                onChange={(e) => handlePlayerChange(e.target.value)}
                 className={sel}
               >
                 <option value="">— Select player —</option>
@@ -358,6 +368,17 @@ export function SessionPacksClient() {
                   placeholder="0.00"
                 />
               </div>
+              {(() => {
+                if (!draft.playerId || !draft.academyId) return null;
+                const player = _packPlayers.find((p) => p.id === draft.playerId);
+                const academy = _packAcademies.find((a) => a.id === draft.academyId);
+                if (!player || !academy) return null;
+                const ageFee = academy.ageFees[player.ageGroup] ?? 0;
+                if (ageFee > 0) {
+                  return <p className="text-xs text-pace-green mt-1.5">Age-group rate for {player.ageGroup} · override by editing below</p>;
+                }
+                return null;
+              })()}
             </div>
           </div>
 

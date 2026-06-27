@@ -52,6 +52,7 @@ export interface Academy {
   status: 'Active' | 'Inactive';
   sessionFeeAud: number;
   sessionTypeFees: Partial<Record<BookingType, number>>;
+  ageFees: Partial<Record<AgeGroup, number>>;
 }
 
 export type UserRole = 'platform_admin' | 'academy_admin' | 'coach';

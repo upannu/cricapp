@@ -32,6 +32,7 @@ export interface DbAcademy {
   player_ids: string[]; player_counts: Record<string, number>;
   stage: string; coach_name: string; start_date: string; status: string;
   session_fee_aud: number; session_type_fees: Record<string, number>;
+  age_fees: Record<string, number>;
 }
 
 export interface DbBooking {
@@ -120,6 +121,7 @@ export function dbToAcademy(r: DbAcademy): Academy {
     status: r.status as "Active" | "Inactive",
     sessionFeeAud: r.session_fee_aud,
     sessionTypeFees: r.session_type_fees as Academy["sessionTypeFees"],
+    ageFees: (r.age_fees ?? {}) as Academy["ageFees"],
   };
 }
 

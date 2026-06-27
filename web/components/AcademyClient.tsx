@@ -39,7 +39,7 @@ const EMPTY_DRAFT: DraftAcademy = {
   playerCounts: {}, playerIds: [],
   stage: "Foundation", coachName: "",
   startDate: new Date().toISOString().split("T")[0],
-  status: "Active", sessionFeeAud: 0, sessionTypeFees: {},
+  status: "Active", sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
 };
 
 type NewPlayerDraft = {
@@ -94,6 +94,7 @@ export function AcademyClient() {
       stage: academy.stage, coachName: academy.coachName, startDate: academy.startDate,
       status: academy.status, sessionFeeAud: academy.sessionFeeAud,
       sessionTypeFees: { ...academy.sessionTypeFees },
+      ageFees: { ...academy.ageFees },
     });
     setPlayerSearch(""); setShowNewPlayer(false); setFormError("");
     setShowForm(true); scrollToForm();
@@ -112,11 +113,18 @@ export function AcademyClient() {
       if (n > 0) cleaned[g] = n;
     }
     const id = editingId ?? `ac${Date.now()}`;
+    const cleanedAgeFees: Partial<Record<AgeGroup, number>> = {};
+    for (const g of AGE_GROUPS) {
+      const n = draft.ageFees[g] ?? 0;
+      if (n > 0) cleanedAgeFees[g] = n;
+    }
+
     const newAcademy: Academy = {
       id, name: draft.name.trim(), description: draft.description, location: draft.location,
       playerCounts: cleaned, playerIds: draft.playerIds, stage: draft.stage,
       coachName: draft.coachName, startDate: draft.startDate, status: draft.status,
       sessionFeeAud: draft.sessionFeeAud, sessionTypeFees: draft.sessionTypeFees,
+      ageFees: cleanedAgeFees,
     };
 
     upsertAcademy({
@@ -125,6 +133,7 @@ export function AcademyClient() {
       stage: newAcademy.stage, coach_name: newAcademy.coachName, start_date: newAcademy.startDate,
       status: newAcademy.status, session_fee_aud: newAcademy.sessionFeeAud,
       session_type_fees: newAcademy.sessionTypeFees as Record<string, number>,
+      age_fees: newAcademy.ageFees as Record<string, number>,
     });
 
     if (editingId) {
@@ -330,6 +339,32 @@ export function AcademyClient() {
                   </div>
                 );
               })}
+            </div>
+            {/* Age-based fees */}
+            <div className="mt-5 pt-5 border-t border-zinc-700/60">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Fee by age group</p>
+              <p className="text-xs text-zinc-600 mb-3">Overrides the default fee for players in that age group. Leave blank to use default.</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {AGE_GROUPS.map((g) => {
+                  const val = draft.ageFees[g];
+                  return (
+                    <div key={g}>
+                      <label className="block text-xs text-zinc-500 mb-1">{g}</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">$</span>
+                        <input type="number" min={0} step={5}
+                          value={val === undefined || val === 0 ? "" : val}
+                          onChange={(e) => {
+                            const n = parseFloat(e.target.value) || 0;
+                            setDraft({ ...draft, ageFees: { ...draft.ageFees, [g]: n } });
+                          }}
+                          className={`${inputCls} pl-7 py-2 text-sm`}
+                          placeholder={draft.sessionFeeAud > 0 ? String(draft.sessionFeeAud) : "—"} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
