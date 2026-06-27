@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth /*, DEMO_ACCOUNTS */ } from "@/lib/auth";
 // import type { UserRole } from "@/lib/types";
 
@@ -103,6 +104,14 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
+
+        {/* Sign up link */}
+        <p className="text-center text-zinc-400 text-sm mt-4">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="text-pace-green hover:underline font-medium">
+            Create one
+          </Link>
+        </p>
 
         {/* DEMO ACCOUNTS — uncomment for local testing only
         <div>

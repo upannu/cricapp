@@ -10,6 +10,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loaded: boolean;
   login: (email: string, password: string) => Promise<string | null>;
+  signup: (name: string, email: string, password: string, role: "academy_admin" | "coach") => Promise<{ error: string | null; needsConfirmation: boolean }>;
   logout: () => Promise<void>;
 }
 
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   loaded: false,
   login: async () => null,
+  signup: async () => ({ error: null, needsConfirmation: false }),
   logout: async () => {},
 });
 
@@ -56,6 +58,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return error ? error.message : null;
   }
 
+  async function signup(
+    name: string,
+    email: string,
+    password: string,
+    role: "academy_admin" | "coach",
+  ): Promise<{ error: string | null; needsConfirmation: boolean }> {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name, role } },
+    });
+    if (error) return { error: error.message, needsConfirmation: false };
+    // If email confirmation is required, session will be null
+    const needsConfirmation = !data.session;
+    return { error: null, needsConfirmation };
+  }
+
   async function logout() {
     await supabase.auth.signOut();
     setUser(null);
@@ -70,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loaded, login, logout }}>
+    <AuthContext.Provider value={{ user, loaded, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
