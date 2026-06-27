@@ -2,7 +2,25 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
+import { useAuth /*, DEMO_ACCOUNTS */ } from "@/lib/auth";
+// import type { UserRole } from "@/lib/types";
+
+// -- Demo account styles (uncomment below section to re-enable quick-login for local testing) --
+// const ROLE_LABELS: Record<UserRole, string> = {
+//   platform_admin: "Platform Admin",
+//   academy_admin: "Academy Admin",
+//   coach: "Coach",
+// };
+// const ROLE_DESC: Record<UserRole, string> = {
+//   platform_admin: "Full access across all academies",
+//   academy_admin: "Manages their academy's coaches & players",
+//   coach: "Views only their own players & sessions",
+// };
+// const ROLE_STYLES: Record<UserRole, { badge: string; card: string }> = {
+//   platform_admin: { badge: "bg-amber/20 text-amber border-amber/30", card: "border-amber/20 hover:border-amber/50" },
+//   academy_admin:  { badge: "bg-blue-500/20 text-blue-400 border-blue-500/30", card: "border-blue-500/20 hover:border-blue-500/50" },
+//   coach:          { badge: "bg-pace-green/20 text-pace-green border-pace-green/30", card: "border-pace-green/20 hover:border-pace-green/50" },
+// };
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,6 +42,14 @@ export default function LoginPage() {
       router.push("/players");
     }
   }
+
+  // async function quickLogin(email: string) {
+  //   setLoading(true);
+  //   setError("");
+  //   const err = await login(email, "pace2024");
+  //   if (err) { setError(err); setLoading(false); }
+  //   else { router.push("/players"); }
+  // }
 
   return (
     <div className="min-h-screen bg-ink flex items-center justify-center p-4">
@@ -77,6 +103,33 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
+
+        {/* DEMO ACCOUNTS — uncomment for local testing only
+        <div>
+          <p className="text-xs text-zinc-500 text-center uppercase tracking-wider mb-4">Demo accounts — click to sign in</p>
+          <div className="space-y-2">
+            {DEMO_ACCOUNTS.map((u) => {
+              const styles = ROLE_STYLES[u.role];
+              const initials = u.name.split(" ").map((n) => n[0]).join("");
+              return (
+                <button key={u.id} type="button" disabled={loading}
+                  onClick={() => quickLogin(u.email)}
+                  className={`w-full flex items-center gap-4 bg-surface rounded-xl px-5 py-3.5 border transition-colors cursor-pointer group disabled:opacity-50 ${styles.card}`}>
+                  <div className="w-9 h-9 rounded-full bg-zinc-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{initials}</div>
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-white text-sm font-semibold">{u.name}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${styles.badge}`}>{ROLE_LABELS[u.role]}</span>
+                    </div>
+                    <p className="text-zinc-500 text-xs">{ROLE_DESC[u.role]}</p>
+                  </div>
+                  <span className="text-zinc-600 group-hover:text-white transition-colors text-sm">→</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        */}
 
       </div>
     </div>
