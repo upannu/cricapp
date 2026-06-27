@@ -1,18 +1,45 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth";
+import type { UserRole } from "@/lib/types";
 
-const navItems = [
-  { label: "Players", href: "/players" },
+const NAV_ALL = [
+  { label: "Players",  href: "/players" },
   { label: "Sessions", href: "/sessions" },
-  { label: "Academy", href: "/academy" },
+  { label: "Academy",  href: "/academy" },
   { label: "Bookings", href: "/bookings" },
-  { label: "Reports", href: "/reports" },
+  { label: "Packs",    href: "/session-packs" },
+  { label: "Coaches",  href: "/coaches" },
+  { label: "Reports",  href: "/reports" },
 ];
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  platform_admin: "Platform Admin",
+  academy_admin:  "Academy Admin",
+  coach:          "Coach",
+};
+
+const ROLE_STYLES: Record<UserRole, string> = {
+  platform_admin: "bg-amber/20 text-amber border-amber/30",
+  academy_admin:  "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  coach:          "bg-pace-green/20 text-pace-green border-pace-green/30",
+};
 
 export function NavBar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuth();
+
+  function handleLogout() {
+    logout();
+    router.push("/login");
+  }
+
+  const initials = user
+    ? user.name.split(" ").map((n) => n[0]).join("")
+    : "?";
 
   return (
     <header className="bg-surface border-b border-zinc-700/60 sticky top-0 z-50">
@@ -36,7 +63,7 @@ export function NavBar() {
 
         {/* Nav items */}
         <nav className="flex items-stretch gap-1 flex-1">
-          {navItems.map((item) => {
+          {NAV_ALL.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
               <Link
@@ -54,16 +81,32 @@ export function NavBar() {
           })}
         </nav>
 
-        {/* User */}
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium text-white">Coach Sukhi</p>
-            <p className="text-xs text-zinc-500">Coach Pro</p>
+        {/* User + role */}
+        {user && (
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden sm:block">
+              <p className="text-sm font-medium text-white leading-tight">{user.name}</p>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${ROLE_STYLES[user.role]}`}>
+                {ROLE_LABELS[user.role]}
+              </span>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
+              {initials}
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Sign out"
+              className="text-zinc-500 hover:text-white transition-colors cursor-pointer p-1.5 rounded-lg hover:bg-zinc-700/50"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+            </button>
           </div>
-          <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm">
-            CS
-          </div>
-        </div>
+        )}
       </div>
     </header>
   );

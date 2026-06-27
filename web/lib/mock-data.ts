@@ -1,4 +1,4 @@
-import type { Player } from './types';
+import type { Player, Session, Booking, Coach, Academy, Report, SessionPack } from './types';
 
 export const mockPlayers: Player[] = [
   {
@@ -7,9 +7,10 @@ export const mockPlayers: Player[] = [
     bowlingStyle: 'Right Arm Fast',
     addedDate: '2026-01-15',
     email: 'james.thornton@cricketclub.com',
+    phone: '+61 412 111 001',
     ageGroup: 'Senior',
     club: 'Brisbane Tigers CC',
-    coachAssigned: 'Coach Sukhi',
+    coachAssigned: 'Sukhi Pannu',
     guardianConsentStatus: 'N/A',
     subscription: {
       plan: 'Coach Pro',
@@ -42,9 +43,10 @@ export const mockPlayers: Player[] = [
     bowlingStyle: 'Right Arm Fast-Medium',
     addedDate: '2026-02-08',
     email: 'arjun.patel@gmail.com',
+    phone: '+61 412 111 002',
     ageGroup: 'U19',
     club: 'Sydney Royals CC',
-    coachAssigned: 'Coach Sukhi',
+    coachAssigned: 'Sukhi Pannu',
     guardianConsentStatus: 'Confirmed',
     subscription: {
       plan: 'Player Pro',
@@ -77,9 +79,10 @@ export const mockPlayers: Player[] = [
     bowlingStyle: 'Left Arm Fast',
     addedDate: '2025-12-01',
     email: 'm.hayes@velocitycc.com',
+    phone: '+61 412 111 003',
     ageGroup: 'Senior',
     club: 'Velocity CC',
-    coachAssigned: 'Coach Sukhi',
+    coachAssigned: 'Sukhi Pannu',
     guardianConsentStatus: 'N/A',
     subscription: {
       plan: 'Coach Pro',
@@ -112,9 +115,10 @@ export const mockPlayers: Player[] = [
     bowlingStyle: 'Right Arm Fast',
     addedDate: '2026-01-01',
     email: 'callum.r@sportmail.com',
+    phone: '+61 412 111 004',
     ageGroup: 'U19',
     club: 'Gold Coast Fast CC',
-    coachAssigned: 'Coach Sukhi',
+    coachAssigned: 'Arjun Sharma',
     guardianConsentStatus: 'Confirmed',
     subscription: {
       plan: 'Player Pro',
@@ -147,9 +151,10 @@ export const mockPlayers: Player[] = [
     bowlingStyle: 'Right Arm Medium',
     addedDate: '2025-11-20',
     email: 't.davidson@mail.com',
+    phone: '+61 412 111 005',
     ageGroup: 'Senior',
     club: 'Northside CC',
-    coachAssigned: 'Coach Sukhi',
+    coachAssigned: 'Lisa Nguyen',
     guardianConsentStatus: 'N/A',
     subscription: {
       plan: 'Player Pro',
@@ -182,9 +187,10 @@ export const mockPlayers: Player[] = [
     bowlingStyle: 'Left Arm Fast-Medium',
     addedDate: '2026-03-01',
     email: 'sam.fletcher@fletcherspeed.com',
+    phone: '+61 412 111 006',
     ageGroup: 'U16',
     club: 'Melbourne Pace Academy',
-    coachAssigned: 'Coach Sukhi',
+    coachAssigned: 'Sukhi Pannu',
     guardianConsentStatus: 'Confirmed',
     subscription: {
       plan: 'Coach Pro',
@@ -217,9 +223,10 @@ export const mockPlayers: Player[] = [
     bowlingStyle: 'Right Arm Fast',
     addedDate: '2026-04-10',
     email: 'ravi.k@crickethub.com',
+    phone: '+61 412 111 007',
     ageGroup: 'Senior',
     club: 'Adelaide Strikers CC',
-    coachAssigned: 'Coach Sukhi',
+    coachAssigned: 'Lisa Nguyen',
     guardianConsentStatus: 'N/A',
     subscription: {
       plan: 'Player Pro',
@@ -252,9 +259,10 @@ export const mockPlayers: Player[] = [
     bowlingStyle: 'Right Arm Fast-Medium',
     addedDate: '2026-02-14',
     email: 'jackmorris@freemail.com',
+    phone: '+61 412 111 008',
     ageGroup: 'U19',
     club: 'Perth Thunder CC',
-    coachAssigned: 'Coach Sukhi',
+    coachAssigned: 'Marcus Webb',
     guardianConsentStatus: 'Confirmed',
     subscription: {
       plan: 'Free',
@@ -286,3 +294,326 @@ export const mockPlayers: Player[] = [
 export function getPlayerById(id: string): Player | undefined {
   return mockPlayers.find((p) => p.id === id);
 }
+
+export const mockSessions: Session[] = [
+  {
+    id: 's001', playerId: 'p003', date: '2026-06-22',
+    type: 'Net Session',
+    notes: 'Strong line and length throughout. Hip rotation lag at release — needs focused drill work next session.',
+    videos: [
+      { angle: 'front', label: 'Front_20260622.mp4' },
+      { angle: 'side', label: 'Side_20260622.mp4' },
+      { angle: 'back', label: 'Back_20260622.mp4' },
+    ],
+    ballSpeedKmh: 143.1, frontKneeAngleDeg: 155, xpEarned: 120,
+  },
+  {
+    id: 's002', playerId: 'p006', date: '2026-06-24',
+    type: 'Individual Drill',
+    notes: 'Wrist position drill — 30 reps. Consistent seam upright. Slight pull-down early in the set.',
+    videos: [
+      { angle: 'front', label: 'Front_20260624.mp4' },
+      { angle: 'side', label: 'Side_20260624.mp4' },
+      { angle: 'back', label: 'Back_20260624.mp4' },
+    ],
+    ballSpeedKmh: 115.5, frontKneeAngleDeg: 170, xpEarned: 80,
+  },
+  {
+    id: 's003', playerId: 'p001', date: '2026-06-20',
+    type: 'Net Session',
+    notes: 'Excellent short-pitch work. Averaged 138 km/h across 20 deliveries. Front knee locked well.',
+    videos: [
+      { angle: 'front', label: 'Front_20260620.mp4' },
+      { angle: 'side', label: 'Side_20260620.mp4' },
+      { angle: 'back', label: 'Back_20260620.mp4' },
+    ],
+    ballSpeedKmh: 138.4, frontKneeAngleDeg: 168, xpEarned: 130,
+  },
+  {
+    id: 's004', playerId: 'p007', date: '2026-06-21',
+    type: 'Match Practice',
+    notes: 'Applied pressure with length deliveries. Movement both ways. Yorker at the death needs work.',
+    videos: [
+      { angle: 'front', label: 'Front_20260621.mp4' },
+      { angle: 'side', label: 'Side_20260621.mp4' },
+      { angle: 'back', label: 'Back_20260621.mp4' },
+    ],
+    ballSpeedKmh: 133.8, frontKneeAngleDeg: 162, xpEarned: 110,
+  },
+  {
+    id: 's005', playerId: 'p002', date: '2026-06-18',
+    type: 'Video Review',
+    notes: 'Reviewed last 3 sessions on slow-motion. Release point drifting low on the 2nd spell. Corrective cue given.',
+    videos: [],
+    ballSpeedKmh: null, frontKneeAngleDeg: null, xpEarned: 40,
+  },
+  {
+    id: 's006', playerId: 'p004', date: '2026-06-15',
+    type: 'Net Session',
+    notes: 'Focused on outswing. Getting good shape from round the wicket. Speed down slightly — conserving energy.',
+    videos: [
+      { angle: 'front', label: 'Front_20260615.mp4' },
+      { angle: 'side', label: 'Side_20260615.mp4' },
+    ],
+    ballSpeedKmh: 118.9, frontKneeAngleDeg: 164, xpEarned: 90,
+  },
+  {
+    id: 's007', playerId: 'p003', date: '2026-06-08',
+    type: 'Warm-up / Conditioning',
+    notes: 'Dynamic warm-up, resistance band work, 10-over bowling load. Injury risk monitoring.',
+    videos: [],
+    ballSpeedKmh: null, frontKneeAngleDeg: null, xpEarned: 30,
+  },
+  {
+    id: 's008', playerId: 'p001', date: '2026-06-10',
+    type: 'Individual Drill',
+    notes: 'Release point consistency drill — wall target at 2.4m. Hit target 18 of 20 reps. Marked improvement.',
+    videos: [
+      { angle: 'front', label: 'Front_20260610.mp4' },
+    ],
+    ballSpeedKmh: 135.2, frontKneeAngleDeg: 167, xpEarned: 70,
+  },
+  {
+    id: 's009', playerId: 'p006', date: '2026-06-12',
+    type: 'Match Practice',
+    notes: 'Simulated death overs. Bowled 2 of 4 yorkers on target. Bouncer variation effective.',
+    videos: [
+      { angle: 'front', label: 'Front_20260612.mp4' },
+      { angle: 'side', label: 'Side_20260612.mp4' },
+      { angle: 'back', label: 'Back_20260612.mp4' },
+    ],
+    ballSpeedKmh: 116.8, frontKneeAngleDeg: 171, xpEarned: 120,
+  },
+  {
+    id: 's010', playerId: 'p002', date: '2026-06-10',
+    type: 'Net Session',
+    notes: 'Good shape early. Tired after 15 overs — conditioning program to be reviewed.',
+    videos: [
+      { angle: 'front', label: 'Front_20260610.mp4' },
+      { angle: 'side', label: 'Side_20260610.mp4' },
+    ],
+    ballSpeedKmh: 124.7, frontKneeAngleDeg: 172, xpEarned: 100,
+  },
+  {
+    id: 's011', playerId: 'p007', date: '2026-06-05',
+    type: 'Net Session',
+    notes: 'Back-of-a-length work. Consistent pace. Slight chest-on action observed — flagged for review.',
+    videos: [
+      { angle: 'front', label: 'Front_20260605.mp4' },
+      { angle: 'side', label: 'Side_20260605.mp4' },
+      { angle: 'back', label: 'Back_20260605.mp4' },
+    ],
+    ballSpeedKmh: 132.5, frontKneeAngleDeg: 161, xpEarned: 110,
+  },
+  {
+    id: 's012', playerId: 'p004', date: '2026-05-28',
+    type: 'Individual Drill',
+    notes: 'Lateral band walks + step-up drills for front knee stability. 3 sets each. Strong effort.',
+    videos: [],
+    ballSpeedKmh: null, frontKneeAngleDeg: null, xpEarned: 50,
+  },
+];
+
+export function getSessionsByPlayerId(playerId: string): Session[] {
+  return mockSessions.filter((s) => s.playerId === playerId);
+}
+
+export const mockSessionPacks: SessionPack[] = [
+  // ac2 – PACE Elite
+  { id: 'sp001', playerId: 'p001', academyId: 'ac2', sessionType: 'Net Session',        purchaseDate: '2026-01-20', totalSessions: 10, sessionsUsed: 8,  sessionCredits: 0, feePerSession: 120, status: 'Active',    paymentStatus: 'Paid',    paymentDueDate: '2026-01-27' },
+  { id: 'sp002', playerId: 'p002', academyId: 'ac2', sessionType: 'Individual Coaching', purchaseDate: '2026-02-10', totalSessions: 10, sessionsUsed: 7,  sessionCredits: 1, feePerSession: 160, status: 'Active',    paymentStatus: 'Pending', paymentDueDate: '2026-07-03' },
+  { id: 'sp003', playerId: 'p003', academyId: 'ac2', sessionType: 'Net Session',        purchaseDate: '2025-12-05', totalSessions: 10, sessionsUsed: 10, sessionCredits: 0, feePerSession: 120, status: 'Exhausted', paymentStatus: 'Paid',    paymentDueDate: '2025-12-12' },
+  { id: 'sp005', playerId: 'p005', academyId: 'ac2', sessionType: 'Video Review',       purchaseDate: '2025-11-25', totalSessions: 10, sessionsUsed: 5,  sessionCredits: 2, feePerSession: 90,  status: 'Active',    paymentStatus: 'Overdue', paymentDueDate: '2025-12-02' },
+  { id: 'sp006', playerId: 'p006', academyId: 'ac2', sessionType: 'Net Session',        purchaseDate: '2026-03-05', totalSessions: 10, sessionsUsed: 9,  sessionCredits: 0, feePerSession: 120, status: 'Active',    paymentStatus: 'Paid',    paymentDueDate: '2026-03-12' },
+  { id: 'sp007', playerId: 'p007', academyId: 'ac2', sessionType: 'Fitness Assessment', purchaseDate: '2026-04-15', totalSessions: 10, sessionsUsed: 6,  sessionCredits: 1, feePerSession: 110, status: 'Active',    paymentStatus: 'Overdue', paymentDueDate: '2026-04-22' },
+  // ac1 – Brisbane Foundation
+  { id: 'sp004', playerId: 'p004', academyId: 'ac1', sessionType: 'Net Session',        purchaseDate: '2026-01-05', totalSessions: 10, sessionsUsed: 4,  sessionCredits: 0, feePerSession: 60,  status: 'Active',    paymentStatus: 'Pending', paymentDueDate: '2026-07-05' },
+  // p008 (Jack Morris) has no pack – subscription lapsed
+];
+
+export function getPackForPlayer(playerId: string): SessionPack | undefined {
+  return mockSessionPacks.find((pk) => pk.playerId === playerId);
+}
+
+export const mockReports: Report[] = [
+  // James Thornton (p001) – Senior, 138 km/h
+  { id: 'rep01', playerId: 'p001', date: '2026-06-20', type: 'Biomechanics', summary: 'Exceptional front-arm drive throughout. Wrist position consistent at release. Slight hyper-extension risk at follow-through — monitor next session.', speedKmh: 138.4, frontKneeAngleDeg: 168, tags: ['Front arm', 'Wrist position', 'Follow-through'], highlight: 'PB speed recorded this session.' },
+  { id: 'rep02', playerId: 'p001', date: '2026-06-10', type: 'Session Review', summary: 'Release point consistency drill showed marked improvement. Hit 18 of 20 wall targets. Recommend progressing to moving-target variation next session.', speedKmh: 135.2, frontKneeAngleDeg: 167, tags: ['Release point', 'Drill progression'] },
+  { id: 'rep03', playerId: 'p001', date: '2026-05-31', type: 'Progress Report', summary: 'May review: average ball speed up 4.1 km/h vs April. Front knee angle stabilising above 165°. Injury risk remains Low. On track for Elite stage transition by August.', speedKmh: 134.1, frontKneeAngleDeg: 166, tags: ['Monthly', 'Speed trend', 'Knee stability'], highlight: '+4.1 km/h vs last month.' },
+
+  // Arjun Patel (p002) – U19, 124 km/h
+  { id: 'rep04', playerId: 'p002', date: '2026-06-18', type: 'Biomechanics', summary: 'Release point drifting slightly low on the 2nd spell — fatigue-related. Front-on action corrected with shoulder cue. Seam position excellent on back-of-a-length.', speedKmh: 124.7, frontKneeAngleDeg: 172, tags: ['Release point', 'Fatigue', 'Seam position'] },
+  { id: 'rep05', playerId: 'p002', date: '2026-05-30', type: 'Session Review', summary: 'Video review identified pull-down pattern in late-over spells. Corrective drill prescribed: 10-over load with deliberate pause before release. Action plan issued.', speedKmh: null, frontKneeAngleDeg: null, tags: ['Video review', 'Pull-down', 'Drill prescription'] },
+  { id: 'rep06', playerId: 'p002', date: '2026-04-30', type: 'Progress Report', summary: 'April review: consistent 122–125 km/h band. Foundation stage 85% complete. Guardian consent confirmed. XP on pace for Player Pro milestone.', speedKmh: 122.1, frontKneeAngleDeg: 171, tags: ['Monthly', 'Foundation stage'], highlight: 'Foundation stage 85% complete.' },
+
+  // Mitchell Hayes (p003) – Senior, 143 km/h
+  { id: 'rep07', playerId: 'p003', date: '2026-06-22', type: 'Biomechanics', summary: 'Hip rotation lag at release persists — 3rd consecutive session flagged. Drill block assigned for next 3 sessions. Strong line and length. Moderate injury risk from chest-on tendency under fatigue.', speedKmh: 143.1, frontKneeAngleDeg: 155, tags: ['Hip rotation', 'Injury risk', 'Chest-on action'], highlight: 'Fastest bowler in the cohort.' },
+  { id: 'rep08', playerId: 'p003', date: '2026-06-08', type: 'Session Review', summary: 'Reviewed full action on slow-motion. Chest-on orientation under fatigue confirmed. Front knee angle below target at 155° — below the 160° benchmark. Flagged for physiotherapy referral if not improved by next month.', speedKmh: 143.0, frontKneeAngleDeg: 155, tags: ['Chest-on', 'Knee angle', 'Physio flag'] },
+  { id: 'rep09', playerId: 'p003', date: '2026-05-31', type: 'Action Plan', summary: 'Action plan updated: (1) Hip rotation isolation band drills — 3×15 daily. (2) Mirror work for shoulder alignment. (3) Reduce bowling load from 10 to 7 overs per session pending reassessment.', speedKmh: null, frontKneeAngleDeg: null, tags: ['Action plan', 'Load management', 'Drills'] },
+
+  // Callum Richards (p004) – U19, 118 km/h
+  { id: 'rep10', playerId: 'p004', date: '2026-06-15', type: 'Biomechanics', summary: 'Outswing shape improved from round the wicket. Seam upright. Speed slightly down — attributed to deliberate control focus. Front knee angle in target range.', speedKmh: 118.9, frontKneeAngleDeg: 164, tags: ['Outswing', 'Seam position', 'Speed vs control'] },
+  { id: 'rep11', playerId: 'p004', date: '2026-05-28', type: 'Session Review', summary: 'Lateral band and step-up drills for front knee stability — 3 sets each. Strong effort across all exercises. Knee angle has improved 4° since February baseline.', speedKmh: null, frontKneeAngleDeg: 162, tags: ['Knee stability', 'Conditioning', 'Drill session'] },
+
+  // Tom Davidson (p005) – Senior, 109 km/h
+  { id: 'rep12', playerId: 'p005', date: '2026-05-10', type: 'Session Review', summary: 'Return from subscription lapse. Slightly rusty — speed down 6% vs December benchmark. Conditioning prescribed. Booking queued for next assessment.', speedKmh: 109.2, frontKneeAngleDeg: 160, tags: ['Return to play', 'Conditioning', 'Benchmark'] },
+  { id: 'rep13', playerId: 'p005', date: '2026-04-15', type: 'Progress Report', summary: 'Q1 review: consistent Mechanics stage performance. Average speed stable at 109 km/h. Front-on action partially corrected. Target: reach 112 km/h by July.', speedKmh: 108.8, frontKneeAngleDeg: 159, tags: ['Quarterly', 'Front-on action', 'Speed target'], highlight: 'Target 112 km/h by July.' },
+
+  // Sam Fletcher (p006) – U16, 115 km/h
+  { id: 'rep14', playerId: 'p006', date: '2026-06-24', type: 'Biomechanics', summary: 'Wrist position drill — 30 reps. Consistent seam upright. Slight pull-down early in set corrected by rep 12. Death bowling yorker targeting shows 50% accuracy — room for improvement.', speedKmh: 115.5, frontKneeAngleDeg: 170, tags: ['Wrist position', 'Yorker', 'Seam upright'] },
+  { id: 'rep15', playerId: 'p006', date: '2026-06-12', type: 'Session Review', summary: 'Simulated death overs. 2 of 4 yorkers on target. Bouncer variation effective and deceptive. Match-simulation format suits this player well — recommend continuing.', speedKmh: 116.8, frontKneeAngleDeg: 171, tags: ['Match simulation', 'Death bowling', 'Bouncer'] },
+  { id: 'rep16', playerId: 'p006', date: '2026-05-31', type: 'Progress Report', summary: 'May review: best U16 performer in the cohort. Speed up 2.3 km/h vs April. XP at 2100 — highest in age group. Front knee angle consistently above 168°.', speedKmh: 114.9, frontKneeAngleDeg: 169, tags: ['Monthly', 'U16 leader', 'XP milestone'], highlight: 'Top U16 performer in cohort.' },
+
+  // Ravi Kumar (p007) – Senior, 133 km/h
+  { id: 'rep17', playerId: 'p007', date: '2026-06-21', type: 'Biomechanics', summary: 'Applied pressure with good length deliveries. Movement both ways off the pitch. Yorker at the death inaccurate — drifting full toss under pressure. Drill prescribed.', speedKmh: 133.8, frontKneeAngleDeg: 162, tags: ['Length bowling', 'Yorker accuracy', 'Pressure drill'] },
+  { id: 'rep18', playerId: 'p007', date: '2026-06-05', type: 'Session Review', summary: 'Back-of-a-length work — consistent pace across 12 overs. Slight chest-on action observed in final 2 overs under fatigue. Flagged for review.', speedKmh: 132.5, frontKneeAngleDeg: 161, tags: ['Chest-on', 'Fatigue', 'Load monitoring'] },
+
+  // Jack Morris (p008) – U19, 107 km/h
+  { id: 'rep19', playerId: 'p008', date: '2026-03-10', type: 'Biomechanics', summary: 'High injury risk flagged — mixed action with significant lateral bend at release. Immediate referral to physiotherapy recommended. Sessions paused pending clearance.', speedKmh: 107.4, frontKneeAngleDeg: 158, tags: ['High injury risk', 'Mixed action', 'Physio referral'], highlight: 'High injury risk — physio referral issued.' },
+  { id: 'rep20', playerId: 'p008', date: '2026-02-28', type: 'Action Plan', summary: 'Action plan: (1) No competitive bowling until physio clearance. (2) Core stability program — planks, bridges, rotation exercises. (3) Reassess action after 6-week rehab program.', speedKmh: null, frontKneeAngleDeg: null, tags: ['Action plan', 'Rehab', 'Injury prevention'] },
+];
+
+export const mockAcademies: Academy[] = [
+  {
+    id: 'ac1',
+    name: 'Brisbane Fast Bowling Foundation',
+    description: 'Entry-level program covering basic mechanics, run-up, and safe bowling technique for junior players.',
+    location: 'Brisbane, QLD',
+    playerCounts: { U10: 5, U11: 4, U12: 5 },
+    playerIds: ['p004'],
+    stage: 'Foundation',
+    coachName: 'Arjun Sharma',
+    startDate: '2026-01-10',
+    status: 'Active',
+    sessionFeeAud: 60,
+    sessionTypeFees: {
+      'Net Session': 60,
+      'Individual Coaching': 75,
+      'Video Review': 45,
+      'Fitness Assessment': 55,
+      'Match Practice': 50,
+      'Warm-up / Conditioning': 35,
+    },
+  },
+  {
+    id: 'ac2',
+    name: 'PACE Elite Velocity Program',
+    description: 'High-performance program focused on speed development, biomechanics optimisation, and injury prevention.',
+    location: 'Sydney, NSW',
+    playerCounts: { U16: 3, U19: 3, Senior: 2 },
+    playerIds: ['p001', 'p002', 'p003', 'p005', 'p006', 'p007'],
+    stage: 'Velocity',
+    coachName: 'Arjun Sharma',
+    startDate: '2026-03-01',
+    status: 'Active',
+    sessionFeeAud: 120,
+    sessionTypeFees: {
+      'Net Session': 120,
+      'Individual Coaching': 160,
+      'Video Review': 90,
+      'Fitness Assessment': 110,
+      'Match Practice': 100,
+      'Warm-up / Conditioning': 70,
+    },
+  },
+  {
+    id: 'ac3',
+    name: 'Gold Coast Mechanics Clinic',
+    description: 'Intermediate program targeting action refinement, seam position, and line/length consistency.',
+    location: 'Gold Coast, QLD',
+    playerCounts: { U13: 6, U14: 5 },
+    playerIds: ['p008'],
+    stage: 'Mechanics',
+    coachName: 'Arjun Sharma',
+    startDate: '2025-09-15',
+    status: 'Inactive',
+    sessionFeeAud: 80,
+    sessionTypeFees: {
+      'Net Session': 80,
+      'Individual Coaching': 100,
+      'Video Review': 60,
+      'Fitness Assessment': 70,
+      'Match Practice': 65,
+      'Warm-up / Conditioning': 45,
+    },
+  },
+];
+
+export const mockCoaches: Coach[] = [
+  {
+    id: 'c001',
+    name: 'Sukhi Pannu',
+    email: 'sukhi@pacehq.com',
+    phone: '+61 412 345 678',
+    specialization: 'Fast Bowling Biomechanics',
+    ageGroupsFocus: ['U16', 'U19', 'Senior'],
+    location: 'Brisbane, QLD',
+    status: 'Active',
+    joinedDate: '2024-01-10',
+    certificationLevel: 'Elite',
+    bio: 'Former first-class pace bowler with 15+ years of coaching experience. Specialist in biomechanics analysis and injury prevention for fast bowlers.',
+    academyId: 'ac2',
+  },
+  {
+    id: 'c002',
+    name: 'Arjun Sharma',
+    email: 'arjun@pacehq.com',
+    phone: '+61 423 456 789',
+    specialization: 'Junior Development',
+    ageGroupsFocus: ['U10', 'U11', 'U12', 'U13', 'U14'],
+    location: 'Sydney, NSW',
+    status: 'Active',
+    joinedDate: '2024-03-15',
+    certificationLevel: 'Level 3',
+    bio: 'Dedicated to grassroots cricket development. Passionate about nurturing young fast bowlers with correct technique from the ground up.',
+    academyId: 'ac1',
+  },
+  {
+    id: 'c003',
+    name: 'Lisa Nguyen',
+    email: 'lisa@pacehq.com',
+    phone: '+61 434 567 890',
+    specialization: 'Strength & Conditioning',
+    ageGroupsFocus: ['U16', 'U19', 'Senior'],
+    location: 'Melbourne, VIC',
+    status: 'Active',
+    joinedDate: '2024-06-01',
+    certificationLevel: 'Level 2',
+    bio: 'Certified strength and conditioning coach with a focus on cricket-specific fitness. Works alongside technical coaches to reduce injury risk.',
+    academyId: 'ac2',
+  },
+  {
+    id: 'c004',
+    name: 'Marcus Webb',
+    email: 'marcus@pacehq.com',
+    phone: '+61 445 678 901',
+    specialization: 'Video Analysis',
+    ageGroupsFocus: ['U14', 'U16', 'U19'],
+    location: 'Gold Coast, QLD',
+    status: 'Inactive',
+    joinedDate: '2024-09-20',
+    certificationLevel: 'Level 1',
+    bio: 'Tech-focused analyst specialising in slow-motion video review and 3D motion capture for fast bowlers.',
+    academyId: 'ac3',
+  },
+];
+
+export const mockBookings: Booking[] = [
+  // Upcoming – Confirmed
+  { id: 'b001', playerId: 'p001', coachId: 'c001', date: '2026-06-28', time: '09:00', durationMins: 90,  type: 'Net Session',            status: 'Confirmed',  feeAud: 120, location: 'Brisbane Cricket Centre – Net 3',        notes: 'Focus on short-pitch bowling and release point.' },
+  { id: 'b002', playerId: 'p003', coachId: 'c001', date: '2026-06-28', time: '11:00', durationMins: 60,  type: 'Individual Coaching',     status: 'Confirmed',  feeAud: 160, location: 'Velocity CC – Indoor Nets',               notes: 'Hip rotation lag correction drills.' },
+  { id: 'b003', playerId: 'p006', coachId: 'c003', date: '2026-06-30', time: '08:30', durationMins: 60,  type: 'Video Review',            status: 'Confirmed',  feeAud: 90,  location: 'Online – Zoom',                          notes: 'Slow-motion review of last 3 sessions.' },
+  { id: 'b004', playerId: 'p007', coachId: 'c001', date: '2026-07-02', time: '10:00', durationMins: 120, type: 'Net Session',            status: 'Confirmed',  feeAud: 120, location: 'Adelaide Oval – Practice Nets',           notes: 'Full intensity net. Yorker target practice in final 30 mins.' },
+  { id: 'b005', playerId: 'p002', coachId: 'c003', date: '2026-07-03', time: '14:00', durationMins: 60,  type: 'Fitness Assessment',      status: 'Confirmed',  feeAud: 110, location: 'Sydney Royals CC – Gym',                 notes: 'Quarterly conditioning assessment.' },
+  // Upcoming – Pending
+  { id: 'b006', playerId: 'p004', coachId: 'c002', date: '2026-07-05', time: '09:30', durationMins: 90,  type: 'Match Practice',          status: 'Pending',    feeAud: 50,  location: 'Gold Coast Fast CC – Oval',              notes: 'Awaiting ground confirmation.' },
+  { id: 'b007', playerId: 'p008', coachId: 'c002', date: '2026-07-07', time: '16:00', durationMins: 45,  type: 'Individual Coaching',     status: 'Pending',    feeAud: 75,  location: 'Perth Thunder CC – Net 1',               notes: 'Player requested additional front-knee drill session.' },
+  { id: 'b008', playerId: 'p005', coachId: 'c001', date: '2026-07-10', time: '08:00', durationMins: 60,  type: 'Net Session',            status: 'Pending',    feeAud: 120, location: 'Northside CC – Nets',                    notes: 'Return-to-play assessment after subscription lapse.' },
+  // Past – Completed
+  { id: 'b009', playerId: 'p001', coachId: 'c001', date: '2026-06-14', time: '09:00', durationMins: 90,  type: 'Net Session',            status: 'Completed',  feeAud: 120, location: 'Brisbane Cricket Centre – Net 3',        notes: 'Excellent short-pitch work. Peaked at 140 km/h.' },
+  { id: 'b010', playerId: 'p003', coachId: 'c001', date: '2026-06-08', time: '11:00', durationMins: 60,  type: 'Individual Coaching',     status: 'Completed',  feeAud: 160, location: 'Velocity CC – Indoor Nets',               notes: 'Reviewed action. Moderate injury risk flagged.' },
+  { id: 'b011', playerId: 'p006', coachId: 'c003', date: '2026-06-12', time: '08:30', durationMins: 60,  type: 'Match Practice',          status: 'Completed',  feeAud: 100, location: 'Melbourne Pace Academy – Main Oval',     notes: 'Strong death bowling performance.' },
+  { id: 'b012', playerId: 'p002', coachId: 'c001', date: '2026-05-30', time: '14:00', durationMins: 45,  type: 'Video Review',            status: 'Completed',  feeAud: 90,  location: 'Online – Zoom',                          notes: 'Identified pull-down release pattern. Action plan issued.' },
+  // Cancelled
+  { id: 'b013', playerId: 'p007', coachId: 'c001', date: '2026-06-20', time: '10:00', durationMins: 60,  type: 'Net Session',            status: 'Cancelled',  feeAud: 120, location: 'Adelaide Oval – Practice Nets',           notes: 'Player unavailable – rescheduled for 2 July.' },
+];
