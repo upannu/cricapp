@@ -494,6 +494,7 @@ export const mockAcademies: Academy[] = [
       'Match Practice': 50,
       'Warm-up / Conditioning': 35,
     },
+    ageFees: {},
   },
   {
     id: 'ac2',
@@ -515,6 +516,7 @@ export const mockAcademies: Academy[] = [
       'Match Practice': 100,
       'Warm-up / Conditioning': 70,
     },
+    ageFees: {},
   },
   {
     id: 'ac3',
@@ -536,6 +538,7 @@ export const mockAcademies: Academy[] = [
       'Match Practice': 65,
       'Warm-up / Conditioning': 45,
     },
+    ageFees: {},
   },
 ];
 
