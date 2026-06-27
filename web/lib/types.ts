@@ -62,6 +62,7 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  approved: boolean;
   academyId?: string;
   coachId?: string;
 }

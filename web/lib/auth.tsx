@@ -29,6 +29,8 @@ function supabaseUserToAuthUser(sbUser: { id: string; email?: string; user_metad
     name: (meta.name as string) ?? sbUser.email ?? "",
     email: sbUser.email ?? "",
     role: (meta.role as AuthUser["role"]) ?? "coach",
+    // Accounts without the flag (pre-existing/admin) are treated as approved
+    approved: meta.approved !== undefined ? (meta.approved as boolean) : true,
     academyId: meta.academy_id as string | undefined,
     coachId: meta.coach_id as string | undefined,
   };
@@ -67,10 +69,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, role } },
+      options: { data: { name, role, approved: false } },
     });
     if (error) return { error: error.message, needsConfirmation: false };
-    // If email confirmation is required, session will be null
+    // Record the request for platform admin approval
+    if (data.user) {
+      await supabase.from("user_requests").insert({
+        id: data.user.id,
+        name,
+        email,
+        role,
+        requested_at: new Date().toISOString(),
+      });
+    }
     const needsConfirmation = !data.session;
     return { error: null, needsConfirmation };
   }

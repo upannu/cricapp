@@ -36,11 +36,9 @@ export default function SignUpPage() {
       setLoading(false);
       return;
     }
-    if (needsConfirmation) {
-      setDone(true);
-    } else {
-      router.push("/players");
-    }
+    // Always show pending screen — even if no email confirmation,
+    // the account still needs platform admin approval before accessing the dashboard
+    setDone(true);
   }
 
   return (
@@ -59,22 +57,26 @@ export default function SignUpPage() {
         </div>
 
         {done ? (
-          /* Success — email confirmation required */
           <div className="bg-surface rounded-2xl p-8 shadow-2xl text-center">
-            <div className="w-14 h-14 rounded-full bg-pace-green/10 border border-pace-green/30 flex items-center justify-center mx-auto mb-5">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00D4AA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 6L9 17l-5-5" />
+            <div className="w-16 h-16 rounded-full bg-amber/10 border border-amber/30 flex items-center justify-center mx-auto mb-5">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">Check your email</h2>
-            <p className="text-zinc-400 text-sm leading-relaxed mb-6">
-              We sent a confirmation link to <span className="text-white font-medium">{email}</span>. Click it to activate your account, then sign in.
+            <h2 className="text-xl font-bold text-white mb-2">Request submitted</h2>
+            <p className="text-zinc-400 text-sm leading-relaxed mb-2">
+              Your account is <span className="text-amber font-semibold">pending approval</span> from a platform admin.
+            </p>
+            <p className="text-zinc-500 text-xs leading-relaxed mb-6">
+              You&apos;ll be notified once your account is approved. This usually takes less than 24 hours.
             </p>
             <Link
               href="/login"
-              className="inline-block w-full bg-pace-green text-black font-bold py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm uppercase tracking-wider text-center"
+              className="inline-block w-full bg-surface border border-zinc-700 text-zinc-300 font-bold py-3.5 rounded-xl hover:border-zinc-500 transition-colors text-sm uppercase tracking-wider text-center"
             >
-              Go to Sign In
+              Back to Sign In
             </Link>
           </div>
         ) : (

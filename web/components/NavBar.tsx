@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useEffect, useState } from "react";
 import type { UserRole } from "@/lib/types";
 
 const NAV_ALL = [
@@ -31,6 +32,15 @@ export function NavBar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (user?.role !== "platform_admin") return;
+    fetch("/api/pending-approvals")
+      .then((r) => r.json())
+      .then((d) => setPendingCount(d.requests?.length ?? 0))
+      .catch(() => {});
+  }, [user]);
 
   function handleLogout() {
     logout();
@@ -79,6 +89,23 @@ export function NavBar() {
               </Link>
             );
           })}
+          {user?.role === "platform_admin" && (
+            <Link
+              href="/admin/approvals"
+              className={`px-4 flex items-center gap-2 text-sm font-medium border-b-2 transition-colors ${
+                pathname.startsWith("/admin/approvals")
+                  ? "text-amber border-amber"
+                  : "text-zinc-400 border-transparent hover:text-white"
+              }`}
+            >
+              Approvals
+              {pendingCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                  {pendingCount}
+                </span>
+              )}
+            </Link>
+          )}
         </nav>
 
         {/* User + role */}
