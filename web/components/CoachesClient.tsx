@@ -52,6 +52,9 @@ export function CoachesClient() {
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
   const [filter, setFilter] = useState<"All" | "Active" | "Inactive">("All");
+  const [sendInvite, setSendInvite] = useState(true);
+  const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [inviteError, setInviteError] = useState("");
 
   const defaultAcademyId = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
 
@@ -75,6 +78,9 @@ export function CoachesClient() {
     setEditingId(null);
     setDraft({ ...EMPTY_DRAFT, joinedDate: new Date().toISOString().split("T")[0], academyId: defaultAcademyId });
     setFormError("");
+    setSendInvite(true);
+    setInviteStatus("idle");
+    setInviteError("");
     setShowForm(true);
     scrollToForm();
   }
@@ -127,7 +133,24 @@ export function CoachesClient() {
         : [coach, ...prev]
     );
     setSaved(newId);
-    closeForm();
+
+    if (!editingId && sendInvite && coach.email) {
+      setInviteStatus("sending");
+      fetch("/api/invite-coach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: coach.email, name: coach.name }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.error) { setInviteStatus("error"); setInviteError(data.error); }
+          else { setInviteStatus("sent"); }
+        })
+        .catch(() => { setInviteStatus("error"); setInviteError("Network error sending invite."); });
+    } else {
+      closeForm();
+    }
+
     setTimeout(() => setSaved(null), 2500);
   }
 
@@ -280,11 +303,47 @@ export function CoachesClient() {
             </div>
           </div>
 
+          {!editingId && (
+            <div className="mb-5 p-4 rounded-xl bg-ink border border-zinc-700">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={sendInvite}
+                  onChange={(e) => setSendInvite(e.target.checked)}
+                  className="w-4 h-4 accent-pace-green cursor-pointer"
+                />
+                <div>
+                  <span className="text-sm font-semibold text-white">Send login invite email</span>
+                  <p className="text-xs text-zinc-500 mt-0.5">Coach receives an email with a link to set their password and access PACE HQ</p>
+                </div>
+              </label>
+              {inviteStatus === "sending" && (
+                <p className="text-xs text-zinc-400 mt-3 flex items-center gap-2">
+                  <span className="w-3 h-3 rounded-full border border-zinc-400 border-t-transparent animate-spin inline-block" />
+                  Sending invite…
+                </p>
+              )}
+              {inviteStatus === "sent" && (
+                <div className="flex items-center justify-between mt-3">
+                  <p className="text-xs text-pace-green font-semibold">✓ Invite sent to {draft.email}</p>
+                  <button type="button" onClick={closeForm} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Close</button>
+                </div>
+              )}
+              {inviteStatus === "error" && (
+                <div className="flex items-center justify-between mt-3">
+                  <p className="text-xs text-red-400">{inviteError}</p>
+                  <button type="button" onClick={closeForm} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Close</button>
+                </div>
+              )}
+            </div>
+          )}
+
           {formError && <p className="text-red-400 text-sm mb-3">{formError}</p>}
 
           <div className="flex items-center gap-3">
             <button type="button" onClick={handleSave}
-              className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
+              disabled={inviteStatus === "sending"}
+              className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer disabled:opacity-60">
               {editingId ? "Save Changes" : "Create Coach"}
             </button>
             <button type="button" onClick={closeForm}
