@@ -230,15 +230,26 @@ export function AcademyClient() {
   }
 
   // ── Player / coach toggles ─────────────────────────────────────────────────
+  function setOwner(coachId: string) {
+    setDraft((prev) => ({
+      ...prev,
+      headCoachId: coachId,
+      // auto-add owner to coachIds if not already there
+      coachIds: coachId && !prev.coachIds.includes(coachId)
+        ? [...prev.coachIds, coachId]
+        : prev.coachIds,
+    }));
+  }
+
   function toggleCoach(coachId: string) {
-    setDraft((prev) => {
-      const next = prev.coachIds.includes(coachId)
+    // owner is always in coachIds — cannot be removed from the additional list
+    if (coachId === draft.headCoachId) return;
+    setDraft((prev) => ({
+      ...prev,
+      coachIds: prev.coachIds.includes(coachId)
         ? prev.coachIds.filter((id) => id !== coachId)
-        : [...prev.coachIds, coachId];
-      // clear headCoachId if that coach was deselected
-      const headCoachId = next.includes(prev.headCoachId) ? prev.headCoachId : "";
-      return { ...prev, coachIds: next, headCoachId };
-    });
+        : [...prev.coachIds, coachId],
+    }));
   }
 
   function togglePlayer(playerId: string) {
@@ -311,8 +322,8 @@ export function AcademyClient() {
     p.club.toLowerCase().includes(playerSearch.toLowerCase())
   );
 
-  // owner candidates = coaches already checked in the draft
-  const ownerCandidates = allCoaches.filter((c) => draft.coachIds.includes(c.id));
+  // additional coaches = all coaches except the current owner
+  const additionalCoaches = allCoaches.filter((c) => c.id !== draft.headCoachId);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -805,75 +816,82 @@ export function AcademyClient() {
                 </div>
               </section>
 
-              {/* Coaches — multi-select, then owner picker */}
+              {/* Coaches */}
               <section>
-                <p className={sectionLbl}>
-                  Coaches
-                  {draft.coachIds.length > 0 && (
-                    <span className="text-pace-green normal-case font-normal ml-1">({draft.coachIds.length} assigned)</span>
-                  )}
-                </p>
+                <p className={sectionLbl}>Coaches</p>
+
                 {allCoaches.length === 0 ? (
                   <p className="text-zinc-500 text-sm">No coaches yet — add coaches from the Coaches page first.</p>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
-                    {allCoaches.map((c) => {
-                      const selected = draft.coachIds.includes(c.id);
-                      return (
-                        <button key={c.id} type="button" onClick={() => toggleCoach(c.id)}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
-                            selected ? "border-pace-green/50 bg-pace-green/10" : "border-zinc-700 bg-ink hover:border-zinc-500"
-                          }`}>
-                          <div className="w-8 h-8 rounded-full bg-pace-green flex items-center justify-center text-black text-xs font-bold flex-shrink-0">
-                            {c.name.split(" ").map((n) => n[0]).join("")}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold text-white truncate">{c.name}</div>
-                            <div className="text-xs text-zinc-400 truncate">{c.specialization || c.certificationLevel}</div>
-                          </div>
-                          {selected && <span className="ml-auto text-pace-green font-bold flex-shrink-0">✓</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Owner picker — only visible once ≥1 coach is ticked */}
-                {draft.coachIds.length > 0 && (
-                  <div className="bg-ink rounded-xl p-4 border border-zinc-700">
-                    <label className={lbl}>Academy Owner (Head Coach) *</label>
-                    <p className="text-zinc-500 text-xs mb-3">
-                      The main owner responsible for this academy. Must be one of the coaches assigned above.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {ownerCandidates.map((c) => {
-                        const isOwner = draft.headCoachId === c.id;
+                  <>
+                    {/* Step 1 — Academy Owner (always visible, required) */}
+                    <div className="mb-4">
+                      <label className={lbl}>Academy Owner (Head Coach) *</label>
+                      <p className="text-zinc-500 text-xs mb-2">The main person responsible for running this academy.</p>
+                      <select
+                        value={draft.headCoachId}
+                        onChange={(e) => setOwner(e.target.value)}
+                        className={sel}>
+                        <option value="">— Select owner —</option>
+                        {allCoaches.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name} · {c.certificationLevel}</option>
+                        ))}
+                      </select>
+                      {/* Owner profile preview */}
+                      {draft.headCoachId && (() => {
+                        const owner = allCoaches.find((c) => c.id === draft.headCoachId);
+                        if (!owner) return null;
                         return (
-                          <button key={c.id} type="button"
-                            onClick={() => setDraft((prev) => ({ ...prev, headCoachId: c.id }))}
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
-                              isOwner
-                                ? "border-pace-green bg-pace-green/15"
-                                : "border-zinc-700 bg-surface hover:border-zinc-500"
-                            }`}>
-                            <div className="relative flex-shrink-0">
-                              <div className="w-8 h-8 rounded-full bg-pace-green flex items-center justify-center text-black text-xs font-bold">
-                                {c.name.split(" ").map((n) => n[0]).join("")}
-                              </div>
-                              {isOwner && (
-                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-pace-green rounded-full flex items-center justify-center text-black text-[8px] font-bold">★</span>
-                              )}
+                          <div className="mt-2 flex items-center gap-3 px-3 py-2.5 bg-pace-green/10 border border-pace-green/30 rounded-xl">
+                            <div className="w-8 h-8 rounded-full bg-pace-green flex items-center justify-center text-black text-xs font-bold flex-shrink-0">
+                              {owner.name.split(" ").map((n) => n[0]).join("")}
                             </div>
-                            <div className="min-w-0 flex-1">
-                              <div className={`text-sm font-semibold truncate ${isOwner ? "text-pace-green" : "text-white"}`}>{c.name}</div>
-                              <div className="text-xs text-zinc-400 truncate">{c.specialization || c.certificationLevel}</div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-pace-green truncate">{owner.name}</div>
+                              <div className="text-xs text-zinc-400">{owner.specialization || owner.certificationLevel} · {owner.email}</div>
                             </div>
-                            {isOwner && <span className="ml-auto text-pace-green text-xs font-bold flex-shrink-0">Owner</span>}
-                          </button>
+                            <span className="ml-auto text-pace-green text-xs font-bold flex-shrink-0">★ Owner</span>
+                          </div>
                         );
-                      })}
+                      })()}
                     </div>
-                  </div>
+
+                    {/* Step 2 — Additional coaches (optional, excludes owner) */}
+                    {additionalCoaches.length > 0 && (
+                      <div>
+                        <label className={lbl}>
+                          Additional Coaches
+                          {draft.coachIds.length > 1 && (
+                            <span className="text-pace-green normal-case font-normal ml-1">
+                              ({draft.coachIds.length - 1} added)
+                            </span>
+                          )}
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {additionalCoaches.map((c) => {
+                            const selected = draft.coachIds.includes(c.id);
+                            return (
+                              <button key={c.id} type="button" onClick={() => toggleCoach(c.id)}
+                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                                  selected ? "border-pace-green/50 bg-pace-green/10" : "border-zinc-700 bg-ink hover:border-zinc-500"
+                                }`}>
+                                <div className="w-8 h-8 rounded-full bg-pace-green/40 flex items-center justify-center text-black text-xs font-bold flex-shrink-0">
+                                  {c.name.split(" ").map((n) => n[0]).join("")}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-sm font-semibold text-white truncate">{c.name}</div>
+                                  <div className="text-xs text-zinc-400 truncate">{c.specialization || c.certificationLevel}</div>
+                                </div>
+                                <span className={`ml-auto text-xs font-bold flex-shrink-0 ${selected ? "text-pace-green" : "text-zinc-600"}`}>
+                                  {selected ? "✓" : "+"}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </section>
 
