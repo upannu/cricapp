@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, insertPlayer } from "@/lib/db";
+import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, insertPlayer } from "@/lib/db";
+import type { CertificationLevel } from "@/lib/types";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const STAGES: AcademyStage[] = ["Foundation", "Mechanics", "Velocity", "Elite"];
@@ -50,6 +51,16 @@ const EMPTY_NEW_PLAYER: NewPlayerDraft = {
   name: "", email: "", ageGroup: "U14", bowlingStyle: "Right Arm Fast", club: "",
 };
 
+const CERT_LEVELS: CertificationLevel[] = ["Level 1", "Level 2", "Level 3", "Elite"];
+
+type NewCoachDraft = {
+  name: string; email: string; phone: string;
+  certificationLevel: CertificationLevel; specialization: string;
+};
+const EMPTY_NEW_COACH: NewCoachDraft = {
+  name: "", email: "", phone: "", certificationLevel: "Level 1", specialization: "",
+};
+
 type SortOption = "name" | "players" | "newest" | "stage";
 type ConfirmToggle = { id: string; name: string; newStatus: "Active" | "Inactive" };
 
@@ -83,12 +94,19 @@ export function AcademyClient() {
   const [savedId,        setSavedId]        = useState<string | null>(null);
   const [ownerMissing,   setOwnerMissing]   = useState(false);
 
+  // New coach inline form
+  const [showNewCoach,  setShowNewCoach]  = useState(false);
+  const [newCoachDraft, setNewCoachDraft] = useState<NewCoachDraft>(EMPTY_NEW_COACH);
+  const [newCoachError, setNewCoachError] = useState("");
+  const [savingCoach,   setSavingCoach]   = useState(false);
+  const [ownerSuggested, setOwnerSuggested] = useState(false);
+
   // Player management inside modal
-  const [playerSearch,   setPlayerSearch]   = useState("");
+  const [playerSearch,    setPlayerSearch]    = useState("");
   const [playerAgeFilter, setPlayerAgeFilter] = useState<AgeGroup | "All">("All");
-  const [showNewPlayer,  setShowNewPlayer]  = useState(false);
-  const [newPlayerDraft, setNewPlayerDraft] = useState<NewPlayerDraft>(EMPTY_NEW_PLAYER);
-  const [newPlayerError, setNewPlayerError] = useState("");
+  const [showNewPlayer,   setShowNewPlayer]   = useState(false);
+  const [newPlayerDraft,  setNewPlayerDraft]  = useState<NewPlayerDraft>(EMPTY_NEW_PLAYER);
+  const [newPlayerError,  setNewPlayerError]  = useState("");
 
   // Filters
   const [search,       setSearch]       = useState("");
@@ -154,29 +172,36 @@ export function AcademyClient() {
     setEditingId(null);
     setDraft({ ...EMPTY_DRAFT, startDate: new Date().toISOString().split("T")[0] });
     setPlayerSearch(""); setPlayerAgeFilter("All"); setShowNewPlayer(false);
-    setFormError(""); setOwnerMissing(false);
+    setShowNewCoach(false); setNewCoachDraft(EMPTY_NEW_COACH); setNewCoachError("");
+    setFormError(""); setOwnerMissing(false); setOwnerSuggested(false);
     setShowModal(true);
   }
 
   function openEdit(academy: Academy) {
     setEditingId(academy.id);
+    const coachIds = academy.coachIds ?? [];
+    // if headCoachId missing but coaches exist, pre-select the first one and flag it
+    const headCoachId = academy.headCoachId || (coachIds.length > 0 ? coachIds[0] : "");
+    const suggested   = !academy.headCoachId && coachIds.length > 0;
     setDraft({
       name: academy.name, description: academy.description, location: academy.location,
-      playerIds: [...academy.playerIds], coachIds: [...(academy.coachIds ?? [])],
-      headCoachId: academy.headCoachId ?? "",
+      playerIds: [...academy.playerIds], coachIds: [...coachIds],
+      headCoachId,
       stage: academy.stage, startDate: academy.startDate, status: academy.status,
       sessionFeeAud: academy.sessionFeeAud,
       sessionTypeFees: { ...academy.sessionTypeFees },
       ageFees: { ...academy.ageFees },
     });
     setPlayerSearch(""); setPlayerAgeFilter("All"); setShowNewPlayer(false);
-    setFormError(""); setOwnerMissing(false);
+    setShowNewCoach(false); setNewCoachDraft(EMPTY_NEW_COACH); setNewCoachError("");
+    setFormError(""); setOwnerMissing(false); setOwnerSuggested(suggested);
     setShowModal(true);
   }
 
   function closeModal() {
     setShowModal(false); setEditingId(null);
-    setShowNewPlayer(false); setFormError(""); setOwnerMissing(false);
+    setShowNewPlayer(false); setShowNewCoach(false);
+    setFormError(""); setOwnerMissing(false); setOwnerSuggested(false);
   }
 
   // ── Save ───────────────────────────────────────────────────────────────────
@@ -235,7 +260,7 @@ export function AcademyClient() {
 
   // ── Player / coach toggles ─────────────────────────────────────────────────
   function setOwner(coachId: string) {
-    if (coachId) setOwnerMissing(false);
+    if (coachId) { setOwnerMissing(false); setOwnerSuggested(false); }
     setDraft((prev) => ({
       ...prev,
       headCoachId: coachId,
@@ -299,6 +324,39 @@ export function AcademyClient() {
     setAllPlayers((prev) => [...prev, newPlayer]);
     setDraft((prev) => ({ ...prev, playerIds: [...prev.playerIds, newId] }));
     setNewPlayerDraft(EMPTY_NEW_PLAYER); setNewPlayerError(""); setShowNewPlayer(false);
+  }
+
+  async function handleAddNewCoach() {
+    if (!newCoachDraft.name.trim()) { setNewCoachError("Name is required."); return; }
+    setNewCoachError(""); setSavingCoach(true);
+    const newId  = `c_${Date.now()}`;
+    const now    = new Date().toISOString().split("T")[0];
+    const newCoach: Coach = {
+      id: newId, name: newCoachDraft.name.trim(), email: newCoachDraft.email.trim(),
+      phone: newCoachDraft.phone.trim(), specialization: newCoachDraft.specialization.trim(),
+      ageGroupsFocus: [], location: "", status: "Active", joinedDate: now,
+      certificationLevel: newCoachDraft.certificationLevel, bio: "", academyId: "",
+    };
+    try {
+      await upsertCoach({
+        id: newId, name: newCoach.name, email: newCoach.email, phone: newCoach.phone,
+        specialization: newCoach.specialization, age_groups_focus: [],
+        location: "", status: "Active", joined_date: now,
+        certification_level: newCoach.certificationLevel, bio: "", academy_id: "",
+      });
+    } catch (err) {
+      setNewCoachError((err as { message?: string })?.message ?? String(err));
+      setSavingCoach(false); return;
+    }
+    setAllCoaches((prev) => [...prev, newCoach]);
+    // auto-set as owner and add to coachIds
+    setDraft((prev) => ({
+      ...prev,
+      headCoachId: newId,
+      coachIds: prev.coachIds.includes(newId) ? prev.coachIds : [...prev.coachIds, newId],
+    }));
+    setOwnerMissing(false); setOwnerSuggested(false);
+    setNewCoachDraft(EMPTY_NEW_COACH); setSavingCoach(false); setShowNewCoach(false);
   }
 
   // ── Filter / sort ──────────────────────────────────────────────────────────
@@ -858,16 +916,80 @@ export function AcademyClient() {
 
               {/* Coaches */}
               <section>
-                <p className={sectionLbl}>Coaches</p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className={sectionLbl} style={{marginBottom: 0}}>Coaches</p>
+                  <button type="button"
+                    onClick={() => { setShowNewCoach((v) => !v); setNewCoachError(""); }}
+                    className="text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer">
+                    {showNewCoach ? "Cancel" : "+ Create New Coach"}
+                  </button>
+                </div>
 
-                {allCoaches.length === 0 ? (
-                  <p className="text-zinc-500 text-sm">No coaches yet — add coaches from the Coaches page first.</p>
-                ) : (
+                {/* Inline create-coach form */}
+                {showNewCoach && (
+                  <div className="bg-ink rounded-xl p-4 mb-4 border border-pace-green/30">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-3">New Coach</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className={lbl}>Full Name *</label>
+                        <input type="text" value={newCoachDraft.name}
+                          onChange={(e) => setNewCoachDraft({ ...newCoachDraft, name: e.target.value })}
+                          className={inp} placeholder="Coach full name" />
+                      </div>
+                      <div>
+                        <label className={lbl}>Email</label>
+                        <input type="email" value={newCoachDraft.email}
+                          onChange={(e) => setNewCoachDraft({ ...newCoachDraft, email: e.target.value })}
+                          className={inp} placeholder="coach@email.com" />
+                      </div>
+                      <div>
+                        <label className={lbl}>Phone</label>
+                        <input type="tel" value={newCoachDraft.phone}
+                          onChange={(e) => setNewCoachDraft({ ...newCoachDraft, phone: e.target.value })}
+                          className={inp} placeholder="04xx xxx xxx" />
+                      </div>
+                      <div>
+                        <label className={lbl}>Certification Level</label>
+                        <select value={newCoachDraft.certificationLevel}
+                          onChange={(e) => setNewCoachDraft({ ...newCoachDraft, certificationLevel: e.target.value as CertificationLevel })}
+                          className={sel}>
+                          {CERT_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className={lbl}>Specialization</label>
+                        <input type="text" value={newCoachDraft.specialization}
+                          onChange={(e) => setNewCoachDraft({ ...newCoachDraft, specialization: e.target.value })}
+                          className={inp} placeholder="e.g. Fast Bowling, Biomechanics" />
+                      </div>
+                    </div>
+                    {newCoachError && <p className="text-red-400 text-xs mb-2">{newCoachError}</p>}
+                    <button type="button" onClick={handleAddNewCoach} disabled={savingCoach}
+                      className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-60">
+                      {savingCoach ? "Creating…" : "Create & Set as Owner"}
+                    </button>
+                  </div>
+                )}
+
+                {allCoaches.length === 0 && !showNewCoach ? (
+                  <p className="text-zinc-500 text-sm">No coaches yet — use "Create New Coach" above to add one.</p>
+                ) : allCoaches.length > 0 ? (
                   <>
                     {/* Step 1 — Academy Owner (always visible, required) */}
                     <div className="mb-4">
                       <label className={lbl}>Academy Owner (Head Coach) *</label>
                       <p className="text-zinc-500 text-xs mb-2">The main person responsible for running this academy.</p>
+
+                      {/* Suggested owner notice */}
+                      {ownerSuggested && (
+                        <div className="mb-2 flex items-start gap-2 px-3 py-2.5 bg-amber/10 border border-amber/30 rounded-xl">
+                          <svg className="text-amber flex-shrink-0 mt-0.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                          </svg>
+                          <p className="text-amber text-xs">We&apos;ve pre-selected a coach as owner. Please confirm or change.</p>
+                        </div>
+                      )}
+
                       <select
                         value={draft.headCoachId}
                         onChange={(e) => setOwner(e.target.value)}
@@ -877,6 +999,7 @@ export function AcademyClient() {
                           <option key={c.id} value={c.id}>{c.name} · {c.certificationLevel}</option>
                         ))}
                       </select>
+
                       {/* Owner profile preview */}
                       {draft.headCoachId && (() => {
                         const owner = allCoaches.find((c) => c.id === draft.headCoachId);
@@ -938,7 +1061,7 @@ export function AcademyClient() {
                       </div>
                     )}
                   </>
-                )}
+                ) : null}
               </section>
 
               {/* Pricing */}
