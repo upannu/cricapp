@@ -342,7 +342,7 @@ export function AcademyClient() {
         id: newId, name: newCoach.name, email: newCoach.email, phone: newCoach.phone,
         specialization: newCoach.specialization, age_groups_focus: [],
         location: "", status: "Active", joined_date: now,
-        certification_level: newCoach.certificationLevel, bio: "", academy_id: "",
+        certification_level: newCoach.certificationLevel, bio: "", academy_id: null,
       });
     } catch (err) {
       setNewCoachError((err as { message?: string })?.message ?? String(err));

@@ -24,7 +24,7 @@ export interface DbCoach {
   id: string; name: string; email: string; phone: string;
   specialization: string; age_groups_focus: string[]; location: string;
   status: string; joined_date: string; certification_level: string;
-  bio: string; academy_id: string;
+  bio: string; academy_id: string | null;
 }
 
 export interface DbAcademy {
@@ -108,7 +108,7 @@ export function dbToCoach(r: DbCoach): Coach {
     location: r.location, status: r.status as "Active" | "Inactive",
     joinedDate: r.joined_date,
     certificationLevel: r.certification_level as Coach["certificationLevel"],
-    bio: r.bio, academyId: r.academy_id,
+    bio: r.bio, academyId: r.academy_id ?? "",
   };
 }
 
