@@ -21,21 +21,45 @@ export function MessageModal({ playerId, playerName, playerEmail, playerPhone, o
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
 
-  function handleSend() {
+  async function handleSend() {
     if (!body.trim()) { setError("Message body is required."); return; }
     if (channel === "email" && !subject.trim()) { setError("Subject is required for email."); return; }
     setError("");
+    setSending(true);
 
-    insertMessage({
+    if (channel === "email") {
+      const res = await fetch("/api/send-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: playerEmail,
+          subject: subject.trim(),
+          body: body.trim(),
+          fromName: user?.name ?? "PACE HQ",
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setError(`Failed to send: ${data.error}`);
+        setSending(false);
+        return;
+      }
+    }
+
+    await insertMessage({
       player_id: playerId,
       from_name: user?.name ?? "Coach",
       date: new Date().toISOString(),
       channel,
       subject: channel === "email" ? subject.trim() : "",
       body: body.trim(),
-    }).then(() => setSent(true));
+    });
+
+    setSending(false);
+    setSent(true);
   }
 
   return (
@@ -156,11 +180,11 @@ export function MessageModal({ playerId, playerName, playerEmail, playerPhone, o
             {error && <p className="text-red-400 text-sm">{error}</p>}
 
             <div className="flex items-center gap-3 pt-1">
-              <button type="button" onClick={handleSend}
-                className={`px-6 py-2.5 text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer transition-opacity ${
+              <button type="button" onClick={handleSend} disabled={sending}
+                className={`px-6 py-2.5 text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-60 ${
                   channel === "email" ? "bg-blue-500 text-white" : "bg-pace-green text-black"
                 }`}>
-                {channel === "email" ? "Send Email" : "Send SMS"}
+                {sending ? "Sending…" : channel === "email" ? "Send Email" : "Send SMS"}
               </button>
               <button type="button" onClick={onClose}
                 className="px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
