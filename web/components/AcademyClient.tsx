@@ -75,15 +75,17 @@ export function AcademyClient() {
   const [toggling,      setToggling]      = useState(false);
 
   // Modal
-  const [showModal, setShowModal] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft,     setDraft]     = useState<DraftAcademy>(EMPTY_DRAFT);
-  const [formError, setFormError] = useState("");
-  const [saving,    setSaving]    = useState(false);
-  const [savedId,   setSavedId]   = useState<string | null>(null);
+  const [showModal,      setShowModal]      = useState(false);
+  const [editingId,      setEditingId]      = useState<string | null>(null);
+  const [draft,          setDraft]          = useState<DraftAcademy>(EMPTY_DRAFT);
+  const [formError,      setFormError]      = useState("");
+  const [saving,         setSaving]         = useState(false);
+  const [savedId,        setSavedId]        = useState<string | null>(null);
+  const [ownerMissing,   setOwnerMissing]   = useState(false);
 
   // Player management inside modal
   const [playerSearch,   setPlayerSearch]   = useState("");
+  const [playerAgeFilter, setPlayerAgeFilter] = useState<AgeGroup | "All">("All");
   const [showNewPlayer,  setShowNewPlayer]  = useState(false);
   const [newPlayerDraft, setNewPlayerDraft] = useState<NewPlayerDraft>(EMPTY_NEW_PLAYER);
   const [newPlayerError, setNewPlayerError] = useState("");
@@ -151,7 +153,8 @@ export function AcademyClient() {
   function openAdd() {
     setEditingId(null);
     setDraft({ ...EMPTY_DRAFT, startDate: new Date().toISOString().split("T")[0] });
-    setPlayerSearch(""); setShowNewPlayer(false); setFormError("");
+    setPlayerSearch(""); setPlayerAgeFilter("All"); setShowNewPlayer(false);
+    setFormError(""); setOwnerMissing(false);
     setShowModal(true);
   }
 
@@ -166,19 +169,20 @@ export function AcademyClient() {
       sessionTypeFees: { ...academy.sessionTypeFees },
       ageFees: { ...academy.ageFees },
     });
-    setPlayerSearch(""); setShowNewPlayer(false); setFormError("");
+    setPlayerSearch(""); setPlayerAgeFilter("All"); setShowNewPlayer(false);
+    setFormError(""); setOwnerMissing(false);
     setShowModal(true);
   }
 
   function closeModal() {
     setShowModal(false); setEditingId(null);
-    setShowNewPlayer(false); setFormError("");
+    setShowNewPlayer(false); setFormError(""); setOwnerMissing(false);
   }
 
   // ── Save ───────────────────────────────────────────────────────────────────
   async function handleSave() {
     if (!draft.name.trim()) { setFormError("Academy Name is required."); return; }
-    if (!draft.headCoachId) { setFormError("Please select an Academy Owner."); return; }
+    if (!draft.headCoachId) { setOwnerMissing(true); return; }
     setFormError(""); setSaving(true);
 
     const playerCounts: Partial<Record<AgeGroup, number>> = {};
@@ -231,6 +235,7 @@ export function AcademyClient() {
 
   // ── Player / coach toggles ─────────────────────────────────────────────────
   function setOwner(coachId: string) {
+    if (coachId) setOwnerMissing(false);
     setDraft((prev) => ({
       ...prev,
       headCoachId: coachId,
@@ -316,11 +321,22 @@ export function AcademyClient() {
   const activeCount = academies.filter((a) => a.status === "Active").length;
   const grandTotal  = allPlayers.filter((p) => academies.some((a) => a.playerIds.includes(p.id))).length;
 
-  const filteredPlayers = allPlayers.filter((p) =>
-    p.name.toLowerCase().includes(playerSearch.toLowerCase()) ||
-    p.ageGroup.toLowerCase().includes(playerSearch.toLowerCase()) ||
-    p.club.toLowerCase().includes(playerSearch.toLowerCase())
-  );
+  // map coachId → academy names they're already in (excluding the one being edited)
+  const coachAcademyMap = allCoaches.reduce((acc, c) => {
+    const names = academies
+      .filter((a) => a.id !== editingId && (a.coachIds ?? []).includes(c.id))
+      .map((a) => a.name);
+    if (names.length) acc[c.id] = names;
+    return acc;
+  }, {} as Record<string, string[]>);
+
+  // player list in modal: filter by search + selected age group
+  const ageGroupsWithPlayers = AGE_GROUPS.filter((g) => allPlayers.some((p) => p.ageGroup === g));
+  const filteredPlayers = allPlayers.filter((p) => {
+    if (playerAgeFilter !== "All" && p.ageGroup !== playerAgeFilter) return false;
+    const q = playerSearch.toLowerCase();
+    return !q || p.name.toLowerCase().includes(q) || p.club.toLowerCase().includes(q);
+  });
 
   // additional coaches = all coaches except the current owner
   const additionalCoaches = allCoaches.filter((c) => c.id !== draft.headCoachId);
@@ -753,6 +769,30 @@ export function AcademyClient() {
         </div>
       )}
 
+      {/* ── Owner missing popup ── */}
+      {ownerMissing && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOwnerMissing(false)} />
+          <div className="relative bg-surface rounded-2xl w-full max-w-xs shadow-2xl border border-red-500/30 p-6 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+            </div>
+            <h3 className="text-white font-bold mb-2">Academy Owner Required</h3>
+            <p className="text-zinc-400 text-sm mb-5">
+              Every academy must have a Head Coach / Owner before it can be saved. Please select one from the Coaches section.
+            </p>
+            <button type="button" onClick={() => setOwnerMissing(false)}
+              className="w-full px-4 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Edit / New modal ── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto" onClick={closeModal}>
@@ -870,19 +910,25 @@ export function AcademyClient() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {additionalCoaches.map((c) => {
                             const selected = draft.coachIds.includes(c.id);
+                            const inAcademies = coachAcademyMap[c.id] ?? [];
                             return (
                               <button key={c.id} type="button" onClick={() => toggleCoach(c.id)}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                                className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
                                   selected ? "border-pace-green/50 bg-pace-green/10" : "border-zinc-700 bg-ink hover:border-zinc-500"
                                 }`}>
-                                <div className="w-8 h-8 rounded-full bg-pace-green/40 flex items-center justify-center text-black text-xs font-bold flex-shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-pace-green/40 flex items-center justify-center text-black text-xs font-bold flex-shrink-0 mt-0.5">
                                   {c.name.split(" ").map((n) => n[0]).join("")}
                                 </div>
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                   <div className="text-sm font-semibold text-white truncate">{c.name}</div>
                                   <div className="text-xs text-zinc-400 truncate">{c.specialization || c.certificationLevel}</div>
+                                  {inAcademies.length > 0 && (
+                                    <div className="text-[10px] text-zinc-500 mt-0.5 truncate">
+                                      In: {inAcademies.join(", ")}
+                                    </div>
+                                  )}
                                 </div>
-                                <span className={`ml-auto text-xs font-bold flex-shrink-0 ${selected ? "text-pace-green" : "text-zinc-600"}`}>
+                                <span className={`text-xs font-bold flex-shrink-0 mt-0.5 ${selected ? "text-pace-green" : "text-zinc-600"}`}>
                                   {selected ? "✓" : "+"}
                                 </span>
                               </button>
@@ -1016,11 +1062,34 @@ export function AcademyClient() {
                   </div>
                 )}
 
+                {/* Age group filter chips */}
+                {ageGroupsWithPlayers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    <button type="button"
+                      onClick={() => setPlayerAgeFilter("All")}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        playerAgeFilter === "All" ? "bg-pace-green text-black" : "bg-ink text-zinc-400 border border-zinc-700 hover:border-zinc-500"
+                      }`}>All</button>
+                    {ageGroupsWithPlayers.map((g) => (
+                      <button key={g} type="button"
+                        onClick={() => setPlayerAgeFilter(g === playerAgeFilter ? "All" : g)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                          playerAgeFilter === g ? "bg-pace-green text-black" : "bg-ink text-zinc-400 border border-zinc-700 hover:border-zinc-500"
+                        }`}>{g}</button>
+                    ))}
+                  </div>
+                )}
                 <input type="text" value={playerSearch} onChange={(e) => setPlayerSearch(e.target.value)}
-                  className={`${inp} mb-2`} placeholder="Search players…" />
+                  className={`${inp} mb-2`} placeholder="Search by name or club…" />
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+                  {filteredPlayers.length === 0 && (
+                    <p className="text-zinc-500 text-xs text-center py-4">No players match this filter.</p>
+                  )}
                   {filteredPlayers.map((p) => {
                     const assigned = draft.playerIds.includes(p.id);
+                    const inAcademy = academies.find(
+                      (a) => a.id !== editingId && a.playerIds.includes(p.id)
+                    );
                     return (
                       <button key={p.id} type="button" onClick={() => togglePlayer(p.id)}
                         className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border transition-colors cursor-pointer text-left ${
@@ -1032,7 +1101,10 @@ export function AcademyClient() {
                           </div>
                           <div className="min-w-0">
                             <div className="text-sm font-semibold text-white truncate">{p.name}</div>
-                            <div className="text-xs text-zinc-400">{p.ageGroup} · {p.club || p.bowlingStyle}</div>
+                            <div className="text-xs text-zinc-400">
+                              {p.ageGroup} · {p.club || p.bowlingStyle}
+                              {inAcademy && <span className="text-zinc-500"> · In: {inAcademy.name}</span>}
+                            </div>
                           </div>
                         </div>
                         <span className={`text-xs font-bold flex-shrink-0 ${assigned ? "text-pace-green" : "text-zinc-500"}`}>
