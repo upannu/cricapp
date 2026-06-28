@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
 export async function POST(request: Request) {
-  const { userId } = await request.json();
+  const { userId, academyId } = await request.json();
   if (!userId) return NextResponse.json({ error: "userId required." }, { status: 400 });
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -38,9 +38,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No Supabase auth account found for this email. The request has been removed — ask the user to sign up again." }, { status: 404 });
   }
 
-  // Approve: set approved: true and confirm email so they can log in immediately
+  // Approve: set approved: true, confirm email, and optionally assign academy
+  const extraMeta: Record<string, unknown> = { approved: true };
+  if (academyId) extraMeta.academy_id = academyId;
+
   const { error: updateError } = await supabase.auth.admin.updateUserById(authUser.id, {
-    user_metadata: { approved: true },
+    user_metadata: extraMeta,
     email_confirm: true,
   });
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });

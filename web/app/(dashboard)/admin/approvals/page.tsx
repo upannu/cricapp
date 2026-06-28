@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { fetchAcademies } from "@/lib/db";
+import type { Academy } from "@/lib/types";
 
 type UserRole = "academy_admin" | "coach";
 
@@ -27,23 +29,30 @@ const ROLE_STYLES: Record<UserRole, string> = {
 export default function ApprovalsPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [requests,      setRequests]      = useState<PendingRequest[]>([]);
-  const [loading,       setLoading]       = useState(true);
-  const [approving,     setApproving]     = useState<string | null>(null);
-  const [rejecting,     setRejecting]     = useState<string | null>(null);
-  const [confirmReject, setConfirmReject] = useState<PendingRequest | null>(null);
-  const [errorMsg,      setErrorMsg]      = useState<string | null>(null);
+  const [requests,       setRequests]       = useState<PendingRequest[]>([]);
+  const [academies,      setAcademies]      = useState<Academy[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [approving,      setApproving]      = useState<string | null>(null);
+  const [rejecting,      setRejecting]      = useState<string | null>(null);
+  const [confirmReject,  setConfirmReject]  = useState<PendingRequest | null>(null);
+  const [assignDialog,   setAssignDialog]   = useState<PendingRequest | null>(null);
+  const [selectedAcademy, setSelectedAcademy] = useState("");
+  const [errorMsg,       setErrorMsg]       = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await fetch("/api/pending-approvals");
+      const [res, acads] = await Promise.all([
+        fetch("/api/pending-approvals"),
+        fetchAcademies(),
+      ]);
       const data = await res.json();
       if (data.error) {
         setErrorMsg(`Failed to load requests: ${data.error}`);
       } else {
         setRequests(data.requests ?? []);
       }
+      setAcademies(acads);
     } catch (e) {
       setErrorMsg(`Network error: ${String(e)}`);
     }
@@ -55,25 +64,37 @@ export default function ApprovalsPage() {
     load();
   }, [user, router, load]);
 
-  async function handleApprove(userId: string) {
+  async function doApprove(req: PendingRequest, academyId?: string) {
     setErrorMsg(null);
-    setApproving(userId);
+    setApproving(req.id);
+    setAssignDialog(null);
     try {
       const res  = await fetch("/api/approve-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId: req.id, academyId: academyId || undefined }),
       });
       const data = await res.json();
       if (data.error) {
         setErrorMsg(`Approval failed: ${data.error}`);
       } else {
-        setRequests((prev) => prev.filter((r) => r.id !== userId));
+        setRequests((prev) => prev.filter((r) => r.id !== req.id));
       }
     } catch (e) {
       setErrorMsg(`Network error: ${String(e)}`);
     }
     setApproving(null);
+  }
+
+  function handleApproveClick(req: PendingRequest) {
+    if (req.role === "academy_admin") {
+      // Show academy picker first
+      setSelectedAcademy("");
+      setAssignDialog(req);
+    } else {
+      // Coaches don't need academy assignment here
+      doApprove(req);
+    }
   }
 
   async function handleReject(userId: string) {
@@ -148,7 +169,6 @@ export default function ApprovalsPage() {
                   </div>
                   <div className="text-zinc-400 text-xs">{req.email}</div>
                   <div className="text-zinc-600 text-xs mt-0.5">Requested {date}</div>
-                  <div className="text-zinc-700 text-[10px] mt-0.5 font-mono">ID: {req.id}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button type="button"
@@ -158,7 +178,7 @@ export default function ApprovalsPage() {
                     Reject
                   </button>
                   <button type="button"
-                    onClick={() => handleApprove(req.id)}
+                    onClick={() => handleApproveClick(req)}
                     disabled={approving === req.id || rejecting === req.id}
                     className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
                     {approving === req.id ? "Approving…" : "Approve"}
@@ -167,6 +187,46 @@ export default function ApprovalsPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Assign academy dialog (for academy_admin approvals) */}
+      {assignDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setAssignDialog(null)} />
+          <div className="relative bg-surface rounded-2xl w-full max-w-sm shadow-2xl border border-zinc-700/50 p-6">
+            <h3 className="text-white font-bold mb-1">Assign Academy</h3>
+            <p className="text-zinc-400 text-sm mb-5">
+              Which academy will <span className="text-white font-semibold">{assignDialog.name}</span> manage?
+            </p>
+            <div className="mb-5">
+              <label className="block text-zinc-400 text-xs font-medium mb-1.5">Academy</label>
+              <select
+                value={selectedAcademy}
+                onChange={(e) => setSelectedAcademy(e.target.value)}
+                className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-pace-green"
+              >
+                <option value="">— Select academy —</option>
+                {academies.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+              {!selectedAcademy && (
+                <p className="text-zinc-500 text-xs mt-1.5">You can assign an academy later by editing the user.</p>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setAssignDialog(null)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                Cancel
+              </button>
+              <button type="button"
+                onClick={() => doApprove(assignDialog, selectedAcademy || undefined)}
+                className="flex-1 px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+                Approve
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

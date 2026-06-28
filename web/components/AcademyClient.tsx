@@ -362,6 +362,8 @@ export function AcademyClient() {
   // ── Filter / sort ──────────────────────────────────────────────────────────
   const displayed = [...academies]
     .filter((a) => {
+      // academy_admin only sees their assigned academy
+      if (user?.role === "academy_admin" && user.academyId && a.id !== user.academyId) return false;
       const q = search.toLowerCase();
       if (q && !a.name.toLowerCase().includes(q) && !a.location.toLowerCase().includes(q)) return false;
       if (statusFilter !== "All" && a.status !== statusFilter) return false;
