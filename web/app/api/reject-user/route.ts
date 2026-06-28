@@ -14,11 +14,24 @@ export async function POST(request: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  // Delete the auth user entirely
-  const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
-  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 400 });
+  // Get email from user_requests so we can find the real auth user
+  const { data: reqData } = await supabase
+    .from("user_requests")
+    .select("email")
+    .eq("id", userId)
+    .single();
 
-  // Remove from pending queue
+  if (reqData?.email) {
+    // Find and delete the auth user by email
+    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    const authUser = listData?.users.find((u) => u.email === reqData.email);
+    if (authUser) {
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(authUser.id);
+      if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 400 });
+    }
+  }
+
+  // Remove from pending queue regardless
   await supabase.from("user_requests").delete().eq("id", userId);
 
   return NextResponse.json({ success: true });
