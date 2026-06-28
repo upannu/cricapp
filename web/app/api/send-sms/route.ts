@@ -11,7 +11,10 @@ export async function POST(request: Request) {
   const apiKey = process.env.CLICKSEND_API_KEY;
 
   if (!username || !apiKey) {
-    return NextResponse.json({ error: "SMS not configured." }, { status: 500 });
+    return NextResponse.json({
+      error: "SMS not configured.",
+      debug: { hasUsername: !!username, hasApiKey: !!apiKey },
+    }, { status: 500 });
   }
 
   const credentials = Buffer.from(`${username}:${apiKey}`).toString("base64");
