@@ -139,7 +139,8 @@ export function AcademyClient() {
         age_fees: newAcademy.ageFees as Record<string, number>,
       });
     } catch (err) {
-      setFormError(`Save failed: ${err instanceof Error ? err.message : "unknown error"}`);
+      const msg = (err as { message?: string })?.message ?? String(err);
+      setFormError(`Save failed: ${msg}`);
       setSaving(false);
       return;
     }

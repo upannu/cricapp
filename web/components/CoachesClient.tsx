@@ -130,7 +130,8 @@ export function CoachesClient() {
         certification_level: coach.certificationLevel, bio: coach.bio, academy_id: coach.academyId,
       });
     } catch (err) {
-      setFormError(`Save failed: ${err instanceof Error ? err.message : "unknown error"}`);
+      const msg = (err as { message?: string })?.message ?? String(err);
+      setFormError(`Save failed: ${msg}`);
       setSaving(false);
       return;
     }
