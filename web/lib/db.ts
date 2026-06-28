@@ -30,6 +30,7 @@ export interface DbCoach {
 export interface DbAcademy {
   id: string; name: string; description: string; location: string;
   player_ids: string[]; player_counts: Record<string, number>;
+  coach_ids: string[];
   stage: string; coach_name: string; start_date: string; status: string;
   session_fee_aud: number; session_type_fees: Record<string, number>;
   age_fees: Record<string, number>;
@@ -116,6 +117,7 @@ export function dbToAcademy(r: DbAcademy): Academy {
     id: r.id, name: r.name, description: r.description, location: r.location,
     playerIds: r.player_ids ?? [],
     playerCounts: r.player_counts as Academy["playerCounts"],
+    coachIds: (r.coach_ids ?? []) as string[],
     stage: r.stage as AcademyStage,
     coachName: r.coach_name, startDate: r.start_date,
     status: r.status as "Active" | "Inactive",
