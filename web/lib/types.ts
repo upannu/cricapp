@@ -47,6 +47,7 @@ export interface Academy {
   playerCounts: Partial<Record<AgeGroup, number>>;
   playerIds: string[];
   coachIds: string[];
+  headCoachId: string;
   stage: AcademyStage;
   coachName: string;
   startDate: string;

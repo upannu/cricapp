@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, deleteAcademy, insertPlayer } from "@/lib/db";
+import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, insertPlayer } from "@/lib/db";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const STAGES: AcademyStage[] = ["Foundation", "Mechanics", "Velocity", "Elite"];
@@ -27,7 +27,7 @@ const SESSION_TYPES = [
 
 type DraftAcademy = {
   name: string; description: string; location: string;
-  playerIds: string[]; coachIds: string[];
+  playerIds: string[]; coachIds: string[]; headCoachId: string;
   stage: AcademyStage; startDate: string;
   status: "Active" | "Inactive";
   sessionFeeAud: number;
@@ -37,7 +37,7 @@ type DraftAcademy = {
 
 const EMPTY_DRAFT: DraftAcademy = {
   name: "", description: "", location: "",
-  playerIds: [], coachIds: [],
+  playerIds: [], coachIds: [], headCoachId: "",
   stage: "Foundation",
   startDate: new Date().toISOString().split("T")[0],
   status: "Active", sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
@@ -46,55 +46,72 @@ const EMPTY_DRAFT: DraftAcademy = {
 type NewPlayerDraft = {
   name: string; email: string; ageGroup: AgeGroup; bowlingStyle: BowlingStyle; club: string;
 };
-
 const EMPTY_NEW_PLAYER: NewPlayerDraft = {
   name: "", email: "", ageGroup: "U14", bowlingStyle: "Right Arm Fast", club: "",
 };
 
 type SortOption = "name" | "players" | "newest" | "stage";
+type ConfirmToggle = { id: string; name: string; newStatus: "Active" | "Inactive" };
 
 export function AcademyClient() {
   const { user } = useAuth();
 
   // Data
-  const [academies, setAcademies]   = useState<Academy[]>([]);
-  const [allPlayers, setAllPlayers] = useState<Player[]>([]);
-  const [allCoaches, setAllCoaches] = useState<Coach[]>([]);
+  const [academies,   setAcademies]   = useState<Academy[]>([]);
+  const [allPlayers,  setAllPlayers]  = useState<Player[]>([]);
+  const [allCoaches,  setAllCoaches]  = useState<Coach[]>([]);
 
   // Accordion
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [tabMap, setTabMap]         = useState<Record<string, "players" | "coaches" | "pricing">>({});
+  const [expandedId,      setExpandedId]      = useState<string | null>(null);
+  const [tabMap,          setTabMap]          = useState<Record<string, "players" | "coaches" | "pricing">>({});
   const [activeGroupView, setActiveGroupView] = useState<{ academyId: string; ageGroup: AgeGroup } | null>(null);
 
+  // 3-dot menu
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef                     = useRef<HTMLDivElement>(null);
+
+  // Confirm status toggle
+  const [confirmToggle, setConfirmToggle] = useState<ConfirmToggle | null>(null);
+  const [toggling,      setToggling]      = useState(false);
+
   // Modal
-  const [showModal,  setShowModal]  = useState(false);
-  const [editingId,  setEditingId]  = useState<string | null>(null);
-  const [draft,      setDraft]      = useState<DraftAcademy>(EMPTY_DRAFT);
-  const [formError,  setFormError]  = useState("");
-  const [saving,     setSaving]     = useState(false);
-  const [savedId,    setSavedId]    = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft,     setDraft]     = useState<DraftAcademy>(EMPTY_DRAFT);
+  const [formError, setFormError] = useState("");
+  const [saving,    setSaving]    = useState(false);
+  const [savedId,   setSavedId]   = useState<string | null>(null);
 
   // Player management inside modal
-  const [playerSearch,    setPlayerSearch]    = useState("");
-  const [showNewPlayer,   setShowNewPlayer]   = useState(false);
-  const [newPlayerDraft,  setNewPlayerDraft]  = useState<NewPlayerDraft>(EMPTY_NEW_PLAYER);
-  const [newPlayerError,  setNewPlayerError]  = useState("");
+  const [playerSearch,   setPlayerSearch]   = useState("");
+  const [showNewPlayer,  setShowNewPlayer]  = useState(false);
+  const [newPlayerDraft, setNewPlayerDraft] = useState<NewPlayerDraft>(EMPTY_NEW_PLAYER);
+  const [newPlayerError, setNewPlayerError] = useState("");
 
   // Filters
-  const [search,        setSearch]        = useState("");
-  const [statusFilter,  setStatusFilter]  = useState<"All" | "Active" | "Inactive">("All");
-  const [stageFilter,   setStageFilter]   = useState<"All" | AcademyStage>("All");
-  const [sortBy,        setSortBy]        = useState<SortOption>("name");
+  const [search,       setSearch]       = useState("");
+  const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All");
+  const [stageFilter,  setStageFilter]  = useState<"All" | AcademyStage>("All");
+  const [sortBy,       setSortBy]       = useState<SortOption>("name");
 
   useEffect(() => {
     Promise.all([fetchAcademies(), fetchPlayers(), fetchCoaches()]).then(([a, p, c]) => {
-      setAcademies(a);
-      setAllPlayers(p);
-      setAllCoaches(c);
+      setAcademies(a); setAllPlayers(p); setAllCoaches(c);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Accordion helpers ──────────────────────────────────────────────────────
+  // Close 3-dot menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuId(null);
+      }
+    }
+    if (openMenuId) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [openMenuId]);
+
+  // ── Accordion ──────────────────────────────────────────────────────────────
   function getTab(id: string) { return tabMap[id] ?? "players"; }
   function setTab(id: string, tab: "players" | "coaches" | "pricing") {
     setTabMap((prev) => ({ ...prev, [id]: tab }));
@@ -102,6 +119,32 @@ export function AcademyClient() {
   function toggleExpand(id: string) {
     setExpandedId((prev) => (prev === id ? null : id));
     setActiveGroupView(null);
+  }
+
+  // ── 3-dot actions ──────────────────────────────────────────────────────────
+  function handleMenuAction(action: "edit" | "toggleStatus", academy: Academy) {
+    setOpenMenuId(null);
+    if (action === "edit") { openEdit(academy); return; }
+    setConfirmToggle({
+      id: academy.id,
+      name: academy.name,
+      newStatus: academy.status === "Active" ? "Inactive" : "Active",
+    });
+  }
+
+  async function handleConfirmToggle() {
+    if (!confirmToggle) return;
+    setToggling(true);
+    try {
+      await upsertAcademy({ id: confirmToggle.id, status: confirmToggle.newStatus });
+      setAcademies((prev) =>
+        prev.map((a) => a.id === confirmToggle.id ? { ...a, status: confirmToggle.newStatus } : a)
+      );
+    } catch (err) {
+      console.error(err);
+    }
+    setToggling(false);
+    setConfirmToggle(null);
   }
 
   // ── Modal helpers ──────────────────────────────────────────────────────────
@@ -117,6 +160,7 @@ export function AcademyClient() {
     setDraft({
       name: academy.name, description: academy.description, location: academy.location,
       playerIds: [...academy.playerIds], coachIds: [...(academy.coachIds ?? [])],
+      headCoachId: academy.headCoachId ?? "",
       stage: academy.stage, startDate: academy.startDate, status: academy.status,
       sessionFeeAud: academy.sessionFeeAud,
       sessionTypeFees: { ...academy.sessionTypeFees },
@@ -131,9 +175,10 @@ export function AcademyClient() {
     setShowNewPlayer(false); setFormError("");
   }
 
-  // ── Save / Delete ──────────────────────────────────────────────────────────
+  // ── Save ───────────────────────────────────────────────────────────────────
   async function handleSave() {
     if (!draft.name.trim()) { setFormError("Academy Name is required."); return; }
+    if (!draft.headCoachId) { setFormError("Please select an Academy Owner."); return; }
     setFormError(""); setSaving(true);
 
     const playerCounts: Partial<Record<AgeGroup, number>> = {};
@@ -147,12 +192,16 @@ export function AcademyClient() {
       if (n > 0) cleanedAgeFees[g] = n;
     }
 
+    const headCoach = allCoaches.find((c) => c.id === draft.headCoachId);
     const id = editingId ?? `ac${Date.now()}`;
     const newAcademy: Academy = {
       id, name: draft.name.trim(), description: draft.description, location: draft.location,
       playerIds: draft.playerIds, playerCounts, coachIds: draft.coachIds,
-      stage: draft.stage, coachName: "", startDate: draft.startDate, status: draft.status,
-      sessionFeeAud: draft.sessionFeeAud, sessionTypeFees: draft.sessionTypeFees,
+      headCoachId: draft.headCoachId,
+      stage: draft.stage, coachName: headCoach?.name ?? "",
+      startDate: draft.startDate, status: draft.status,
+      sessionFeeAud: draft.sessionFeeAud,
+      sessionTypeFees: draft.sessionTypeFees,
       ageFees: cleanedAgeFees,
     };
 
@@ -160,7 +209,8 @@ export function AcademyClient() {
       await upsertAcademy({
         id, name: newAcademy.name, description: newAcademy.description, location: newAcademy.location,
         player_ids: newAcademy.playerIds, player_counts: playerCounts as Record<string, number>,
-        coach_ids: newAcademy.coachIds, coach_name: "",
+        coach_ids: newAcademy.coachIds, head_coach_id: newAcademy.headCoachId,
+        coach_name: newAcademy.coachName,
         stage: newAcademy.stage, start_date: newAcademy.startDate, status: newAcademy.status,
         session_fee_aud: newAcademy.sessionFeeAud,
         session_type_fees: newAcademy.sessionTypeFees as Record<string, number>,
@@ -179,28 +229,24 @@ export function AcademyClient() {
     setTimeout(() => setSavedId(null), 2500);
   }
 
-  function handleDelete(id: string) {
-    deleteAcademy(id);
-    setAcademies((prev) => prev.filter((a) => a.id !== id));
-    closeModal();
+  // ── Player / coach toggles ─────────────────────────────────────────────────
+  function toggleCoach(coachId: string) {
+    setDraft((prev) => {
+      const next = prev.coachIds.includes(coachId)
+        ? prev.coachIds.filter((id) => id !== coachId)
+        : [...prev.coachIds, coachId];
+      // clear headCoachId if that coach was deselected
+      const headCoachId = next.includes(prev.headCoachId) ? prev.headCoachId : "";
+      return { ...prev, coachIds: next, headCoachId };
+    });
   }
 
-  // ── Player assignment ──────────────────────────────────────────────────────
   function togglePlayer(playerId: string) {
     setDraft((prev) => ({
       ...prev,
       playerIds: prev.playerIds.includes(playerId)
         ? prev.playerIds.filter((id) => id !== playerId)
         : [...prev.playerIds, playerId],
-    }));
-  }
-
-  function toggleCoach(coachId: string) {
-    setDraft((prev) => ({
-      ...prev,
-      coachIds: prev.coachIds.includes(coachId)
-        ? prev.coachIds.filter((id) => id !== coachId)
-        : [...prev.coachIds, coachId],
     }));
   }
 
@@ -249,13 +295,10 @@ export function AcademyClient() {
       return true;
     })
     .sort((a, b) => {
-      if (sortBy === "name") return a.name.localeCompare(b.name);
-      if (sortBy === "players") {
-        return allPlayers.filter((p) => b.playerIds.includes(p.id)).length
-             - allPlayers.filter((p) => a.playerIds.includes(p.id)).length;
-      }
-      if (sortBy === "newest") return b.startDate.localeCompare(a.startDate);
-      if (sortBy === "stage") return STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage);
+      if (sortBy === "name")    return a.name.localeCompare(b.name);
+      if (sortBy === "players") return b.playerIds.length - a.playerIds.length;
+      if (sortBy === "newest")  return b.startDate.localeCompare(a.startDate);
+      if (sortBy === "stage")   return STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage);
       return 0;
     });
 
@@ -267,6 +310,9 @@ export function AcademyClient() {
     p.ageGroup.toLowerCase().includes(playerSearch.toLowerCase()) ||
     p.club.toLowerCase().includes(playerSearch.toLowerCase())
   );
+
+  // owner candidates = coaches already checked in the draft
+  const ownerCandidates = allCoaches.filter((c) => draft.coachIds.includes(c.id));
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -352,17 +398,19 @@ export function AcademyClient() {
           )}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2" ref={menuRef}>
           {displayed.map((academy) => {
-            const isExpanded       = expandedId === academy.id;
-            const tab              = getTab(academy.id);
-            const assignedPlayers  = allPlayers.filter((p) => academy.playerIds.includes(p.id));
-            const assignedCoaches  = allCoaches.filter((c) => (academy.coachIds ?? []).includes(c.id));
-            const countsByGroup    = assignedPlayers.reduce((acc, p) => {
+            const isExpanded      = expandedId === academy.id;
+            const tab             = getTab(academy.id);
+            const assignedPlayers = allPlayers.filter((p) => academy.playerIds.includes(p.id));
+            const assignedCoaches = allCoaches.filter((c) => (academy.coachIds ?? []).includes(c.id));
+            const headCoach       = allCoaches.find((c) => c.id === academy.headCoachId);
+            const countsByGroup   = assignedPlayers.reduce((acc, p) => {
               acc[p.ageGroup] = (acc[p.ageGroup] ?? 0) + 1; return acc;
             }, {} as Partial<Record<AgeGroup, number>>);
             const ageGroupsPresent = AGE_GROUPS.filter((g) => (countsByGroup[g] ?? 0) > 0);
             const groupViewActive  = activeGroupView?.academyId === academy.id ? activeGroupView.ageGroup : null;
+            const isMenuOpen       = openMenuId === academy.id;
 
             return (
               <div key={academy.id}
@@ -371,23 +419,39 @@ export function AcademyClient() {
                 }`}>
 
                 {/* ── Header row ── */}
-                <div className="flex items-center gap-4 px-5 py-4 cursor-pointer select-none"
-                  onClick={() => toggleExpand(academy.id)}>
-                  <svg className={`text-zinc-500 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
-                    width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="m9 18 6-6-6-6"/>
-                  </svg>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-white font-bold text-sm">{academy.name}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${STAGE_STYLES[academy.stage]}`}>{academy.stage}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        academy.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
-                      }`}>{academy.status}</span>
+                <div className="flex items-center gap-4 px-5 py-4">
+                  {/* Chevron + name — clickable */}
+                  <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer select-none"
+                    onClick={() => toggleExpand(academy.id)}>
+                    <svg className={`text-zinc-500 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+                      width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="m9 18 6-6-6-6"/>
+                    </svg>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-white font-bold text-sm">{academy.name}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${STAGE_STYLES[academy.stage]}`}>{academy.stage}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          academy.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
+                        }`}>{academy.status}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                        {academy.location && <span className="text-zinc-500 text-xs">📍 {academy.location}</span>}
+                        {headCoach && (
+                          <span className="text-zinc-500 text-xs flex items-center gap-1">
+                            <span className="w-3.5 h-3.5 rounded-full bg-pace-green inline-flex items-center justify-center text-black font-bold text-[8px]">
+                              {headCoach.name[0]}
+                            </span>
+                            {headCoach.name}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {academy.location && <span className="text-zinc-500 text-xs mt-0.5 block">📍 {academy.location}</span>}
                   </div>
-                  <div className="hidden sm:flex items-center gap-6 flex-shrink-0">
+
+                  {/* Stats */}
+                  <div className="hidden sm:flex items-center gap-6 flex-shrink-0 cursor-pointer select-none"
+                    onClick={() => toggleExpand(academy.id)}>
                     <div className="text-center">
                       <div className="text-sm font-bold text-pace-green">{assignedPlayers.length}</div>
                       <div className="text-[10px] text-zinc-500">Players</div>
@@ -401,19 +465,67 @@ export function AcademyClient() {
                       <div className="text-[10px] text-zinc-500">Fee/session</div>
                     </div>
                   </div>
+
+                  {/* ⋮ menu */}
                   {user?.role === "platform_admin" && (
-                    <button type="button"
-                      onClick={(e) => { e.stopPropagation(); openEdit(academy); }}
-                      className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors cursor-pointer">
-                      Edit
-                    </button>
+                    <div className="relative flex-shrink-0">
+                      <button type="button"
+                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(isMenuOpen ? null : academy.id); }}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${
+                          isMenuOpen
+                            ? "border-zinc-500 bg-zinc-700 text-white"
+                            : "border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500"
+                        }`}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                        </svg>
+                      </button>
+
+                      {isMenuOpen && (
+                        <div className="absolute right-0 top-10 z-30 w-44 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
+                          <button type="button"
+                            onClick={() => handleMenuAction("edit", academy)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer text-left">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                            Edit Academy
+                          </button>
+                          <div className="h-px bg-zinc-700 mx-3 my-1" />
+                          <button type="button"
+                            onClick={() => handleMenuAction("toggleStatus", academy)}
+                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer text-left ${
+                              academy.status === "Active"
+                                ? "text-amber hover:bg-amber/10"
+                                : "text-pace-green hover:bg-pace-green/10"
+                            }`}>
+                            {academy.status === "Active" ? (
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
+                                </svg>
+                                Deactivate
+                              </>
+                            ) : (
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <circle cx="12" cy="12" r="10"/>
+                                  <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+                                </svg>
+                                Activate
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
                 {/* ── Expanded panel ── */}
                 {isExpanded && (
                   <div className="border-t border-zinc-700/60 px-5 pb-5">
-                    {/* Tabs */}
                     <div className="flex gap-1 pt-4 mb-4">
                       {(["players", "coaches", "pricing"] as const).map((t) => (
                         <button key={t} type="button" onClick={() => setTab(academy.id, t)}
@@ -433,7 +545,6 @@ export function AcademyClient() {
                         <p className="text-zinc-500 text-sm py-8 text-center">No players assigned. Edit the academy to assign players.</p>
                       ) : (
                         <>
-                          {/* Age group chips */}
                           {ageGroupsPresent.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-4">
                               {ageGroupsPresent.map((g) => {
@@ -493,33 +604,40 @@ export function AcademyClient() {
                         <p className="text-zinc-500 text-sm py-8 text-center">No coaches assigned. Edit the academy to assign coaches.</p>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {assignedCoaches.map((c) => (
-                            <div key={c.id} className="bg-ink rounded-xl p-4 flex items-start gap-3">
-                              <div className="w-10 h-10 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
-                                {c.name.split(" ").map((n) => n[0]).join("")}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                  <span className="text-white font-semibold text-sm">{c.name}</span>
-                                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                    c.certificationLevel === "Elite" ? "bg-pace-green/20 text-pace-green" :
-                                    c.certificationLevel === "Level 3" ? "bg-amber/20 text-amber" :
-                                    "bg-zinc-700 text-zinc-400"
-                                  }`}>{c.certificationLevel}</span>
-                                </div>
-                                <p className="text-zinc-400 text-xs mb-1">{c.specialization || "—"}</p>
-                                <p className="text-zinc-500 text-xs">{c.email}</p>
-                                {c.phone && <p className="text-zinc-500 text-xs">{c.phone}</p>}
-                                {c.ageGroupsFocus.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1.5">
-                                    {c.ageGroupsFocus.map((g) => (
-                                      <span key={g} className="px-1.5 py-0.5 rounded bg-surface text-zinc-400 text-[10px]">{g}</span>
-                                    ))}
+                          {assignedCoaches.map((c) => {
+                            const isOwner = c.id === academy.headCoachId;
+                            return (
+                              <div key={c.id} className={`bg-ink rounded-xl p-4 flex items-start gap-3 ${isOwner ? "border border-pace-green/30" : ""}`}>
+                                <div className="relative flex-shrink-0">
+                                  <div className="w-10 h-10 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm">
+                                    {c.name.split(" ").map((n) => n[0]).join("")}
                                   </div>
-                                )}
+                                  {isOwner && (
+                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-pace-green rounded-full flex items-center justify-center text-black text-[8px] font-bold">★</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                    <span className="text-white font-semibold text-sm">{c.name}</span>
+                                    {isOwner && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-pace-green/20 text-pace-green">Owner</span>}
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                      c.certificationLevel === "Elite" ? "bg-pace-green/20 text-pace-green" :
+                                      c.certificationLevel === "Level 3" ? "bg-amber/20 text-amber" : "bg-zinc-700 text-zinc-400"
+                                    }`}>{c.certificationLevel}</span>
+                                  </div>
+                                  <p className="text-zinc-400 text-xs mb-1">{c.specialization || "—"}</p>
+                                  <p className="text-zinc-500 text-xs">{c.email}</p>
+                                  {c.ageGroupsFocus.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                      {c.ageGroupsFocus.map((g) => (
+                                        <span key={g} className="px-1.5 py-0.5 rounded bg-surface text-zinc-400 text-[10px]">{g}</span>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )
                     )}
@@ -580,6 +698,50 @@ export function AcademyClient() {
         </div>
       )}
 
+      {/* ── Confirm status toggle ── */}
+      {confirmToggle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setConfirmToggle(null)} />
+          <div className="relative bg-surface rounded-2xl w-full max-w-sm shadow-2xl border border-zinc-700/60 p-6">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
+              confirmToggle.newStatus === "Inactive" ? "bg-amber/20" : "bg-pace-green/20"
+            }`}>
+              {confirmToggle.newStatus === "Inactive" ? (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
+                </svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              )}
+            </div>
+            <h3 className="text-white font-bold text-center mb-1">
+              {confirmToggle.newStatus === "Inactive" ? "Deactivate Academy?" : "Activate Academy?"}
+            </h3>
+            <p className="text-zinc-400 text-sm text-center mb-6">
+              {confirmToggle.newStatus === "Inactive"
+                ? `"${confirmToggle.name}" will be marked Inactive. All players and data are preserved.`
+                : `"${confirmToggle.name}" will be set back to Active.`}
+            </p>
+            <div className="flex gap-3">
+              <button type="button" onClick={() => setConfirmToggle(null)}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                Cancel
+              </button>
+              <button type="button" onClick={handleConfirmToggle} disabled={toggling}
+                className={`flex-1 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors cursor-pointer disabled:opacity-60 ${
+                  confirmToggle.newStatus === "Inactive"
+                    ? "bg-amber/20 text-amber border border-amber/40 hover:bg-amber/30"
+                    : "bg-pace-green text-black hover:opacity-90"
+                }`}>
+                {toggling ? "Saving…" : confirmToggle.newStatus === "Inactive" ? "Yes, Deactivate" : "Yes, Activate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Edit / New modal ── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto" onClick={closeModal}>
@@ -587,7 +749,6 @@ export function AcademyClient() {
           <div className="relative bg-surface rounded-2xl w-full max-w-2xl shadow-2xl border border-zinc-700/60 my-4"
             onClick={(e) => e.stopPropagation()}>
 
-            {/* Modal header */}
             <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-700/50">
               <h2 className="text-white font-bold">{editingId ? "Edit Academy" : "New Academy"}</h2>
               <button type="button" onClick={closeModal}
@@ -602,33 +763,41 @@ export function AcademyClient() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
                     <label className={lbl}>Academy Name *</label>
-                    <input type="text" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                    <input type="text" value={draft.name}
+                      onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                       className={inp} placeholder="e.g. Brisbane Fast Bowling Foundation" />
                   </div>
                   <div className="sm:col-span-2">
                     <label className={lbl}>Description</label>
-                    <textarea value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                    <textarea value={draft.description}
+                      onChange={(e) => setDraft({ ...draft, description: e.target.value })}
                       className={`${inp} resize-none h-16`} placeholder="Program focus and objectives…" />
                   </div>
                   <div>
                     <label className={lbl}>Location</label>
-                    <input type="text" value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+                    <input type="text" value={draft.location}
+                      onChange={(e) => setDraft({ ...draft, location: e.target.value })}
                       className={inp} placeholder="e.g. Brisbane, QLD" />
                   </div>
                   <div>
                     <label className={lbl}>Start Date</label>
-                    <input type="date" value={draft.startDate} onChange={(e) => setDraft({ ...draft, startDate: e.target.value })}
+                    <input type="date" value={draft.startDate}
+                      onChange={(e) => setDraft({ ...draft, startDate: e.target.value })}
                       className={inp} />
                   </div>
                   <div>
                     <label className={lbl}>Stage</label>
-                    <select value={draft.stage} onChange={(e) => setDraft({ ...draft, stage: e.target.value as AcademyStage })} className={sel}>
+                    <select value={draft.stage}
+                      onChange={(e) => setDraft({ ...draft, stage: e.target.value as AcademyStage })}
+                      className={sel}>
                       {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className={lbl}>Status</label>
-                    <select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as Academy["status"] })} className={sel}>
+                    <select value={draft.status}
+                      onChange={(e) => setDraft({ ...draft, status: e.target.value as Academy["status"] })}
+                      className={sel}>
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
                     </select>
@@ -636,15 +805,18 @@ export function AcademyClient() {
                 </div>
               </section>
 
-              {/* Coaches */}
+              {/* Coaches — multi-select, then owner picker */}
               <section>
                 <p className={sectionLbl}>
-                  Coaches {draft.coachIds.length > 0 && <span className="text-pace-green normal-case font-normal">({draft.coachIds.length} selected)</span>}
+                  Coaches
+                  {draft.coachIds.length > 0 && (
+                    <span className="text-pace-green normal-case font-normal ml-1">({draft.coachIds.length} assigned)</span>
+                  )}
                 </p>
                 {allCoaches.length === 0 ? (
                   <p className="text-zinc-500 text-sm">No coaches yet — add coaches from the Coaches page first.</p>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
                     {allCoaches.map((c) => {
                       const selected = draft.coachIds.includes(c.id);
                       return (
@@ -663,6 +835,44 @@ export function AcademyClient() {
                         </button>
                       );
                     })}
+                  </div>
+                )}
+
+                {/* Owner picker — only visible once ≥1 coach is ticked */}
+                {draft.coachIds.length > 0 && (
+                  <div className="bg-ink rounded-xl p-4 border border-zinc-700">
+                    <label className={lbl}>Academy Owner (Head Coach) *</label>
+                    <p className="text-zinc-500 text-xs mb-3">
+                      The main owner responsible for this academy. Must be one of the coaches assigned above.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {ownerCandidates.map((c) => {
+                        const isOwner = draft.headCoachId === c.id;
+                        return (
+                          <button key={c.id} type="button"
+                            onClick={() => setDraft((prev) => ({ ...prev, headCoachId: c.id }))}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
+                              isOwner
+                                ? "border-pace-green bg-pace-green/15"
+                                : "border-zinc-700 bg-surface hover:border-zinc-500"
+                            }`}>
+                            <div className="relative flex-shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-pace-green flex items-center justify-center text-black text-xs font-bold">
+                                {c.name.split(" ").map((n) => n[0]).join("")}
+                              </div>
+                              {isOwner && (
+                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-pace-green rounded-full flex items-center justify-center text-black text-[8px] font-bold">★</span>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className={`text-sm font-semibold truncate ${isOwner ? "text-pace-green" : "text-white"}`}>{c.name}</div>
+                              <div className="text-xs text-zinc-400 truncate">{c.specialization || c.certificationLevel}</div>
+                            </div>
+                            {isOwner && <span className="ml-auto text-pace-green text-xs font-bold flex-shrink-0">Owner</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </section>
@@ -731,7 +941,9 @@ export function AcademyClient() {
               <section>
                 <div className="flex items-center justify-between mb-3">
                   <p className={sectionLbl}>
-                    Players {draft.playerIds.length > 0 && <span className="text-pace-green normal-case font-normal">({draft.playerIds.length} assigned)</span>}
+                    Players {draft.playerIds.length > 0 && (
+                      <span className="text-pace-green normal-case font-normal">({draft.playerIds.length} assigned)</span>
+                    )}
                   </p>
                   <button type="button" onClick={() => { setShowNewPlayer((v) => !v); setNewPlayerError(""); }}
                     className="text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer">
@@ -817,7 +1029,6 @@ export function AcademyClient() {
               {formError && <p className="text-red-400 text-sm">{formError}</p>}
             </div>
 
-            {/* Modal footer */}
             <div className="flex items-center gap-3 px-6 py-4 border-t border-zinc-700/50">
               <button type="button" onClick={handleSave} disabled={saving}
                 className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer disabled:opacity-60">
@@ -827,12 +1038,6 @@ export function AcademyClient() {
                 className="px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
                 Cancel
               </button>
-              {editingId && (
-                <button type="button" onClick={() => handleDelete(editingId)}
-                  className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer">
-                  Delete Academy
-                </button>
-              )}
             </div>
           </div>
         </div>
