@@ -14,9 +14,11 @@ export async function POST(request: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  // Set approved: true in user metadata
+  // Set approved: true and also confirm email so the user doesn't need to
+  // click a verification link separately — admin approval acts as the verification
   const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
     user_metadata: { approved: true },
+    email_confirm: true,
   });
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
 

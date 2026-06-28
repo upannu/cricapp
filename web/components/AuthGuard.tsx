@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -39,8 +40,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
               Your account is <span className="text-amber font-semibold">pending review</span> by a platform admin.
             </p>
             <p className="text-zinc-500 text-xs mb-8">
-              You&apos;ll receive an email as soon as your account is approved.
+              You&apos;ll be notified once your account is approved. Click below to check your status.
             </p>
+            <button
+              type="button"
+              disabled={checking}
+              onClick={async () => {
+                setChecking(true);
+                await refreshUser();
+                setChecking(false);
+              }}
+              className="w-full px-4 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60 mb-3"
+            >
+              {checking ? "Checking…" : "Check approval status"}
+            </button>
             <button
               type="button"
               onClick={() => { logout(); router.push("/login"); }}

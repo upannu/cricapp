@@ -12,6 +12,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<string | null>;
   signup: (name: string, email: string, password: string, role: "academy_admin" | "coach") => Promise<{ error: string | null; needsConfirmation: boolean }>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextValue>({
   login: async () => null,
   signup: async () => ({ error: null, needsConfirmation: false }),
   logout: async () => {},
+  refreshUser: async () => {},
 });
 
 function supabaseUserToAuthUser(sbUser: { id: string; email?: string; user_metadata: Record<string, unknown> }): AuthUser {
@@ -81,6 +83,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role,
         requested_at: new Date().toISOString(),
       });
+      // Fire-and-forget — don't block signup on email failure
+      fetch("/api/notify-admin-signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, role }),
+      }).catch(() => {});
     }
     const needsConfirmation = !data.session;
     return { error: null, needsConfirmation };
@@ -89,6 +97,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function logout() {
     await supabase.auth.signOut();
     setUser(null);
+  }
+
+  async function refreshUser() {
+    const { data: { session } } = await supabase.auth.refreshSession();
+    if (session?.user) setUser(supabaseUserToAuthUser(session.user));
   }
 
   if (!loaded) {
@@ -100,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loaded, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loaded, login, signup, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
