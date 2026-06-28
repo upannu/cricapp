@@ -25,12 +25,6 @@ const SESSION_TYPES = [
   "Fitness Assessment", "Match Practice", "Warm-up / Conditioning",
 ] as const;
 
-function totalPlayers(counts: Partial<Record<AgeGroup, number>>): number {
-  return Object.values(counts).reduce((s, n) => s + (n ?? 0), 0);
-}
-function activeGroups(counts: Partial<Record<AgeGroup, number>>): AgeGroup[] {
-  return AGE_GROUPS.filter((g) => (counts[g] ?? 0) > 0);
-}
 
 type DraftAcademy = Omit<Academy, "id">;
 
@@ -68,6 +62,7 @@ export function AcademyClient() {
   const [newPlayerError, setNewPlayerError] = useState("");
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [activeGroupView, setActiveGroupView] = useState<{ academyId: string; ageGroup: AgeGroup } | null>(null);
 
   useEffect(() => {
     Promise.all([fetchAcademies(), fetchPlayers()]).then(([a, p]) => {
@@ -109,10 +104,11 @@ export function AcademyClient() {
     if (!draft.name.trim()) { setFormError("Academy Name is required."); return; }
     setFormError("");
     setSaving(true);
+    // Auto-calculate counts from assigned players
     const cleaned: Partial<Record<AgeGroup, number>> = {};
-    for (const g of AGE_GROUPS) {
-      const n = draft.playerCounts[g] ?? 0;
-      if (n > 0) cleaned[g] = n;
+    for (const pid of draft.playerIds) {
+      const p = allPlayers.find((pl) => pl.id === pid);
+      if (p) cleaned[p.ageGroup] = (cleaned[p.ageGroup] ?? 0) + 1;
     }
     const id = editingId ?? `ac${Date.now()}`;
     const cleanedAgeFees: Partial<Record<AgeGroup, number>> = {};
@@ -160,11 +156,6 @@ export function AcademyClient() {
     deleteAcademy(id);
     setAcademies((prev) => prev.filter((a) => a.id !== id));
     closeForm();
-  }
-
-  function setCount(group: AgeGroup, value: string) {
-    const n = Math.max(0, parseInt(value) || 0);
-    setDraft((prev) => ({ ...prev, playerCounts: { ...prev.playerCounts, [group]: n } }));
   }
 
   function togglePlayer(playerId: string) {
@@ -222,10 +213,9 @@ export function AcademyClient() {
     p.club.toLowerCase().includes(playerSearch.toLowerCase())
   );
 
-  const draftTotal = totalPlayers(draft.playerCounts);
   const filtered = filter === "All" ? academies : academies.filter((a) => a.status === filter);
   const activeCount = academies.filter((a) => a.status === "Active").length;
-  const grandTotal = academies.reduce((s, a) => s + totalPlayers(a.playerCounts), 0);
+  const grandTotal = academies.reduce((s, a) => s + allPlayers.filter((p) => a.playerIds.includes(p.id)).length, 0);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -375,28 +365,6 @@ export function AcademyClient() {
                   );
                 })}
               </div>
-            </div>
-          </div>
-
-          {/* Player counts per age group */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <label className={labelCls}>Players per Age Group</label>
-              <span className="text-sm font-bold text-pace-green">Total: {draftTotal}</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {AGE_GROUPS.map((g) => {
-                const val = draft.playerCounts[g] ?? 0;
-                return (
-                  <div key={g} className="bg-ink rounded-xl p-3">
-                    <label className="block text-xs font-semibold text-zinc-400 mb-2">{g}</label>
-                    <input type="number" min={0} value={val === 0 ? "" : val}
-                      onChange={(e) => setCount(g, e.target.value)} placeholder="0"
-                      className="w-full bg-transparent text-white text-lg font-bold border-b border-zinc-700 focus:border-pace-green focus:outline-none pb-1 transition-colors" />
-                    <div className="text-xs text-zinc-500 mt-1">players</div>
-                  </div>
-                );
-              })}
             </div>
           </div>
 
@@ -553,9 +521,14 @@ export function AcademyClient() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((academy) => {
-            const countTotal = totalPlayers(academy.playerCounts);
-            const groups = activeGroups(academy.playerCounts);
             const assignedPlayers = allPlayers.filter((p) => academy.playerIds.includes(p.id));
+            const countsByGroup = assignedPlayers.reduce((acc, p) => {
+              acc[p.ageGroup] = (acc[p.ageGroup] ?? 0) + 1;
+              return acc;
+            }, {} as Partial<Record<AgeGroup, number>>);
+            const groups = AGE_GROUPS.filter((g) => (countsByGroup[g] ?? 0) > 0);
+            const countTotal = assignedPlayers.length;
+            const groupViewActive = activeGroupView?.academyId === academy.id ? activeGroupView.ageGroup : null;
             return (
               <div key={academy.id}
                 className={`bg-surface rounded-2xl p-6 border transition-colors ${
@@ -619,7 +592,7 @@ export function AcademyClient() {
                   </div>
                 </div>
 
-                {/* Per-group breakdown */}
+                {/* Players by age group — clickable chips */}
                 {groups.length > 0 && (
                   <div className="bg-ink rounded-xl p-3 mb-3">
                     <div className="flex items-center justify-between mb-2">
@@ -627,40 +600,46 @@ export function AcademyClient() {
                       <span className="text-sm font-bold text-pace-green">{countTotal} total</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {groups.map((g) => (
-                        <div key={g} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface border border-zinc-700">
-                          <span className="text-xs text-zinc-400">{g}</span>
-                          <span className="text-xs font-bold text-white">{academy.playerCounts[g]}</span>
-                        </div>
-                      ))}
+                      {groups.map((g) => {
+                        const isActive = groupViewActive === g;
+                        return (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => setActiveGroupView(isActive ? null : { academyId: academy.id, ageGroup: g })}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                              isActive
+                                ? "bg-pace-green/20 border-pace-green text-pace-green"
+                                : "bg-surface border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                            }`}
+                          >
+                            <span>{g}</span>
+                            <span className={`font-bold ${isActive ? "text-pace-green" : "text-white"}`}>{countsByGroup[g]}</span>
+                          </button>
+                        );
+                      })}
                     </div>
-                  </div>
-                )}
 
-                {/* Assigned players */}
-                {assignedPlayers.length > 0 && (
-                  <div className="bg-ink rounded-xl p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Assigned Players</span>
-                      <span className="text-xs text-zinc-500">{assignedPlayers.length}</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      {assignedPlayers.map((p) => (
-                        <div key={p.id} className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-6 h-6 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-xs font-bold flex-shrink-0">
-                              {p.name.split(" ").map((n) => n[0]).join("")}
+                    {/* Expanded player list for selected group */}
+                    {groupViewActive && (
+                      <div className="mt-3 pt-3 border-t border-zinc-700/60 space-y-2">
+                        <p className="text-xs font-semibold text-pace-green uppercase tracking-wider mb-2">{groupViewActive} players</p>
+                        {assignedPlayers.filter((p) => p.ageGroup === groupViewActive).map((p) => (
+                          <div key={p.id} className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-xs font-bold flex-shrink-0">
+                                {p.name.split(" ").map((n) => n[0]).join("")}
+                              </div>
+                              <span className="text-sm text-white truncate">{p.name}</span>
+                              <span className="text-xs text-zinc-500 flex-shrink-0">{p.bowlingStyle}</span>
                             </div>
-                            <span className="text-sm text-white truncate">{p.name}</span>
-                            <span className="text-xs text-zinc-500 flex-shrink-0">{p.ageGroup}</span>
+                            <Link href={`/players/${p.id}`} className="text-xs text-pace-green hover:underline flex-shrink-0">
+                              View →
+                            </Link>
                           </div>
-                          <Link href={`/players/${p.id}`}
-                            className="text-xs text-pace-green hover:underline flex-shrink-0">
-                            View →
-                          </Link>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
