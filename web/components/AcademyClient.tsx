@@ -67,6 +67,7 @@ export function AcademyClient() {
   const [newPlayerDraft, setNewPlayerDraft] = useState<NewPlayerDraft>(EMPTY_NEW_PLAYER);
   const [newPlayerError, setNewPlayerError] = useState("");
   const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchAcademies(), fetchPlayers()]).then(([a, p]) => {
@@ -104,9 +105,10 @@ export function AcademyClient() {
     setShowForm(false); setEditingId(null); setShowNewPlayer(false); setFormError("");
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!draft.name.trim()) { setFormError("Academy Name is required."); return; }
     setFormError("");
+    setSaving(true);
     const cleaned: Partial<Record<AgeGroup, number>> = {};
     for (const g of AGE_GROUPS) {
       const n = draft.playerCounts[g] ?? 0;
@@ -127,20 +129,27 @@ export function AcademyClient() {
       ageFees: cleanedAgeFees,
     };
 
-    upsertAcademy({
-      id, name: newAcademy.name, description: newAcademy.description, location: newAcademy.location,
-      player_ids: newAcademy.playerIds, player_counts: newAcademy.playerCounts as Record<string, number>,
-      stage: newAcademy.stage, coach_name: newAcademy.coachName, start_date: newAcademy.startDate,
-      status: newAcademy.status, session_fee_aud: newAcademy.sessionFeeAud,
-      session_type_fees: newAcademy.sessionTypeFees as Record<string, number>,
-      age_fees: newAcademy.ageFees as Record<string, number>,
-    });
+    try {
+      await upsertAcademy({
+        id, name: newAcademy.name, description: newAcademy.description, location: newAcademy.location,
+        player_ids: newAcademy.playerIds, player_counts: newAcademy.playerCounts as Record<string, number>,
+        stage: newAcademy.stage, coach_name: newAcademy.coachName, start_date: newAcademy.startDate,
+        status: newAcademy.status, session_fee_aud: newAcademy.sessionFeeAud,
+        session_type_fees: newAcademy.sessionTypeFees as Record<string, number>,
+        age_fees: newAcademy.ageFees as Record<string, number>,
+      });
+    } catch (err) {
+      setFormError(`Save failed: ${err instanceof Error ? err.message : "unknown error"}`);
+      setSaving(false);
+      return;
+    }
 
     if (editingId) {
       setAcademies((prev) => prev.map((a) => (a.id === editingId ? newAcademy : a)));
     } else {
       setAcademies((prev) => [...prev, newAcademy]);
     }
+    setSaving(false);
     setSavedId(id);
     closeForm();
     setTimeout(() => setSavedId(null), 2500);
@@ -494,8 +503,9 @@ export function AcademyClient() {
           {formError && <p className="text-red-400 text-sm mb-3">{formError}</p>}
           <div className="flex items-center gap-3">
             <button type="button" onClick={handleSave}
-              className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
-              {editingId ? "Save Changes" : "Create Academy"}
+              disabled={saving}
+              className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+              {saving ? "Saving…" : editingId ? "Save Changes" : "Create Academy"}
             </button>
             <button type="button" onClick={closeForm}
               className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">

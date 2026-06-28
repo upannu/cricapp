@@ -55,6 +55,7 @@ export function CoachesClient() {
   const [sendInvite, setSendInvite] = useState(true);
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [inviteError, setInviteError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const defaultAcademyId = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
 
@@ -111,21 +112,28 @@ export function CoachesClient() {
     setFormError("");
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!draft.name.trim()) { setFormError("Coach name is required."); return; }
     if (!draft.email.trim()) { setFormError("Email is required."); return; }
     if (!draft.academyId) { setFormError("Please assign this coach to an academy."); return; }
     setFormError("");
+    setSaving(true);
 
     const newId = editingId ?? `c_${Date.now()}`;
     const coach: Coach = { id: newId, ...draft, name: draft.name.trim(), email: draft.email.trim() };
 
-    upsertCoach({
-      id: newId, name: coach.name, email: coach.email, phone: coach.phone,
-      specialization: coach.specialization, age_groups_focus: coach.ageGroupsFocus,
-      location: coach.location, status: coach.status, joined_date: coach.joinedDate,
-      certification_level: coach.certificationLevel, bio: coach.bio, academy_id: coach.academyId,
-    });
+    try {
+      await upsertCoach({
+        id: newId, name: coach.name, email: coach.email, phone: coach.phone,
+        specialization: coach.specialization, age_groups_focus: coach.ageGroupsFocus,
+        location: coach.location, status: coach.status, joined_date: coach.joinedDate,
+        certification_level: coach.certificationLevel, bio: coach.bio, academy_id: coach.academyId,
+      });
+    } catch (err) {
+      setFormError(`Save failed: ${err instanceof Error ? err.message : "unknown error"}`);
+      setSaving(false);
+      return;
+    }
 
     setCoaches((prev) =>
       editingId
@@ -133,6 +141,7 @@ export function CoachesClient() {
         : [coach, ...prev]
     );
     setSaved(newId);
+    setSaving(false);
 
     if (!editingId && sendInvite && coach.email) {
       setInviteStatus("sending");
@@ -342,9 +351,9 @@ export function CoachesClient() {
 
           <div className="flex items-center gap-3">
             <button type="button" onClick={handleSave}
-              disabled={inviteStatus === "sending"}
+              disabled={saving || inviteStatus === "sending"}
               className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer disabled:opacity-60">
-              {editingId ? "Save Changes" : "Create Coach"}
+              {saving ? "Saving…" : editingId ? "Save Changes" : "Create Coach"}
             </button>
             <button type="button" onClick={closeForm}
               className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
