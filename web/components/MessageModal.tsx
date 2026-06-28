@@ -47,6 +47,22 @@ export function MessageModal({ playerId, playerName, playerEmail, playerPhone, o
         setSending(false);
         return;
       }
+    } else if (channel === "sms") {
+      const res = await fetch("/api/send-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: playerPhone,
+          body: body.trim(),
+          fromName: user?.name ?? "PACE HQ",
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setError(`Failed to send: ${data.error}`);
+        setSending(false);
+        return;
+      }
     }
 
     await insertMessage({
