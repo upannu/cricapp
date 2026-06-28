@@ -27,17 +27,26 @@ const ROLE_STYLES: Record<UserRole, string> = {
 export default function ApprovalsPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [requests,  setRequests]  = useState<PendingRequest[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [approving, setApproving] = useState<string | null>(null);
-  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [requests,      setRequests]      = useState<PendingRequest[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [approving,     setApproving]     = useState<string | null>(null);
+  const [rejecting,     setRejecting]     = useState<string | null>(null);
   const [confirmReject, setConfirmReject] = useState<PendingRequest | null>(null);
+  const [errorMsg,      setErrorMsg]      = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res  = await fetch("/api/pending-approvals");
-    const data = await res.json();
-    setRequests(data.requests ?? []);
+    try {
+      const res  = await fetch("/api/pending-approvals");
+      const data = await res.json();
+      if (data.error) {
+        setErrorMsg(`Failed to load requests: ${data.error}`);
+      } else {
+        setRequests(data.requests ?? []);
+      }
+    } catch (e) {
+      setErrorMsg(`Network error: ${String(e)}`);
+    }
     setLoading(false);
   }, []);
 
@@ -47,28 +56,46 @@ export default function ApprovalsPage() {
   }, [user, router, load]);
 
   async function handleApprove(userId: string) {
+    setErrorMsg(null);
     setApproving(userId);
-    const res  = await fetch("/api/approve-user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
-    });
-    const data = await res.json();
+    try {
+      const res  = await fetch("/api/approve-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setErrorMsg(`Approval failed: ${data.error}`);
+      } else {
+        setRequests((prev) => prev.filter((r) => r.id !== userId));
+      }
+    } catch (e) {
+      setErrorMsg(`Network error: ${String(e)}`);
+    }
     setApproving(null);
-    if (!data.error) setRequests((prev) => prev.filter((r) => r.id !== userId));
   }
 
   async function handleReject(userId: string) {
+    setErrorMsg(null);
     setRejecting(userId);
-    const res  = await fetch("/api/reject-user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
-    });
-    const data = await res.json();
+    try {
+      const res  = await fetch("/api/reject-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      setConfirmReject(null);
+      if (data.error) {
+        setErrorMsg(`Rejection failed: ${data.error}`);
+      } else {
+        setRequests((prev) => prev.filter((r) => r.id !== userId));
+      }
+    } catch (e) {
+      setErrorMsg(`Network error: ${String(e)}`);
+    }
     setRejecting(null);
-    setConfirmReject(null);
-    if (!data.error) setRequests((prev) => prev.filter((r) => r.id !== userId));
   }
 
   return (
@@ -77,6 +104,17 @@ export default function ApprovalsPage() {
         <h1 className="text-2xl font-bold text-white mb-1">Pending Approvals</h1>
         <p className="text-zinc-400 text-sm">Review and approve new coach and academy admin accounts</p>
       </div>
+
+      {/* Error banner */}
+      {errorMsg && (
+        <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" className="flex-shrink-0 mt-0.5">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p className="text-red-400 text-sm flex-1">{errorMsg}</p>
+          <button type="button" onClick={() => setErrorMsg(null)} className="text-red-400/60 hover:text-red-400 text-lg leading-none cursor-pointer">×</button>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -110,6 +148,7 @@ export default function ApprovalsPage() {
                   </div>
                   <div className="text-zinc-400 text-xs">{req.email}</div>
                   <div className="text-zinc-600 text-xs mt-0.5">Requested {date}</div>
+                  <div className="text-zinc-700 text-[10px] mt-0.5 font-mono">ID: {req.id}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button type="button"
