@@ -43,10 +43,59 @@ function avgSpeed(sessions: Session[]): string {
   return `${avg.toFixed(1)} km/h`;
 }
 
+function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
+  return new Promise((resolve) => {
+    const onSeeked = () => {
+      video.removeEventListener("seeked", onSeeked);
+      resolve();
+    };
+    video.addEventListener("seeked", onSeeked);
+    video.currentTime = time;
+  });
+}
+
+function extractFrames(url: string, angle: string): Promise<{ angle: string; base64: string; mediaType: string }[]> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.preload = "auto";
+    video.src = url;
+
+    video.addEventListener("loadedmetadata", async () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 360;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas not supported");
+
+        const duration = video.duration || 1;
+        const timestamps = [duration * 0.35, duration * 0.65];
+        const frames: { angle: string; base64: string; mediaType: string }[] = [];
+
+        for (const t of timestamps) {
+          await seekTo(video, Math.min(t, Math.max(duration - 0.05, 0)));
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+          frames.push({ angle, base64: dataUrl.split(",")[1] ?? "", mediaType: "image/jpeg" });
+        }
+        resolve(frames);
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+    video.addEventListener("error", () => reject(new Error(`Could not load the ${angle} video for analysis`)));
+  });
+}
+
 export function SessionsClient() {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [reportStatus, setReportStatus] = useState<Record<string, "success" | "error">>({});
+  const [reportError, setReportError] = useState("");
 
   useEffect(() => {
     const coachName = user?.role === "coach" ? user.name : undefined;
@@ -65,6 +114,38 @@ export function SessionsClient() {
   const [search, setSearch] = useState("");
 
   const visibleCoaches = _sessCoaches;
+
+  async function handleGenerateReport(session: Session) {
+    setGeneratingId(session.id);
+    setReportError("");
+    try {
+      const allFrames: { angle: string; base64: string; mediaType: string }[] = [];
+      for (const vid of session.videos) {
+        if (!vid.url) continue;
+        const frames = await extractFrames(vid.url, vid.angle);
+        allFrames.push(...frames);
+      }
+      if (allFrames.length === 0) {
+        throw new Error("No analyzable video found on this session.");
+      }
+
+      const res = await fetch("/api/ai-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: session.id, playerId: session.playerId, frames: allFrames }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to generate report");
+
+      setReportStatus((prev) => ({ ...prev, [session.id]: "success" }));
+    } catch (err) {
+      const msg = (err as { message?: string })?.message ?? String(err);
+      setReportError(msg);
+      setReportStatus((prev) => ({ ...prev, [session.id]: "error" }));
+    } finally {
+      setGeneratingId(null);
+    }
+  }
 
   const filtered = sessions.filter((s) => {
     const player = playerById(s.playerId);
@@ -314,7 +395,7 @@ export function SessionsClient() {
                     </div>
 
                     {/* Footer actions */}
-                    <div className="flex items-center gap-3 mt-4">
+                    <div className="flex flex-wrap items-center gap-3 mt-4">
                       {player && (
                         <Link
                           href={`/players/${player.id}`}
@@ -330,6 +411,27 @@ export function SessionsClient() {
                         >
                           + New Session
                         </Link>
+                      )}
+                      {session.videos.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleGenerateReport(session)}
+                          disabled={generatingId === session.id}
+                          className="px-4 py-2 text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-60 cursor-pointer"
+                        >
+                          {generatingId === session.id ? "Analyzing video…" : "✨ Generate AI Report"}
+                        </button>
+                      )}
+                      {reportStatus[session.id] === "success" && player && (
+                        <Link
+                          href={`/players/${player.id}/reports`}
+                          className="text-xs font-semibold text-pace-green hover:opacity-80"
+                        >
+                          ✓ Report ready — view it
+                        </Link>
+                      )}
+                      {reportStatus[session.id] === "error" && (
+                        <span className="text-xs font-semibold text-red-400">{reportError}</span>
                       )}
                     </div>
                   </div>

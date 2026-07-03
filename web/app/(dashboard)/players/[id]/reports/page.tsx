@@ -112,11 +112,9 @@ export default async function PlayerReportsPage({
         </div>
       )}
 
-      {/* Coming soon note */}
-      <div className="mt-8 rounded-2xl border border-pace-green/20 bg-pace-green/5 p-5 text-center">
-        <span className="w-1.5 h-1.5 rounded-full bg-pace-green inline-block mr-2 animate-pulse" />
-        <span className="text-pace-green text-xs font-semibold uppercase tracking-wider">
-          AI-generated PDF reports &amp; email delivery — coming soon
+      <div className="mt-8 rounded-2xl border border-purple-500/20 bg-purple-500/5 p-5 text-center">
+        <span className="text-purple-300 text-xs font-semibold uppercase tracking-wider">
+          ✨ Generate an AI report from any session with uploaded video — from the Sessions tab
         </span>
       </div>
     </div>
