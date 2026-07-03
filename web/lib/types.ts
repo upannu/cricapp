@@ -163,6 +163,7 @@ export type SessionType =
 export interface SessionVideo {
   angle: 'front' | 'side' | 'back';
   label: string;
+  url?: string;
 }
 
 export interface Session {

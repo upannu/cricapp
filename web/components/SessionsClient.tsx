@@ -282,7 +282,7 @@ export function SessionsClient() {
                                   <span className={`text-sm font-bold ${vid ? "text-pace-green" : "text-zinc-500"}`}>
                                     {vid ? "✓" : "○"}
                                   </span>
-                                  <div>
+                                  <div className="flex-1 min-w-0">
                                     <div className={`text-xs font-semibold ${vid ? "text-white" : "text-zinc-500"}`}>
                                       {ANGLE_LABELS[angle]}
                                     </div>
@@ -292,6 +292,19 @@ export function SessionsClient() {
                                       </div>
                                     )}
                                   </div>
+                                  {vid?.url && (
+                                    <a
+                                      href={vid.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity"
+                                    >
+                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                        <polygon points="5,3 19,12 5,21" />
+                                      </svg>
+                                      Play
+                                    </a>
+                                  )}
                                 </div>
                               );
                             })}

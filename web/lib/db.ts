@@ -44,7 +44,7 @@ export interface DbBooking {
 
 export interface DbSession {
   id: string; player_id: string; date: string; type: string;
-  notes: string; videos: Array<{ angle: string; label: string }>;
+  notes: string; videos: Array<{ angle: string; label: string; url?: string }>;
   ball_speed_kmh: number | null; front_knee_angle_deg: number | null;
   xp_earned: number;
 }
@@ -281,6 +281,12 @@ export async function fetchSessions(coachName?: string, playerIds?: string[]): P
   const { data, error } = await q;
   if (error) throw error;
   return (data as DbSession[]).map(dbToSession);
+}
+
+export async function insertSession(s: DbSession): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("sessions").insert(s);
+  if (error) throw error;
 }
 
 export async function fetchSessionPacks(playerIds?: string[]): Promise<SessionPack[]> {
