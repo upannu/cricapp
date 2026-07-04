@@ -53,7 +53,7 @@ export interface DbSessionPack {
   id: string; player_id: string; academy_id: string; session_type: string;
   purchase_date: string; total_sessions: number; sessions_used: number;
   session_credits: number; fee_per_session: number; status: string;
-  payment_status: string; payment_due_date: string;
+  payment_status: string; payment_due_date: string; agreed_days?: string[];
 }
 
 export interface DbReport {
@@ -158,6 +158,7 @@ export function dbToSessionPack(r: DbSessionPack): SessionPack {
     status: r.status as "Active" | "Exhausted",
     paymentStatus: r.payment_status as SessionPack["paymentStatus"],
     paymentDueDate: r.payment_due_date,
+    agreedDays: r.agreed_days ?? [],
   };
 }
 
@@ -310,6 +311,12 @@ export async function upsertSessionPack(pk: Partial<DbSessionPack> & { id: strin
 export async function updatePackPaymentStatus(id: string, paymentStatus: string): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("session_packs").update({ payment_status: paymentStatus }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updatePackAgreedDays(id: string, agreedDays: string[]): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("session_packs").update({ agreed_days: agreedDays }).eq("id", id);
   if (error) throw error;
 }
 

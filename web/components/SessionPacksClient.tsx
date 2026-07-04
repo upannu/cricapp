@@ -4,8 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import type { SessionPack, BookingType, Player, Academy, Booking, PaymentStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchBookings, upsertSessionPack, updatePackPaymentStatus } from "@/lib/db";
-import { getAllAgreedDays, setAgreedDays } from "@/lib/agreed-days-store";
+import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchBookings, upsertSessionPack, updatePackPaymentStatus, updatePackAgreedDays } from "@/lib/db";
 import { formatDate } from "@/lib/utils";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -53,7 +52,7 @@ function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("");
 }
 
-type DraftPack = Omit<SessionPack, "id" | "status" | "sessionsUsed" | "sessionCredits">;
+type DraftPack = Omit<SessionPack, "id" | "status" | "sessionsUsed" | "sessionCredits" | "agreedDays">;
 
 const EMPTY_DRAFT: DraftPack = {
   playerId: "",
@@ -74,7 +73,6 @@ export function SessionPacksClient() {
   const formRef = useRef<HTMLDivElement>(null);
 
   const [packs, setPacks] = useState<SessionPack[]>([]);
-  const [agreedDaysMap, setAgreedDaysMap] = useState<Record<string, string[]>>({});
   const [pageTab, setPageTab] = useState<PageTab>("Packs");
   const [filter, setFilter] = useState<FilterType>("All");
   const [showForm, setShowForm] = useState(false);
@@ -91,7 +89,6 @@ export function SessionPacksClient() {
     ]).then(([pk, pl, ac, bk]) => {
       setPacks(pk); _packPlayers = pl; _packAcademies = ac; _packBookings = bk;
     });
-    setAgreedDaysMap(getAllAgreedDays());
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function resolvedPaymentStatus(pk: SessionPack): PaymentStatus {
@@ -103,13 +100,12 @@ export function SessionPacksClient() {
     setPacks((prev) => prev.map((pk) => pk.id === packId ? { ...pk, paymentStatus: "Paid" } : pk));
   }
 
-  function handleToggleDay(packId: string, day: string) {
-    const current = agreedDaysMap[packId] ?? [];
-    const updated = current.includes(day)
-      ? current.filter((d) => d !== day)
-      : [...current, day];
-    setAgreedDays(packId, updated);
-    setAgreedDaysMap((prev) => ({ ...prev, [packId]: updated }));
+  function handleToggleDay(pack: SessionPack, day: string) {
+    const updated = pack.agreedDays.includes(day)
+      ? pack.agreedDays.filter((d) => d !== day)
+      : [...pack.agreedDays, day];
+    updatePackAgreedDays(pack.id, updated);
+    setPacks((prev) => prev.map((pk) => pk.id === pack.id ? { ...pk, agreedDays: updated } : pk));
   }
 
   const scopedPlayers = useMemo(() => _packPlayers, [packs]);
@@ -190,6 +186,7 @@ export function SessionPacksClient() {
       status: "Active",
       paymentStatus: "Pending",
       paymentDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+      agreedDays: [],
     };
 
     upsertSessionPack({
@@ -694,7 +691,7 @@ export function SessionPacksClient() {
                       <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2.5">Session days</p>
                       <div className="flex gap-1.5 flex-wrap">
                         {DAYS.map((day) => {
-                          const checked = (agreedDaysMap[pack.id] ?? []).includes(day);
+                          const checked = pack.agreedDays.includes(day);
                           // Does any upcoming booking fall on this weekday?
                           const hasBooking = upcoming.some((b) => {
                             const d = new Date(b.date);
@@ -704,7 +701,7 @@ export function SessionPacksClient() {
                             <button
                               key={day}
                               type="button"
-                              onClick={() => handleToggleDay(pack.id, day)}
+                              onClick={() => handleToggleDay(pack, day)}
                               className={`relative flex flex-col items-center gap-1 w-9 py-2 rounded-lg text-[11px] font-bold transition-colors cursor-pointer border ${
                                 checked
                                   ? "bg-pace-green text-black border-pace-green"

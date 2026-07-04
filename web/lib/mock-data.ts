@@ -420,14 +420,14 @@ export function getSessionsByPlayerId(playerId: string): Session[] {
 
 export const mockSessionPacks: SessionPack[] = [
   // ac2 – PACE Elite
-  { id: 'sp001', playerId: 'p001', academyId: 'ac2', sessionType: 'Net Session',        purchaseDate: '2026-01-20', totalSessions: 10, sessionsUsed: 8,  sessionCredits: 0, feePerSession: 120, status: 'Active',    paymentStatus: 'Paid',    paymentDueDate: '2026-01-27' },
-  { id: 'sp002', playerId: 'p002', academyId: 'ac2', sessionType: 'Individual Coaching', purchaseDate: '2026-02-10', totalSessions: 10, sessionsUsed: 7,  sessionCredits: 1, feePerSession: 160, status: 'Active',    paymentStatus: 'Pending', paymentDueDate: '2026-07-03' },
-  { id: 'sp003', playerId: 'p003', academyId: 'ac2', sessionType: 'Net Session',        purchaseDate: '2025-12-05', totalSessions: 10, sessionsUsed: 10, sessionCredits: 0, feePerSession: 120, status: 'Exhausted', paymentStatus: 'Paid',    paymentDueDate: '2025-12-12' },
-  { id: 'sp005', playerId: 'p005', academyId: 'ac2', sessionType: 'Video Review',       purchaseDate: '2025-11-25', totalSessions: 10, sessionsUsed: 5,  sessionCredits: 2, feePerSession: 90,  status: 'Active',    paymentStatus: 'Overdue', paymentDueDate: '2025-12-02' },
-  { id: 'sp006', playerId: 'p006', academyId: 'ac2', sessionType: 'Net Session',        purchaseDate: '2026-03-05', totalSessions: 10, sessionsUsed: 9,  sessionCredits: 0, feePerSession: 120, status: 'Active',    paymentStatus: 'Paid',    paymentDueDate: '2026-03-12' },
-  { id: 'sp007', playerId: 'p007', academyId: 'ac2', sessionType: 'Fitness Assessment', purchaseDate: '2026-04-15', totalSessions: 10, sessionsUsed: 6,  sessionCredits: 1, feePerSession: 110, status: 'Active',    paymentStatus: 'Overdue', paymentDueDate: '2026-04-22' },
+  { id: 'sp001', playerId: 'p001', academyId: 'ac2', sessionType: 'Net Session',        purchaseDate: '2026-01-20', totalSessions: 10, sessionsUsed: 8,  sessionCredits: 0, feePerSession: 120, status: 'Active',    paymentStatus: 'Paid',    paymentDueDate: '2026-01-27', agreedDays: [] },
+  { id: 'sp002', playerId: 'p002', academyId: 'ac2', sessionType: 'Individual Coaching', purchaseDate: '2026-02-10', totalSessions: 10, sessionsUsed: 7,  sessionCredits: 1, feePerSession: 160, status: 'Active',    paymentStatus: 'Pending', paymentDueDate: '2026-07-03', agreedDays: [] },
+  { id: 'sp003', playerId: 'p003', academyId: 'ac2', sessionType: 'Net Session',        purchaseDate: '2025-12-05', totalSessions: 10, sessionsUsed: 10, sessionCredits: 0, feePerSession: 120, status: 'Exhausted', paymentStatus: 'Paid',    paymentDueDate: '2025-12-12', agreedDays: [] },
+  { id: 'sp005', playerId: 'p005', academyId: 'ac2', sessionType: 'Video Review',       purchaseDate: '2025-11-25', totalSessions: 10, sessionsUsed: 5,  sessionCredits: 2, feePerSession: 90,  status: 'Active',    paymentStatus: 'Overdue', paymentDueDate: '2025-12-02', agreedDays: [] },
+  { id: 'sp006', playerId: 'p006', academyId: 'ac2', sessionType: 'Net Session',        purchaseDate: '2026-03-05', totalSessions: 10, sessionsUsed: 9,  sessionCredits: 0, feePerSession: 120, status: 'Active',    paymentStatus: 'Paid',    paymentDueDate: '2026-03-12', agreedDays: [] },
+  { id: 'sp007', playerId: 'p007', academyId: 'ac2', sessionType: 'Fitness Assessment', purchaseDate: '2026-04-15', totalSessions: 10, sessionsUsed: 6,  sessionCredits: 1, feePerSession: 110, status: 'Active',    paymentStatus: 'Overdue', paymentDueDate: '2026-04-22', agreedDays: [] },
   // ac1 – Brisbane Foundation
-  { id: 'sp004', playerId: 'p004', academyId: 'ac1', sessionType: 'Net Session',        purchaseDate: '2026-01-05', totalSessions: 10, sessionsUsed: 4,  sessionCredits: 0, feePerSession: 60,  status: 'Active',    paymentStatus: 'Pending', paymentDueDate: '2026-07-05' },
+  { id: 'sp004', playerId: 'p004', academyId: 'ac1', sessionType: 'Net Session',        purchaseDate: '2026-01-05', totalSessions: 10, sessionsUsed: 4,  sessionCredits: 0, feePerSession: 60,  status: 'Active',    paymentStatus: 'Pending', paymentDueDate: '2026-07-05', agreedDays: [] },
   // p008 (Jack Morris) has no pack – subscription lapsed
 ];
 

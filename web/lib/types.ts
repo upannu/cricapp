@@ -84,6 +84,7 @@ export interface SessionPack {
   status: 'Active' | 'Exhausted';
   paymentStatus: PaymentStatus;
   paymentDueDate: string;
+  agreedDays: string[];
 }
 
 export type MessageChannel = 'email' | 'sms';
