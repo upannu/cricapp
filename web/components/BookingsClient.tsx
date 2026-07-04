@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import type { Booking, BookingStatus, BookingType, Player, Coach, SessionPack, Academy } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, upsertBooking, deleteBooking, updatePackPaymentStatus } from "@/lib/db";
+import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus } from "@/lib/db";
 import { formatDate } from "@/lib/utils";
 
 const BOOKING_TYPES: BookingType[] = [
@@ -129,6 +129,7 @@ export function BookingsClient() {
   const [draft, setDraft] = useState<DraftBooking>(EMPTY_DRAFT);
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
+  const [actionError, setActionError] = useState("");
 
   // ── Computed ─────────────────────────────────────────────────────────────
   const upcomingAll = bookings.filter(isUpcoming);
@@ -182,7 +183,7 @@ export function BookingsClient() {
     setFormError("");
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!draft.coachId)  { setFormError("Please select a coach."); return; }
     if (!draft.playerId) { setFormError("Please select a player."); return; }
     if (!draft.date)     { setFormError("Please choose a date."); return; }
@@ -191,7 +192,12 @@ export function BookingsClient() {
     const newId = editingId ?? `b_${Date.now()}`;
     const booking: Booking = { id: newId, ...draft };
 
-    upsertBooking({ id: booking.id, player_id: booking.playerId, coach_id: booking.coachId, date: booking.date, time: booking.time, duration_mins: booking.durationMins, type: booking.type, status: booking.status, location: booking.location, notes: booking.notes, fee_aud: booking.feeAud, pack_id: booking.packId ?? null });
+    try {
+      await upsertBooking({ id: booking.id, player_id: booking.playerId, coach_id: booking.coachId, date: booking.date, time: booking.time, duration_mins: booking.durationMins, type: booking.type, status: booking.status, location: booking.location, notes: booking.notes, fee_aud: booking.feeAud, pack_id: booking.packId ?? null });
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+      return;
+    }
 
     setBookings((prev) =>
       editingId
@@ -207,17 +213,27 @@ export function BookingsClient() {
     setTimeout(() => setSaved(null), 2500);
   }
 
-  function handleDelete(id: string) {
-    deleteBooking(id);
-    setBookings((prev) => prev.filter((b) => b.id !== id));
-    closeForm();
+  async function handleDelete(id: string) {
+    setActionError("");
+    try {
+      await deleteBooking(id);
+      setBookings((prev) => prev.filter((b) => b.id !== id));
+      closeForm();
+    } catch (err) {
+      setActionError((err as { message?: string })?.message ?? String(err));
+    }
   }
 
-  function changeStatus(id: string, status: BookingStatus) {
-    upsertBooking({ id, status });
-    setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
-    setSaved(id);
-    setTimeout(() => setSaved(null), 2000);
+  async function changeStatus(id: string, status: BookingStatus) {
+    setActionError("");
+    try {
+      await updateBookingStatus(id, status);
+      setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
+      setSaved(id);
+      setTimeout(() => setSaved(null), 2000);
+    } catch (err) {
+      setActionError((err as { message?: string })?.message ?? String(err));
+    }
   }
 
   async function handleCompleteBooking(booking: Booking, notes: string) {
@@ -247,6 +263,13 @@ export function BookingsClient() {
           + New Booking
         </button>
       </div>
+
+      {actionError && (
+        <div className="mb-6 px-5 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold flex items-center justify-between gap-4">
+          <span>{actionError}</span>
+          <button type="button" onClick={() => setActionError("")} className="text-red-400 hover:text-white cursor-pointer flex-shrink-0">✕</button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
@@ -543,6 +566,7 @@ function BookingCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [credited, setCredited] = useState(false);
+  const [creditError, setCreditError] = useState("");
   const [completingOpen, setCompletingOpen] = useState(false);
   const [completeNotes, setCompleteNotes] = useState(b.notes);
   const [completing, setCompleting] = useState(false);
@@ -713,13 +737,22 @@ function BookingCard({
                 </span>
               ) : (
                 <button type="button"
-                  onClick={() => { updatePackPaymentStatus(activePack.id, activePack.paymentStatus); setCredited(true); }}
+                  onClick={async () => {
+                    setCreditError("");
+                    try {
+                      await updatePackPaymentStatus(activePack.id, activePack.paymentStatus);
+                      setCredited(true);
+                    } catch (err) {
+                      setCreditError((err as { message?: string })?.message ?? String(err));
+                    }
+                  }}
                   className="px-4 py-2 text-xs font-bold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer flex-shrink-0">
                   Credit to Pack
                 </button>
               )}
             </div>
           )}
+          {creditError && <p className="text-xs text-red-400">{creditError}</p>}
 
           {/* Actions */}
           <div className="flex items-center gap-3 pt-1">

@@ -280,6 +280,12 @@ export async function upsertBooking(b: Partial<DbBooking> & { id: string }): Pro
   if (error) throw error;
 }
 
+export async function updateBookingStatus(id: string, status: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("bookings").update({ status }).eq("id", id);
+  if (error) throw error;
+}
+
 export async function deleteBooking(id: string): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("bookings").delete().eq("id", id);
