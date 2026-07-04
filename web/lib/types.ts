@@ -110,6 +110,7 @@ export interface Report {
   frontKneeAngleDeg: number | null;
   tags: string[];
   highlight?: string;
+  sessionId?: string;
 }
 
 export type CoachStatus = 'Active' | 'Inactive';

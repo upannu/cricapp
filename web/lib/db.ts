@@ -59,7 +59,7 @@ export interface DbSessionPack {
 export interface DbReport {
   id: string; player_id: string; date: string; type: string;
   summary: string; speed_kmh: number | null; front_knee_angle_deg: number | null;
-  tags: string[]; highlight: string | null;
+  tags: string[]; highlight: string | null; session_id?: string | null;
 }
 
 export interface DbMessage {
@@ -166,6 +166,7 @@ export function dbToReport(r: DbReport): Report {
     type: r.type as Report["type"], summary: r.summary,
     speedKmh: r.speed_kmh, frontKneeAngleDeg: r.front_knee_angle_deg,
     tags: r.tags ?? [], highlight: r.highlight ?? undefined,
+    sessionId: r.session_id ?? undefined,
   };
 }
 

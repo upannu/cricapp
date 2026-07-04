@@ -144,6 +144,7 @@ export async function POST(request: Request) {
     front_knee_angle_deg: analysis.frontKneeAngleDeg,
     tags: analysis.tags,
     highlight: analysis.highlight,
+    session_id: sessionId ?? null,
   });
   if (insertError) {
     return NextResponse.json({ error: `Failed to save report: ${insertError.message}` }, { status: 500 });

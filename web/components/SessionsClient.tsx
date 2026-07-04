@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { Session, SessionType, Player, Coach } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessions, fetchPlayers, fetchCoaches } from "@/lib/db";
+import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports } from "@/lib/db";
 import { formatDate } from "@/lib/utils";
 
 const SESSION_TYPES: SessionType[] = [
@@ -96,6 +96,9 @@ export function SessionsClient() {
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [reportStatus, setReportStatus] = useState<Record<string, "success" | "error">>({});
   const [reportError, setReportError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const coachName = user?.role === "coach" ? user.name : undefined;
@@ -103,9 +106,15 @@ export function SessionsClient() {
       fetchSessions(),
       fetchPlayers(coachName),
       fetchCoaches(),
-    ]).then(([s, p, c]) => {
+      fetchReports(),
+    ]).then(([s, p, c, r]) => {
       setSessions(s);
       _sessPlayers = p; _sessCoaches = c;
+      const alreadyReported: Record<string, "success"> = {};
+      for (const report of r) {
+        if (report.sessionId) alreadyReported[report.sessionId] = "success";
+      }
+      setReportStatus((prev) => ({ ...alreadyReported, ...prev }));
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   const [playerFilter, setPlayerFilter] = useState("all");
@@ -144,6 +153,29 @@ export function SessionsClient() {
       setReportStatus((prev) => ({ ...prev, [session.id]: "error" }));
     } finally {
       setGeneratingId(null);
+    }
+  }
+
+  async function handleDeleteSession(session: Session) {
+    setDeletingId(session.id);
+    setDeleteErrors((prev) => ({ ...prev, [session.id]: "" }));
+    try {
+      const res = await fetch("/api/sessions/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: session.id, playerId: session.playerId }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to delete session");
+
+      setSessions((prev) => prev.filter((s) => s.id !== session.id));
+      setConfirmDeleteId(null);
+      if (expandedId === session.id) setExpandedId(null);
+    } catch (err) {
+      const msg = (err as { message?: string })?.message ?? String(err);
+      setDeleteErrors((prev) => ({ ...prev, [session.id]: msg }));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -413,25 +445,61 @@ export function SessionsClient() {
                         </Link>
                       )}
                       {session.videos.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleGenerateReport(session)}
-                          disabled={generatingId === session.id}
-                          className="px-4 py-2 text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-60 cursor-pointer"
-                        >
-                          {generatingId === session.id ? "Analyzing video…" : "✨ Generate AI Report"}
-                        </button>
-                      )}
-                      {reportStatus[session.id] === "success" && player && (
-                        <Link
-                          href={`/players/${player.id}/reports`}
-                          className="text-xs font-semibold text-pace-green hover:opacity-80"
-                        >
-                          ✓ Report ready — view it
-                        </Link>
+                        reportStatus[session.id] === "success" && player ? (
+                          <Link
+                            href={`/players/${player.id}/reports`}
+                            className="px-4 py-2 text-xs font-semibold bg-pace-green/20 text-pace-green border border-pace-green/30 rounded-lg hover:bg-pace-green/30 transition-colors"
+                          >
+                            ✓ View Report
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleGenerateReport(session)}
+                            disabled={generatingId === session.id}
+                            className="px-4 py-2 text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-60 cursor-pointer"
+                          >
+                            {generatingId === session.id ? "Analyzing video…" : "✨ Generate AI Report"}
+                          </button>
+                        )
                       )}
                       {reportStatus[session.id] === "error" && (
                         <span className="text-xs font-semibold text-red-400">{reportError}</span>
+                      )}
+
+                      <div className="ml-auto flex items-center gap-2">
+                        {confirmDeleteId === session.id ? (
+                          <>
+                            <span className="text-xs text-zinc-400">Delete this session and its videos?</span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSession(session)}
+                              disabled={deletingId === session.id}
+                              className="px-3 py-1.5 text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer"
+                            >
+                              {deletingId === session.id ? "Deleting…" : "Confirm delete"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmDeleteId(null)}
+                              disabled={deletingId === session.id}
+                              className="px-3 py-1.5 text-xs font-semibold text-zinc-400 border border-zinc-700 rounded-lg hover:text-white transition-colors cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteId(session.id)}
+                            className="px-3 py-1.5 text-xs font-semibold text-zinc-500 border border-zinc-700 rounded-lg hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
+                          >
+                            Delete Session
+                          </button>
+                        )}
+                      </div>
+                      {deleteErrors[session.id] && (
+                        <span className="w-full text-xs font-semibold text-red-400">{deleteErrors[session.id]}</span>
                       )}
                     </div>
                   </div>
