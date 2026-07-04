@@ -102,6 +102,35 @@ export interface Message {
 
 export type ReportType = 'Biomechanics' | 'Session Review' | 'Progress Report' | 'Action Plan';
 
+export interface ReportMetric {
+  id: string;
+  label: string;
+  zone: 'approach' | 'deliveryStride' | 'release' | 'followThrough';
+  value: number | null;
+  unit: string;
+  idealRange?: [number, number];
+  score: number | null;
+}
+
+export interface ReportBiomechanics {
+  phases: {
+    backFootContactSec: number | null;
+    frontFootContactSec: number | null;
+    releaseSec: number | null;
+    followThroughSec: number | null;
+  };
+  metrics: ReportMetric[];
+  zoneScores: Record<'approach' | 'deliveryStride' | 'release' | 'followThrough', number | null>;
+  flags: string[];
+  overallScore: number | null;
+  disclaimer: string;
+}
+
+export interface SkeletonImage {
+  phase: 'backFootContact' | 'frontFootContact' | 'release' | 'followThrough';
+  url: string;
+}
+
 export interface Report {
   id: string;
   playerId: string;
@@ -114,6 +143,12 @@ export interface Report {
   highlight?: string;
   sessionId?: string;
   sessionDate?: string;
+  actionType?: ActionType;
+  injuryRisk?: InjuryRisk;
+  overallScore?: number | null;
+  angleUsed?: 'front' | 'side' | 'back';
+  metrics?: ReportBiomechanics;
+  skeletonImages?: SkeletonImage[];
 }
 
 export type CoachStatus = 'Active' | 'Inactive';

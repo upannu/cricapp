@@ -6,64 +6,77 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 const PDF_BUCKET = "session-reports";
 
-interface FrameInput {
-  angle: string;
+type Phase = "backFootContact" | "frontFootContact" | "release" | "followThrough";
+type ZoneId = "approach" | "deliveryStride" | "release" | "followThrough";
+
+interface ReportMetric {
+  id: string; label: string; zone: ZoneId;
+  value: number | null; unit: string;
+  idealRange?: [number, number]; score: number | null;
+}
+
+interface BiomechanicsInput {
+  phases: Record<string, number | null>;
+  metrics: ReportMetric[];
+  zoneScores: Record<ZoneId, number | null>;
+  flags: string[];
+  overallScore: number | null;
+  actionType: "Side-on" | "Front-on" | "Mixed";
+  injuryRisk: "Low" | "Moderate" | "High";
+  disclaimer: string;
+}
+
+interface SkeletonFrameInput {
+  phase: Phase;
   base64: string;
   mediaType: string;
 }
 
-interface AiReportResult {
+interface NarrativeResult {
   speedKmh: number;
-  frontKneeAngleDeg: number;
-  actionType: "Side-on" | "Front-on" | "Mixed";
-  injuryRisk: "Low" | "Moderate" | "High";
   summary: string;
   tags: string[];
   highlight: string;
 }
 
-const SYSTEM_PROMPT = `You are a cricket fast-bowling biomechanics analyst working for a cricket academy. You are given still frames captured from multiple camera angles (front, side, back) of a single bowling delivery. Analyze the bowler's action from what is visible: alignment, front knee brace, arm path, release point, and overall action classification. Your estimates of ball speed and knee angle are visual approximations for coaching purposes, not radar-gun or motion-capture accuracy — write the summary accordingly. Be specific and constructive, as if writing for the player's coach.`;
+const SYSTEM_PROMPT = `You are a cricket fast-bowling biomechanics analyst working for a cricket academy. You are given the REAL, geometrically-computed biomechanics metrics for a single bowling delivery (joint angles, phase timing, zone scores, guideline-based flags — measured from pose-tracking, not guessed), plus a few skeleton-overlay key frames for visual context. Write a coaching narrative grounded in the given numbers — do not invent numbers that contradict them. The only thing you are estimating visually (not measured) is ball release speed; make that clear in your summary as a visual approximation, not radar-gun accuracy. Be specific and constructive, as if writing for the player's coach.`;
 
-const REPORT_SCHEMA = {
+const NARRATIVE_SCHEMA = {
   type: "object" as const,
   properties: {
     speedKmh: {
       type: "number",
-      description: "Estimated ball release speed in km/h based on the bowling action mechanics visible in the frames",
+      description: "Estimated ball release speed in km/h — a visual approximation only, since it cannot be measured from a single camera without radar/calibration",
     },
-    frontKneeAngleDeg: {
-      type: "number",
-      description: "Estimated front knee angle in degrees at front-foot landing / back-foot contact",
-    },
-    actionType: { type: "string", enum: ["Side-on", "Front-on", "Mixed"] },
-    injuryRisk: { type: "string", enum: ["Low", "Moderate", "High"] },
     summary: {
       type: "string",
-      description: "2-4 sentence coaching summary of the bowling action observed across the frames",
+      description: "2-4 sentence coaching summary, grounded in the provided computed metrics and flags",
     },
     tags: {
       type: "array",
       items: { type: "string" },
-      description: "3-6 short tags, e.g. 'Good alignment', 'Mixed action', 'High elbow'",
+      description: "3-6 short tags, e.g. 'Good knee brace', 'Mixed action', 'High elbow'",
     },
     highlight: {
       type: "string",
-      description: "One standout observation or recommendation for the coach",
+      description: "One standout observation or recommendation for the coach, referencing the computed metrics/flags",
     },
   },
-  required: ["speedKmh", "frontKneeAngleDeg", "actionType", "injuryRisk", "summary", "tags", "highlight"],
+  required: ["speedKmh", "summary", "tags", "highlight"],
   additionalProperties: false,
 };
 
 export async function POST(request: Request) {
-  const { sessionId, playerId, frames } = (await request.json()) as {
+  const { sessionId, playerId, angleUsed, biomechanics, skeletonFrames } = (await request.json()) as {
     sessionId?: string;
     playerId?: string;
-    frames?: FrameInput[];
+    angleUsed?: "front" | "side" | "back";
+    biomechanics?: BiomechanicsInput;
+    skeletonFrames?: SkeletonFrameInput[];
   };
 
-  if (!playerId || !frames || frames.length === 0) {
-    return NextResponse.json({ error: "playerId and frames are required." }, { status: 400 });
+  if (!playerId || !biomechanics) {
+    return NextResponse.json({ error: "playerId and biomechanics are required." }, { status: 400 });
   }
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -99,80 +112,141 @@ export async function POST(request: Request) {
     sessionDate = sessionRow?.created_at ?? null;
   }
 
-  // 1. Analyze frames with Claude Vision
-  let analysis: AiReportResult;
+  const reportId = `r_${Date.now()}`;
+  const today = new Date().toISOString().split("T")[0];
+
+  // 1. Upload skeleton-overlay key frames (small annotated images, sent from the
+  // client where they were rendered — not the raw video, which never leaves the browser).
+  let skeletonImages: { phase: Phase; url: string }[] = [];
+  if (skeletonFrames && skeletonFrames.length > 0) {
+    try {
+      await supabase.storage.createBucket(PDF_BUCKET, { public: true, fileSizeLimit: 10485760 });
+      const uploads = await Promise.all(
+        skeletonFrames.map(async (frame) => {
+          const path = `${playerId}/${reportId}/skeleton-${frame.phase}.jpg`;
+          const bytes = Buffer.from(frame.base64, "base64");
+          const { error } = await supabase.storage.from(PDF_BUCKET).upload(path, bytes, { contentType: frame.mediaType, upsert: true });
+          if (error) return null;
+          const { data } = supabase.storage.from(PDF_BUCKET).getPublicUrl(path);
+          return { phase: frame.phase, url: data.publicUrl };
+        }),
+      );
+      skeletonImages = uploads.filter((u): u is { phase: Phase; url: string } => u !== null);
+    } catch {
+      // Non-fatal — report still saves without skeleton images
+    }
+  }
+
+  // 2. Ask Claude for the narrative only — grounded in the real computed metrics,
+  // not guessing the numbers themselves.
+  let narrative: NarrativeResult;
   try {
     const anthropic = new Anthropic({ apiKey: anthropicKey });
 
-    const imageContent: Anthropic.ContentBlockParam[] = [];
-    for (const frame of frames) {
-      imageContent.push({ type: "text", text: `Frame from the ${frame.angle} camera angle:` });
-      imageContent.push({
-        type: "image",
-        source: { type: "base64", media_type: frame.mediaType as "image/jpeg", data: frame.base64 },
-      });
+    const metricsSummary = biomechanics.metrics
+      .map((m) => `- ${m.label}: ${m.value === null ? "not detected" : `${m.value}${m.unit}`}${m.idealRange ? ` (guideline range: ${m.idealRange[0]}-${m.idealRange[1]}${m.unit})` : ""}`)
+      .join("\n");
+
+    const content: Anthropic.ContentBlockParam[] = [
+      {
+        type: "text",
+        text: [
+          `Bowler: ${player.name}, ${player.age_group}, ${player.bowling_style}.`,
+          `Camera angle used for measurement: ${angleUsed ?? "unknown"}.`,
+          ``,
+          `Computed metrics (real geometry from pose-tracking):`,
+          metricsSummary,
+          ``,
+          `Zone scores (0-100 vs guideline ranges): ${JSON.stringify(biomechanics.zoneScores)}`,
+          `Overall score: ${biomechanics.overallScore ?? "n/a"}`,
+          `Computed action type: ${biomechanics.actionType}`,
+          `Computed injury-risk band: ${biomechanics.injuryRisk}`,
+          `Flags: ${biomechanics.flags.join(" | ")}`,
+        ].join("\n"),
+      },
+    ];
+    for (const frame of skeletonFrames ?? []) {
+      content.push({ type: "text", text: `Skeleton-overlay frame at ${frame.phase}:` });
+      content.push({ type: "image", source: { type: "base64", media_type: frame.mediaType as "image/jpeg", data: frame.base64 } });
     }
 
     const response = await anthropic.messages.create({
       model: "claude-opus-4-8",
       max_tokens: 2048,
       thinking: { type: "adaptive" },
-      output_config: { effort: "medium", format: { type: "json_schema", schema: REPORT_SCHEMA } },
+      output_config: { effort: "medium", format: { type: "json_schema", schema: NARRATIVE_SCHEMA } },
       system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: [
-            ...imageContent,
-            {
-              type: "text",
-              text: `Bowler: ${player.name}, ${player.age_group}, ${player.bowling_style}. Analyze this delivery and return the structured report.`,
-            },
-          ],
-        },
-      ],
+      messages: [{ role: "user", content }],
     });
 
     const textBlock = response.content.find((b) => b.type === "text");
     if (!textBlock || textBlock.type !== "text") throw new Error("No analysis returned by the model.");
-    analysis = JSON.parse(textBlock.text) as AiReportResult;
+    narrative = JSON.parse(textBlock.text) as NarrativeResult;
   } catch (err) {
     const msg = (err as { message?: string })?.message ?? String(err);
     return NextResponse.json({ error: `AI analysis failed: ${msg}` }, { status: 502 });
   }
 
-  // 2. Save report row
-  const reportId = `r_${Date.now()}`;
-  const today = new Date().toISOString().split("T")[0];
+  const frontKneeMetric = biomechanics.metrics.find((m) => m.id === "frontKneeFFC");
+  const frontKneeAngleDeg = frontKneeMetric?.value ?? null;
+
+  // 3. Save report row — the numbers now come from real measurement, not the LLM.
   const { error: insertError } = await supabase.from("reports").insert({
     id: reportId,
     player_id: playerId,
     date: today,
     type: "Biomechanics",
-    summary: analysis.summary,
-    speed_kmh: analysis.speedKmh,
-    front_knee_angle_deg: analysis.frontKneeAngleDeg,
-    tags: analysis.tags,
-    highlight: analysis.highlight,
+    summary: narrative.summary,
+    speed_kmh: narrative.speedKmh,
+    front_knee_angle_deg: frontKneeAngleDeg,
+    tags: narrative.tags,
+    highlight: narrative.highlight,
     session_id: sessionId ?? null,
     session_date: sessionDate,
+    action_type: biomechanics.actionType,
+    injury_risk: biomechanics.injuryRisk,
+    overall_score: biomechanics.overallScore,
+    angle_used: angleUsed ?? null,
+    metrics: biomechanics,
+    skeleton_images: skeletonImages,
   });
   if (insertError) {
     return NextResponse.json({ error: `Failed to save report: ${insertError.message}` }, { status: 500 });
   }
 
-  // 3. Generate PDF
-  const pdfBytes = await buildReportPdf({
-    playerName: player.name,
-    date: today,
-    sessionDate,
-    analysis,
-  });
+  // 4. Refresh the player's biomechanics snapshot with this delivery's real numbers.
+  await supabase.from("players").update({
+    bio_ball_speed_kmh: narrative.speedKmh,
+    bio_front_knee_angle_deg: frontKneeAngleDeg,
+    bio_action_type: biomechanics.actionType,
+    bio_injury_risk: biomechanics.injuryRisk,
+    bio_last_session: today,
+  }).eq("id", playerId);
 
-  // 4. Upload PDF to storage
+  // Also reflect it on the session itself — previously left null forever,
+  // so the Sessions list metrics panel never showed a generated report's numbers.
+  if (sessionId) {
+    await supabase.from("sessions").update({
+      ball_speed_kmh: narrative.speedKmh,
+      front_knee_angle_deg: frontKneeAngleDeg,
+    }).eq("id", sessionId);
+  }
+
+  // 5. Generate PDF — the report row above is already saved, so a PDF/email
+  // hiccup here must not turn into a 500 that discards an otherwise-successful report.
   let pdfUrl: string | null = null;
   try {
-    await supabase.storage.createBucket(PDF_BUCKET, { public: true, fileSizeLimit: 10485760 });
+    const pdfBytes = await buildReportPdf({
+      playerName: player.name,
+      date: today,
+      sessionDate,
+      narrative,
+      biomechanics,
+      frontKneeAngleDeg,
+      skeletonFrames: skeletonFrames ?? [],
+    });
+
+    // 6. Upload PDF to storage
     const path = `${playerId}/${reportId}.pdf`;
     const { error: uploadError } = await supabase.storage
       .from(PDF_BUCKET)
@@ -181,43 +255,54 @@ export async function POST(request: Request) {
       const { data } = supabase.storage.from(PDF_BUCKET).getPublicUrl(path);
       pdfUrl = data.publicUrl;
     }
-  } catch {
-    // Non-fatal — report is already saved even if PDF storage fails
+
+    // 7. Email the PDF to the player
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailPass = process.env.GMAIL_APP_PASSWORD;
+    if (gmailUser && gmailPass && player.email) {
+      const transporter = nodemailer.createTransport({ service: "gmail", auth: { user: gmailUser, pass: gmailPass } });
+      await transporter
+        .sendMail({
+          from: `"PACE HQ" <${gmailUser}>`,
+          to: player.email,
+          subject: `AI Bowling Report — ${player.name} — ${today}`,
+          text: [
+            `Hi ${player.name},`,
+            ``,
+            `Your AI-generated bowling biomechanics report is ready.`,
+            sessionDate ? `Session: ${formatSessionDateTime(sessionDate)}` : ``,
+            ``,
+            narrative.summary,
+            ``,
+            `Overall score: ${biomechanics.overallScore ?? "n/a"}/100`,
+            `Estimated speed: ${narrative.speedKmh} km/h`,
+            frontKneeAngleDeg !== null ? `Front knee angle at front-foot contact: ${frontKneeAngleDeg}°` : ``,
+            `Action type: ${biomechanics.actionType}`,
+            `Injury-risk band: ${biomechanics.injuryRisk}`,
+            ``,
+            `— PACE HQ`,
+          ].filter(Boolean).join("\n"),
+          attachments: [{ filename: `bowling-report-${today}.pdf`, content: Buffer.from(pdfBytes) }],
+        })
+        .catch(() => {
+          // Don't fail the request if email sending fails
+        });
+    }
+  } catch (err) {
+    // PDF/email are a bonus on top of an already-saved report — log and move on
+    // rather than returning a 500 that implies the whole report generation failed.
+    console.error("PDF/email step failed after report was already saved:", err);
   }
 
-  // 5. Email the PDF to the player
-  const gmailUser = process.env.GMAIL_USER;
-  const gmailPass = process.env.GMAIL_APP_PASSWORD;
-  if (gmailUser && gmailPass && player.email) {
-    const transporter = nodemailer.createTransport({ service: "gmail", auth: { user: gmailUser, pass: gmailPass } });
-    await transporter
-      .sendMail({
-        from: `"PACE HQ" <${gmailUser}>`,
-        to: player.email,
-        subject: `AI Bowling Report — ${player.name} — ${today}`,
-        text: [
-          `Hi ${player.name},`,
-          ``,
-          `Your AI-generated bowling biomechanics report is ready.`,
-          sessionDate ? `Session: ${formatSessionDateTime(sessionDate)}` : ``,
-          ``,
-          analysis.summary,
-          ``,
-          `Estimated speed: ${analysis.speedKmh} km/h`,
-          `Front knee angle: ${analysis.frontKneeAngleDeg}°`,
-          `Action type: ${analysis.actionType}`,
-          `Injury risk: ${analysis.injuryRisk}`,
-          ``,
-          `— PACE HQ`,
-        ].join("\n"),
-        attachments: [{ filename: `bowling-report-${today}.pdf`, content: Buffer.from(pdfBytes) }],
-      })
-      .catch(() => {
-        // Don't fail the request if email sending fails
-      });
-  }
-
-  return NextResponse.json({ success: true, report: { id: reportId, ...analysis }, pdfUrl });
+  return NextResponse.json({
+    success: true,
+    report: {
+      id: reportId, ...narrative, frontKneeAngleDeg,
+      actionType: biomechanics.actionType, injuryRisk: biomechanics.injuryRisk,
+      overallScore: biomechanics.overallScore, skeletonImages,
+    },
+    pdfUrl,
+  });
 }
 
 function formatSessionDateTime(iso: string): string {
@@ -227,13 +312,32 @@ function formatSessionDateTime(iso: string): string {
   return `${datePart} at ${timePart}`;
 }
 
+const PHASE_LABELS: Record<Phase, string> = {
+  backFootContact: "Back-Foot Contact",
+  frontFootContact: "Front-Foot Contact",
+  release: "Release",
+  followThrough: "Follow-Through",
+};
+
+/** pdf-lib's standard fonts are WinAnsi-encoded and throw on characters like ⚠/✓/ℹ — swap the common ones for ASCII and strip anything else outside Latin-1. */
+function sanitizeForPdf(text: string): string {
+  return text
+    .replace(/⚠/g, "[!]")
+    .replace(/✓/g, "[OK]")
+    .replace(/ℹ/g, "[i]")
+    .replace(/[^\x00-\xFF]/g, "");
+}
+
 async function buildReportPdf(opts: {
   playerName: string;
   date: string;
   sessionDate: string | null;
-  analysis: AiReportResult;
+  narrative: NarrativeResult;
+  biomechanics: BiomechanicsInput;
+  frontKneeAngleDeg: number | null;
+  skeletonFrames: SkeletonFrameInput[];
 }): Promise<Uint8Array> {
-  const { playerName, date, sessionDate, analysis } = opts;
+  const { playerName, date, sessionDate, narrative, biomechanics, frontKneeAngleDeg, skeletonFrames } = opts;
   const doc = await PDFDocument.create();
   const page = doc.addPage([595, 842]); // A4
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -258,42 +362,87 @@ async function buildReportPdf(opts: {
   page.drawText(`Report generated: ${date}`, { x: 50, y, size: 11, font, color: gray });
   y -= 40;
 
-  const metrics: [string, string][] = [
-    ["Estimated Speed", `${analysis.speedKmh} km/h`],
-    ["Front Knee Angle", `${analysis.frontKneeAngleDeg}°`],
-    ["Action Type", analysis.actionType],
-    ["Injury Risk", analysis.injuryRisk],
+  const headline: [string, string][] = [
+    ["Overall Score", biomechanics.overallScore !== null ? `${biomechanics.overallScore}/100` : "n/a"],
+    ["Estimated Speed", `${narrative.speedKmh} km/h`],
+    ["Front Knee Angle (FFC)", frontKneeAngleDeg !== null ? `${frontKneeAngleDeg}°` : "not detected"],
+    ["Action Type", biomechanics.actionType],
+    ["Injury-Risk Band", biomechanics.injuryRisk],
   ];
-  for (const [label, value] of metrics) {
+  for (const [label, value] of headline) {
     page.drawText(label, { x: 50, y, size: 11, font, color: gray });
-    page.drawText(value, { x: 220, y, size: 11, font: bold, color: dark });
+    page.drawText(value, { x: 260, y, size: 11, font: bold, color: dark });
     y -= 20;
   }
+  y -= 12;
+
+  page.drawText("Zone Scores", { x: 50, y, size: 13, font: bold, color: dark });
   y -= 20;
+  const zoneLabels: Record<ZoneId, string> = { approach: "Approach", deliveryStride: "Delivery Stride", release: "Release", followThrough: "Follow-Through" };
+  for (const [zone, label] of Object.entries(zoneLabels) as [ZoneId, string][]) {
+    const score = biomechanics.zoneScores[zone];
+    page.drawText(label, { x: 50, y, size: 11, font, color: gray });
+    page.drawText(score !== null ? `${score}/100` : "n/a", { x: 260, y, size: 11, font: bold, color: dark });
+    y -= 18;
+  }
+  y -= 12;
 
   page.drawText("Summary", { x: 50, y, size: 13, font: bold, color: dark });
   y -= 20;
-  y = drawWrappedText(page, analysis.summary, 50, y, 495, 11, font, dark);
-  y -= 20;
+  y = drawWrappedText(page, sanitizeForPdf(narrative.summary), 50, y, 495, 11, font, dark);
+  y -= 16;
 
-  if (analysis.highlight) {
-    page.drawText("Highlight", { x: 50, y, size: 13, font: bold, color: dark });
+  if (biomechanics.flags.length > 0) {
+    page.drawText("Flags", { x: 50, y, size: 13, font: bold, color: dark });
     y -= 20;
-    y = drawWrappedText(page, analysis.highlight, 50, y, 495, 11, font, dark);
-    y -= 20;
+    for (const flag of biomechanics.flags) {
+      y = drawWrappedText(page, sanitizeForPdf(flag), 50, y, 495, 10, font, gray);
+      y -= 8;
+    }
+    y -= 8;
   }
 
-  if (analysis.tags.length > 0) {
+  if (narrative.highlight) {
+    page.drawText("Highlight", { x: 50, y, size: 13, font: bold, color: dark });
+    y -= 20;
+    y = drawWrappedText(page, sanitizeForPdf(narrative.highlight), 50, y, 495, 11, font, dark);
+    y -= 16;
+  }
+
+  if (narrative.tags.length > 0) {
     page.drawText("Tags", { x: 50, y, size: 13, font: bold, color: dark });
     y -= 20;
-    y = drawWrappedText(page, analysis.tags.join(" · "), 50, y, 495, 11, font, gray);
-    y -= 20;
+    y = drawWrappedText(page, sanitizeForPdf(narrative.tags.join(" · ")), 50, y, 495, 11, font, gray);
   }
 
   page.drawText(
-    "This report is generated by AI from visual analysis of session video and is intended as a coaching aid, not a certified biomechanical measurement.",
+    sanitizeForPdf(biomechanics.disclaimer),
     { x: 50, y: 60, size: 8, font, color: gray, maxWidth: 495 },
   );
+
+  // Second page: skeleton-overlay key frames, so the coach can see exactly
+  // what the pose-tracking measured, not just the numbers it produced.
+  if (skeletonFrames.length > 0) {
+    const imgPage = doc.addPage([595, 842]);
+    imgPage.drawText("Skeleton Overlay - Key Phases", { x: 50, y: 790, size: 14, font: bold, color: dark });
+
+    const cellW = 247, cellH = 280;
+    const positions = [[50, 480], [298, 480], [50, 180], [298, 180]];
+    for (let i = 0; i < Math.min(4, skeletonFrames.length); i++) {
+      const frame = skeletonFrames[i];
+      const [x, yPos] = positions[i];
+      try {
+        const bytes = Buffer.from(frame.base64, "base64");
+        const img = frame.mediaType === "image/png" ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+        const scale = Math.min((cellW - 10) / img.width, (cellH - 30) / img.height);
+        const w = img.width * scale, h = img.height * scale;
+        imgPage.drawImage(img, { x: x + (cellW - w) / 2, y: yPos + 20, width: w, height: h });
+        imgPage.drawText(PHASE_LABELS[frame.phase], { x, y: yPos, size: 10, font: bold, color: dark });
+      } catch {
+        // Skip a frame that fails to embed rather than failing the whole PDF
+      }
+    }
+  }
 
   return doc.save();
 }

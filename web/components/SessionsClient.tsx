@@ -6,6 +6,9 @@ import type { Session, BookingType, Player, Coach, Academy } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
+import { extractPoseSequence, type PoseFrame } from "@/lib/pose";
+import { computeBiomechanics } from "@/lib/biomechanics";
+import { renderSkeletonFrame } from "@/lib/skeleton-overlay";
 
 const SESSION_TYPES: BookingType[] = [
   "Net Session",
@@ -46,57 +49,30 @@ function avgSpeed(sessions: Session[]): string {
   return `${avg.toFixed(1)} km/h`;
 }
 
-function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
-  return new Promise((resolve) => {
-    const onSeeked = () => {
-      video.removeEventListener("seeked", onSeeked);
-      resolve();
-    };
-    video.addEventListener("seeked", onSeeked);
-    video.currentTime = time;
-  });
-}
-
-function extractFrames(url: string, angle: string): Promise<{ angle: string; base64: string; mediaType: string }[]> {
+function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
-    const video = document.createElement("video");
-    video.crossOrigin = "anonymous";
-    video.muted = true;
-    video.preload = "auto";
-    video.src = url;
-
-    video.addEventListener("loadedmetadata", async () => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 360;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("Canvas not supported");
-
-        const duration = video.duration || 1;
-        const timestamps = [duration * 0.35, duration * 0.65];
-        const frames: { angle: string; base64: string; mediaType: string }[] = [];
-
-        for (const t of timestamps) {
-          await seekTo(video, Math.min(t, Math.max(duration - 0.05, 0)));
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-          frames.push({ angle, base64: dataUrl.split(",")[1] ?? "", mediaType: "image/jpeg" });
-        }
-        resolve(frames);
-      } catch (err) {
-        reject(err instanceof Error ? err : new Error(String(err)));
-      }
-    });
-    video.addEventListener("error", () => reject(new Error(`Could not load the ${angle} video for analysis`)));
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1] ?? "");
+    reader.onerror = () => reject(new Error("Failed to encode image."));
+    reader.readAsDataURL(blob);
   });
 }
+
+const ANGLE_PRIORITY = ["side", "front", "back"] as const;
+
+const PHASE_TIME_KEYS = [
+  ["backFootContact", "backFootContactSec"],
+  ["frontFootContact", "frontFootContactSec"],
+  ["release", "releaseSec"],
+  ["followThrough", "followThroughSec"],
+] as const;
 
 export function SessionsClient() {
   const { user } = useAuth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [generatingStage, setGeneratingStage] = useState("");
   const [reportStatus, setReportStatus] = useState<Record<string, "success" | "error">>({});
   const [reportError, setReportError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -130,22 +106,57 @@ export function SessionsClient() {
 
   async function handleGenerateReport(session: Session) {
     setGeneratingId(session.id);
+    setGeneratingStage("Loading pose model…");
     setReportError("");
     try {
-      const allFrames: { angle: string; base64: string; mediaType: string }[] = [];
-      for (const vid of session.videos) {
-        if (!vid.url) continue;
-        const frames = await extractFrames(vid.url, vid.angle);
-        allFrames.push(...frames);
-      }
-      if (allFrames.length === 0) {
-        throw new Error("No analyzable video found on this session.");
+      const player = playerById(session.playerId);
+      if (!player) throw new Error("Player not found.");
+
+      // Side-on view is best for the sagittal-plane joint angles most metrics
+      // depend on (knee brace, trunk lean, arm path) — prefer it, fall back
+      // to whichever other angle was actually uploaded.
+      const chosenVideo = ANGLE_PRIORITY
+        .map((a) => session.videos.find((v) => v.angle === a))
+        .find((v) => v?.url);
+      if (!chosenVideo?.url) throw new Error("No analyzable video found on this session.");
+      const videoUrl = chosenVideo.url;
+
+      setGeneratingStage("Tracking body position through the delivery…");
+      const frames: PoseFrame[] = await extractPoseSequence(videoUrl, {
+        onProgress: (ratio) => setGeneratingStage(`Tracking body position… ${Math.round(ratio * 100)}%`),
+      });
+      if (frames.length < 6) {
+        throw new Error("Couldn't confidently detect a bowler in this clip — try a clearer, well-lit, unobstructed side-on video.");
       }
 
+      setGeneratingStage("Computing biomechanics metrics…");
+      const biomechanics = computeBiomechanics(frames, player.bowlingStyle);
+
+      setGeneratingStage("Rendering skeleton overlay…");
+      const skeletonFrames: { phase: string; base64: string; mediaType: string }[] = [];
+      for (const [phase, key] of PHASE_TIME_KEYS) {
+        const tSec = biomechanics.phases[key];
+        if (tSec === null) continue;
+        const nearest = frames.reduce((best, f) => (Math.abs(f.tSec - tSec) < Math.abs(best.tSec - tSec) ? f : best));
+        try {
+          const blob = await renderSkeletonFrame(videoUrl, tSec, nearest.landmarks);
+          skeletonFrames.push({ phase, base64: await blobToBase64(blob), mediaType: "image/jpeg" });
+        } catch {
+          // Skip a frame that fails to render rather than aborting the whole report
+        }
+      }
+
+      setGeneratingStage("Generating coaching summary…");
       const res = await fetch("/api/ai-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id, playerId: session.playerId, frames: allFrames }),
+        body: JSON.stringify({
+          sessionId: session.id,
+          playerId: session.playerId,
+          angleUsed: chosenVideo.angle,
+          biomechanics,
+          skeletonFrames,
+        }),
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Failed to generate report");
@@ -157,6 +168,7 @@ export function SessionsClient() {
       setReportStatus((prev) => ({ ...prev, [session.id]: "error" }));
     } finally {
       setGeneratingId(null);
+      setGeneratingStage("");
     }
   }
 
@@ -474,7 +486,7 @@ export function SessionsClient() {
                             disabled={generatingId === session.id}
                             className="px-4 py-2 text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-60 cursor-pointer"
                           >
-                            {generatingId === session.id ? "Analyzing video…" : "✨ Generate AI Report"}
+                            {generatingId === session.id ? (generatingStage || "Analyzing…") : "✨ Generate AI Report"}
                           </button>
                         )
                       )}

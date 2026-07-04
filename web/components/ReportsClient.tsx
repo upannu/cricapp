@@ -24,6 +24,20 @@ const TYPE_DOT: Record<ReportType, string> = {
   "Action Plan":     "bg-fire",
 };
 
+const ZONE_LABELS: Record<"approach" | "deliveryStride" | "release" | "followThrough", string> = {
+  approach: "Approach",
+  deliveryStride: "Delivery Stride",
+  release: "Release",
+  followThrough: "Follow-Through",
+};
+
+const SKELETON_PHASE_LABELS: Record<string, string> = {
+  backFootContact: "Back-Foot Contact",
+  frontFootContact: "Front-Foot Contact",
+  release: "Release",
+  followThrough: "Follow-Through",
+};
+
 let _reportPlayers: Player[] = [];
 let _reportAcademies: Academy[] = [];
 let _reportCoaches: Coach[] = [];
@@ -490,8 +504,86 @@ function ReportCard({
                 <div className="text-sm text-white font-medium">{player.name}</div>
                 <div className="text-xs text-zinc-500">{player.ageGroup} · {player.club}</div>
               </div>
+              {(r.actionType || r.injuryRisk) && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {r.actionType && (
+                    <span className="px-2 py-0.5 rounded-md text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20">{r.actionType}</span>
+                  )}
+                  {r.injuryRisk && (
+                    <span className={`px-2 py-0.5 rounded-md text-xs border ${
+                      r.injuryRisk === "High" ? "bg-red-500/10 text-red-400 border-red-500/20" :
+                      r.injuryRisk === "Moderate" ? "bg-amber/10 text-amber border-amber/20" :
+                      "bg-pace-green/10 text-pace-green border-pace-green/20"
+                    }`}>
+                      {r.injuryRisk} risk
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
+
+          {r.metrics && (
+            <div className="bg-ink rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                  Biomechanics {r.angleUsed && <span className="normal-case text-zinc-600">· {r.angleUsed} camera</span>}
+                </p>
+                {r.overallScore !== null && r.overallScore !== undefined && (
+                  <span className="text-sm font-bold font-mono text-white">{r.overallScore}<span className="text-zinc-600 text-xs">/100</span></span>
+                )}
+              </div>
+
+              {/* Zone scores */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                {(["approach", "deliveryStride", "release", "followThrough"] as const).map((zone) => {
+                  const score = r.metrics?.zoneScores[zone] ?? null;
+                  return (
+                    <div key={zone} className="bg-surface rounded-lg p-2.5 text-center">
+                      <div className={`text-lg font-bold font-mono ${score === null ? "text-zinc-600" : score >= 70 ? "text-pace-green" : score >= 40 ? "text-amber" : "text-red-400"}`}>
+                        {score ?? "—"}
+                      </div>
+                      <div className="text-[10px] text-zinc-500 uppercase tracking-wide">{ZONE_LABELS[zone]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Metrics grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 mb-4">
+                {r.metrics.metrics.filter((m) => m.value !== null).map((m) => (
+                  <div key={m.id} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="text-zinc-500 truncate">{m.label}</span>
+                    <span className="text-white font-mono flex-shrink-0">{m.value}{m.unit.startsWith("°") ? "" : " "}{m.unit}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Flags */}
+              {r.metrics.flags.length > 0 && (
+                <div className="space-y-1.5 mb-4">
+                  {r.metrics.flags.map((flag, i) => (
+                    <p key={i} className="text-xs text-zinc-400 leading-relaxed">{flag}</p>
+                  ))}
+                </div>
+              )}
+
+              {/* Skeleton overlay frames */}
+              {r.skeletonImages && r.skeletonImages.length > 0 && (
+                <div className="flex flex-wrap gap-3 mb-3">
+                  {r.skeletonImages.map((img) => (
+                    <a key={img.phase} href={img.url} target="_blank" rel="noopener noreferrer" className="block">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img.url} alt={`Skeleton overlay at ${img.phase}`} className="w-24 h-auto rounded-lg border border-zinc-700" />
+                      <p className="text-[10px] text-zinc-500 text-center mt-1">{SKELETON_PHASE_LABELS[img.phase]}</p>
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-[10px] text-zinc-600 leading-relaxed">{r.metrics.disclaimer}</p>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-3">
             <Link href={`/players/${player.id}`}

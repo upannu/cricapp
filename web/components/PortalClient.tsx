@@ -172,6 +172,18 @@ export function PortalClient() {
                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
                   <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-pace-green/10 text-pace-green">{r.type}</span>
                   <span className="text-zinc-500 text-xs">{formatDate(r.date)}</span>
+                  {r.overallScore !== null && r.overallScore !== undefined && (
+                    <span className="text-xs font-mono text-white">{r.overallScore}/100</span>
+                  )}
+                  {r.injuryRisk && (
+                    <span className={`px-2 py-0.5 rounded-md text-xs border ${
+                      r.injuryRisk === "High" ? "bg-red-500/10 text-red-400 border-red-500/20" :
+                      r.injuryRisk === "Moderate" ? "bg-amber/10 text-amber border-amber/20" :
+                      "bg-pace-green/10 text-pace-green border-pace-green/20"
+                    }`}>
+                      {r.injuryRisk} risk
+                    </span>
+                  )}
                 </div>
                 <p className="text-zinc-300 text-sm leading-relaxed">{r.summary}</p>
                 {r.sessionId && (

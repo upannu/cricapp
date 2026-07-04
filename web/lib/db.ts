@@ -3,6 +3,7 @@ import type {
   Player, Coach, Academy, Booking, Session, SessionPack, Message, Report,
   BowlingStyle, AgeGroup, GuardianConsent, PlanTier, ActionType,
   InjuryRisk, AcademyStage, BookingType, BookingStatus, MessageChannel,
+  ReportBiomechanics, SkeletonImage,
 } from "@/lib/types";
 
 // ─── DB row types (snake_case from Postgres) ────────────────────────────────
@@ -69,6 +70,10 @@ export interface DbReport {
   summary: string; speed_kmh: number | null; front_knee_angle_deg: number | null;
   tags: string[]; highlight: string | null; session_id?: string | null;
   session_date?: string | null;
+  action_type?: string | null; injury_risk?: string | null;
+  overall_score?: number | null; angle_used?: string | null;
+  metrics?: ReportBiomechanics | null;
+  skeleton_images?: SkeletonImage[] | null;
 }
 
 export interface DbMessage {
@@ -183,6 +188,12 @@ export function dbToReport(r: DbReport): Report {
     tags: r.tags ?? [], highlight: r.highlight ?? undefined,
     sessionId: r.session_id ?? undefined,
     sessionDate: r.session_date ?? undefined,
+    actionType: (r.action_type as ActionType) ?? undefined,
+    injuryRisk: (r.injury_risk as InjuryRisk) ?? undefined,
+    overallScore: r.overall_score ?? undefined,
+    angleUsed: (r.angle_used as Report["angleUsed"]) ?? undefined,
+    metrics: r.metrics ?? undefined,
+    skeletonImages: r.skeleton_images ?? undefined,
   };
 }
 
