@@ -6,6 +6,7 @@ import type { Report, ReportType, Player } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchReports, fetchPlayers } from "@/lib/db";
 import { formatDate } from "@/lib/utils";
+import { ReportActions } from "@/components/ReportActions";
 
 const REPORT_TYPES: ReportType[] = ["Biomechanics", "Session Review", "Progress Report", "Action Plan"];
 
@@ -329,6 +330,16 @@ export function ReportsClient() {
                               </Link>
                             )}
                           </div>
+                          {player && (
+                            <div className="mt-3 pt-3 border-t border-zinc-700/40">
+                              <ReportActions
+                                reportId={r.id}
+                                playerId={player.id}
+                                hasPdf={!!r.sessionId}
+                                onDeleted={(id) => setReports((prev) => prev.filter((rep) => rep.id !== id))}
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -392,14 +403,6 @@ export function ReportsClient() {
             </tbody>
           </table>
         </div>
-      </div>
-
-      {/* AI teaser */}
-      <div className="mt-8 rounded-2xl border border-pace-green/20 bg-pace-green/5 p-5 text-center">
-        <span className="w-1.5 h-1.5 rounded-full bg-pace-green inline-block mr-2 animate-pulse" />
-        <span className="text-pace-green text-xs font-semibold uppercase tracking-wider">
-          AI-generated PDF reports &amp; email delivery — coming soon
-        </span>
       </div>
     </div>
   );

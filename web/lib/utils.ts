@@ -21,3 +21,7 @@ export function getInitials(name: string): string {
     .map((n) => n[0] ?? '')
     .join('');
 }
+
+export function getReportPdfUrl(playerId: string, reportId: string): string {
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/session-reports/${playerId}/${reportId}.pdf`;
+}

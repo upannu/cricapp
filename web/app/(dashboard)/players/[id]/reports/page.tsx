@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchPlayerServer, fetchReportsServer } from "@/lib/supabase-server";
 import { formatDate } from "@/lib/utils";
+import { ReportActions } from "@/components/ReportActions";
 
 const TYPE_STYLES: Record<string, string> = {
   "Biomechanics":    "bg-pace-green/10 text-pace-green",
@@ -79,34 +80,39 @@ export default async function PlayerReportsPage({
           {reports.map((r) => (
             <div
               key={r.id}
-              className="bg-surface rounded-2xl p-5 flex items-start justify-between gap-4"
+              className="bg-surface rounded-2xl p-5"
             >
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES[r.type] ?? "bg-zinc-700 text-zinc-300"}`}>
-                    {r.type}
-                  </span>
-                  <span className="text-zinc-400 text-xs">{formatDate(r.date)}</span>
-                  {r.tags.map((t) => (
-                    <span
-                      key={t}
-                      className="px-2 py-0.5 rounded-full text-xs bg-ink text-zinc-400 border border-zinc-700"
-                    >
-                      {t}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES[r.type] ?? "bg-zinc-700 text-zinc-300"}`}>
+                      {r.type}
                     </span>
-                  ))}
+                    <span className="text-zinc-400 text-xs">{formatDate(r.date)}</span>
+                    {r.tags.map((t) => (
+                      <span
+                        key={t}
+                        className="px-2 py-0.5 rounded-full text-xs bg-ink text-zinc-400 border border-zinc-700"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-zinc-300 text-sm leading-relaxed">{r.summary}</p>
+                  {r.highlight && (
+                    <p className="mt-1.5 text-xs text-amber font-semibold">★ {r.highlight}</p>
+                  )}
                 </div>
-                <p className="text-zinc-300 text-sm leading-relaxed">{r.summary}</p>
-                {r.highlight && (
-                  <p className="mt-1.5 text-xs text-amber font-semibold">★ {r.highlight}</p>
+                {r.speedKmh !== null && (
+                  <div className="flex-shrink-0 text-right">
+                    <div className="text-pace-green font-mono font-bold text-sm">{r.speedKmh} km/h</div>
+                    <div className="text-xs text-zinc-500 mt-0.5">ball speed</div>
+                  </div>
                 )}
               </div>
-              {r.speedKmh !== null && (
-                <div className="flex-shrink-0 text-right">
-                  <div className="text-pace-green font-mono font-bold text-sm">{r.speedKmh} km/h</div>
-                  <div className="text-xs text-zinc-500 mt-0.5">ball speed</div>
-                </div>
-              )}
+              <div className="mt-4 pt-4 border-t border-zinc-700/40">
+                <ReportActions reportId={r.id} playerId={player.id} hasPdf={!!r.sessionId} />
+              </div>
             </div>
           ))}
         </div>
