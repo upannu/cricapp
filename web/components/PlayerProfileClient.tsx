@@ -2,19 +2,21 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { fetchPlayer } from "@/lib/db";
-import { formatDate, getPlayerStatus } from "@/lib/utils";
+import { fetchPlayer, fetchAcademies } from "@/lib/db";
+import { formatDate, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
 import { PlayerMessages } from "@/components/PlayerMessages";
-import type { Player, PlayerStatus } from "@/lib/types";
+import type { Academy, Player, PlayerStatus } from "@/lib/types";
 
 export function PlayerProfileClient({ playerId }: { playerId: string }) {
   const [player, setPlayer] = useState<Player | null>(null);
+  const [academies, setAcademies] = useState<Academy[]>([]);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    fetchPlayer(playerId).then((p) => {
+    Promise.all([fetchPlayer(playerId), fetchAcademies()]).then(([p, a]) => {
       if (!p) setNotFound(true);
       else setPlayer(p);
+      setAcademies(a);
     });
   }, [playerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -238,7 +240,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           />
           <InfoRow label="Age group" value={player.ageGroup} />
           <InfoRow label="Club" value={player.club} />
-          <InfoRow label="Coach" value={player.coachAssigned} />
+          <InfoRow label="Coach" value={getCoachOrAcademyLabel(player, academies)} />
           <InfoRow
             label="Guardian consent"
             value={

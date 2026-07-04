@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { SessionPack, BookingType, Player, Academy, Booking, PaymentStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchBookings, upsertSessionPack, updatePackPaymentStatus, updatePackAgreedDays } from "@/lib/db";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
@@ -566,7 +566,7 @@ export function SessionPacksClient() {
                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
                       <span className="text-white font-bold text-sm">{player.name}</span>
                       <span className="text-zinc-500 text-xs">·</span>
-                      <span className="text-zinc-400 text-xs">{player.ageGroup} · {player.coachAssigned}</span>
+                      <span className="text-zinc-400 text-xs">{player.ageGroup} · {getCoachOrAcademyLabel(player, _packAcademies)}</span>
                     </div>
                     {pack ? (
                       <div className="flex items-center gap-2 flex-wrap">

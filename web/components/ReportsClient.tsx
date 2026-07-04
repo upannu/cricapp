@@ -2,10 +2,10 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import type { Report, ReportType, Player } from "@/lib/types";
+import type { Report, ReportType, Player, Academy } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchReports, fetchPlayers } from "@/lib/db";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { fetchReports, fetchPlayers, fetchAcademies } from "@/lib/db";
+import { formatDate, formatDateTime, getCoachOrAcademyLabel } from "@/lib/utils";
 import { ReportActions } from "@/components/ReportActions";
 
 const REPORT_TYPES: ReportType[] = ["Biomechanics", "Session Review", "Progress Report", "Action Plan"];
@@ -25,6 +25,7 @@ const TYPE_DOT: Record<ReportType, string> = {
 };
 
 let _reportPlayers: Player[] = [];
+let _reportAcademies: Academy[] = [];
 
 function playerById(id: string) {
   return _reportPlayers.find((p) => p.id === id);
@@ -60,9 +61,10 @@ export function ReportsClient() {
 
   useEffect(() => {
     const coachName = user?.role === "coach" ? user.name : undefined;
-    Promise.all([fetchReports(), fetchPlayers(coachName)]).then(([r, p]) => {
+    Promise.all([fetchReports(), fetchPlayers(coachName), fetchAcademies()]).then(([r, p, a]) => {
       setReports(r);
       _reportPlayers = p;
+      _reportAcademies = a;
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -104,7 +106,7 @@ export function ReportsClient() {
     }
     setPlayerFilter(p.id);
     setExpandedPlayer(p.id);
-    if (!isSingleCoachView) setExpandedCoach(p.coachAssigned || "Unassigned");
+    if (!isSingleCoachView) setExpandedCoach(getCoachOrAcademyLabel(p, _reportAcademies));
   }
 
   // ── Group by coach → player (collapsible, most recent activity first) ─────
@@ -127,7 +129,7 @@ export function ReportsClient() {
 
     const byCoach = new Map<string, PlayerGroup[]>();
     for (const pg of playerGroups) {
-      const coachName = pg.player.coachAssigned || "Unassigned";
+      const coachName = getCoachOrAcademyLabel(pg.player, _reportAcademies);
       const arr = byCoach.get(coachName) ?? [];
       arr.push(pg);
       byCoach.set(coachName, arr);

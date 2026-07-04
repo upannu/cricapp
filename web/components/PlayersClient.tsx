@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayers } from "@/lib/db";
-import { formatDate, getPlayerStatus, getInitials } from "@/lib/utils";
-import type { Player, PlayerStatus } from "@/lib/types";
+import { fetchPlayers, fetchAcademies } from "@/lib/db";
+import { formatDate, getPlayerStatus, getInitials, getCoachOrAcademyLabel } from "@/lib/utils";
+import type { Academy, Player, PlayerStatus } from "@/lib/types";
 import { MessageModal } from "@/components/MessageModal";
 import { BulkMessageModal } from "@/components/BulkMessageModal";
 
@@ -24,6 +24,7 @@ const planStyles: Record<string, string> = {
 export function PlayersClient() {
   const { user } = useAuth();
   const [players, setPlayers] = useState<Player[]>([]);
+  const [academies, setAcademies] = useState<Academy[]>([]);
   const [messagingPlayer, setMessagingPlayer] = useState<Player | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkMessaging, setBulkMessaging] = useState(false);
@@ -31,7 +32,10 @@ export function PlayersClient() {
   useEffect(() => {
     if (!user) return;
     const coachName = user.role === "coach" ? user.name : undefined;
-    fetchPlayers(coachName).then(setPlayers);
+    Promise.all([fetchPlayers(coachName), fetchAcademies()]).then(([p, a]) => {
+      setPlayers(p);
+      setAcademies(a);
+    });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active    = players.filter((p) => getPlayerStatus(p.subscription.endDate) === "Active").length;
@@ -182,7 +186,7 @@ export function PlayersClient() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-zinc-300 text-xs whitespace-nowrap">{player.coachAssigned}</td>
+                    <td className="px-4 py-4 text-zinc-300 text-xs whitespace-nowrap">{getCoachOrAcademyLabel(player, academies)}</td>
                     <td className="px-4 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${planStyles[player.subscription.plan] ?? planStyles["Free"]}`}>
                         {player.subscription.plan}

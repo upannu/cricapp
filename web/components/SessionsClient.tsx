@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import type { Session, SessionType, Player, Coach } from "@/lib/types";
+import type { Session, SessionType, Player, Coach, Academy } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports } from "@/lib/db";
-import { formatDate } from "@/lib/utils";
+import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies } from "@/lib/db";
+import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
 
 const SESSION_TYPES: SessionType[] = [
   "Net Session",
@@ -25,6 +25,7 @@ const TYPE_STYLES: Record<SessionType, string> = {
 
 let _sessPlayers: Player[] = [];
 let _sessCoaches: Coach[] = [];
+let _sessAcademies: Academy[] = [];
 function playerById(id: string) { return _sessPlayers.find((p) => p.id === id); }
 
 function thisWeekCount(sessions: Session[]): number {
@@ -107,9 +108,10 @@ export function SessionsClient() {
       fetchPlayers(coachName),
       fetchCoaches(),
       fetchReports(),
-    ]).then(([s, p, c, r]) => {
+      fetchAcademies(),
+    ]).then(([s, p, c, r, ac]) => {
       setSessions(s);
-      _sessPlayers = p; _sessCoaches = c;
+      _sessPlayers = p; _sessCoaches = c; _sessAcademies = ac;
       const alreadyReported: Record<string, "success"> = {};
       for (const report of r) {
         if (report.sessionId) alreadyReported[report.sessionId] = "success";
@@ -305,10 +307,12 @@ export function SessionsClient() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-zinc-400">
-                        {player?.coachAssigned && (
-                          <span className="text-zinc-500">👤 {player.coachAssigned}</span>
+                        {player && (
+                          <>
+                            <span className="text-zinc-500">👤 {getCoachOrAcademyLabel(player, _sessAcademies)}</span>
+                            <span className="text-zinc-700">·</span>
+                          </>
                         )}
-                        {player?.coachAssigned && <span className="text-zinc-700">·</span>}
                         <span className="truncate max-w-xs">{session.notes || "No notes"}</span>
                       </div>
                     </div>
