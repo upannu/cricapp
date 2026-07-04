@@ -1,19 +1,26 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, logout, refreshUser } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     if (!user) {
       router.replace("/login");
+      return;
     }
-  }, [user, router]);
+    // Player/Parent accounts only get the portal — everything else is coach/admin territory
+    const isPlayerOrParent = user.role === "player" || user.role === "parent";
+    if (isPlayerOrParent && !pathname.startsWith("/portal")) {
+      router.replace("/portal");
+    }
+  }, [user, router, pathname]);
 
   if (!user) {
     return (

@@ -6,11 +6,13 @@ import {
 import { createClient } from "@/lib/supabase";
 import type { AuthUser } from "./types";
 
+type SignupRole = "academy_admin" | "coach" | "player" | "parent";
+
 interface AuthContextValue {
   user: AuthUser | null;
   loaded: boolean;
   login: (email: string, password: string) => Promise<string | null>;
-  signup: (name: string, email: string, password: string, role: "academy_admin" | "coach") => Promise<{ error: string | null; needsConfirmation: boolean }>;
+  signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -35,6 +37,7 @@ function supabaseUserToAuthUser(sbUser: { id: string; email?: string; user_metad
     approved: meta.approved !== undefined ? (meta.approved as boolean) : true,
     academyId: meta.academy_id as string | undefined,
     coachId: meta.coach_id as string | undefined,
+    playerId: meta.player_id as string | undefined,
   };
 }
 
@@ -66,7 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     name: string,
     email: string,
     password: string,
-    role: "academy_admin" | "coach",
+    role: SignupRole,
+    playerLookupEmail?: string,
   ): Promise<{ error: string | null; needsConfirmation: boolean }> {
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -82,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email,
         role,
         requested_at: new Date().toISOString(),
+        player_lookup_email: playerLookupEmail || null,
       });
       // Fire-and-forget — don't block signup on email failure
       fetch("/api/notify-admin-signup", {

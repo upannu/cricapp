@@ -35,7 +35,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/forgot-password") ||
-    pathname.startsWith("/reset-password");
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/api/lookup-player");
 
   if (!user && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", request.url));

@@ -11,6 +11,9 @@ export interface DbPlayer {
   id: string; name: string; email: string; phone: string;
   bowling_style: string; age_group: string; club: string;
   coach_id: string | null; guardian_consent_status: string;
+  guardian_consent_confirmed_at?: string | null;
+  guardian_consent_confirmed_by?: string | null;
+  guardian_consent_confirmed_email?: string | null;
   added_date: string; sessions_count: number; last_active: string; xp: number;
   sub_plan: string; sub_start_date: string; sub_end_date: string;
   sub_sessions_used: number; sub_sessions_limit: number | null;
@@ -77,6 +80,9 @@ export function dbToPlayer(r: DbPlayer): Player {
     ageGroup: r.age_group as AgeGroup,
     club: r.club, coachId: r.coach_id ?? "",
     guardianConsentStatus: r.guardian_consent_status as GuardianConsent,
+    guardianConsentConfirmedAt: r.guardian_consent_confirmed_at ?? undefined,
+    guardianConsentConfirmedBy: r.guardian_consent_confirmed_by ?? undefined,
+    guardianConsentConfirmedEmail: r.guardian_consent_confirmed_email ?? undefined,
     addedDate: r.added_date, sessionsCount: r.sessions_count,
     lastActive: r.last_active, xp: r.xp,
     subscription: {
@@ -203,6 +209,12 @@ export async function reassignCoachPlayers(fromCoachId: string, toCoachId: strin
 export async function fetchPlayer(id: string): Promise<Player | null> {
   const sb = createClient();
   const { data } = await sb.from("players").select("*").eq("id", id).single();
+  return data ? dbToPlayer(data as DbPlayer) : null;
+}
+
+export async function fetchPlayerByEmail(email: string): Promise<Player | null> {
+  const sb = createClient();
+  const { data } = await sb.from("players").select("*").ilike("email", email).maybeSingle();
   return data ? dbToPlayer(data as DbPlayer) : null;
 }
 

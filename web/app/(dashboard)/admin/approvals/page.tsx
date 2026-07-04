@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { fetchAcademies } from "@/lib/db";
 import type { Academy } from "@/lib/types";
 
-type UserRole = "academy_admin" | "coach";
+type UserRole = "academy_admin" | "coach" | "player" | "parent";
 
 interface PendingRequest {
   id: string;
@@ -14,17 +14,24 @@ interface PendingRequest {
   email: string;
   role: UserRole;
   requested_at: string;
+  player_lookup_email: string | null;
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
   academy_admin: "Academy Admin",
   coach: "Coach",
+  player: "Player",
+  parent: "Parent / Guardian",
 };
 
 const ROLE_STYLES: Record<UserRole, string> = {
   academy_admin: "bg-blue-500/20 text-blue-400 border-blue-500/30",
   coach: "bg-pace-green/20 text-pace-green border-pace-green/30",
+  player: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  parent: "bg-fire/20 text-fire border-fire/30",
 };
+
+const NEEDS_PLAYER_LINK: UserRole[] = ["player", "parent"];
 
 export default function ApprovalsPage() {
   const { user } = useAuth();
@@ -168,6 +175,17 @@ export default function ApprovalsPage() {
                     </span>
                   </div>
                   <div className="text-zinc-400 text-xs">{req.email}</div>
+                  {NEEDS_PLAYER_LINK.includes(req.role) && (
+                    <div className="text-xs mt-0.5">
+                      {req.player_lookup_email ? (
+                        <span className="text-purple-400">
+                          🔗 Links to player: <span className="font-semibold">{req.player_lookup_email}</span>
+                        </span>
+                      ) : (
+                        <span className="text-red-400">⚠ No linked player email on this request</span>
+                      )}
+                    </div>
+                  )}
                   <div className="text-zinc-600 text-xs mt-0.5">Requested {date}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">

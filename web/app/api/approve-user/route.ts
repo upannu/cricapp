@@ -1,10 +1,25 @@
 import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
 export async function POST(request: Request) {
   const { userId, academyId } = await request.json();
   if (!userId) return NextResponse.json({ error: "userId required." }, { status: 400 });
+
+  // Only a platform admin may approve pending requests — the middleware only
+  // checks "is someone logged in", not their role.
+  const cookieStore = await cookies();
+  const authClient = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } },
+  );
+  const { data: { user: caller } } = await authClient.auth.getUser();
+  if (caller?.user_metadata?.role !== "platform_admin") {
+    return NextResponse.json({ error: "Only a platform admin can approve requests." }, { status: 403 });
+  }
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) return NextResponse.json({ error: "Not configured." }, { status: 500 });
@@ -18,12 +33,32 @@ export async function POST(request: Request) {
   // Get the request details so we can find the real auth user and send an email
   const { data: reqData, error: reqError } = await supabase
     .from("user_requests")
-    .select("email, name, role")
+    .select("email, name, role, player_lookup_email")
     .eq("id", userId)
     .single();
 
   if (reqError || !reqData) {
     return NextResponse.json({ error: "Request not found in queue." }, { status: 404 });
+  }
+
+  // Player/parent accounts must link to an existing player record
+  let linkedPlayerId: string | undefined;
+  if ((reqData.role === "player" || reqData.role === "parent")) {
+    if (!reqData.player_lookup_email) {
+      return NextResponse.json({ error: "This request has no linked player email." }, { status: 400 });
+    }
+    // Player emails aren't unique (e.g. a parent reusing one email for multiple kids),
+    // so don't use maybeSingle() — it errors out silently on multiple matches.
+    const { data: playerMatches } = await supabase
+      .from("players")
+      .select("id")
+      .ilike("email", reqData.player_lookup_email)
+      .limit(1);
+    const playerMatch = playerMatches?.[0];
+    if (!playerMatch) {
+      return NextResponse.json({ error: `No player found with email ${reqData.player_lookup_email}. Add the player first, then approve.` }, { status: 400 });
+    }
+    linkedPlayerId = playerMatch.id;
   }
 
   // Find the auth user by email — the stored ID can be a ghost UUID
@@ -38,9 +73,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No Supabase auth account found for this email. The request has been removed — ask the user to sign up again." }, { status: 404 });
   }
 
-  // Approve: set approved: true, confirm email, and optionally assign academy
+  // Approve: set approved: true, confirm email, and optionally assign academy / linked player
   const extraMeta: Record<string, unknown> = { approved: true };
   if (academyId) extraMeta.academy_id = academyId;
+  if (linkedPlayerId) extraMeta.player_id = linkedPlayerId;
 
   const { error: updateError } = await supabase.auth.admin.updateUserById(authUser.id, {
     user_metadata: extraMeta,
@@ -57,7 +93,12 @@ export async function POST(request: Request) {
   const appUrl    = process.env.NEXT_PUBLIC_APP_URL ?? "https://cricapp-drab.vercel.app";
 
   if (gmailUser && gmailPass) {
-    const roleLabel = reqData.role === "academy_admin" ? "Academy Admin" : "Coach";
+    const roleLabel = {
+      academy_admin: "Academy Admin",
+      coach: "Coach",
+      player: "Player",
+      parent: "Parent / Guardian",
+    }[reqData.role as string] ?? reqData.role;
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: { user: gmailUser, pass: gmailPass },

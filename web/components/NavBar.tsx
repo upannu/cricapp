@@ -20,12 +20,16 @@ const ROLE_LABELS: Record<UserRole, string> = {
   platform_admin: "Platform Admin",
   academy_admin:  "Academy Admin",
   coach:          "Coach",
+  player:         "Player",
+  parent:         "Parent / Guardian",
 };
 
 const ROLE_STYLES: Record<UserRole, string> = {
   platform_admin: "bg-amber/20 text-amber border-amber/30",
   academy_admin:  "bg-blue-500/20 text-blue-400 border-blue-500/30",
   coach:          "bg-pace-green/20 text-pace-green border-pace-green/30",
+  player:         "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  parent:         "bg-fire/20 text-fire border-fire/30",
 };
 
 export function NavBar() {
@@ -51,11 +55,13 @@ export function NavBar() {
     ? user.name.split(" ").map((n) => n[0]).join("")
     : "?";
 
+  const isPlayerOrParent = user?.role === "player" || user?.role === "parent";
+
   return (
     <header className="bg-surface border-b border-zinc-700/60 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-6 flex items-stretch h-16 gap-8">
         {/* Logo */}
-        <Link href="/players" className="flex items-center gap-2.5 mr-4">
+        <Link href={isPlayerOrParent ? "/portal" : "/players"} className="flex items-center gap-2.5 mr-4">
           <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
             <path
               d="M3 26 L9 17 L15 19.5 L21 9 L27 13"
@@ -73,7 +79,7 @@ export function NavBar() {
 
         {/* Nav items */}
         <nav className="flex items-stretch gap-1 flex-1">
-          {NAV_ALL.map((item) => {
+          {!isPlayerOrParent && NAV_ALL.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
               <Link

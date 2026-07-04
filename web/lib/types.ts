@@ -57,7 +57,7 @@ export interface Academy {
   ageFees: Partial<Record<AgeGroup, number>>;
 }
 
-export type UserRole = 'platform_admin' | 'academy_admin' | 'coach';
+export type UserRole = 'platform_admin' | 'academy_admin' | 'coach' | 'player' | 'parent';
 
 export interface AuthUser {
   id: string;
@@ -67,6 +67,7 @@ export interface AuthUser {
   approved: boolean;
   academyId?: string;
   coachId?: string;
+  playerId?: string;
 }
 
 export type PaymentStatus = 'Paid' | 'Pending' | 'Overdue';
@@ -187,6 +188,9 @@ export interface Player {
   club: string;
   coachId: string;
   guardianConsentStatus: GuardianConsent;
+  guardianConsentConfirmedAt?: string;
+  guardianConsentConfirmedBy?: string;
+  guardianConsentConfirmedEmail?: string;
   subscription: Subscription;
   biomechanics: BiomechanicsData;
   academy: AcademyProgress;

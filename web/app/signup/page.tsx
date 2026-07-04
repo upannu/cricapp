@@ -1,16 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 
-type Role = "academy_admin" | "coach";
+type Role = "academy_admin" | "coach" | "player" | "parent";
 
 const ROLE_OPTIONS: { value: Role; label: string; desc: string }[] = [
   { value: "academy_admin", label: "Academy Admin", desc: "Manage your academy, coaches & players" },
   { value: "coach", label: "Coach", desc: "Track your players' sessions & progress" },
+  { value: "player", label: "Player", desc: "View your own sessions, reports & progress" },
+  { value: "parent", label: "Parent / Guardian", desc: "View your child's progress & give consent" },
 ];
+
+const NEEDS_PLAYER_LOOKUP: Role[] = ["player", "parent"];
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -20,17 +24,47 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [playerEmail, setPlayerEmail] = useState("");
+  const [playerLookup, setPlayerLookup] = useState<{ email: string; status: "checking" | "found" | "not-found"; name?: string } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  // Only trust playerLookup if it was computed for the email currently in the field
+  const lookupForCurrentEmail = playerLookup?.email === playerEmail.trim() ? playerLookup : null;
+
+  useEffect(() => {
+    if (!NEEDS_PLAYER_LOOKUP.includes(role) || !playerEmail.trim()) return;
+    const email = playerEmail.trim();
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      if (cancelled) return;
+      setPlayerLookup({ email, status: "checking" });
+      try {
+        const res = await fetch(`/api/lookup-player?email=${encodeURIComponent(email)}`);
+        const data = await res.json();
+        if (!cancelled) setPlayerLookup(data.found ? { email, status: "found", name: data.playerName } : { email, status: "not-found" });
+      } catch {
+        if (!cancelled) setPlayerLookup({ email, status: "not-found" });
+      }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(handle); };
+  }, [playerEmail, role]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password !== confirm) { setError("Passwords do not match."); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (NEEDS_PLAYER_LOOKUP.includes(role) && lookupForCurrentEmail?.status !== "found") {
+      setError("Enter the player's registered email so we can link your account — ask your coach if you're not sure.");
+      return;
+    }
     setLoading(true);
     setError("");
-    const { error: err, needsConfirmation } = await signup(name.trim(), email.trim(), password, role);
+    const { error: err } = await signup(
+      name.trim(), email.trim(), password, role,
+      NEEDS_PLAYER_LOOKUP.includes(role) ? playerEmail.trim() : undefined,
+    );
     if (err) {
       setError(err);
       setLoading(false);
@@ -105,6 +139,31 @@ export default function SignUpPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {NEEDS_PLAYER_LOOKUP.includes(role) && (
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+                    {role === "parent" ? "Your Child's Registered Email" : "Your Registered Player Email"}
+                  </label>
+                  <input
+                    type="email"
+                    value={playerEmail}
+                    onChange={(e) => { setPlayerEmail(e.target.value); setError(""); }}
+                    className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                    placeholder="The email your coach has on file"
+                    required
+                  />
+                  {lookupForCurrentEmail?.status === "checking" && (
+                    <p className="text-zinc-500 text-xs mt-1.5">Checking…</p>
+                  )}
+                  {lookupForCurrentEmail?.status === "found" && (
+                    <p className="text-pace-green text-xs mt-1.5">✓ Found: {lookupForCurrentEmail.name}</p>
+                  )}
+                  {lookupForCurrentEmail?.status === "not-found" && (
+                    <p className="text-red-400 text-xs mt-1.5">No player found with this email — ask your coach to add the player first.</p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Full Name</label>
                 <input
