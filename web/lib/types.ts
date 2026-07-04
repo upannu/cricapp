@@ -162,6 +162,11 @@ export interface SessionVideo {
   angle: 'front' | 'side' | 'back';
   label: string;
   url?: string;
+  width?: number;
+  height?: number;
+  durationSec?: number;
+  fps?: number | null;
+  transcoded?: boolean;
 }
 
 export interface Session {

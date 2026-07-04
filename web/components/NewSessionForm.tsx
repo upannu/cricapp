@@ -6,6 +6,8 @@ import Link from "next/link";
 import type { Player, Session, SessionVideo } from "@/lib/types";
 import { insertSession } from "@/lib/db";
 import { createClient } from "@/lib/supabase";
+import { probeVideoQuality, MIN_LONG_EDGE_PX, MIN_SHORT_EDGE_PX, MIN_FPS, type VideoQualityResult } from "@/lib/video-quality";
+import { transcodeToH264 } from "@/lib/transcode";
 
 const SESSION_TYPES = [
   "Net Session",
@@ -38,7 +40,17 @@ const CAMERA_ANGLES = [
 ] as const;
 
 type AngleId = "front" | "side" | "back";
-type UploadStatus = "idle" | "uploading" | "done" | "error";
+type AngleStatus = "idle" | "checking" | "invalid" | "ready" | "transcoding" | "uploading" | "done" | "error";
+
+interface AngleState {
+  file: File | null;
+  status: AngleStatus;
+  quality?: VideoQualityResult;
+  error?: string;
+  progress?: number; // transcode progress, 0–1
+}
+
+const EMPTY_ANGLE: AngleState = { file: null, status: "idle" };
 
 export function NewSessionForm({ player }: { player: Player }) {
   const router = useRouter();
@@ -48,48 +60,97 @@ export function NewSessionForm({ player }: { player: Player }) {
   const [sessionDate, setSessionDate] = useState(today);
   const [sessionType, setSessionType] = useState<string>(SESSION_TYPES[0]);
   const [notes, setNotes]             = useState("");
-  const [files, setFiles]             = useState<Partial<Record<AngleId, File>>>({});
-  const [uploadStatus, setUploadStatus] = useState<Record<AngleId, UploadStatus>>({
-    front: "idle", side: "idle", back: "idle",
+  const [angles, setAngles] = useState<Record<AngleId, AngleState>>({
+    front: { ...EMPTY_ANGLE }, side: { ...EMPTY_ANGLE }, back: { ...EMPTY_ANGLE },
   });
   const [submitting, setSubmitting]   = useState(false);
   const [submitted,  setSubmitted]    = useState(false);
   const [submitError, setSubmitError] = useState("");
 
   const initials = player.name.split(" ").map((n) => n[0] ?? "").join("");
-  const uploadedCount = Object.keys(files).length;
-  const isUploading = Object.values(uploadStatus).some((s) => s === "uploading");
+  const selectedCount = Object.values(angles).filter((a) => a.file && a.status !== "invalid").length;
+  const isBusy = Object.values(angles).some((a) => a.status === "checking" || a.status === "transcoding" || a.status === "uploading");
+  const hasInvalid = Object.values(angles).some((a) => a.status === "invalid");
 
   function handleFileChange(angle: AngleId, file: File | null) {
-    setFiles((prev) => {
-      const next = { ...prev };
-      if (file) next[angle] = file;
-      else delete next[angle];
-      return next;
-    });
-    setUploadStatus((prev) => ({ ...prev, [angle]: "idle" }));
+    if (!file) {
+      setAngles((prev) => ({ ...prev, [angle]: { ...EMPTY_ANGLE } }));
+      return;
+    }
+
+    setAngles((prev) => ({ ...prev, [angle]: { file, status: "checking" } }));
+
+    probeVideoQuality(file)
+      .then((quality) => {
+        setAngles((prev) => {
+          if (prev[angle].file !== file) return prev; // user picked a different file while we were checking
+          // Resolution/fps are warnings, not blocks — coaches often receive
+          // footage via WhatsApp etc. which downscales aggressively regardless
+          // of source quality, so refusing it outright would reject real footage.
+          return { ...prev, [angle]: { file, status: "ready", quality } };
+        });
+      })
+      .catch((err) => {
+        // Only a genuinely unreadable file (corrupt / unsupported format) blocks —
+        // there's nothing to upload or transcode if the browser can't decode it at all.
+        setAngles((prev) => {
+          if (prev[angle].file !== file) return prev;
+          return { ...prev, [angle]: { file, status: "invalid", error: (err as { message?: string })?.message ?? "Could not read this video file." } };
+        });
+      });
+  }
+
+  function qualityWarning(quality: VideoQualityResult | undefined): string | null {
+    if (!quality) return null;
+    const warnings: string[] = [];
+    if (!quality.meetsResolution) {
+      warnings.push(`${quality.width}×${quality.height} is below the ${MIN_LONG_EDGE_PX}×${MIN_SHORT_EDGE_PX} (1080p) target`);
+    }
+    if (quality.meetsFps === false) {
+      warnings.push(`estimated ${quality.fps} fps is below the ${MIN_FPS}+ fps target`);
+    }
+    if (warnings.length === 0) return null;
+    return `⚠ ${warnings.join(" · ")} — AI analysis may be less accurate on this clip, but upload will proceed.`;
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (hasInvalid) { setSubmitError("Fix or remove the flagged video before saving."); return; }
+    if (Object.values(angles).some((a) => a.status === "checking")) { setSubmitError("Still checking video quality — please wait a moment."); return; }
+
     setSubmitting(true);
     setSubmitError("");
 
     const sessionId = `s_${Date.now()}`;
     const videos: SessionVideo[] = [];
 
-    // Upload each file directly to Supabase Storage via signed URL
     for (const { id: angle } of CAMERA_ANGLES) {
-      const file = files[angle];
+      const angleState = angles[angle];
+      const file = angleState.file;
       if (!file) continue;
 
-      setUploadStatus((prev) => ({ ...prev, [angle]: "uploading" }));
-
       try {
-        const ext  = file.name.split(".").pop() ?? "mp4";
+        // 1. Normalize to H.264 MP4 client-side — falls back to the original file
+        // if transcoding fails (e.g. out of memory on a low-end device), rather
+        // than blocking the whole session save.
+        setAngles((prev) => ({ ...prev, [angle]: { ...prev[angle], status: "transcoding", progress: 0 } }));
+        let uploadFile = file;
+        let transcoded = false;
+        try {
+          uploadFile = await transcodeToH264(file, (ratio) => {
+            setAngles((prev) => ({ ...prev, [angle]: { ...prev[angle], progress: ratio } }));
+          });
+          transcoded = true;
+        } catch (transcodeErr) {
+          console.warn(`Transcode failed for ${angle}, uploading original file instead`, transcodeErr);
+        }
+
+        // 2. Upload directly to Supabase Storage via signed URL — bypasses Vercel size limits
+        setAngles((prev) => ({ ...prev, [angle]: { ...prev[angle], status: "uploading" } }));
+        const ext  = transcoded ? "mp4" : (file.name.split(".").pop() ?? "mp4");
         const path = `${player.id}/${sessionId}/${angle}.${ext}`;
 
-        // 1. Get signed upload URL from server (uses service role key)
         const signRes  = await fetch("/api/storage/sign-upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -98,22 +159,26 @@ export function NewSessionForm({ player }: { player: Player }) {
         const signData = await signRes.json();
         if (signData.error) throw new Error(signData.error);
 
-        // 2. Upload directly to Supabase Storage — bypasses Vercel size limits
         const { error: uploadError } = await supabase.storage
           .from("session-videos")
-          .uploadToSignedUrl(path, signData.token, file, { contentType: file.type });
+          .uploadToSignedUrl(path, signData.token, uploadFile, { contentType: uploadFile.type });
         if (uploadError) throw uploadError;
 
-        // 3. Get permanent public URL
         const { data: { publicUrl } } = supabase.storage
           .from("session-videos")
           .getPublicUrl(path);
 
-        videos.push({ angle, label: file.name, url: publicUrl });
-        setUploadStatus((prev) => ({ ...prev, [angle]: "done" }));
+        const quality = angleState.quality;
+        videos.push({
+          angle, label: file.name, url: publicUrl,
+          width: quality?.width, height: quality?.height,
+          durationSec: quality?.durationSec, fps: quality?.fps ?? null,
+          transcoded,
+        });
+        setAngles((prev) => ({ ...prev, [angle]: { ...prev[angle], status: "done" } }));
       } catch (err) {
         const msg = (err as { message?: string })?.message ?? String(err);
-        setUploadStatus((prev) => ({ ...prev, [angle]: "error" }));
+        setAngles((prev) => ({ ...prev, [angle]: { ...prev[angle], status: "error" } }));
         setSubmitError(`Upload failed (${angle}): ${msg}`);
         setSubmitting(false);
         return;
@@ -213,42 +278,46 @@ export function NewSessionForm({ player }: { player: Player }) {
             <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Video Upload — 3 Angles
             </h2>
-            <span className="text-xs text-zinc-500">{uploadedCount}/3 selected</span>
+            <span className="text-xs text-zinc-500">{selectedCount}/3 selected</span>
           </div>
           <p className="text-xs text-zinc-500 mb-5">
-            Min. 60 fps · 1080p · MP4 · All 3 angles recommended for AI analysis
+            Target: {MIN_FPS}+ fps · {MIN_LONG_EDGE_PX}×{MIN_SHORT_EDGE_PX} (1080p) · MP4 · all 3 angles recommended for AI analysis.
+            Lower-quality clips (e.g. shared via WhatsApp) still upload — you&apos;ll just see a quality warning.
+            Every clip is normalized to H.264 MP4 in your browser before upload.
           </p>
 
           <div className="space-y-3">
             {CAMERA_ANGLES.map((cam) => {
-              const file   = files[cam.id];
-              const status = uploadStatus[cam.id];
+              const angleState = angles[cam.id];
+              const { file, status, quality, error, progress } = angleState;
               const hasFile = !!file;
+              const busy = status === "checking" || status === "transcoding" || status === "uploading";
 
               return (
                 <div
                   key={cam.id}
                   className={`rounded-xl border transition-colors ${
-                    status === "done"  ? "border-pace-green/40 bg-pace-green/5" :
-                    status === "error" ? "border-red-500/40 bg-red-500/5" :
-                    hasFile            ? "border-zinc-500 bg-zinc-800/40" :
-                                         "border-zinc-700"
+                    status === "done"    ? "border-pace-green/40 bg-pace-green/5" :
+                    status === "error"   ? "border-red-500/40 bg-red-500/5" :
+                    status === "invalid" ? "border-red-500/40 bg-red-500/5" :
+                    hasFile              ? "border-zinc-500 bg-zinc-800/40" :
+                                           "border-zinc-700"
                   }`}
                 >
                   <div className="flex items-center gap-4 p-4">
                     {/* Status icon */}
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      status === "done"      ? "bg-pace-green/20" :
-                      status === "error"     ? "bg-red-500/20" :
-                      status === "uploading" ? "bg-zinc-700" :
-                      hasFile                ? "bg-zinc-700" :
-                                               "bg-ink"
+                      status === "done"                              ? "bg-pace-green/20" :
+                      status === "error" || status === "invalid"     ? "bg-red-500/20" :
+                      busy                                           ? "bg-zinc-700" :
+                      hasFile                                        ? "bg-zinc-700" :
+                                                                       "bg-ink"
                     }`}>
-                      {status === "uploading" ? (
+                      {busy ? (
                         <div className="w-4 h-4 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
                       ) : status === "done" ? (
                         <span className="text-pace-green text-sm font-bold">✓</span>
-                      ) : status === "error" ? (
+                      ) : status === "error" || status === "invalid" ? (
                         <span className="text-red-400 text-sm font-bold">✗</span>
                       ) : (
                         <span className="text-zinc-500">{cam.icon}</span>
@@ -258,26 +327,44 @@ export function NewSessionForm({ player }: { player: Player }) {
                     {/* Label + file name */}
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-semibold ${
-                        status === "done"  ? "text-pace-green" :
-                        status === "error" ? "text-red-400" :
-                        hasFile            ? "text-white" :
-                                             "text-zinc-400"
+                        status === "done"                          ? "text-pace-green" :
+                        status === "error" || status === "invalid" ? "text-red-400" :
+                        hasFile                                    ? "text-white" :
+                                                                     "text-zinc-400"
                       }`}>
                         {cam.label}
                       </p>
                       {file ? (
-                        <p className="text-xs text-zinc-500 truncate">
-                          {file.name} · {(file.size / (1024 * 1024)).toFixed(1)} MB
-                          {status === "uploading" && " · Uploading…"}
-                          {status === "done"      && " · Uploaded"}
-                        </p>
+                        <>
+                          <p className="text-xs text-zinc-500 truncate">
+                            {file.name} · {(file.size / (1024 * 1024)).toFixed(1)} MB
+                            {status === "checking"    && " · Checking quality…"}
+                            {status === "transcoding" && ` · Converting… ${Math.round((progress ?? 0) * 100)}%`}
+                            {status === "uploading"   && " · Uploading…"}
+                            {status === "done"        && " · Uploaded"}
+                          </p>
+                          {status === "invalid" && error && (
+                            <p className="text-xs text-red-400 mt-0.5">{error}</p>
+                          )}
+                          {(status === "ready" || status === "done") && qualityWarning(quality) && (
+                            <p className="text-xs text-amber mt-0.5">{qualityWarning(quality)}</p>
+                          )}
+                          {status === "transcoding" && (
+                            <div className="h-1 bg-zinc-700 rounded-full mt-1.5 overflow-hidden">
+                              <div
+                                className="h-full bg-pace-green transition-all"
+                                style={{ width: `${Math.round((progress ?? 0) * 100)}%` }}
+                              />
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <p className="text-xs text-zinc-600">{cam.description}</p>
                       )}
                     </div>
 
-                    {/* Buttons — hidden while uploading */}
-                    {status !== "uploading" && status !== "done" && (
+                    {/* Buttons — hidden while busy or done */}
+                    {!busy && status !== "done" && (
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <label className={`text-xs font-semibold px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
                           hasFile
@@ -309,12 +396,12 @@ export function NewSessionForm({ player }: { player: Player }) {
             })}
           </div>
 
-          {uploadedCount > 0 && uploadedCount < 3 && (
+          {selectedCount > 0 && selectedCount < 3 && (
             <p className="text-xs text-amber mt-3">
               ⚠ Upload all 3 angles for full AI biomechanics analysis
             </p>
           )}
-          {uploadedCount === 3 && !submitting && (
+          {selectedCount === 3 && !submitting && (
             <p className="text-xs text-pace-green mt-3">
               ✓ All 3 angles selected — will upload on save
             </p>
@@ -332,7 +419,7 @@ export function NewSessionForm({ player }: { player: Player }) {
         <div className="flex items-center gap-3 pt-2">
           <button
             type="submit"
-            disabled={submitting || submitted || isUploading}
+            disabled={submitting || submitted || isBusy || hasInvalid}
             className={`px-6 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer ${
               submitted
                 ? "bg-pace-green/60 text-black"
@@ -342,7 +429,7 @@ export function NewSessionForm({ player }: { player: Player }) {
             }`}
           >
             {submitted ? "✓ Session Saved" : submitting ? (
-              uploadedCount > 0 ? `Uploading videos…` : "Saving…"
+              selectedCount > 0 ? `Processing videos…` : "Saving…"
             ) : "Save Session"}
           </button>
           <Link

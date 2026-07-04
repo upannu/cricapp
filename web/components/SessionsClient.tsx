@@ -410,6 +410,15 @@ export function SessionsClient() {
                                         {vid.label}
                                       </div>
                                     )}
+                                    {vid && (vid.width || vid.fps != null || vid.transcoded !== undefined) && (
+                                      <div className="text-[10px] text-zinc-500 truncate max-w-36 mt-0.5">
+                                        {[
+                                          vid.width && vid.height ? `${vid.width}×${vid.height}` : null,
+                                          vid.fps != null ? `${vid.fps}fps` : null,
+                                          vid.transcoded === true ? "Normalized ✓" : vid.transcoded === false ? "Original file" : null,
+                                        ].filter(Boolean).join(" · ")}
+                                      </div>
+                                    )}
                                   </div>
                                   {vid?.url && (
                                     <a

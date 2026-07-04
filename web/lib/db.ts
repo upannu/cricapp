@@ -47,7 +47,12 @@ export interface DbBooking {
 
 export interface DbSession {
   id: string; player_id: string; date: string; type: string;
-  notes: string; videos: Array<{ angle: string; label: string; url?: string }>;
+  notes: string;
+  videos: Array<{
+    angle: string; label: string; url?: string;
+    width?: number; height?: number; durationSec?: number;
+    fps?: number | null; transcoded?: boolean;
+  }>;
   ball_speed_kmh: number | null; front_knee_angle_deg: number | null;
   xp_earned: number; booking_id?: string | null;
 }
