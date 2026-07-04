@@ -111,6 +111,7 @@ export interface Report {
   tags: string[];
   highlight?: string;
   sessionId?: string;
+  sessionDate?: string;
 }
 
 export type CoachStatus = 'Active' | 'Inactive';

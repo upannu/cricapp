@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Report, ReportType, Player } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchReports, fetchPlayers } from "@/lib/db";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { ReportActions } from "@/components/ReportActions";
 
 const REPORT_TYPES: ReportType[] = ["Biomechanics", "Session Review", "Progress Report", "Action Plan"];
@@ -34,13 +34,29 @@ function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("");
 }
 
+function reportSortKey(r: Report): string {
+  return r.sessionDate ?? r.date;
+}
+
+interface PlayerGroup {
+  player: Player;
+  reports: Report[];
+}
+
+interface CoachGroup {
+  coachName: string;
+  groups: PlayerGroup[];
+}
+
 export function ReportsClient() {
   const { user } = useAuth();
   const [reports, setReports] = useState<Report[]>([]);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<ReportType | "All">("All");
   const [playerFilter, setPlayerFilter] = useState<string>("all");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
+  const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
+  const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
 
   useEffect(() => {
     const coachName = user?.role === "coach" ? user.name : undefined;
@@ -51,6 +67,8 @@ export function ReportsClient() {
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const players = useMemo(() => _reportPlayers, [reports]);
+
+  const isSingleCoachView = user?.role === "coach";
 
   // ── Derived stats ─────────────────────────────────────────────────────────
   const thisMonth = new Date().toISOString().slice(0, 7);
@@ -65,7 +83,7 @@ export function ReportsClient() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return [...reports]
-      .sort((a, b) => b.date.localeCompare(a.date))
+      .sort((a, b) => reportSortKey(b).localeCompare(reportSortKey(a)))
       .filter((r) => {
         if (typeFilter !== "All" && r.type !== typeFilter) return false;
         if (playerFilter !== "all" && r.playerId !== playerFilter) return false;
@@ -78,22 +96,46 @@ export function ReportsClient() {
       });
   }, [search, typeFilter, playerFilter, reports]);
 
-  // ── Group by month ────────────────────────────────────────────────────────
-  const grouped = useMemo(() => {
-    const map = new Map<string, Report[]>();
-    for (const r of filtered) {
-      const key = r.date.slice(0, 7);
-      const arr = map.get(key) ?? [];
-      arr.push(r);
-      map.set(key, arr);
+  // Selecting a player from the quick-filter also expands its coach/player group
+  function selectPlayerFilter(p: Player) {
+    if (playerFilter === p.id) {
+      setPlayerFilter("all");
+      return;
     }
-    return Array.from(map.entries()).sort(([a], [b]) => b.localeCompare(a));
-  }, [filtered]);
-
-  function monthLabel(ym: string) {
-    const [y, m] = ym.split("-");
-    return new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+    setPlayerFilter(p.id);
+    setExpandedPlayer(p.id);
+    if (!isSingleCoachView) setExpandedCoach(p.coachAssigned || "Unassigned");
   }
+
+  // ── Group by coach → player (collapsible, most recent activity first) ─────
+  const coachGroups: CoachGroup[] = useMemo(() => {
+    const byPlayer = new Map<string, Report[]>();
+    for (const r of filtered) {
+      const arr = byPlayer.get(r.playerId) ?? [];
+      arr.push(r);
+      byPlayer.set(r.playerId, arr);
+    }
+
+    const playerGroups: PlayerGroup[] = players
+      .filter((p) => byPlayer.has(p.id))
+      .map((p) => ({ player: p, reports: byPlayer.get(p.id)! }))
+      .sort((a, b) => reportSortKey(b.reports[0]).localeCompare(reportSortKey(a.reports[0])));
+
+    if (isSingleCoachView) {
+      return playerGroups.length ? [{ coachName: user?.name ?? "Me", groups: playerGroups }] : [];
+    }
+
+    const byCoach = new Map<string, PlayerGroup[]>();
+    for (const pg of playerGroups) {
+      const coachName = pg.player.coachAssigned || "Unassigned";
+      const arr = byCoach.get(coachName) ?? [];
+      arr.push(pg);
+      byCoach.set(coachName, arr);
+    }
+    return Array.from(byCoach.entries())
+      .map(([coachName, groups]) => ({ coachName, groups }))
+      .sort((a, b) => reportSortKey(b.groups[0].reports[0]).localeCompare(reportSortKey(a.groups[0].reports[0])));
+  }, [filtered, players, isSingleCoachView, user]);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -133,7 +175,7 @@ export function ReportsClient() {
             <button
               key={p.id}
               type="button"
-              onClick={() => setPlayerFilter(playerFilter === p.id ? "all" : p.id)}
+              onClick={() => selectPlayerFilter(p)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
                 playerFilter === p.id
                   ? "bg-pace-green text-black"
@@ -193,7 +235,7 @@ export function ReportsClient() {
         {playerFilter !== "all" ? ` · ${playerById(playerFilter)?.name}` : ""}
       </p>
 
-      {/* Report list */}
+      {/* Report list — collapsible by coach → player */}
       {filtered.length === 0 ? (
         <div className="bg-surface rounded-2xl p-16 text-center">
           <p className="text-zinc-400 text-sm">No reports match your filters.</p>
@@ -203,151 +245,87 @@ export function ReportsClient() {
           </button>
         </div>
       ) : (
-        <div className="space-y-8">
-          {grouped.map(([ym, rpts]) => (
-            <div key={ym}>
-              <div className="flex items-center gap-3 mb-4">
-                <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">{monthLabel(ym)}</span>
-                <div className="flex-1 h-px bg-zinc-800" />
-                <span className="text-xs text-zinc-600">{rpts.length}</span>
-              </div>
+        <div className="space-y-3">
+          {coachGroups.map((group) => {
+            const isCoachOpen = isSingleCoachView || expandedCoach === group.coachName;
+            const totalReports = group.groups.reduce((s, g) => s + g.reports.length, 0);
 
-              <div className="space-y-3">
-                {rpts.map((r) => {
-                  const player = playerById(r.playerId);
-                  const isOpen = expandedId === r.id;
+            return (
+              <div
+                key={group.coachName}
+                className={`bg-surface rounded-2xl border transition-colors ${
+                  isCoachOpen ? "border-zinc-600" : "border-transparent hover:border-zinc-800"
+                }`}
+              >
+                {!isSingleCoachView && (
+                  <button
+                    type="button"
+                    onClick={() => setExpandedCoach(isCoachOpen ? null : group.coachName)}
+                    className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer select-none"
+                  >
+                    <svg className={`text-zinc-500 flex-shrink-0 transition-transform duration-200 ${isCoachOpen ? "rotate-90" : ""}`}
+                      width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <path d="m9 18 6-6-6-6" />
+                    </svg>
+                    <span className="flex-1 text-white font-bold text-sm">👤 {group.coachName}</span>
+                    <span className="text-xs text-zinc-500">
+                      {group.groups.length} player{group.groups.length !== 1 ? "s" : ""} · {totalReports} report{totalReports !== 1 ? "s" : ""}
+                    </span>
+                  </button>
+                )}
 
-                  return (
-                    <div
-                      key={r.id}
-                      className={`bg-surface rounded-2xl border transition-colors ${
-                        isOpen ? "border-zinc-600" : "border-transparent hover:border-zinc-800"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => setExpandedId(isOpen ? null : r.id)}
-                        className="w-full text-left p-5 cursor-pointer"
-                      >
-                        <div className="flex items-start gap-4">
-                          <div className="w-9 h-9 rounded-full bg-pace-green/15 flex items-center justify-center text-pace-green text-xs font-bold flex-shrink-0 mt-0.5">
-                            {player ? initials(player.name) : "?"}
-                          </div>
+                {isCoachOpen && (
+                  <div className={isSingleCoachView ? "px-2 pb-2 pt-2 space-y-2" : "px-5 pb-4 space-y-2"}>
+                    {group.groups.map(({ player, reports: pReports }) => {
+                      const isPlayerOpen = expandedPlayer === player.id;
 
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <span className="text-white font-semibold text-sm">
-                                {player?.name ?? "Unknown"}
-                              </span>
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${TYPE_STYLES[r.type]}`}>
-                                <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${TYPE_DOT[r.type]}`} />
-                                {r.type}
-                              </span>
-                              <span className="text-zinc-500 text-xs">{formatDate(r.date)}</span>
+                      return (
+                        <div
+                          key={player.id}
+                          className={`bg-ink rounded-xl border transition-colors ${
+                            isPlayerOpen ? "border-zinc-600" : "border-transparent hover:border-zinc-700"
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setExpandedPlayer(isPlayerOpen ? null : player.id)}
+                            className="w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer select-none"
+                          >
+                            <svg className={`text-zinc-500 flex-shrink-0 transition-transform duration-200 ${isPlayerOpen ? "rotate-90" : ""}`}
+                              width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <path d="m9 18 6-6-6-6" />
+                            </svg>
+                            <div className="w-7 h-7 rounded-full bg-pace-green/15 flex items-center justify-center text-pace-green text-[10px] font-bold flex-shrink-0">
+                              {initials(player.name)}
                             </div>
+                            <span className="flex-1 text-white font-semibold text-sm">{player.name}</span>
+                            <span className="text-xs text-zinc-500">
+                              {pReports.length} report{pReports.length !== 1 ? "s" : ""}
+                            </span>
+                          </button>
 
-                            <p className="text-zinc-300 text-sm leading-relaxed line-clamp-2 mb-2">
-                              {r.summary}
-                            </p>
-
-                            <div className="flex flex-wrap gap-1.5">
-                              {r.tags.map((t) => (
-                                <span key={t} className="px-2 py-0.5 rounded-md text-xs bg-ink text-zinc-500 border border-zinc-700/50">
-                                  {t}
-                                </span>
+                          {isPlayerOpen && (
+                            <div className="px-4 pb-4 space-y-3">
+                              {pReports.map((r) => (
+                                <ReportCard
+                                  key={r.id}
+                                  report={r}
+                                  player={player}
+                                  isOpen={expandedReportId === r.id}
+                                  onToggle={() => setExpandedReportId(expandedReportId === r.id ? null : r.id)}
+                                  onDeleted={(id) => setReports((prev) => prev.filter((rep) => rep.id !== id))}
+                                />
                               ))}
-                            </div>
-
-                            {r.highlight && (
-                              <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber font-semibold">
-                                <span className="w-1 h-1 rounded-full bg-amber" />
-                                {r.highlight}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex-shrink-0 text-right ml-2">
-                            {r.speedKmh !== null ? (
-                              <>
-                                <div className="text-pace-green font-mono font-bold text-sm">{r.speedKmh}</div>
-                                <div className="text-zinc-600 text-xs">km/h</div>
-                              </>
-                            ) : (
-                              <div className="text-zinc-600 text-xs mt-1">—</div>
-                            )}
-                            <span className={`text-zinc-400 text-sm transition-transform duration-200 inline-block mt-2 ${isOpen ? "rotate-180" : ""}`}>▾</span>
-                          </div>
-                        </div>
-                      </button>
-
-                      {isOpen && (
-                        <div className="px-5 pb-5 border-t border-zinc-700/40 pt-4">
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                            <div className="sm:col-span-2 bg-ink rounded-xl p-4">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Full Analysis</p>
-                              <p className="text-sm text-zinc-300 leading-relaxed">{r.summary}</p>
-                            </div>
-
-                            <div className="bg-ink rounded-xl p-4 space-y-3">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Metrics</p>
-                              <div>
-                                <div className="text-xs text-zinc-500 mb-0.5">Ball Speed</div>
-                                <div className={`text-lg font-bold font-mono ${r.speedKmh !== null ? "text-pace-green" : "text-zinc-600"}`}>
-                                  {r.speedKmh !== null ? `${r.speedKmh} km/h` : "—"}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-xs text-zinc-500 mb-0.5">Front Knee Angle</div>
-                                <div className={`text-lg font-bold font-mono ${r.frontKneeAngleDeg !== null ? "text-blue-400" : "text-zinc-600"}`}>
-                                  {r.frontKneeAngleDeg !== null ? `${r.frontKneeAngleDeg}°` : "—"}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-xs text-zinc-500 mb-0.5">Player</div>
-                                <div className="text-sm text-white font-medium">{player?.name ?? "—"}</div>
-                                <div className="text-xs text-zinc-500">{player?.ageGroup} · {player?.club}</div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-3">
-                            {player && (
-                              <Link href={`/players/${player.id}`}
-                                className="px-4 py-2 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
-                                View Player
-                              </Link>
-                            )}
-                            {player && (
-                              <Link href={`/players/${player.id}/reports`}
-                                className="px-4 py-2 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
-                                All Reports for {player.name.split(" ")[0]}
-                              </Link>
-                            )}
-                            {player && (
-                              <Link href={`/players/${player.id}/action-plans`}
-                                className="px-4 py-2 text-xs font-semibold bg-pace-green/10 text-pace-green border border-pace-green/30 rounded-lg hover:bg-pace-green/20 transition-colors">
-                                Action Plans
-                              </Link>
-                            )}
-                          </div>
-                          {player && (
-                            <div className="mt-3 pt-3 border-t border-zinc-700/40">
-                              <ReportActions
-                                reportId={r.id}
-                                playerId={player.id}
-                                hasPdf={!!r.sessionId}
-                                onDeleted={(id) => setReports((prev) => prev.filter((rep) => rep.id !== id))}
-                              />
                             </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -404,6 +382,137 @@ export function ReportsClient() {
           </table>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ReportCard({
+  report: r,
+  player,
+  isOpen,
+  onToggle,
+  onDeleted,
+}: {
+  report: Report;
+  player: Player;
+  isOpen: boolean;
+  onToggle: () => void;
+  onDeleted: (id: string) => void;
+}) {
+  return (
+    <div
+      className={`bg-surface rounded-2xl border transition-colors ${
+        isOpen ? "border-zinc-600" : "border-transparent hover:border-zinc-800"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full text-left p-5 cursor-pointer"
+      >
+        {r.sessionDate && (
+          <div className="mb-2 text-xs font-semibold text-white">
+            🏏 Session: {formatDateTime(r.sessionDate)}
+          </div>
+        )}
+        <div className="flex items-start gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${TYPE_STYLES[r.type]}`}>
+                <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${TYPE_DOT[r.type]}`} />
+                {r.type}
+              </span>
+              <span className="text-zinc-500 text-xs">Report: {formatDate(r.date)}</span>
+            </div>
+
+            <p className="text-zinc-300 text-sm leading-relaxed line-clamp-2 mb-2">
+              {r.summary}
+            </p>
+
+            <div className="flex flex-wrap gap-1.5">
+              {r.tags.map((t) => (
+                <span key={t} className="px-2 py-0.5 rounded-md text-xs bg-ink text-zinc-500 border border-zinc-700/50">
+                  {t}
+                </span>
+              ))}
+            </div>
+
+            {r.highlight && (
+              <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-amber font-semibold">
+                <span className="w-1 h-1 rounded-full bg-amber" />
+                {r.highlight}
+              </div>
+            )}
+          </div>
+
+          <div className="flex-shrink-0 text-right ml-2">
+            {r.speedKmh !== null ? (
+              <>
+                <div className="text-pace-green font-mono font-bold text-sm">{r.speedKmh}</div>
+                <div className="text-zinc-600 text-xs">km/h</div>
+              </>
+            ) : (
+              <div className="text-zinc-600 text-xs mt-1">—</div>
+            )}
+            <span className={`text-zinc-400 text-sm transition-transform duration-200 inline-block mt-2 ${isOpen ? "rotate-180" : ""}`}>▾</span>
+          </div>
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="px-5 pb-5 border-t border-zinc-700/40 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div className="sm:col-span-2 bg-ink rounded-xl p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Full Analysis</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{r.summary}</p>
+            </div>
+
+            <div className="bg-ink rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Metrics</p>
+              <div>
+                <div className="text-xs text-zinc-500 mb-0.5">Ball Speed</div>
+                <div className={`text-lg font-bold font-mono ${r.speedKmh !== null ? "text-pace-green" : "text-zinc-600"}`}>
+                  {r.speedKmh !== null ? `${r.speedKmh} km/h` : "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-500 mb-0.5">Front Knee Angle</div>
+                <div className={`text-lg font-bold font-mono ${r.frontKneeAngleDeg !== null ? "text-blue-400" : "text-zinc-600"}`}>
+                  {r.frontKneeAngleDeg !== null ? `${r.frontKneeAngleDeg}°` : "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-zinc-500 mb-0.5">Player</div>
+                <div className="text-sm text-white font-medium">{player.name}</div>
+                <div className="text-xs text-zinc-500">{player.ageGroup} · {player.club}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href={`/players/${player.id}`}
+              className="px-4 py-2 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
+              View Player
+            </Link>
+            <Link href={`/players/${player.id}/reports`}
+              className="px-4 py-2 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
+              All Reports for {player.name.split(" ")[0]}
+            </Link>
+            <Link href={`/players/${player.id}/action-plans`}
+              className="px-4 py-2 text-xs font-semibold bg-pace-green/10 text-pace-green border border-pace-green/30 rounded-lg hover:bg-pace-green/20 transition-colors">
+              Action Plans
+            </Link>
+          </div>
+          <div className="mt-3 pt-3 border-t border-zinc-700/40">
+            <ReportActions
+              reportId={r.id}
+              playerId={player.id}
+              hasPdf={!!r.sessionId}
+              onDeleted={onDeleted}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

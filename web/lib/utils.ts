@@ -25,3 +25,10 @@ export function getInitials(name: string): string {
 export function getReportPdfUrl(playerId: string, reportId: string): string {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/session-reports/${playerId}/${reportId}.pdf`;
 }
+
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const timePart = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart} at ${timePart}`;
+}

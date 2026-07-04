@@ -89,6 +89,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Player not found." }, { status: 404 });
   }
 
+  let sessionDate: string | null = null;
+  if (sessionId) {
+    const { data: sessionRow } = await supabase
+      .from("sessions")
+      .select("created_at")
+      .eq("id", sessionId)
+      .single();
+    sessionDate = sessionRow?.created_at ?? null;
+  }
+
   // 1. Analyze frames with Claude Vision
   let analysis: AiReportResult;
   try {
@@ -145,6 +155,7 @@ export async function POST(request: Request) {
     tags: analysis.tags,
     highlight: analysis.highlight,
     session_id: sessionId ?? null,
+    session_date: sessionDate,
   });
   if (insertError) {
     return NextResponse.json({ error: `Failed to save report: ${insertError.message}` }, { status: 500 });
@@ -154,8 +165,8 @@ export async function POST(request: Request) {
   const pdfBytes = await buildReportPdf({
     playerName: player.name,
     date: today,
+    sessionDate,
     analysis,
-    sessionId,
   });
 
   // 4. Upload PDF to storage
@@ -188,6 +199,7 @@ export async function POST(request: Request) {
           `Hi ${player.name},`,
           ``,
           `Your AI-generated bowling biomechanics report is ready.`,
+          sessionDate ? `Session: ${formatSessionDateTime(sessionDate)}` : ``,
           ``,
           analysis.summary,
           ``,
@@ -208,13 +220,20 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true, report: { id: reportId, ...analysis }, pdfUrl });
 }
 
+function formatSessionDateTime(iso: string): string {
+  const d = new Date(iso);
+  const datePart = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const timePart = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return `${datePart} at ${timePart}`;
+}
+
 async function buildReportPdf(opts: {
   playerName: string;
   date: string;
+  sessionDate: string | null;
   analysis: AiReportResult;
-  sessionId?: string;
 }): Promise<Uint8Array> {
-  const { playerName, date, analysis } = opts;
+  const { playerName, date, sessionDate, analysis } = opts;
   const doc = await PDFDocument.create();
   const page = doc.addPage([595, 842]); // A4
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -232,7 +251,11 @@ async function buildReportPdf(opts: {
 
   page.drawText(`Player: ${playerName}`, { x: 50, y, size: 12, font: bold, color: dark });
   y -= 18;
-  page.drawText(`Date: ${date}`, { x: 50, y, size: 11, font, color: gray });
+  if (sessionDate) {
+    page.drawText(`Session: ${formatSessionDateTime(sessionDate)}`, { x: 50, y, size: 11, font, color: gray });
+    y -= 16;
+  }
+  page.drawText(`Report generated: ${date}`, { x: 50, y, size: 11, font, color: gray });
   y -= 40;
 
   const metrics: [string, string][] = [

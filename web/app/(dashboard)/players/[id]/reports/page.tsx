@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchPlayerServer, fetchReportsServer } from "@/lib/supabase-server";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { ReportActions } from "@/components/ReportActions";
 
 const TYPE_STYLES: Record<string, string> = {
@@ -24,6 +24,11 @@ export default async function PlayerReportsPage({
   if (!player) notFound();
 
   const initials = player.name.split(" ").map((n: string) => n[0] ?? "").join("");
+  const sortedReports = [...reports].sort((a, b) => {
+    const aKey = a.sessionDate ?? a.date;
+    const bKey = b.sessionDate ?? b.date;
+    return bKey.localeCompare(aKey);
+  });
   const speedReports = reports.filter((r) => r.speedKmh !== null);
   const peakSpeed = speedReports.length
     ? Math.max(...speedReports.map((r) => r.speedKmh ?? 0)).toFixed(1)
@@ -77,18 +82,23 @@ export default async function PlayerReportsPage({
         </div>
       ) : (
         <div className="space-y-3">
-          {reports.map((r) => (
+          {sortedReports.map((r) => (
             <div
               key={r.id}
               className="bg-surface rounded-2xl p-5"
             >
+              {r.sessionDate && (
+                <div className="mb-2 text-xs font-semibold text-white">
+                  🏏 Session: {formatDateTime(r.sessionDate)}
+                </div>
+              )}
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-1.5">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES[r.type] ?? "bg-zinc-700 text-zinc-300"}`}>
                       {r.type}
                     </span>
-                    <span className="text-zinc-400 text-xs">{formatDate(r.date)}</span>
+                    <span className="text-zinc-400 text-xs">Report: {formatDate(r.date)}</span>
                     {r.tags.map((t) => (
                       <span
                         key={t}
