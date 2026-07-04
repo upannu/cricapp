@@ -10,7 +10,7 @@ import type {
 export interface DbPlayer {
   id: string; name: string; email: string; phone: string;
   bowling_style: string; age_group: string; club: string;
-  coach_assigned: string; guardian_consent_status: string;
+  coach_id: string | null; guardian_consent_status: string;
   added_date: string; sessions_count: number; last_active: string; xp: number;
   sub_plan: string; sub_start_date: string; sub_end_date: string;
   sub_sessions_used: number; sub_sessions_limit: number | null;
@@ -39,14 +39,14 @@ export interface DbAcademy {
 export interface DbBooking {
   id: string; player_id: string; coach_id: string; date: string;
   time: string; duration_mins: number; type: string; status: string;
-  location: string; notes: string; fee_aud: number;
+  location: string; notes: string; fee_aud: number; pack_id?: string | null;
 }
 
 export interface DbSession {
   id: string; player_id: string; date: string; type: string;
   notes: string; videos: Array<{ angle: string; label: string; url?: string }>;
   ball_speed_kmh: number | null; front_knee_angle_deg: number | null;
-  xp_earned: number;
+  xp_earned: number; booking_id?: string | null;
 }
 
 export interface DbSessionPack {
@@ -75,7 +75,7 @@ export function dbToPlayer(r: DbPlayer): Player {
     id: r.id, name: r.name, email: r.email, phone: r.phone,
     bowlingStyle: r.bowling_style as BowlingStyle,
     ageGroup: r.age_group as AgeGroup,
-    club: r.club, coachAssigned: r.coach_assigned,
+    club: r.club, coachId: r.coach_id ?? "",
     guardianConsentStatus: r.guardian_consent_status as GuardianConsent,
     addedDate: r.added_date, sessionsCount: r.sessions_count,
     lastActive: r.last_active, xp: r.xp,
@@ -135,6 +135,7 @@ export function dbToBooking(r: DbBooking): Booking {
     date: r.date, time: r.time, durationMins: r.duration_mins,
     type: r.type as BookingType, status: r.status as BookingStatus,
     location: r.location, notes: r.notes, feeAud: r.fee_aud,
+    packId: r.pack_id ?? undefined,
   };
 }
 
@@ -145,6 +146,7 @@ export function dbToSession(r: DbSession): Session {
     videos: (r.videos ?? []).map((v) => ({ ...v, angle: v.angle as "front" | "side" | "back" })),
     ballSpeedKmh: r.ball_speed_kmh, frontKneeAngleDeg: r.front_knee_angle_deg,
     xpEarned: r.xp_earned,
+    bookingId: r.booking_id ?? undefined,
   };
 }
 
@@ -183,13 +185,19 @@ export function dbToMessage(r: DbMessage): Message {
 
 // ─── Query helpers ───────────────────────────────────────────────────────────
 
-export async function fetchPlayers(coachName?: string, academyId?: string): Promise<Player[]> {
+export async function fetchPlayers(coachId?: string, academyId?: string): Promise<Player[]> {
   const sb = createClient();
   let q = sb.from("players").select("*").order("name");
-  if (coachName) q = q.eq("coach_assigned", coachName);
+  if (coachId) q = q.eq("coach_id", coachId);
   const { data, error } = await q;
   if (error) throw error;
   return (data as DbPlayer[]).map(dbToPlayer);
+}
+
+export async function reassignCoachPlayers(fromCoachId: string, toCoachId: string | null): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("players").update({ coach_id: toCoachId }).eq("coach_id", fromCoachId);
+  if (error) throw error;
 }
 
 export async function fetchPlayer(id: string): Promise<Player | null> {

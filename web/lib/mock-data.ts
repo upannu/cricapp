@@ -10,7 +10,7 @@ export const mockPlayers: Player[] = [
     phone: '+61 412 111 001',
     ageGroup: 'Senior',
     club: 'Brisbane Tigers CC',
-    coachAssigned: 'Sukhi Pannu',
+    coachId: '',
     guardianConsentStatus: 'N/A',
     subscription: {
       plan: 'Coach Pro',
@@ -46,7 +46,7 @@ export const mockPlayers: Player[] = [
     phone: '+61 412 111 002',
     ageGroup: 'U19',
     club: 'Sydney Royals CC',
-    coachAssigned: 'Sukhi Pannu',
+    coachId: '',
     guardianConsentStatus: 'Confirmed',
     subscription: {
       plan: 'Player Pro',
@@ -82,7 +82,7 @@ export const mockPlayers: Player[] = [
     phone: '+61 412 111 003',
     ageGroup: 'Senior',
     club: 'Velocity CC',
-    coachAssigned: 'Sukhi Pannu',
+    coachId: '',
     guardianConsentStatus: 'N/A',
     subscription: {
       plan: 'Coach Pro',
@@ -118,7 +118,7 @@ export const mockPlayers: Player[] = [
     phone: '+61 412 111 004',
     ageGroup: 'U19',
     club: 'Gold Coast Fast CC',
-    coachAssigned: 'Arjun Sharma',
+    coachId: '',
     guardianConsentStatus: 'Confirmed',
     subscription: {
       plan: 'Player Pro',
@@ -154,7 +154,7 @@ export const mockPlayers: Player[] = [
     phone: '+61 412 111 005',
     ageGroup: 'Senior',
     club: 'Northside CC',
-    coachAssigned: 'Lisa Nguyen',
+    coachId: '',
     guardianConsentStatus: 'N/A',
     subscription: {
       plan: 'Player Pro',
@@ -190,7 +190,7 @@ export const mockPlayers: Player[] = [
     phone: '+61 412 111 006',
     ageGroup: 'U16',
     club: 'Melbourne Pace Academy',
-    coachAssigned: 'Sukhi Pannu',
+    coachId: '',
     guardianConsentStatus: 'Confirmed',
     subscription: {
       plan: 'Coach Pro',
@@ -226,7 +226,7 @@ export const mockPlayers: Player[] = [
     phone: '+61 412 111 007',
     ageGroup: 'Senior',
     club: 'Adelaide Strikers CC',
-    coachAssigned: 'Lisa Nguyen',
+    coachId: '',
     guardianConsentStatus: 'N/A',
     subscription: {
       plan: 'Player Pro',
@@ -262,7 +262,7 @@ export const mockPlayers: Player[] = [
     phone: '+61 412 111 008',
     ageGroup: 'U19',
     club: 'Perth Thunder CC',
-    coachAssigned: 'Marcus Webb',
+    coachId: '',
     guardianConsentStatus: 'Confirmed',
     subscription: {
       plan: 'Free',
@@ -309,7 +309,7 @@ export const mockSessions: Session[] = [
   },
   {
     id: 's002', playerId: 'p006', date: '2026-06-24',
-    type: 'Individual Drill',
+    type: 'Individual Coaching',
     notes: 'Wrist position drill — 30 reps. Consistent seam upright. Slight pull-down early in the set.',
     videos: [
       { angle: 'front', label: 'Front_20260624.mp4' },
@@ -366,7 +366,7 @@ export const mockSessions: Session[] = [
   },
   {
     id: 's008', playerId: 'p001', date: '2026-06-10',
-    type: 'Individual Drill',
+    type: 'Individual Coaching',
     notes: 'Release point consistency drill — wall target at 2.4m. Hit target 18 of 20 reps. Marked improvement.',
     videos: [
       { angle: 'front', label: 'Front_20260610.mp4' },
@@ -407,7 +407,7 @@ export const mockSessions: Session[] = [
   },
   {
     id: 's012', playerId: 'p004', date: '2026-05-28',
-    type: 'Individual Drill',
+    type: 'Individual Coaching',
     notes: 'Lateral band walks + step-up drills for front knee stability. 3 sets each. Strong effort.',
     videos: [],
     ballSpeedKmh: null, frontKneeAngleDeg: null, xpEarned: 50,

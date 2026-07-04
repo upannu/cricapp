@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import type { SessionPack, BookingType, Player, Academy, Booking, PaymentStatus } from "@/lib/types";
+import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchBookings, upsertSessionPack, updatePackPaymentStatus, updatePackAgreedDays } from "@/lib/db";
+import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, upsertSessionPack, updatePackPaymentStatus, updatePackAgreedDays } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -25,6 +25,7 @@ const TYPE_STYLES: Record<BookingType, string> = {
 
 let _packPlayers: Player[] = [];
 let _packAcademies: Academy[] = [];
+let _packCoaches: Coach[] = [];
 let _packBookings: Booking[] = [];
 
 function feeForAcademyAndType(academyId: string, type: BookingType, playerId?: string): number {
@@ -80,14 +81,15 @@ export function SessionPacksClient() {
   const [formError, setFormError] = useState("");
 
   useEffect(() => {
-    const coachName = user?.role === "coach" ? user.name : undefined;
+    const coachId = user?.role === "coach" ? user.coachId : undefined;
     Promise.all([
       fetchSessionPacks(),
-      fetchPlayers(coachName),
+      fetchPlayers(coachId),
       fetchAcademies(),
+      fetchCoaches(),
       fetchBookings(),
-    ]).then(([pk, pl, ac, bk]) => {
-      setPacks(pk); _packPlayers = pl; _packAcademies = ac; _packBookings = bk;
+    ]).then(([pk, pl, ac, co, bk]) => {
+      setPacks(pk); _packPlayers = pl; _packAcademies = ac; _packCoaches = co; _packBookings = bk;
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -566,7 +568,7 @@ export function SessionPacksClient() {
                     <div className="flex items-center gap-2 flex-wrap mb-0.5">
                       <span className="text-white font-bold text-sm">{player.name}</span>
                       <span className="text-zinc-500 text-xs">·</span>
-                      <span className="text-zinc-400 text-xs">{player.ageGroup} · {getCoachOrAcademyLabel(player, _packAcademies)}</span>
+                      <span className="text-zinc-400 text-xs">{player.ageGroup} · {getCoachOrAcademyLabel(player, _packCoaches, _packAcademies)}</span>
                     </div>
                     {pack ? (
                       <div className="flex items-center gap-2 flex-wrap">

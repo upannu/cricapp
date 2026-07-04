@@ -1,4 +1,4 @@
-import type { Academy, Player, PlayerStatus } from './types';
+import type { Academy, Coach, Player, PlayerStatus } from './types';
 
 export function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -33,8 +33,9 @@ export function formatDateTime(iso: string): string {
   return `${datePart} at ${timePart}`;
 }
 
-export function getCoachOrAcademyLabel(player: Player, academies: Academy[]): string {
-  if (player.coachAssigned) return player.coachAssigned;
+export function getCoachOrAcademyLabel(player: Player, coaches: Coach[], academies: Academy[]): string {
+  const coach = player.coachId ? coaches.find((c) => c.id === player.coachId) : undefined;
+  if (coach) return coach.name;
   const academy = academies.find((a) => a.playerIds.includes(player.id));
   return academy ? academy.name : 'Unassigned';
 }

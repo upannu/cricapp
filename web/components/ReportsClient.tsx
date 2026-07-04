@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import type { Report, ReportType, Player, Academy } from "@/lib/types";
+import type { Report, ReportType, Player, Coach, Academy } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchReports, fetchPlayers, fetchAcademies } from "@/lib/db";
+import { fetchReports, fetchPlayers, fetchAcademies, fetchCoaches } from "@/lib/db";
 import { formatDate, formatDateTime, getCoachOrAcademyLabel } from "@/lib/utils";
 import { ReportActions } from "@/components/ReportActions";
 
@@ -26,6 +26,7 @@ const TYPE_DOT: Record<ReportType, string> = {
 
 let _reportPlayers: Player[] = [];
 let _reportAcademies: Academy[] = [];
+let _reportCoaches: Coach[] = [];
 
 function playerById(id: string) {
   return _reportPlayers.find((p) => p.id === id);
@@ -60,11 +61,12 @@ export function ReportsClient() {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
 
   useEffect(() => {
-    const coachName = user?.role === "coach" ? user.name : undefined;
-    Promise.all([fetchReports(), fetchPlayers(coachName), fetchAcademies()]).then(([r, p, a]) => {
+    const coachId = user?.role === "coach" ? user.coachId : undefined;
+    Promise.all([fetchReports(), fetchPlayers(coachId), fetchAcademies(), fetchCoaches()]).then(([r, p, a, c]) => {
       setReports(r);
       _reportPlayers = p;
       _reportAcademies = a;
+      _reportCoaches = c;
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -106,7 +108,7 @@ export function ReportsClient() {
     }
     setPlayerFilter(p.id);
     setExpandedPlayer(p.id);
-    if (!isSingleCoachView) setExpandedCoach(getCoachOrAcademyLabel(p, _reportAcademies));
+    if (!isSingleCoachView) setExpandedCoach(getCoachOrAcademyLabel(p, _reportCoaches, _reportAcademies));
   }
 
   // ── Group by coach → player (collapsible, most recent activity first) ─────
@@ -129,7 +131,7 @@ export function ReportsClient() {
 
     const byCoach = new Map<string, PlayerGroup[]>();
     for (const pg of playerGroups) {
-      const coachName = getCoachOrAcademyLabel(pg.player, _reportAcademies);
+      const coachName = getCoachOrAcademyLabel(pg.player, _reportCoaches, _reportAcademies);
       const arr = byCoach.get(coachName) ?? [];
       arr.push(pg);
       byCoach.set(coachName, arr);

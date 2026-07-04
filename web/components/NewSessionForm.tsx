@@ -9,10 +9,11 @@ import { createClient } from "@/lib/supabase";
 
 const SESSION_TYPES = [
   "Net Session",
-  "Match Practice",
-  "Individual Drill",
-  "Warm-up / Conditioning",
+  "Individual Coaching",
   "Video Review",
+  "Fitness Assessment",
+  "Match Practice",
+  "Warm-up / Conditioning",
 ] as const;
 
 const CAMERA_ANGLES = [

@@ -298,7 +298,7 @@ export function AcademyClient() {
     const newPlayer: Player = {
       id: newId, name: newPlayerDraft.name.trim(), email: newPlayerDraft.email.trim(),
       phone: "", ageGroup: newPlayerDraft.ageGroup, bowlingStyle: newPlayerDraft.bowlingStyle,
-      club: newPlayerDraft.club.trim(), addedDate: now, coachAssigned: "",
+      club: newPlayerDraft.club.trim(), addedDate: now, coachId: "",
       guardianConsentStatus: "Pending",
       subscription: {
         plan: "Free", startDate: now,
@@ -312,7 +312,7 @@ export function AcademyClient() {
     await insertPlayer({
       id: newId, name: newPlayer.name, email: newPlayer.email, phone: "",
       bowling_style: newPlayer.bowlingStyle, age_group: newPlayer.ageGroup,
-      club: newPlayer.club, coach_assigned: "", guardian_consent_status: "Pending",
+      club: newPlayer.club, coach_id: null, guardian_consent_status: "Pending",
       added_date: now, sessions_count: 0, last_active: now, xp: 0,
       sub_plan: "Free", sub_start_date: now, sub_end_date: newPlayer.subscription.endDate,
       sub_sessions_used: 0, sub_sessions_limit: 4,

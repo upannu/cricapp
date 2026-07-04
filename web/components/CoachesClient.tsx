@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, deleteCoach } from "@/lib/db";
+import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, deleteCoach, reassignCoachPlayers } from "@/lib/db";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const CERT_LEVELS: CertificationLevel[] = ["Level 1", "Level 2", "Level 3", "Elite"];
@@ -34,8 +34,8 @@ const EMPTY_DRAFT: DraftCoach = {
 let _coachAcademies: Academy[] = [];
 let _coachPlayers: Player[] = [];
 
-function playerCountForCoach(coachName: string): number {
-  return _coachPlayers.filter((p) => p.coachAssigned === coachName).length;
+function playerCountForCoach(coachId: string): number {
+  return _coachPlayers.filter((p) => p.coachId === coachId).length;
 }
 
 function academyById(id: string) {
@@ -56,6 +56,9 @@ export function CoachesClient() {
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [inviteError, setInviteError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [reassignTarget, setReassignTarget] = useState<{ coachId: string; playerCount: number } | null>(null);
+  const [reassignToCoachId, setReassignToCoachId] = useState("");
+  const [reassigning, setReassigning] = useState(false);
 
   const defaultAcademyId = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
 
@@ -165,9 +168,32 @@ export function CoachesClient() {
   }
 
   function handleDelete(id: string) {
+    const playerCount = playerCountForCoach(id);
+    if (playerCount > 0) {
+      setReassignTarget({ coachId: id, playerCount });
+      setReassignToCoachId("");
+      return;
+    }
     deleteCoach(id);
     setCoaches((prev) => prev.filter((c) => c.id !== id));
     closeForm();
+  }
+
+  async function confirmReassignAndDelete() {
+    if (!reassignTarget) return;
+    setReassigning(true);
+    try {
+      await reassignCoachPlayers(reassignTarget.coachId, reassignToCoachId || null);
+      await deleteCoach(reassignTarget.coachId);
+      _coachPlayers = _coachPlayers.map((p) =>
+        p.coachId === reassignTarget.coachId ? { ...p, coachId: reassignToCoachId } : p
+      );
+      setCoaches((prev) => prev.filter((c) => c.id !== reassignTarget.coachId));
+      setReassignTarget(null);
+      closeForm();
+    } finally {
+      setReassigning(false);
+    }
   }
 
   function toggleAgeGroup(g: AgeGroup) {
@@ -181,7 +207,7 @@ export function CoachesClient() {
 
   const filtered = filter === "All" ? coaches : coaches.filter((c) => c.status === filter);
   const activeCount = coaches.filter((c) => c.status === "Active").length;
-  const totalPlayers = coaches.reduce((s, c) => s + playerCountForCoach(c.name), 0);
+  const totalPlayers = coaches.reduce((s, c) => s + playerCountForCoach(c.id), 0);
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -360,13 +386,44 @@ export function CoachesClient() {
               className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
               Cancel
             </button>
-            {editingId && (
+            {editingId && !(reassignTarget?.coachId === editingId) && (
               <button type="button" onClick={() => handleDelete(editingId)}
                 className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer">
                 Delete Coach
               </button>
             )}
           </div>
+
+          {reassignTarget?.coachId === editingId && (
+            <div className="mt-4 pt-4 border-t border-zinc-700/50 bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+              <p className="text-sm text-white font-semibold mb-1">
+                {reassignTarget.playerCount} player{reassignTarget.playerCount !== 1 ? "s are" : " is"} still assigned to this coach
+              </p>
+              <p className="text-xs text-zinc-400 mb-3">
+                Choose where to move them before deleting — this coach can&apos;t be deleted while players still point to it.
+              </p>
+              <div className="flex items-center gap-3">
+                <select
+                  value={reassignToCoachId}
+                  onChange={(e) => setReassignToCoachId(e.target.value)}
+                  className="bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+                >
+                  <option value="">— Leave unassigned —</option>
+                  {coaches.filter((c) => c.id !== reassignTarget.coachId).map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                <button type="button" onClick={confirmReassignAndDelete} disabled={reassigning}
+                  className="px-4 py-2.5 text-sm font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer">
+                  {reassigning ? "Moving players…" : "Reassign & Delete Coach"}
+                </button>
+                <button type="button" onClick={() => setReassignTarget(null)} disabled={reassigning}
+                  className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -401,7 +458,7 @@ export function CoachesClient() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((coach) => {
-            const playerCount = playerCountForCoach(coach.name);
+            const playerCount = playerCountForCoach(coach.id);
             const initials = coach.name.split(" ").map((n) => n[0]).join("");
 
             return (

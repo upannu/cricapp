@@ -154,14 +154,8 @@ export interface Booking {
   location: string;
   notes: string;
   feeAud: number;
+  packId?: string;
 }
-
-export type SessionType =
-  | 'Net Session'
-  | 'Match Practice'
-  | 'Individual Drill'
-  | 'Warm-up / Conditioning'
-  | 'Video Review';
 
 export interface SessionVideo {
   angle: 'front' | 'side' | 'back';
@@ -173,12 +167,13 @@ export interface Session {
   id: string;
   playerId: string;
   date: string;
-  type: SessionType;
+  type: BookingType;
   notes: string;
   videos: SessionVideo[];
   ballSpeedKmh: number | null;
   frontKneeAngleDeg: number | null;
   xpEarned: number;
+  bookingId?: string;
 }
 
 export interface Player {
@@ -190,7 +185,7 @@ export interface Player {
   phone: string;
   ageGroup: AgeGroup;
   club: string;
-  coachAssigned: string;
+  coachId: string;
   guardianConsentStatus: GuardianConsent;
   subscription: Subscription;
   biomechanics: BiomechanicsData;

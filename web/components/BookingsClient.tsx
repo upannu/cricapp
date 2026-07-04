@@ -114,7 +114,7 @@ export function BookingsClient() {
     const coachId = user?.role === "coach" ? (user.coachId ?? undefined) : undefined;
     Promise.all([
       fetchBookings(coachId),
-      fetchPlayers(user?.role === "coach" ? user.name : undefined),
+      fetchPlayers(user?.role === "coach" ? user.coachId : undefined),
       fetchCoaches(),
       fetchAcademies(),
       fetchSessionPacks(),
@@ -157,7 +157,7 @@ export function BookingsClient() {
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }
 
-  const defaultCoachId = user?.role === "coach" ? (_coaches.find(c => c.name === user.name)?.id ?? "") : "";
+  const defaultCoachId = user?.role === "coach" ? (user.coachId ?? "") : "";
 
   function openAdd() {
     setEditingId(null);
@@ -170,7 +170,7 @@ export function BookingsClient() {
 
   function openEdit(b: Booking) {
     setEditingId(b.id);
-    setDraft({ playerId: b.playerId, coachId: b.coachId, date: b.date, time: b.time, durationMins: b.durationMins, type: b.type, status: b.status, location: b.location, notes: b.notes, feeAud: b.feeAud });
+    setDraft({ playerId: b.playerId, coachId: b.coachId, date: b.date, time: b.time, durationMins: b.durationMins, type: b.type, status: b.status, location: b.location, notes: b.notes, feeAud: b.feeAud, packId: b.packId });
     setFormError("");
     setShowForm(true);
     scrollToForm();
@@ -191,7 +191,7 @@ export function BookingsClient() {
     const newId = editingId ?? `b_${Date.now()}`;
     const booking: Booking = { id: newId, ...draft };
 
-    upsertBooking({ id: booking.id, player_id: booking.playerId, coach_id: booking.coachId, date: booking.date, time: booking.time, duration_mins: booking.durationMins, type: booking.type, status: booking.status, location: booking.location, notes: booking.notes, fee_aud: booking.feeAud });
+    upsertBooking({ id: booking.id, player_id: booking.playerId, coach_id: booking.coachId, date: booking.date, time: booking.time, duration_mins: booking.durationMins, type: booking.type, status: booking.status, location: booking.location, notes: booking.notes, fee_aud: booking.feeAud, pack_id: booking.packId ?? null });
 
     setBookings((prev) =>
       editingId
@@ -218,6 +218,20 @@ export function BookingsClient() {
     setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)));
     setSaved(id);
     setTimeout(() => setSaved(null), 2000);
+  }
+
+  async function handleCompleteBooking(booking: Booking, notes: string) {
+    const res = await fetch("/api/bookings/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId: booking.id, notes }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error ?? "Failed to complete booking");
+
+    setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, status: "Completed" } : b)));
+    setSaved(booking.id);
+    setTimeout(() => setSaved(null), 2500);
   }
 
   return (
@@ -276,12 +290,36 @@ export function BookingsClient() {
             {/* Player */}
             <div className="sm:col-span-2">
               <label className={lbl}>Player</label>
-              <select value={draft.playerId} onChange={(e) => setDraft({ ...draft, playerId: e.target.value })} className={sel}>
+              <select
+                value={draft.playerId}
+                onChange={(e) => {
+                  const playerId = e.target.value;
+                  const activePack = packForPlayer(playerId);
+                  setDraft({ ...draft, playerId, packId: activePack?.id });
+                }}
+                className={sel}
+              >
                 <option value="">— Select player —</option>
                 {_players.map((p) => (
                   <option key={p.id} value={p.id}>{p.name} · {p.ageGroup}</option>
                 ))}
               </select>
+              {(() => {
+                const activePack = draft.playerId ? packForPlayer(draft.playerId) : undefined;
+                if (!activePack) return null;
+                const remaining = activePack.totalSessions - activePack.sessionsUsed + activePack.sessionCredits;
+                return (
+                  <label className="mt-2 flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={draft.packId === activePack.id}
+                      onChange={(e) => setDraft({ ...draft, packId: e.target.checked ? activePack.id : undefined })}
+                      className="accent-pace-green cursor-pointer"
+                    />
+                    Draw from active pack ({remaining} session{remaining !== 1 ? "s" : ""} remaining)
+                  </label>
+                );
+              })()}
             </div>
 
             {/* Date + weekday quick-select */}
@@ -462,6 +500,7 @@ export function BookingsClient() {
                       highlight={saved === b.id}
                       onEdit={() => openEdit(b)}
                       onStatusChange={(s) => changeStatus(b.id, s)}
+                      onComplete={(notes) => handleCompleteBooking(b, notes)}
                     />
                   ))}
               </div>
@@ -478,6 +517,7 @@ export function BookingsClient() {
               highlight={saved === b.id}
               onEdit={() => openEdit(b)}
               onStatusChange={(s) => changeStatus(b.id, s)}
+              onComplete={(notes) => handleCompleteBooking(b, notes)}
             />
           ))}
         </div>
@@ -493,14 +533,20 @@ function BookingCard({
   highlight,
   onEdit,
   onStatusChange,
+  onComplete,
 }: {
   booking: Booking;
   highlight: boolean;
   onEdit: () => void;
   onStatusChange: (s: BookingStatus) => void;
+  onComplete: (notes: string) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [credited, setCredited] = useState(false);
+  const [completingOpen, setCompletingOpen] = useState(false);
+  const [completeNotes, setCompleteNotes] = useState(b.notes);
+  const [completing, setCompleting] = useState(false);
+  const [completeError, setCompleteError] = useState("");
   const player = playerById(b.playerId);
   const coach = coachById(b.coachId);
   const activePack = b.playerId ? packForPlayer(b.playerId) : undefined;
@@ -510,6 +556,19 @@ function BookingCard({
     const end = new Date(0, 0, 0, h, m + b.durationMins);
     return `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
   })();
+
+  async function handleComplete() {
+    setCompleting(true);
+    setCompleteError("");
+    try {
+      await onComplete(completeNotes);
+      setCompletingOpen(false);
+    } catch (err) {
+      setCompleteError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setCompleting(false);
+    }
+  }
 
   return (
     <div className={`bg-surface rounded-2xl border transition-colors ${highlight ? "border-pace-green/40" : "border-transparent hover:border-zinc-700"}`}>
@@ -590,7 +649,7 @@ function BookingCard({
           </div>
 
           {/* Quick status change */}
-          {b.status !== "Completed" && b.status !== "Cancelled" && (
+          {b.status !== "Completed" && b.status !== "Cancelled" && !completingOpen && (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-zinc-400">Quick update:</span>
               {b.status !== "Confirmed" && (
@@ -600,7 +659,7 @@ function BookingCard({
                 </button>
               )}
               {b.date < today && (
-                <button type="button" onClick={() => onStatusChange("Completed")}
+                <button type="button" onClick={() => setCompletingOpen(true)}
                   className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-zinc-600 text-zinc-300 hover:border-zinc-400 cursor-pointer transition-colors">
                   Mark Completed
                 </button>
@@ -609,6 +668,35 @@ function BookingCard({
                 className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 cursor-pointer transition-colors">
                 Cancel
               </button>
+            </div>
+          )}
+
+          {/* Complete booking → log session */}
+          {completingOpen && (
+            <div className="bg-ink rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                Complete Booking — Log Session
+              </p>
+              <textarea
+                value={completeNotes}
+                onChange={(e) => setCompleteNotes(e.target.value)}
+                placeholder="Session notes — what was covered, observations, focus areas…"
+                className="w-full bg-surface rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none resize-none h-20"
+              />
+              {b.packId && (
+                <p className="text-xs text-blue-400">This will use 1 session from the player&apos;s active pack.</p>
+              )}
+              {completeError && <p className="text-xs text-red-400">{completeError}</p>}
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={handleComplete} disabled={completing}
+                  className="px-4 py-2 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 disabled:opacity-60 cursor-pointer transition-opacity">
+                  {completing ? "Completing…" : "Complete & Log Session"}
+                </button>
+                <button type="button" onClick={() => setCompletingOpen(false)} disabled={completing}
+                  className="text-xs text-zinc-400 hover:text-white cursor-pointer">
+                  Cancel
+                </button>
+              </div>
             </div>
           )}
 

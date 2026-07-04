@@ -2,25 +2,27 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import type { Session, SessionType, Player, Coach, Academy } from "@/lib/types";
+import type { Session, BookingType, Player, Coach, Academy } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
 
-const SESSION_TYPES: SessionType[] = [
+const SESSION_TYPES: BookingType[] = [
   "Net Session",
-  "Match Practice",
-  "Individual Drill",
-  "Warm-up / Conditioning",
+  "Individual Coaching",
   "Video Review",
+  "Fitness Assessment",
+  "Match Practice",
+  "Warm-up / Conditioning",
 ];
 
-const TYPE_STYLES: Record<SessionType, string> = {
+const TYPE_STYLES: Record<BookingType, string> = {
   "Net Session": "bg-pace-green/20 text-pace-green",
-  "Match Practice": "bg-fire/20 text-fire",
-  "Individual Drill": "bg-blue-500/20 text-blue-400",
-  "Warm-up / Conditioning": "bg-amber/20 text-amber",
+  "Individual Coaching": "bg-blue-500/20 text-blue-400",
   "Video Review": "bg-purple-500/20 text-purple-400",
+  "Fitness Assessment": "bg-fire/20 text-fire",
+  "Match Practice": "bg-amber/20 text-amber",
+  "Warm-up / Conditioning": "bg-zinc-700 text-zinc-300",
 };
 
 let _sessPlayers: Player[] = [];
@@ -102,10 +104,10 @@ export function SessionsClient() {
   const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const coachName = user?.role === "coach" ? user.name : undefined;
+    const coachId = user?.role === "coach" ? user.coachId : undefined;
     Promise.all([
       fetchSessions(),
-      fetchPlayers(coachName),
+      fetchPlayers(coachId),
       fetchCoaches(),
       fetchReports(),
       fetchAcademies(),
@@ -121,7 +123,7 @@ export function SessionsClient() {
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   const [playerFilter, setPlayerFilter] = useState("all");
   const [coachFilter, setCoachFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState<SessionType | "all">("all");
+  const [typeFilter, setTypeFilter] = useState<BookingType | "all">("all");
   const [search, setSearch] = useState("");
 
   const visibleCoaches = _sessCoaches;
@@ -185,7 +187,7 @@ export function SessionsClient() {
     const player = playerById(s.playerId);
     if (playerFilter !== "all" && s.playerId !== playerFilter) return false;
     if (typeFilter !== "all" && s.type !== typeFilter) return false;
-    if (coachFilter !== "all" && player?.coachAssigned !== coachFilter) return false;
+    if (coachFilter !== "all" && player?.coachId !== coachFilter) return false;
     if (search) {
       const q = search.toLowerCase();
       const matchPlayer = player?.name.toLowerCase().includes(q);
@@ -230,7 +232,7 @@ export function SessionsClient() {
         >
           <option value="all">All Coaches</option>
           {visibleCoaches.map((c) => (
-            <option key={c.id} value={c.name}>{c.name}</option>
+            <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
         <select
@@ -245,7 +247,7 @@ export function SessionsClient() {
         </select>
         <select
           value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as SessionType | "all")}
+          onChange={(e) => setTypeFilter(e.target.value as BookingType | "all")}
           className={selectCls}
         >
           <option value="all">All Types</option>
@@ -309,7 +311,7 @@ export function SessionsClient() {
                       <div className="flex items-center gap-2 text-xs text-zinc-400">
                         {player && (
                           <>
-                            <span className="text-zinc-500">👤 {getCoachOrAcademyLabel(player, _sessAcademies)}</span>
+                            <span className="text-zinc-500">👤 {getCoachOrAcademyLabel(player, _sessCoaches, _sessAcademies)}</span>
                             <span className="text-zinc-700">·</span>
                           </>
                         )}
