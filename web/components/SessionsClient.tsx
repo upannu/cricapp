@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import type { Session, BookingType, Player, Coach, Academy } from "@/lib/types";
+import type { Session, BookingType, Player, Coach, Academy, CameraCalibration } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies } from "@/lib/db";
+import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchCameraCalibration } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
 import { extractPoseSequence, type PoseFrame } from "@/lib/pose";
 import { computeBiomechanics } from "@/lib/biomechanics";
 import { renderSkeletonFrame } from "@/lib/skeleton-overlay";
+import { trackBall } from "@/lib/ball-tracking";
+import { renderPitchMap } from "@/lib/pitch-map";
+import { CameraCalibrationModal } from "@/components/CameraCalibrationModal";
 
 const SESSION_TYPES: BookingType[] = [
   "Net Session",
@@ -78,6 +81,15 @@ export function SessionsClient() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
+  const [calibrationRequest, setCalibrationRequest] = useState<{ videoUrl: string; academyId: string } | null>(null);
+  const calibrationResolveRef = useRef<((cal: CameraCalibration | null) => void) | null>(null);
+
+  function requestCalibration(videoUrl: string, academyId: string): Promise<CameraCalibration | null> {
+    return new Promise((resolve) => {
+      calibrationResolveRef.current = resolve;
+      setCalibrationRequest({ videoUrl, academyId });
+    });
+  }
 
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
@@ -146,6 +158,52 @@ export function SessionsClient() {
         }
       }
 
+      // Ball tracking + pitch map — needs the FRONT camera video specifically
+      // (the only angle that shows the ball's flight down the pitch), and a
+      // one-time calibration per academy to convert pixels to real distance.
+      let ballTracking: {
+        measured: boolean; confidence: "high" | "low" | "none"; speedKmh: number | null;
+        bounceLengthZone: string | null; bounceLineApprox: string | null; note?: string;
+      } | null = null;
+      let pitchMapBase64: string | null = null;
+
+      const frontVideo = session.videos.find((v) => v.angle === "front");
+      if (frontVideo?.url) {
+        const academy = _sessAcademies.find((a) => a.playerIds.includes(player.id));
+        let calibration: CameraCalibration | null = null;
+        if (academy) {
+          setGeneratingStage("Checking camera calibration…");
+          calibration = await fetchCameraCalibration(academy.id, "front").catch(() => null);
+          if (!calibration) {
+            calibration = await requestCalibration(frontVideo.url, academy.id);
+          }
+        }
+
+        setGeneratingStage("Tracking ball flight…");
+        const tracked = await trackBall(frontVideo.url, calibration, (ratio) =>
+          setGeneratingStage(`Tracking ball flight… ${Math.round(ratio * 100)}%`),
+        ).catch(() => null);
+
+        if (tracked) {
+          ballTracking = {
+            measured: tracked.confidence !== "none" && tracked.speedKmh !== null,
+            confidence: tracked.confidence,
+            speedKmh: tracked.speedKmh,
+            bounceLengthZone: tracked.lengthZone,
+            bounceLineApprox: tracked.lineApprox,
+            note: tracked.note,
+          };
+          if (tracked.lengthZone && tracked.lineApprox) {
+            try {
+              const mapBlob = await renderPitchMap(tracked.lengthZone, tracked.lineApprox);
+              pitchMapBase64 = await blobToBase64(mapBlob);
+            } catch {
+              // Non-fatal — the report still shows the zone/line text without the image
+            }
+          }
+        }
+      }
+
       setGeneratingStage("Generating coaching summary…");
       const res = await fetch("/api/ai-report", {
         method: "POST",
@@ -155,6 +213,8 @@ export function SessionsClient() {
           playerId: session.playerId,
           angleUsed: chosenVideo.angle,
           biomechanics,
+          ballTracking,
+          pitchMapBase64,
           skeletonFrames,
         }),
       });
@@ -211,6 +271,7 @@ export function SessionsClient() {
   });
 
   return (
+    <>
     <div className="max-w-5xl mx-auto px-6 py-8">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
@@ -544,6 +605,25 @@ export function SessionsClient() {
         </p>
       )}
     </div>
+
+    {calibrationRequest && (
+      <CameraCalibrationModal
+        videoUrl={calibrationRequest.videoUrl}
+        academyId={calibrationRequest.academyId}
+        angle="front"
+        onDone={(cal) => {
+          calibrationResolveRef.current?.(cal);
+          calibrationResolveRef.current = null;
+          setCalibrationRequest(null);
+        }}
+        onCancel={() => {
+          calibrationResolveRef.current?.(null);
+          calibrationResolveRef.current = null;
+          setCalibrationRequest(null);
+        }}
+      />
+    )}
+    </>
   );
 }
 

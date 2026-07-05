@@ -336,6 +336,7 @@ export function AcademyClient() {
       phone: newCoachDraft.phone.trim(), specialization: newCoachDraft.specialization.trim(),
       ageGroupsFocus: [], location: "", status: "Active", joinedDate: now,
       certificationLevel: newCoachDraft.certificationLevel, bio: "", academyId: "",
+      marketplaceVisible: false,
     };
     try {
       await upsertCoach({
@@ -343,6 +344,7 @@ export function AcademyClient() {
         specialization: newCoach.specialization, age_groups_focus: [],
         location: "", status: "Active", joined_date: now,
         certification_level: newCoach.certificationLevel, bio: "", academy_id: null,
+        marketplace_visible: false,
       });
     } catch (err) {
       setNewCoachError((err as { message?: string })?.message ?? String(err));

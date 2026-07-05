@@ -79,6 +79,18 @@ export function NavBar() {
 
         {/* Nav items */}
         <nav className="flex items-stretch gap-1 flex-1">
+          {isPlayerOrParent && (
+            <Link
+              href="/portal/find-coach"
+              className={`px-4 flex items-center text-sm font-medium border-b-2 transition-colors ${
+                pathname.startsWith("/portal/find-coach")
+                  ? "text-pace-green border-pace-green"
+                  : "text-zinc-400 border-transparent hover:text-white"
+              }`}
+            >
+              Find a Coach
+            </Link>
+          )}
           {!isPlayerOrParent && NAV_ALL.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (

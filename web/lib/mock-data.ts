@@ -562,6 +562,7 @@ export const mockCoaches: Coach[] = [
     certificationLevel: 'Elite',
     bio: 'Former first-class pace bowler with 15+ years of coaching experience. Specialist in biomechanics analysis and injury prevention for fast bowlers.',
     academyId: 'ac2',
+    marketplaceVisible: true,
   },
   {
     id: 'c002',
@@ -576,6 +577,7 @@ export const mockCoaches: Coach[] = [
     certificationLevel: 'Level 3',
     bio: 'Dedicated to grassroots cricket development. Passionate about nurturing young fast bowlers with correct technique from the ground up.',
     academyId: 'ac1',
+    marketplaceVisible: true,
   },
   {
     id: 'c003',
@@ -590,6 +592,7 @@ export const mockCoaches: Coach[] = [
     certificationLevel: 'Level 2',
     bio: 'Certified strength and conditioning coach with a focus on cricket-specific fitness. Works alongside technical coaches to reduce injury risk.',
     academyId: 'ac2',
+    marketplaceVisible: true,
   },
   {
     id: 'c004',
@@ -604,6 +607,7 @@ export const mockCoaches: Coach[] = [
     certificationLevel: 'Level 1',
     bio: 'Tech-focused analyst specialising in slow-motion video review and 3D motion capture for fast bowlers.',
     academyId: 'ac3',
+    marketplaceVisible: false,
   },
 ];
 

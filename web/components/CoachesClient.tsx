@@ -29,6 +29,7 @@ const EMPTY_DRAFT: DraftCoach = {
   certificationLevel: "Level 1",
   bio: "",
   academyId: "",
+  marketplaceVisible: false,
 };
 
 let _coachAcademies: Academy[] = [];
@@ -103,6 +104,7 @@ export function CoachesClient() {
       certificationLevel: coach.certificationLevel,
       bio: coach.bio,
       academyId: coach.academyId,
+      marketplaceVisible: coach.marketplaceVisible,
     });
     setFormError("");
     setShowForm(true);
@@ -131,6 +133,7 @@ export function CoachesClient() {
         specialization: coach.specialization, age_groups_focus: coach.ageGroupsFocus,
         location: coach.location, status: coach.status, joined_date: coach.joinedDate,
         certification_level: coach.certificationLevel, bio: coach.bio, academy_id: coach.academyId,
+        marketplace_visible: coach.marketplaceVisible,
       });
     } catch (err) {
       const msg = (err as { message?: string })?.message ?? String(err);
@@ -316,6 +319,18 @@ export function CoachesClient() {
               <textarea value={draft.bio} onChange={(e) => setDraft({ ...draft, bio: e.target.value })}
                 className={`${inp} resize-none h-20`}
                 placeholder="Background, experience, coaching philosophy…" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={draft.marketplaceVisible}
+                  onChange={(e) => setDraft({ ...draft, marketplaceVisible: e.target.checked })}
+                  className="w-4 h-4 rounded accent-pace-green cursor-pointer"
+                />
+                <span className="text-sm text-white font-medium">Visible in the coach marketplace</span>
+              </label>
+              <p className="text-xs text-zinc-500 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
             </div>
           </div>
 

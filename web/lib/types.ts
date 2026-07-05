@@ -122,8 +122,40 @@ export interface ReportBiomechanics {
   metrics: ReportMetric[];
   zoneScores: Record<'approach' | 'deliveryStride' | 'release' | 'followThrough', number | null>;
   flags: string[];
+  flaggedMetricIds: string[];
   overallScore: number | null;
   disclaimer: string;
+}
+
+export interface ReportDrill {
+  id: string;
+  name: string;
+  focus: string;
+  description: string;
+}
+
+export type PitchLengthZone = 'Full Toss' | 'Yorker' | 'Full' | 'Good Length' | 'Short' | 'Bouncer';
+export type PitchLine = 'Off side' | 'Middle' | 'Leg side';
+
+export interface BallTrackingResult {
+  measured: boolean;
+  confidence: 'high' | 'low' | 'none';
+  speedKmh: number | null;
+  bounceLengthZone: PitchLengthZone | null;
+  bounceLineApprox: PitchLine | null;
+  pitchMapImageUrl: string | null;
+  note?: string;
+}
+
+export interface CameraCalibration {
+  id: string;
+  academyId: string;
+  angle: 'front' | 'side' | 'back';
+  point1: { x: number; y: number };
+  point2: { x: number; y: number };
+  referenceDistanceM: number;
+  frameWidth: number;
+  frameHeight: number;
 }
 
 export interface SkeletonImage {
@@ -149,6 +181,8 @@ export interface Report {
   angleUsed?: 'front' | 'side' | 'back';
   metrics?: ReportBiomechanics;
   skeletonImages?: SkeletonImage[];
+  drills?: ReportDrill[];
+  ballTracking?: BallTrackingResult;
 }
 
 export type CoachStatus = 'Active' | 'Inactive';
@@ -167,6 +201,7 @@ export interface Coach {
   certificationLevel: CertificationLevel;
   bio: string;
   academyId: string;
+  marketplaceVisible: boolean;
 }
 
 export type BookingStatus = 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed';
@@ -191,6 +226,8 @@ export interface Booking {
   notes: string;
   feeAud: number;
   packId?: string;
+  /** Set when a player submitted this via the coach marketplace, rather than staff creating it directly. */
+  source?: 'marketplace';
 }
 
 export interface SessionVideo {

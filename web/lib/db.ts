@@ -3,7 +3,7 @@ import type {
   Player, Coach, Academy, Booking, Session, SessionPack, Message, Report,
   BowlingStyle, AgeGroup, GuardianConsent, PlanTier, ActionType,
   InjuryRisk, AcademyStage, BookingType, BookingStatus, MessageChannel,
-  ReportBiomechanics, SkeletonImage,
+  ReportBiomechanics, SkeletonImage, ReportDrill, BallTrackingResult, CameraCalibration,
 } from "@/lib/types";
 
 // ─── DB row types (snake_case from Postgres) ────────────────────────────────
@@ -29,6 +29,7 @@ export interface DbCoach {
   specialization: string; age_groups_focus: string[]; location: string;
   status: string; joined_date: string; certification_level: string;
   bio: string; academy_id: string | null;
+  marketplace_visible: boolean;
 }
 
 export interface DbAcademy {
@@ -44,6 +45,7 @@ export interface DbBooking {
   id: string; player_id: string; coach_id: string; date: string;
   time: string; duration_mins: number; type: string; status: string;
   location: string; notes: string; fee_aud: number; pack_id?: string | null;
+  source?: string | null;
 }
 
 export interface DbSession {
@@ -74,6 +76,14 @@ export interface DbReport {
   overall_score?: number | null; angle_used?: string | null;
   metrics?: ReportBiomechanics | null;
   skeleton_images?: SkeletonImage[] | null;
+  drills?: ReportDrill[] | null;
+  ball_tracking?: BallTrackingResult | null;
+}
+
+export interface DbCameraCalibration {
+  id: string; academy_id: string; angle: string;
+  point1_x: number; point1_y: number; point2_x: number; point2_y: number;
+  reference_distance_m: number; frame_width: number; frame_height: number;
 }
 
 export interface DbMessage {
@@ -126,6 +136,7 @@ export function dbToCoach(r: DbCoach): Coach {
     joinedDate: r.joined_date,
     certificationLevel: r.certification_level as Coach["certificationLevel"],
     bio: r.bio, academyId: r.academy_id ?? "",
+    marketplaceVisible: r.marketplace_visible ?? false,
   };
 }
 
@@ -152,6 +163,7 @@ export function dbToBooking(r: DbBooking): Booking {
     type: r.type as BookingType, status: r.status as BookingStatus,
     location: r.location, notes: r.notes, feeAud: r.fee_aud,
     packId: r.pack_id ?? undefined,
+    source: (r.source as Booking["source"]) ?? undefined,
   };
 }
 
@@ -194,6 +206,18 @@ export function dbToReport(r: DbReport): Report {
     angleUsed: (r.angle_used as Report["angleUsed"]) ?? undefined,
     metrics: r.metrics ?? undefined,
     skeletonImages: r.skeleton_images ?? undefined,
+    drills: r.drills ?? undefined,
+    ballTracking: r.ball_tracking ?? undefined,
+  };
+}
+
+export function dbToCameraCalibration(r: DbCameraCalibration): CameraCalibration {
+  return {
+    id: r.id, academyId: r.academy_id, angle: r.angle as CameraCalibration["angle"],
+    point1: { x: r.point1_x, y: r.point1_y },
+    point2: { x: r.point2_x, y: r.point2_y },
+    referenceDistanceM: r.reference_distance_m,
+    frameWidth: r.frame_width, frameHeight: r.frame_height,
   };
 }
 
@@ -386,6 +410,24 @@ export async function fetchReports(playerId?: string): Promise<Report[]> {
   const { data, error } = await q;
   if (error) throw error;
   return (data as DbReport[]).map(dbToReport);
+}
+
+export async function fetchCameraCalibration(academyId: string, angle: string): Promise<CameraCalibration | null> {
+  const sb = createClient();
+  const { data, error } = await sb
+    .from("camera_calibrations")
+    .select("*")
+    .eq("academy_id", academyId)
+    .eq("angle", angle)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? dbToCameraCalibration(data as DbCameraCalibration) : null;
+}
+
+export async function upsertCameraCalibration(c: DbCameraCalibration): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("camera_calibrations").upsert(c, { onConflict: "academy_id,angle" });
+  if (error) throw error;
 }
 
 export async function insertReport(r: Omit<DbReport, "id"> & { id: string }): Promise<void> {

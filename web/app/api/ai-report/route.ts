@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import nodemailer from "nodemailer";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { drillsForMetricIds, type Drill } from "@/lib/drills";
 
 const PDF_BUCKET = "session-reports";
 
@@ -20,6 +21,7 @@ interface BiomechanicsInput {
   metrics: ReportMetric[];
   zoneScores: Record<ZoneId, number | null>;
   flags: string[];
+  flaggedMetricIds: string[];
   overallScore: number | null;
   actionType: "Side-on" | "Front-on" | "Mixed";
   injuryRisk: "Low" | "Moderate" | "High";
@@ -32,6 +34,15 @@ interface SkeletonFrameInput {
   mediaType: string;
 }
 
+interface BallTrackingInput {
+  measured: boolean;
+  confidence: "high" | "low" | "none";
+  speedKmh: number | null;
+  bounceLengthZone: string | null;
+  bounceLineApprox: string | null;
+  note?: string;
+}
+
 interface NarrativeResult {
   speedKmh: number;
   summary: string;
@@ -39,7 +50,7 @@ interface NarrativeResult {
   highlight: string;
 }
 
-const SYSTEM_PROMPT = `You are a cricket fast-bowling biomechanics analyst working for a cricket academy. You are given the REAL, geometrically-computed biomechanics metrics for a single bowling delivery (joint angles, phase timing, zone scores, guideline-based flags — measured from pose-tracking, not guessed), plus a few skeleton-overlay key frames for visual context. Write a coaching narrative grounded in the given numbers — do not invent numbers that contradict them. The only thing you are estimating visually (not measured) is ball release speed; make that clear in your summary as a visual approximation, not radar-gun accuracy. Be specific and constructive, as if writing for the player's coach.`;
+const SYSTEM_PROMPT = `You are a cricket fast-bowling biomechanics analyst working for a cricket academy. You are given the REAL, geometrically-computed biomechanics metrics for a single bowling delivery (joint angles, phase timing, zone scores, guideline-based flags — measured from pose-tracking, not guessed), plus a few skeleton-overlay key frames for visual context. Write a coaching narrative grounded in the given numbers — do not invent numbers that contradict them. If a MEASURED ball speed (from ball tracking) is provided, use that exact figure and do not re-estimate it. Only estimate speed yourself when told it wasn't measured, and if so make clear in your summary that it's a visual approximation, not radar-gun accuracy. Be specific and constructive, as if writing for the player's coach.`;
 
 const NARRATIVE_SCHEMA = {
   type: "object" as const,
@@ -67,12 +78,14 @@ const NARRATIVE_SCHEMA = {
 };
 
 export async function POST(request: Request) {
-  const { sessionId, playerId, angleUsed, biomechanics, skeletonFrames } = (await request.json()) as {
+  const { sessionId, playerId, angleUsed, biomechanics, skeletonFrames, ballTracking, pitchMapBase64 } = (await request.json()) as {
     sessionId?: string;
     playerId?: string;
     angleUsed?: "front" | "side" | "back";
     biomechanics?: BiomechanicsInput;
     skeletonFrames?: SkeletonFrameInput[];
+    ballTracking?: BallTrackingInput | null;
+    pitchMapBase64?: string | null;
   };
 
   if (!playerId || !biomechanics) {
@@ -137,6 +150,24 @@ export async function POST(request: Request) {
     }
   }
 
+  // 1b. Upload the pitch-map diagram, if ball tracking produced a bounce classification.
+  let pitchMapImageUrl: string | null = null;
+  if (pitchMapBase64) {
+    try {
+      const path = `${playerId}/${reportId}/pitch-map.png`;
+      const bytes = Buffer.from(pitchMapBase64, "base64");
+      const { error } = await supabase.storage.from(PDF_BUCKET).upload(path, bytes, { contentType: "image/png", upsert: true });
+      if (!error) {
+        const { data } = supabase.storage.from(PDF_BUCKET).getPublicUrl(path);
+        pitchMapImageUrl = data.publicUrl;
+      }
+    } catch {
+      // Non-fatal — the report still shows the length/line zone as text
+    }
+  }
+
+  const drills: Drill[] = drillsForMetricIds(biomechanics.flaggedMetricIds ?? []);
+
   // 2. Ask Claude for the narrative only — grounded in the real computed metrics,
   // not guessing the numbers themselves.
   let narrative: NarrativeResult;
@@ -162,6 +193,12 @@ export async function POST(request: Request) {
           `Computed action type: ${biomechanics.actionType}`,
           `Computed injury-risk band: ${biomechanics.injuryRisk}`,
           `Flags: ${biomechanics.flags.join(" | ")}`,
+          ``,
+          ballTracking?.measured && ballTracking.speedKmh !== null
+            ? `MEASURED ball speed (from ball tracking, not an estimate): ${ballTracking.speedKmh} km/h — use this exact figure.`
+            : `Ball speed was not measured by tracking${ballTracking?.note ? ` (${ballTracking.note})` : ""} — provide your own visual estimate as before.`,
+          ballTracking?.bounceLengthZone ? `Measured pitch length: ${ballTracking.bounceLengthZone}${ballTracking.bounceLineApprox ? `, line: ${ballTracking.bounceLineApprox}` : ""}.` : ``,
+          drills.length > 0 ? `Recommended drills already selected for the flagged issues: ${drills.map((d) => d.name).join(", ")} — you don't need to invent your own drills, just reference these where relevant.` : ``,
         ].join("\n"),
       },
     ];
@@ -188,7 +225,15 @@ export async function POST(request: Request) {
   }
 
   const frontKneeMetric = biomechanics.metrics.find((m) => m.id === "frontKneeFFC");
-  const frontKneeAngleDeg = frontKneeMetric?.value ?? null;
+  // front_knee_angle_deg is an `integer` column in players/sessions/reports —
+  // the computed metric is rounded to 2dp (e.g. 176.58), which Postgres rejects.
+  const frontKneeAngleDeg = frontKneeMetric?.value !== undefined && frontKneeMetric?.value !== null
+    ? Math.round(frontKneeMetric.value)
+    : null;
+
+  // Prefer a genuinely measured speed (ball tracking) over Claude's visual estimate.
+  const finalSpeedKmh = ballTracking?.measured && ballTracking.speedKmh !== null ? ballTracking.speedKmh : narrative.speedKmh;
+  const ballTrackingRecord = ballTracking ? { ...ballTracking, pitchMapImageUrl } : null;
 
   // 3. Save report row — the numbers now come from real measurement, not the LLM.
   const { error: insertError } = await supabase.from("reports").insert({
@@ -197,7 +242,7 @@ export async function POST(request: Request) {
     date: today,
     type: "Biomechanics",
     summary: narrative.summary,
-    speed_kmh: narrative.speedKmh,
+    speed_kmh: finalSpeedKmh,
     front_knee_angle_deg: frontKneeAngleDeg,
     tags: narrative.tags,
     highlight: narrative.highlight,
@@ -209,6 +254,8 @@ export async function POST(request: Request) {
     angle_used: angleUsed ?? null,
     metrics: biomechanics,
     skeleton_images: skeletonImages,
+    drills,
+    ball_tracking: ballTrackingRecord,
   });
   if (insertError) {
     return NextResponse.json({ error: `Failed to save report: ${insertError.message}` }, { status: 500 });
@@ -216,7 +263,7 @@ export async function POST(request: Request) {
 
   // 4. Refresh the player's biomechanics snapshot with this delivery's real numbers.
   await supabase.from("players").update({
-    bio_ball_speed_kmh: narrative.speedKmh,
+    bio_ball_speed_kmh: finalSpeedKmh,
     bio_front_knee_angle_deg: frontKneeAngleDeg,
     bio_action_type: biomechanics.actionType,
     bio_injury_risk: biomechanics.injuryRisk,
@@ -227,7 +274,7 @@ export async function POST(request: Request) {
   // so the Sessions list metrics panel never showed a generated report's numbers.
   if (sessionId) {
     await supabase.from("sessions").update({
-      ball_speed_kmh: narrative.speedKmh,
+      ball_speed_kmh: finalSpeedKmh,
       front_knee_angle_deg: frontKneeAngleDeg,
     }).eq("id", sessionId);
   }
@@ -243,7 +290,11 @@ export async function POST(request: Request) {
       narrative,
       biomechanics,
       frontKneeAngleDeg,
+      finalSpeedKmh,
       skeletonFrames: skeletonFrames ?? [],
+      ballTracking: ballTrackingRecord,
+      pitchMapBase64: pitchMapBase64 ?? null,
+      drills,
     });
 
     // 6. Upload PDF to storage
@@ -275,10 +326,11 @@ export async function POST(request: Request) {
             narrative.summary,
             ``,
             `Overall score: ${biomechanics.overallScore ?? "n/a"}/100`,
-            `Estimated speed: ${narrative.speedKmh} km/h`,
+            `${ballTracking?.measured ? "Measured" : "Estimated"} speed: ${finalSpeedKmh} km/h`,
             frontKneeAngleDeg !== null ? `Front knee angle at front-foot contact: ${frontKneeAngleDeg}°` : ``,
             `Action type: ${biomechanics.actionType}`,
             `Injury-risk band: ${biomechanics.injuryRisk}`,
+            ballTracking?.bounceLengthZone ? `Pitch map: ${ballTracking.bounceLengthZone}${ballTracking.bounceLineApprox ? `, ${ballTracking.bounceLineApprox}` : ""}` : ``,
             ``,
             `— PACE HQ`,
           ].filter(Boolean).join("\n"),
@@ -297,9 +349,10 @@ export async function POST(request: Request) {
   return NextResponse.json({
     success: true,
     report: {
-      id: reportId, ...narrative, frontKneeAngleDeg,
+      id: reportId, ...narrative, speedKmh: finalSpeedKmh, frontKneeAngleDeg,
       actionType: biomechanics.actionType, injuryRisk: biomechanics.injuryRisk,
       overallScore: biomechanics.overallScore, skeletonImages,
+      drills, ballTracking: ballTrackingRecord,
     },
     pdfUrl,
   });
@@ -335,9 +388,13 @@ async function buildReportPdf(opts: {
   narrative: NarrativeResult;
   biomechanics: BiomechanicsInput;
   frontKneeAngleDeg: number | null;
+  finalSpeedKmh: number;
   skeletonFrames: SkeletonFrameInput[];
+  ballTracking: (BallTrackingInput & { pitchMapImageUrl: string | null }) | null;
+  pitchMapBase64: string | null;
+  drills: Drill[];
 }): Promise<Uint8Array> {
-  const { playerName, date, sessionDate, narrative, biomechanics, frontKneeAngleDeg, skeletonFrames } = opts;
+  const { playerName, date, sessionDate, narrative, biomechanics, frontKneeAngleDeg, finalSpeedKmh, skeletonFrames, ballTracking, pitchMapBase64, drills } = opts;
   const doc = await PDFDocument.create();
   const page = doc.addPage([595, 842]); // A4
   const font = await doc.embedFont(StandardFonts.Helvetica);
@@ -364,11 +421,14 @@ async function buildReportPdf(opts: {
 
   const headline: [string, string][] = [
     ["Overall Score", biomechanics.overallScore !== null ? `${biomechanics.overallScore}/100` : "n/a"],
-    ["Estimated Speed", `${narrative.speedKmh} km/h`],
+    [ballTracking?.measured ? "Measured Speed" : "Estimated Speed", `${finalSpeedKmh} km/h`],
     ["Front Knee Angle (FFC)", frontKneeAngleDeg !== null ? `${frontKneeAngleDeg}°` : "not detected"],
     ["Action Type", biomechanics.actionType],
     ["Injury-Risk Band", biomechanics.injuryRisk],
   ];
+  if (ballTracking?.bounceLengthZone) {
+    headline.push(["Pitch Map", `${ballTracking.bounceLengthZone}${ballTracking.bounceLineApprox ? `, ${ballTracking.bounceLineApprox}` : ""}`]);
+  }
   for (const [label, value] of headline) {
     page.drawText(label, { x: 50, y, size: 11, font, color: gray });
     page.drawText(value, { x: 260, y, size: 11, font: bold, color: dark });
@@ -413,12 +473,28 @@ async function buildReportPdf(opts: {
     page.drawText("Tags", { x: 50, y, size: 13, font: bold, color: dark });
     y -= 20;
     y = drawWrappedText(page, sanitizeForPdf(narrative.tags.join(" · ")), 50, y, 495, 11, font, gray);
+    y -= 16;
+  }
+
+  if (drills.length > 0) {
+    page.drawText("Recommended Drills", { x: 50, y, size: 13, font: bold, color: dark });
+    y -= 20;
+    for (const drill of drills) {
+      page.drawText(sanitizeForPdf(drill.name), { x: 50, y, size: 11, font: bold, color: dark });
+      y -= 15;
+      y = drawWrappedText(page, sanitizeForPdf(`Focus: ${drill.focus}`), 50, y, 495, 9, font, gray);
+      y = drawWrappedText(page, sanitizeForPdf(drill.description), 50, y, 495, 10, font, dark);
+      y -= 10;
+    }
   }
 
   page.drawText(
     sanitizeForPdf(biomechanics.disclaimer),
     { x: 50, y: 60, size: 8, font, color: gray, maxWidth: 495 },
   );
+  if (ballTracking?.note) {
+    page.drawText(sanitizeForPdf(`Ball tracking: ${ballTracking.note}`), { x: 50, y: 45, size: 8, font, color: gray, maxWidth: 495 });
+  }
 
   // Second page: skeleton-overlay key frames, so the coach can see exactly
   // what the pose-tracking measured, not just the numbers it produced.
@@ -441,6 +517,24 @@ async function buildReportPdf(opts: {
       } catch {
         // Skip a frame that fails to embed rather than failing the whole PDF
       }
+    }
+  }
+
+  // Third page: pitch map, if ball tracking produced a bounce classification.
+  if (pitchMapBase64) {
+    try {
+      const mapPage = doc.addPage([595, 842]);
+      mapPage.drawText("Pitch Map", { x: 50, y: 790, size: 14, font: bold, color: dark });
+      const bytes = Buffer.from(pitchMapBase64, "base64");
+      const img = await doc.embedPng(bytes);
+      const scale = Math.min(400 / img.width, 600 / img.height);
+      const w = img.width * scale, h = img.height * scale;
+      mapPage.drawImage(img, { x: (595 - w) / 2, y: 130, width: w, height: h });
+      if (ballTracking?.note) {
+        drawWrappedText(mapPage, sanitizeForPdf(ballTracking.note), 50, 100, 495, 9, font, gray);
+      }
+    } catch {
+      // Skip if the pitch map image fails to embed rather than failing the whole PDF
     }
   }
 

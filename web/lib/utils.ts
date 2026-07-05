@@ -1,4 +1,4 @@
-import type { Academy, Coach, Player, PlayerStatus } from './types';
+import type { Academy, Coach, Player, PlayerStatus, BookingType } from './types';
 
 export function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -38,4 +38,11 @@ export function getCoachOrAcademyLabel(player: Player, coaches: Coach[], academi
   if (coach) return coach.name;
   const academy = academies.find((a) => a.playerIds.includes(player.id));
   return academy ? academy.name : 'Unassigned';
+}
+
+/** Pricing lives on the Academy, not the Coach — a coach's fee for a session is whatever their academy charges for that session type. */
+export function getSessionFee(coach: Coach | undefined, academies: Academy[], type: BookingType): number {
+  if (!coach) return 0;
+  const academy = academies.find((a) => a.id === coach.academyId);
+  return academy?.sessionTypeFees[type] ?? academy?.sessionFeeAud ?? 0;
 }

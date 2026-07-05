@@ -184,6 +184,38 @@ export default async function PlayerReportsPage({
                 </div>
               )}
 
+              {r.ballTracking && (r.ballTracking.pitchMapImageUrl || r.ballTracking.bounceLengthZone) && (
+                <div className="mt-4 pt-4 border-t border-zinc-700/40 flex flex-wrap items-start gap-4">
+                  {r.ballTracking.pitchMapImageUrl && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={r.ballTracking.pitchMapImageUrl} alt="Pitch map" className="w-32 h-auto rounded-lg border border-zinc-700" />
+                  )}
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Pitch Map</p>
+                    {r.ballTracking.bounceLengthZone && (
+                      <p className="text-sm text-white font-semibold">
+                        {r.ballTracking.bounceLengthZone}{r.ballTracking.bounceLineApprox ? ` · ${r.ballTracking.bounceLineApprox}` : ""}
+                      </p>
+                    )}
+                    <p className="text-xs text-zinc-500 mt-0.5">Confidence: {r.ballTracking.confidence}</p>
+                  </div>
+                </div>
+              )}
+
+              {r.drills && r.drills.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-zinc-700/40">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Recommended Drills</p>
+                  <div className="space-y-2">
+                    {r.drills.map((drill) => (
+                      <div key={drill.id}>
+                        <p className="text-sm text-white font-semibold">{drill.name}</p>
+                        <p className="text-xs text-zinc-400 leading-relaxed">{drill.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="mt-4 pt-4 border-t border-zinc-700/40">
                 <ReportActions reportId={r.id} playerId={player.id} hasPdf={!!r.sessionId} />
               </div>

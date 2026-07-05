@@ -488,7 +488,7 @@ function ReportCard({
             <div className="bg-ink rounded-xl p-4 space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Metrics</p>
               <div>
-                <div className="text-xs text-zinc-500 mb-0.5">Ball Speed</div>
+                <div className="text-xs text-zinc-500 mb-0.5">Ball Speed {r.ballTracking?.measured && <span className="text-pace-green">(measured)</span>}</div>
                 <div className={`text-lg font-bold font-mono ${r.speedKmh !== null ? "text-pace-green" : "text-zinc-600"}`}>
                   {r.speedKmh !== null ? `${r.speedKmh} km/h` : "—"}
                 </div>
@@ -582,6 +582,44 @@ function ReportCard({
               )}
 
               <p className="text-[10px] text-zinc-600 leading-relaxed">{r.metrics.disclaimer}</p>
+            </div>
+          )}
+
+          {r.ballTracking && (r.ballTracking.pitchMapImageUrl || r.ballTracking.bounceLengthZone) && (
+            <div className="bg-ink rounded-xl p-4 mb-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Pitch Map</p>
+              <div className="flex flex-wrap items-start gap-4">
+                {r.ballTracking.pitchMapImageUrl && (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={r.ballTracking.pitchMapImageUrl} alt="Pitch map" className="w-40 h-auto rounded-lg border border-zinc-700" />
+                )}
+                <div>
+                  {r.ballTracking.bounceLengthZone && (
+                    <p className="text-sm text-white font-semibold mb-1">
+                      {r.ballTracking.bounceLengthZone}{r.ballTracking.bounceLineApprox ? ` · ${r.ballTracking.bounceLineApprox}` : ""}
+                    </p>
+                  )}
+                  <p className="text-xs text-zinc-500">
+                    Confidence: {r.ballTracking.confidence}
+                  </p>
+                  {r.ballTracking.note && <p className="text-xs text-zinc-500 mt-1 leading-relaxed max-w-sm">{r.ballTracking.note}</p>}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {r.drills && r.drills.length > 0 && (
+            <div className="bg-ink rounded-xl p-4 mb-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Recommended Drills</p>
+              <div className="space-y-3">
+                {r.drills.map((drill) => (
+                  <div key={drill.id}>
+                    <p className="text-sm text-white font-semibold">{drill.name}</p>
+                    <p className="text-xs text-zinc-500 mb-1">Focus: {drill.focus}</p>
+                    <p className="text-xs text-zinc-400 leading-relaxed">{drill.description}</p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

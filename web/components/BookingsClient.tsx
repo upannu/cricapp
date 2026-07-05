@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Booking, BookingStatus, BookingType, Player, Coach, SessionPack, Academy } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus } from "@/lib/db";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getSessionFee } from "@/lib/utils";
 
 const BOOKING_TYPES: BookingType[] = [
   "Net Session", "Individual Coaching", "Video Review",
@@ -57,10 +57,7 @@ let _coaches: Coach[] = [];
 let _academies: Academy[] = [];
 
 function feeForCoachAndType(coachId: string, type: BookingType): number {
-  const coach = _coaches.find((c) => c.id === coachId);
-  if (!coach) return 0;
-  const academy = _academies.find((a) => a.id === coach.academyId);
-  return academy?.sessionTypeFees[type] ?? academy?.sessionFeeAud ?? 0;
+  return getSessionFee(_coaches.find((c) => c.id === coachId), _academies, type);
 }
 
 const EMPTY_DRAFT: DraftBooking = {
@@ -615,6 +612,11 @@ function BookingCard({
             <div className="flex flex-wrap items-center gap-2 mb-0.5">
               <span className="text-white font-semibold text-sm">{player?.name ?? "Unknown"}</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES[b.type]}`}>{b.type}</span>
+              {b.source === "marketplace" && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                  🛒 Marketplace request
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2 text-xs text-zinc-400 flex-wrap">
               <span>{b.durationMins} min</span>

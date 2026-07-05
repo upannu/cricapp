@@ -202,6 +202,7 @@ export interface BiomechanicsResult {
   metrics: Metric[];
   zoneScores: Record<ZoneId, number | null>;
   flags: string[];
+  flaggedMetricIds: string[];
   overallScore: number | null;
   actionType: ActionType;
   injuryRisk: InjuryRisk;
@@ -444,9 +445,10 @@ export function computeBiomechanics(frames: PoseFrame[], bowlingStyle: string): 
 
   // ── Guideline-based flags ──
   const flags: string[] = [];
+  const flaggedMetricIds: string[] = [];
   const flagIfLow = (id: string, msg: string) => {
     const m = metrics.find((mm) => mm.id === id);
-    if (m && m.score !== null && m.score < 60) flags.push(msg);
+    if (m && m.score !== null && m.score < 60) { flags.push(msg); flaggedMetricIds.push(id); }
   };
   flagIfLow("frontKneeFFC", `⚠ Front knee angle at front-foot contact is ${kneeAtFFC?.toFixed(0)}° — well below the fully-braced range typically discussed in fast-bowling coaching guidance. Flexed front-leg landing patterns are commonly associated with "mixed action" technique and increased lower-back loading — worth a technical review, not a diagnosis.`);
   flagIfLow("trunkLateralRelease", `⚠ Trunk lateral flexion at release is elevated (${metrics.find((m) => m.id === "trunkLateralRelease")?.value}°) — large side-bend at release is a pattern coaching literature associates with increased lumbar spine loading.`);
@@ -465,5 +467,5 @@ export function computeBiomechanics(frames: PoseFrame[], bowlingStyle: string): 
   );
   const injuryRisk = classifyInjuryRisk(metrics);
 
-  return { phases, metrics, zoneScores, flags, overallScore, actionType, injuryRisk, disclaimer: DISCLAIMER };
+  return { phases, metrics, zoneScores, flags, flaggedMetricIds, overallScore, actionType, injuryRisk, disclaimer: DISCLAIMER };
 }
