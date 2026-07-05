@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import type { Session, BookingType, Player, Coach, Academy, CameraCalibration } from "@/lib/types";
+import type { Session, BookingType, Player, Coach, Academy, CameraCalibration, VideoAnnotation, VoiceNote, Assessment } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchCameraCalibration } from "@/lib/db";
+import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchCameraCalibration, fetchVideoAnnotations, fetchVoiceNotes, fetchAssessments } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
 import { extractPoseSequence, type PoseFrame } from "@/lib/pose";
 import { computeBiomechanics } from "@/lib/biomechanics";
@@ -12,6 +12,9 @@ import { renderSkeletonFrame } from "@/lib/skeleton-overlay";
 import { trackBall } from "@/lib/ball-tracking";
 import { renderPitchMap } from "@/lib/pitch-map";
 import { CameraCalibrationModal } from "@/components/CameraCalibrationModal";
+import { VideoAnnotator } from "@/components/VideoAnnotator";
+import { VoiceNoteRecorder } from "@/components/VoiceNoteRecorder";
+import { AssessmentForm } from "@/components/AssessmentForm";
 
 const SESSION_TYPES: BookingType[] = [
   "Net Session",
@@ -90,6 +93,28 @@ export function SessionsClient() {
       setCalibrationRequest({ videoUrl, academyId });
     });
   }
+
+  // Coach workflow extras — lazily loaded per session once it's expanded
+  const [sessionExtras, setSessionExtras] = useState<Record<string, { annotations: VideoAnnotation[]; voiceNotes: VoiceNote[]; assessments: Assessment[] }>>({});
+  const [annotatingVideo, setAnnotatingVideo] = useState<{ session: Session; angle: "front" | "side" | "back"; url: string } | null>(null);
+  const [voiceNoteSession, setVoiceNoteSession] = useState<Session | null>(null);
+  const [assessmentSession, setAssessmentSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    if (!expandedId || sessionExtras[expandedId]) return;
+    const session = sessions.find((s) => s.id === expandedId);
+    if (!session) return;
+    Promise.all([
+      fetchVideoAnnotations(expandedId),
+      fetchVoiceNotes(expandedId),
+      fetchAssessments(session.playerId),
+    ]).then(([annotations, voiceNotes, assessments]) => {
+      setSessionExtras((prev) => ({
+        ...prev,
+        [expandedId]: { annotations, voiceNotes, assessments: assessments.filter((a) => a.sessionId === expandedId) },
+      }));
+    });
+  }, [expandedId, sessions, sessionExtras]);
 
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
@@ -494,17 +519,26 @@ export function SessionsClient() {
                                     )}
                                   </div>
                                   {vid?.url && (
-                                    <a
-                                      href={vid.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity"
-                                    >
-                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                        <polygon points="5,3 19,12 5,21" />
-                                      </svg>
-                                      Play
-                                    </a>
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      <a
+                                        href={vid.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-1 text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity"
+                                      >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                          <polygon points="5,3 19,12 5,21" />
+                                        </svg>
+                                        Play
+                                      </a>
+                                      <button
+                                        type="button"
+                                        onClick={() => setAnnotatingVideo({ session, angle, url: vid.url! })}
+                                        className="text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                      >
+                                        ✏ Markup
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
                               );
@@ -513,6 +547,64 @@ export function SessionsClient() {
                         </div>
                       )}
                     </div>
+
+                    {/* Coach workflow: markups, voice notes, assessments */}
+                    {(() => {
+                      const extras = sessionExtras[session.id];
+                      if (!extras) return null;
+                      const hasAny = extras.annotations.length > 0 || extras.voiceNotes.length > 0 || extras.assessments.length > 0;
+                      if (!hasAny) return null;
+                      return (
+                        <div className="mt-4 space-y-4">
+                          {extras.annotations.length > 0 && (
+                            <div className="bg-ink rounded-xl p-4">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Video Markups</p>
+                              <div className="flex flex-wrap gap-3">
+                                {extras.annotations.map((a) => (
+                                  <a key={a.id} href={a.imageUrl} target="_blank" rel="noopener noreferrer" className="block w-32">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img src={a.imageUrl} alt={`Markup at ${a.timestampSec.toFixed(1)}s`} className="w-32 h-auto rounded-lg border border-zinc-700" />
+                                    {a.note && <p className="text-[10px] text-zinc-500 mt-1 truncate">{a.note}</p>}
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {extras.voiceNotes.length > 0 && (
+                            <div className="bg-ink rounded-xl p-4">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Voice Notes</p>
+                              <div className="space-y-3">
+                                {extras.voiceNotes.map((n) => (
+                                  <div key={n.id}>
+                                    <audio src={n.audioUrl} controls className="w-full h-8 mb-1.5" />
+                                    {n.transcript && <p className="text-xs text-zinc-400 leading-relaxed">{n.transcript}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {extras.assessments.length > 0 && (
+                            <div className="bg-ink rounded-xl p-4">
+                              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Formal Assessments</p>
+                              <div className="space-y-3">
+                                {extras.assessments.map((a) => (
+                                  <div key={a.id}>
+                                    <div className="flex flex-wrap gap-2 mb-1.5">
+                                      {Object.entries(a.ratings).map(([cat, score]) => (
+                                        <span key={cat} className="px-2 py-0.5 rounded-md text-xs bg-surface text-zinc-300 border border-zinc-700">
+                                          {cat}: {score}/5
+                                        </span>
+                                      ))}
+                                    </div>
+                                    {a.overallRecommendation && <p className="text-xs text-zinc-400 leading-relaxed">{a.overallRecommendation}</p>}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Footer actions */}
                     <div className="flex flex-wrap items-center gap-3 mt-4">
@@ -554,6 +646,20 @@ export function SessionsClient() {
                       {reportStatus[session.id] === "error" && (
                         <span className="text-xs font-semibold text-red-400">{reportError}</span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => setVoiceNoteSession(session)}
+                        className="px-4 py-2 text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition-colors cursor-pointer"
+                      >
+                        🎙 Voice Note
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAssessmentSession(session)}
+                        className="px-4 py-2 text-xs font-semibold bg-amber/10 text-amber border border-amber/30 rounded-lg hover:bg-amber/20 transition-colors cursor-pointer"
+                      >
+                        📋 Assessment
+                      </button>
 
                       <div className="ml-auto flex items-center gap-2">
                         {confirmDeleteId === session.id ? (
@@ -620,6 +726,55 @@ export function SessionsClient() {
           calibrationResolveRef.current?.(null);
           calibrationResolveRef.current = null;
           setCalibrationRequest(null);
+        }}
+      />
+    )}
+
+    {annotatingVideo && (
+      <VideoAnnotator
+        videoUrl={annotatingVideo.url}
+        angle={annotatingVideo.angle}
+        sessionId={annotatingVideo.session.id}
+        playerId={annotatingVideo.session.playerId}
+        onClose={() => setAnnotatingVideo(null)}
+        onSaved={(annotation) => {
+          setSessionExtras((prev) => {
+            const existing = prev[annotation.sessionId] ?? { annotations: [], voiceNotes: [], assessments: [] };
+            return { ...prev, [annotation.sessionId]: { ...existing, annotations: [annotation, ...existing.annotations] } };
+          });
+          setAnnotatingVideo(null);
+        }}
+      />
+    )}
+
+    {voiceNoteSession && (
+      <VoiceNoteRecorder
+        sessionId={voiceNoteSession.id}
+        playerId={voiceNoteSession.playerId}
+        onClose={() => setVoiceNoteSession(null)}
+        onSaved={(note) => {
+          const sid = voiceNoteSession.id;
+          setSessionExtras((prev) => {
+            const existing = prev[sid] ?? { annotations: [], voiceNotes: [], assessments: [] };
+            return { ...prev, [sid]: { ...existing, voiceNotes: [note, ...existing.voiceNotes] } };
+          });
+          setVoiceNoteSession(null);
+        }}
+      />
+    )}
+
+    {assessmentSession && (
+      <AssessmentForm
+        sessionId={assessmentSession.id}
+        playerId={assessmentSession.playerId}
+        onClose={() => setAssessmentSession(null)}
+        onSaved={(assessment) => {
+          const sid = assessmentSession.id;
+          setSessionExtras((prev) => {
+            const existing = prev[sid] ?? { annotations: [], voiceNotes: [], assessments: [] };
+            return { ...prev, [sid]: { ...existing, assessments: [assessment, ...existing.assessments] } };
+          });
+          setAssessmentSession(null);
         }}
       />
     )}

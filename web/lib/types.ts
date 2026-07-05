@@ -275,3 +275,61 @@ export interface Player {
   lastActive: string;
   xp: number;
 }
+
+// ─── Coach workflow: action plans, video annotation, voice notes, assessments ──
+
+export type ActionPlanPriority = 'High' | 'Medium' | 'Low';
+export type ActionPlanStatus = 'Pending' | 'In Progress' | 'Completed';
+
+export interface ActionPlan {
+  id: string;
+  playerId: string;
+  title: string;
+  priority: ActionPlanPriority;
+  status: ActionPlanStatus;
+  dueDate: string;
+  drills: string[];
+  notes: string;
+  createdAt?: string;
+}
+
+export interface VideoAnnotation {
+  id: string;
+  sessionId: string;
+  playerId: string;
+  angle: 'front' | 'side' | 'back';
+  timestampSec: number;
+  imageUrl: string;
+  note: string;
+  createdAt?: string;
+}
+
+export interface VoiceNote {
+  id: string;
+  sessionId?: string;
+  playerId: string;
+  audioUrl: string;
+  transcript: string;
+  durationSec: number | null;
+  createdAt?: string;
+}
+
+export const ASSESSMENT_CATEGORIES = [
+  'approach',
+  'deliveryStride',
+  'releaseFollowThrough',
+  'fitness',
+  'attitude',
+] as const;
+export type AssessmentCategory = typeof ASSESSMENT_CATEGORIES[number];
+
+export interface Assessment {
+  id: string;
+  sessionId?: string;
+  playerId: string;
+  coachId?: string;
+  ratings: Partial<Record<AssessmentCategory, number>>;
+  comments: Partial<Record<AssessmentCategory, string>>;
+  overallRecommendation: string;
+  createdAt?: string;
+}

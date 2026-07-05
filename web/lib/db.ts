@@ -4,6 +4,8 @@ import type {
   BowlingStyle, AgeGroup, GuardianConsent, PlanTier, ActionType,
   InjuryRisk, AcademyStage, BookingType, BookingStatus, MessageChannel,
   ReportBiomechanics, SkeletonImage, ReportDrill, BallTrackingResult, CameraCalibration,
+  ActionPlan, ActionPlanPriority, ActionPlanStatus,
+  VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
 } from "@/lib/types";
 
 // ─── DB row types (snake_case from Postgres) ────────────────────────────────
@@ -433,5 +435,144 @@ export async function upsertCameraCalibration(c: DbCameraCalibration): Promise<v
 export async function insertReport(r: Omit<DbReport, "id"> & { id: string }): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("reports").insert(r);
+  if (error) throw error;
+}
+
+// ─── Action plans ───────────────────────────────────────────────────────────
+
+export interface DbActionPlan {
+  id: string; player_id: string; title: string; priority: string; status: string;
+  due_date: string | null; drills: string[]; notes: string; created_at?: string;
+}
+
+export function dbToActionPlan(r: DbActionPlan): ActionPlan {
+  return {
+    id: r.id, playerId: r.player_id, title: r.title,
+    priority: r.priority as ActionPlanPriority, status: r.status as ActionPlanStatus,
+    dueDate: r.due_date ?? "", drills: r.drills ?? [], notes: r.notes ?? "",
+    createdAt: r.created_at,
+  };
+}
+
+export async function fetchActionPlans(playerId: string): Promise<ActionPlan[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("action_plans").select("*").eq("player_id", playerId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as DbActionPlan[]).map(dbToActionPlan);
+}
+
+export async function upsertActionPlan(p: DbActionPlan): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("action_plans").upsert(p);
+  if (error) throw error;
+}
+
+export async function deleteActionPlan(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("action_plans").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Video annotations ──────────────────────────────────────────────────────
+
+export interface DbVideoAnnotation {
+  id: string; session_id: string; player_id: string; angle: string;
+  timestamp_sec: number; image_url: string; note: string; created_at?: string;
+}
+
+export function dbToVideoAnnotation(r: DbVideoAnnotation): VideoAnnotation {
+  return {
+    id: r.id, sessionId: r.session_id, playerId: r.player_id,
+    angle: r.angle as VideoAnnotation["angle"], timestampSec: r.timestamp_sec,
+    imageUrl: r.image_url, note: r.note ?? "", createdAt: r.created_at,
+  };
+}
+
+export async function fetchVideoAnnotations(sessionId: string): Promise<VideoAnnotation[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("video_annotations").select("*").eq("session_id", sessionId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as DbVideoAnnotation[]).map(dbToVideoAnnotation);
+}
+
+export async function insertVideoAnnotation(a: DbVideoAnnotation): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("video_annotations").insert(a);
+  if (error) throw error;
+}
+
+export async function deleteVideoAnnotation(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("video_annotations").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Voice notes ────────────────────────────────────────────────────────────
+
+export interface DbVoiceNote {
+  id: string; session_id?: string | null; player_id: string;
+  audio_url: string; transcript: string; duration_sec: number | null; created_at?: string;
+}
+
+export function dbToVoiceNote(r: DbVoiceNote): VoiceNote {
+  return {
+    id: r.id, sessionId: r.session_id ?? undefined, playerId: r.player_id,
+    audioUrl: r.audio_url, transcript: r.transcript ?? "", durationSec: r.duration_sec,
+    createdAt: r.created_at,
+  };
+}
+
+export async function fetchVoiceNotes(sessionId: string): Promise<VoiceNote[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("voice_notes").select("*").eq("session_id", sessionId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as DbVoiceNote[]).map(dbToVoiceNote);
+}
+
+export async function insertVoiceNote(n: DbVoiceNote): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("voice_notes").insert(n);
+  if (error) throw error;
+}
+
+export async function updateVoiceNoteTranscript(id: string, transcript: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("voice_notes").update({ transcript }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteVoiceNote(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("voice_notes").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ─── Assessments ────────────────────────────────────────────────────────────
+
+export interface DbAssessment {
+  id: string; session_id?: string | null; player_id: string; coach_id?: string | null;
+  ratings: Partial<Record<AssessmentCategory, number>>;
+  comments: Partial<Record<AssessmentCategory, string>>;
+  overall_recommendation: string; created_at?: string;
+}
+
+export function dbToAssessment(r: DbAssessment): Assessment {
+  return {
+    id: r.id, sessionId: r.session_id ?? undefined, playerId: r.player_id,
+    coachId: r.coach_id ?? undefined, ratings: r.ratings ?? {}, comments: r.comments ?? {},
+    overallRecommendation: r.overall_recommendation ?? "", createdAt: r.created_at,
+  };
+}
+
+export async function fetchAssessments(playerId: string): Promise<Assessment[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("assessments").select("*").eq("player_id", playerId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as DbAssessment[]).map(dbToAssessment);
+}
+
+export async function insertAssessment(a: DbAssessment): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("assessments").insert(a);
   if (error) throw error;
 }
