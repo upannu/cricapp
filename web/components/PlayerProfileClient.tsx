@@ -236,6 +236,12 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             label="Articles read"
             value={`${player.academy.articlesRead} / 29`}
           />
+          <Link
+            href={`/players/${player.id}/academy`}
+            className="inline-block mt-1 text-xs font-semibold text-pace-green hover:opacity-80"
+          >
+            View curriculum →
+          </Link>
         </InfoCard>
 
         {/* Badges */}

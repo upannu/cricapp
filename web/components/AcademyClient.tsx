@@ -308,6 +308,7 @@ export function AcademyClient() {
       biomechanics: { ballSpeedKmh: 0, frontKneeAngleDeg: 0, actionType: "Side-on", injuryRisk: "Low", lastSession: now },
       academy: { stage: "Foundation", completionPercent: 0, totalSessions: 0, xp: 0, articlesRead: 0 },
       sessionsCount: 0, lastActive: now, xp: 0,
+      tipStreakCount: 0, tipBestStreak: 0,
     };
     await insertPlayer({
       id: newId, name: newPlayer.name, email: newPlayer.email, phone: "",

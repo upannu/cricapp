@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { dbToPlayer, dbToReport, type DbPlayer, type DbReport } from "@/lib/db";
-import type { Player, Report } from "@/lib/types";
+import { dbToPlayer, dbToReport, dbToArticle, dbToArticleRead, type DbPlayer, type DbReport, type DbArticle, type DbArticleRead } from "@/lib/db";
+import { STAGE_ORDER } from "@/lib/academy-content";
+import type { Player, Report, Article, ArticleRead } from "@/lib/types";
 
 async function createClient() {
   const cookieStore = await cookies();
@@ -36,4 +37,19 @@ export async function fetchReportsServer(playerId?: string): Promise<Report[]> {
   const { data, error } = await q;
   if (error) return [];
   return (data as DbReport[]).map(dbToReport);
+}
+
+export async function fetchArticlesServer(): Promise<Article[]> {
+  const sb = await createClient();
+  const { data, error } = await sb.from("articles").select("*").eq("published", true).order("order_in_stage");
+  if (error) return [];
+  const articles = (data as DbArticle[]).map(dbToArticle);
+  return articles.sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage) || a.orderInStage - b.orderInStage);
+}
+
+export async function fetchArticleReadsServer(playerId: string): Promise<ArticleRead[]> {
+  const sb = await createClient();
+  const { data, error } = await sb.from("article_reads").select("*").eq("player_id", playerId);
+  if (error) return [];
+  return (data as DbArticleRead[]).map(dbToArticleRead);
 }

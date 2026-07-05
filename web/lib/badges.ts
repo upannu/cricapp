@@ -5,6 +5,7 @@
 // trigger, and nothing to migrate if the milestone list changes later.
 
 import type { Player } from "./types";
+import { ACADEMY_TOTAL_ARTICLES, TIP_STREAK_TARGET_DAYS } from "./academy-content";
 
 export interface Badge {
   id: string;
@@ -59,6 +60,28 @@ export function computeBadges(player: Player, reportCount: number): Badge[] {
     icon: "📈",
     earned: reportCount >= 5,
     progress: reportCount < 5 ? { current: reportCount, target: 5 } : undefined,
+  });
+
+  badges.push({
+    id: "tip-streak",
+    name: "Consistent",
+    description: `Read ${TIP_STREAK_TARGET_DAYS} consecutive daily tips`,
+    icon: "🔥",
+    earned: player.tipBestStreak >= TIP_STREAK_TARGET_DAYS,
+    progress: player.tipBestStreak < TIP_STREAK_TARGET_DAYS
+      ? { current: player.tipBestStreak, target: TIP_STREAK_TARGET_DAYS }
+      : undefined,
+  });
+
+  badges.push({
+    id: "academy-master",
+    name: "Master",
+    description: `Complete all ${ACADEMY_TOTAL_ARTICLES} Academy articles`,
+    icon: "🎓",
+    earned: player.academy.articlesRead >= ACADEMY_TOTAL_ARTICLES,
+    progress: player.academy.articlesRead < ACADEMY_TOTAL_ARTICLES
+      ? { current: player.academy.articlesRead, target: ACADEMY_TOTAL_ARTICLES }
+      : undefined,
   });
 
   return badges;

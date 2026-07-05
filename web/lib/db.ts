@@ -6,7 +6,9 @@ import type {
   ReportBiomechanics, SkeletonImage, ReportDrill, BallTrackingResult, CameraCalibration,
   ActionPlan, ActionPlanPriority, ActionPlanStatus,
   VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
+  Article, ArticleCategory, DailyTip, ArticleRead,
 } from "@/lib/types";
+import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 
 // ─── DB row types (snake_case from Postgres) ────────────────────────────────
 
@@ -26,6 +28,7 @@ export interface DbPlayer {
   bio_action_type: string; bio_injury_risk: string; bio_last_session: string;
   acad_stage: string; acad_completion_percent: number;
   acad_total_sessions: number; acad_xp: number; acad_articles_read: number;
+  tip_streak_count?: number; tip_best_streak?: number; tip_last_viewed_date?: string | null;
 }
 
 export interface DbCoach {
@@ -110,6 +113,7 @@ export function dbToPlayer(r: DbPlayer): Player {
     guardianConsentConfirmedEmail: r.guardian_consent_confirmed_email ?? undefined,
     addedDate: r.added_date, sessionsCount: r.sessions_count,
     lastActive: r.last_active, xp: r.xp,
+    tipStreakCount: r.tip_streak_count ?? 0, tipBestStreak: r.tip_best_streak ?? 0,
     subscription: {
       plan: r.sub_plan as PlanTier,
       startDate: r.sub_start_date, endDate: r.sub_end_date,
@@ -608,4 +612,176 @@ export async function insertAssessment(a: DbAssessment): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("assessments").insert(a);
   if (error) throw error;
+}
+
+// ─── Academy Content Library: articles, daily tips, reading progress ───────
+
+export interface DbArticle {
+  id: string; stage: string; order_in_stage: number; title: string;
+  read_time_minutes: number; related_metric: string | null;
+  key_takeaways: string[]; body_md: string; published: boolean;
+}
+
+export function dbToArticle(r: DbArticle): Article {
+  return {
+    id: r.id, stage: r.stage as AcademyStage, orderInStage: r.order_in_stage,
+    title: r.title, readTimeMinutes: r.read_time_minutes,
+    relatedMetric: r.related_metric ?? undefined,
+    keyTakeaways: r.key_takeaways ?? [], bodyMd: r.body_md, published: r.published,
+  };
+}
+
+export async function fetchArticles(): Promise<Article[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("articles").select("*").eq("published", true).order("order_in_stage");
+  if (error) throw error;
+  const articles = (data as DbArticle[]).map(dbToArticle);
+  return articles.sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage) || a.orderInStage - b.orderInStage);
+}
+
+export async function fetchArticle(id: string): Promise<Article | null> {
+  const sb = createClient();
+  const { data } = await sb.from("articles").select("*").eq("id", id).maybeSingle();
+  return data ? dbToArticle(data as DbArticle) : null;
+}
+
+export interface DbDailyTip {
+  id: string; publish_date: string; category: string; body: string; related_article_id: string | null;
+}
+
+export function dbToDailyTip(r: DbDailyTip): DailyTip {
+  return {
+    id: r.id, publishDate: r.publish_date, category: r.category as ArticleCategory,
+    body: r.body, relatedArticleId: r.related_article_id ?? undefined,
+  };
+}
+
+/** Most recent tip published on or before today — falls back sensibly if no tip is dated exactly today. */
+export async function fetchTodaysTip(): Promise<DailyTip | null> {
+  const sb = createClient();
+  const today = new Date().toISOString().slice(0, 10);
+  const { data } = await sb
+    .from("daily_tips")
+    .select("*")
+    .lte("publish_date", today)
+    .order("publish_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data ? dbToDailyTip(data as DbDailyTip) : null;
+}
+
+export async function fetchTipArchive(limit = 30): Promise<DailyTip[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("daily_tips").select("*").order("publish_date", { ascending: false }).limit(limit);
+  if (error) throw error;
+  return (data as DbDailyTip[]).map(dbToDailyTip);
+}
+
+export interface DbArticleRead {
+  id: string; player_id: string; article_id: string; read_at: string;
+}
+
+export function dbToArticleRead(r: DbArticleRead): ArticleRead {
+  return { id: r.id, playerId: r.player_id, articleId: r.article_id, readAt: r.read_at };
+}
+
+export async function fetchArticleReads(playerId: string): Promise<ArticleRead[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("article_reads").select("*").eq("player_id", playerId);
+  if (error) throw error;
+  return (data as DbArticleRead[]).map(dbToArticleRead);
+}
+
+/**
+ * Marks an article read (idempotent — re-reading awards no extra XP) and applies every XP rule from the
+ * doc's unlock table in one place: per-article XP by stage, the 500 XP stage-completion bonus, and the
+ * 1000 XP all-29 bonus. Badges stay derived from `acad_articles_read`/`acad_xp` rather than a stored
+ * award, consistent with `badges.ts` — nothing here needs to "remember" that a bonus was already paid,
+ * because a duplicate read is rejected before any XP is calculated.
+ */
+export async function recordArticleRead(
+  playerId: string,
+  article: Article,
+  allArticles: Article[]
+): Promise<{ alreadyRead: boolean; xpAwarded: number }> {
+  const sb = createClient();
+  const readId = `${playerId}_${article.id}`;
+  const { error: insertError } = await sb
+    .from("article_reads")
+    .insert({ id: readId, player_id: playerId, article_id: article.id });
+  if (insertError) {
+    if (insertError.code === "23505") return { alreadyRead: true, xpAwarded: 0 };
+    throw insertError;
+  }
+
+  const [{ data: playerRow, error: playerError }, { data: readRows, error: readsError }] = await Promise.all([
+    sb.from("players").select("xp, acad_xp, acad_articles_read, sub_plan").eq("id", playerId).single(),
+    sb.from("article_reads").select("article_id").eq("player_id", playerId),
+  ]);
+  if (playerError) throw playerError;
+  if (readsError) throw readsError;
+
+  const readIds = new Set((readRows as { article_id: string }[]).map((r) => r.article_id));
+  const readCountByStage: Partial<Record<AcademyStage, number>> = {};
+  const totalByStage: Partial<Record<AcademyStage, number>> = {};
+  for (const a of allArticles) {
+    totalByStage[a.stage] = (totalByStage[a.stage] ?? 0) + 1;
+    if (readIds.has(a.id)) readCountByStage[a.stage] = (readCountByStage[a.stage] ?? 0) + 1;
+  }
+
+  let xpAwarded = XP_PER_ARTICLE[article.stage];
+  const stageReadCount = readCountByStage[article.stage] ?? 0;
+  const stageTotal = totalByStage[article.stage] ?? 0;
+  if (stageTotal > 0 && stageReadCount === stageTotal) xpAwarded += STAGE_COMPLETE_BONUS_XP;
+  if (readIds.size === ACADEMY_TOTAL_ARTICLES) xpAwarded += ALL_ARTICLES_BONUS_XP;
+
+  const newArticlesRead = readIds.size;
+  const newStage = currentUnlockedStage(playerRow.sub_plan as PlanTier, readCountByStage);
+
+  const { error: updateError } = await sb
+    .from("players")
+    .update({
+      xp: (playerRow.xp ?? 0) + xpAwarded,
+      acad_xp: (playerRow.acad_xp ?? 0) + xpAwarded,
+      acad_articles_read: newArticlesRead,
+      acad_completion_percent: Math.round((newArticlesRead / ACADEMY_TOTAL_ARTICLES) * 100),
+      acad_stage: newStage,
+    })
+    .eq("id", playerId);
+  if (updateError) throw updateError;
+
+  return { alreadyRead: false, xpAwarded };
+}
+
+/** Increments (or resets) a player's daily-tip streak, once per calendar day, and pays the 7-day streak bonus. */
+export async function recordTipView(playerId: string): Promise<{ streak: number; bonusAwarded: boolean }> {
+  const sb = createClient();
+  const { data, error: fetchError } = await sb
+    .from("players")
+    .select("xp, tip_streak_count, tip_best_streak, tip_last_viewed_date")
+    .eq("id", playerId)
+    .single();
+  if (fetchError) throw fetchError;
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (data.tip_last_viewed_date === today) {
+    return { streak: data.tip_streak_count ?? 0, bonusAwarded: false };
+  }
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const newStreak = data.tip_last_viewed_date === yesterday ? (data.tip_streak_count ?? 0) + 1 : 1;
+  const bonusAwarded = newStreak > 0 && newStreak % TIP_STREAK_TARGET_DAYS === 0;
+
+  const { error: updateError } = await sb
+    .from("players")
+    .update({
+      tip_streak_count: newStreak,
+      tip_best_streak: Math.max(data.tip_best_streak ?? 0, newStreak),
+      tip_last_viewed_date: today,
+      xp: (data.xp ?? 0) + (bonusAwarded ? TIP_STREAK_BONUS_XP : 0),
+    })
+    .eq("id", playerId);
+  if (updateError) throw updateError;
+
+  return { streak: newStreak, bonusAwarded };
 }

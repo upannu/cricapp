@@ -41,6 +41,35 @@ export interface AcademyProgress {
   articlesRead: number;
 }
 
+export type ArticleCategory = 'Biomechanical' | 'Technical' | 'Physical' | 'Mental' | 'Data Insight';
+
+export interface Article {
+  id: string;
+  stage: AcademyStage;
+  orderInStage: number;
+  title: string;
+  readTimeMinutes: number;
+  relatedMetric?: string;
+  keyTakeaways: string[];
+  bodyMd: string;
+  published: boolean;
+}
+
+export interface DailyTip {
+  id: string;
+  publishDate: string;
+  category: ArticleCategory;
+  body: string;
+  relatedArticleId?: string;
+}
+
+export interface ArticleRead {
+  id: string;
+  playerId: string;
+  articleId: string;
+  readAt: string;
+}
+
 export const PLATFORM_FEE_PCT = 0.10;
 
 export interface Academy {
@@ -280,6 +309,8 @@ export interface Player {
   sessionsCount: number;
   lastActive: string;
   xp: number;
+  tipStreakCount: number;
+  tipBestStreak: number;
 }
 
 // ─── Coach workflow: action plans, video annotation, voice notes, assessments ──

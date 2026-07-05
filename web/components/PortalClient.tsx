@@ -1,17 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayer, fetchSessions, fetchReports } from "@/lib/db";
+import { fetchPlayer, fetchSessions, fetchReports, fetchTodaysTip, recordTipView } from "@/lib/db";
 import { formatDate, getReportPdfUrl, getInitials } from "@/lib/utils";
 import { BadgeStrip } from "@/components/BadgeStrip";
-import type { Player, Session, Report } from "@/lib/types";
+import type { Player, Session, Report, DailyTip } from "@/lib/types";
+
+const CATEGORY_STYLES: Record<string, string> = {
+  Biomechanical: "bg-pace-green/10 text-pace-green border-pace-green/30",
+  Technical: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+  Physical: "bg-amber/10 text-amber border-amber/30",
+  Mental: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+  "Data Insight": "bg-fire/10 text-fire border-fire/30",
+};
 
 export function PortalClient() {
   const { user } = useAuth();
   const [player, setPlayer] = useState<Player | null>(null);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [tip, setTip] = useState<DailyTip | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [consentError, setConsentError] = useState("");
@@ -22,11 +32,14 @@ export function PortalClient() {
       fetchPlayer(user.playerId),
       fetchSessions(undefined, [user.playerId]),
       fetchReports(user.playerId),
-    ]).then(([p, s, r]) => {
+      fetchTodaysTip(),
+    ]).then(([p, s, r, t]) => {
       setPlayer(p);
       setSessions(s);
       setReports(r);
+      setTip(t);
       setLoading(false);
+      recordTipView(user.playerId!);
     });
   }, [user]);
 
@@ -85,6 +98,22 @@ export function PortalClient() {
         <BadgeStrip player={player} reportCount={reports.length} />
       </div>
 
+      {/* Daily tip */}
+      {tip && (
+        <div className="bg-surface rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Today&apos;s Academy Tip</p>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${CATEGORY_STYLES[tip.category] ?? ""}`}>
+              {tip.category}
+            </span>
+          </div>
+          <p className="text-zinc-300 text-sm leading-relaxed">{tip.body}</p>
+          <Link href="/portal/learn" className="inline-block mt-3 text-xs font-semibold text-pace-green hover:opacity-80">
+            Open the Academy →
+          </Link>
+        </div>
+      )}
+
       {/* GDPR consent card — parent role only */}
       {user.role === "parent" && (
         <div className={`rounded-2xl p-5 border ${
@@ -142,6 +171,9 @@ export function PortalClient() {
             <Row label="Total sessions" value={String(player.academy.totalSessions)} />
             <Row label="Articles read" value={String(player.academy.articlesRead)} />
           </div>
+          <Link href="/portal/learn" className="inline-block mt-3 text-xs font-semibold text-pace-green hover:opacity-80">
+            Continue learning →
+          </Link>
         </div>
       </div>
 
