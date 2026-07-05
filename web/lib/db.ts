@@ -20,6 +20,8 @@ export interface DbPlayer {
   added_date: string; sessions_count: number; last_active: string; xp: number;
   sub_plan: string; sub_start_date: string; sub_end_date: string;
   sub_sessions_used: number; sub_sessions_limit: number | null;
+  stripe_customer_id?: string | null; stripe_subscription_id?: string | null;
+  subscription_status?: string | null;
   bio_ball_speed_kmh: number; bio_front_knee_angle_deg: number;
   bio_action_type: string; bio_injury_risk: string; bio_last_session: string;
   acad_stage: string; acad_completion_percent: number;
@@ -60,6 +62,7 @@ export interface DbSession {
   }>;
   ball_speed_kmh: number | null; front_knee_angle_deg: number | null;
   xp_earned: number; booking_id?: string | null;
+  rpe?: number | null;
 }
 
 export interface DbSessionPack {
@@ -111,6 +114,9 @@ export function dbToPlayer(r: DbPlayer): Player {
       plan: r.sub_plan as PlanTier,
       startDate: r.sub_start_date, endDate: r.sub_end_date,
       sessionsUsed: r.sub_sessions_used, sessionsLimit: r.sub_sessions_limit,
+      stripeCustomerId: r.stripe_customer_id ?? undefined,
+      stripeSubscriptionId: r.stripe_subscription_id ?? undefined,
+      subscriptionStatus: r.subscription_status ?? undefined,
     },
     biomechanics: {
       ballSpeedKmh: r.bio_ball_speed_kmh,
@@ -177,6 +183,7 @@ export function dbToSession(r: DbSession): Session {
     ballSpeedKmh: r.ball_speed_kmh, frontKneeAngleDeg: r.front_knee_angle_deg,
     xpEarned: r.xp_earned,
     bookingId: r.booking_id ?? undefined,
+    rpe: r.rpe ?? null,
   };
 }
 
@@ -263,6 +270,26 @@ export async function fetchPlayerByEmail(email: string): Promise<Player | null> 
 export async function updatePlayer(id: string, edits: Partial<DbPlayer>): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("players").update(edits).eq("id", id);
+  if (error) throw error;
+}
+
+/** Was never actually happening — a session's xpEarned was inserted onto the session row but never added to the player's running total or their monthly session count. */
+export async function recordSessionCompletion(playerId: string, xpEarned: number): Promise<void> {
+  const sb = createClient();
+  const { data, error: fetchError } = await sb
+    .from("players")
+    .select("xp, sessions_count, sub_sessions_used")
+    .eq("id", playerId)
+    .single();
+  if (fetchError) throw fetchError;
+  const { error } = await sb
+    .from("players")
+    .update({
+      xp: (data.xp ?? 0) + xpEarned,
+      sessions_count: (data.sessions_count ?? 0) + 1,
+      sub_sessions_used: (data.sub_sessions_used ?? 0) + 1,
+    })
+    .eq("id", playerId);
   if (error) throw error;
 }
 
@@ -358,6 +385,12 @@ export async function fetchSessions(coachName?: string, playerIds?: string[]): P
 export async function insertSession(s: DbSession): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("sessions").insert(s);
+  if (error) throw error;
+}
+
+export async function updateSessionRpe(id: string, rpe: number | null): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("sessions").update({ rpe }).eq("id", id);
   if (error) throw error;
 }
 

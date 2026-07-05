@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { fetchPlayer, fetchSessions, fetchReports } from "@/lib/db";
 import { formatDate, getReportPdfUrl, getInitials } from "@/lib/utils";
+import { BadgeStrip } from "@/components/BadgeStrip";
 import type { Player, Session, Report } from "@/lib/types";
 
 export function PortalClient() {
@@ -78,6 +79,10 @@ export function PortalClient() {
           <div className="text-pace-green font-bold text-lg">⚡ {player.xp.toLocaleString()} XP</div>
           <div className="text-xs text-zinc-500">{player.subscription.plan}</div>
         </div>
+      </div>
+
+      <div className="bg-surface rounded-2xl p-5">
+        <BadgeStrip player={player} reportCount={reports.length} />
       </div>
 
       {/* GDPR consent card — parent role only */}

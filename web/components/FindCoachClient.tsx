@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { fetchPlayer, fetchCoaches, fetchAcademies, upsertBooking } from "@/lib/db";
 import { getSessionFee, getInitials } from "@/lib/utils";
+import { canUseMarketplace } from "@/lib/plan-features";
 import type { Player, Coach, Academy, AgeGroup, BookingType } from "@/lib/types";
 
 const BOOKING_TYPES: BookingType[] = [
@@ -50,6 +52,19 @@ export function FindCoachClient() {
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
         <p className="text-white font-semibold mb-2">No player linked to this account</p>
         <p className="text-zinc-400 text-sm">Contact your coach or academy admin to get this fixed.</p>
+      </div>
+    );
+  }
+
+  if (!canUseMarketplace(player.subscription.plan)) {
+    return (
+      <div className="max-w-3xl mx-auto px-6 py-16 text-center">
+        <div className="w-14 h-14 rounded-full bg-pace-green/10 border border-pace-green/30 flex items-center justify-center mx-auto mb-5 text-2xl">🔒</div>
+        <p className="text-white font-semibold mb-2">Find a Coach is a Player Pro feature</p>
+        <p className="text-zinc-400 text-sm mb-6">Upgrade to browse and request bookings with coaches beyond your own academy assignment.</p>
+        <Link href={`/players/${player.id}/subscription`} className="inline-block px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
+          View Upgrade Options
+        </Link>
       </div>
     );
   }

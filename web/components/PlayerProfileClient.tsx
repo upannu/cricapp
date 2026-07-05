@@ -2,23 +2,39 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { fetchPlayer, fetchAcademies, fetchCoaches } from "@/lib/db";
+import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions } from "@/lib/db";
 import { formatDate, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
 import { PlayerMessages } from "@/components/PlayerMessages";
+import { computeInjuryRiskTrend, computeRpeSummary, type InjuryRiskTrend, type RpeSummary } from "@/lib/performance-trends";
+import { Sparkline } from "@/components/Sparkline";
+import { BadgeStrip } from "@/components/BadgeStrip";
 import type { Academy, Coach, Player, PlayerStatus } from "@/lib/types";
+
+const DIRECTION_LABEL: Record<InjuryRiskTrend["direction"], string> = {
+  worsening: "↑ Worsening",
+  improving: "↓ Improving",
+  stable: "→ Stable",
+  unknown: "Not enough history yet",
+};
 
 export function PlayerProfileClient({ playerId }: { playerId: string }) {
   const [player, setPlayer] = useState<Player | null>(null);
   const [academies, setAcademies] = useState<Academy[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [notFound, setNotFound] = useState(false);
+  const [riskTrend, setRiskTrend] = useState<InjuryRiskTrend | null>(null);
+  const [rpeSummary, setRpeSummary] = useState<RpeSummary | null>(null);
+  const [reportCount, setReportCount] = useState(0);
 
   useEffect(() => {
-    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches()]).then(([p, a, c]) => {
+    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches(), fetchReports(playerId), fetchSessions(undefined, [playerId])]).then(([p, a, c, reports, sessions]) => {
       if (!p) setNotFound(true);
       else setPlayer(p);
       setAcademies(a);
       setCoaches(c);
+      setRiskTrend(computeInjuryRiskTrend(reports));
+      setRpeSummary(computeRpeSummary(sessions));
+      setReportCount(reports.length);
     });
   }, [playerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -222,6 +238,11 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           />
         </InfoCard>
 
+        {/* Badges */}
+        <InfoCard title="Badges & Milestones">
+          <BadgeStrip player={player} reportCount={reportCount} />
+        </InfoCard>
+
         {/* Contact & profile */}
         <InfoCard title="Contact & Profile">
           <InfoRow
@@ -261,6 +282,46 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           />
         </InfoCard>
       </div>
+
+      {/* Performance trends */}
+      {(riskTrend?.history.length || rpeSummary?.history.length) ? (
+        <div className="bg-surface rounded-2xl p-5 mb-4">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-4">Performance Trends</p>
+
+          {riskTrend?.alert && (
+            <div className="bg-red-500/5 border border-red-500/30 rounded-xl px-4 py-3 mb-4">
+              <p className="text-red-400 text-sm font-semibold">⚠ {riskTrend.alertReason}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {riskTrend && riskTrend.history.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-zinc-400">Injury Risk Trend</span>
+                  <span className={`text-xs font-semibold ${riskTrend.direction === "worsening" ? "text-red-400" : riskTrend.direction === "improving" ? "text-pace-green" : "text-zinc-400"}`}>
+                    {DIRECTION_LABEL[riskTrend.direction]}
+                  </span>
+                </div>
+                <Sparkline
+                  values={riskTrend.history.map((h) => h.overallScore ?? 0)}
+                  min={0} max={100}
+                  color={riskTrend.direction === "worsening" ? "#FF4D4D" : "#00D4AA"}
+                />
+              </div>
+            )}
+            {rpeSummary && rpeSummary.history.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-zinc-400">RPE Trend</span>
+                  <span className="text-xs font-mono text-white">7-day load: {rpeSummary.weeklyLoad}</span>
+                </div>
+                <Sparkline values={rpeSummary.history.map((h) => h.rpe)} min={1} max={10} color="#E8B93F" />
+              </div>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {/* Message history */}
       <PlayerMessages

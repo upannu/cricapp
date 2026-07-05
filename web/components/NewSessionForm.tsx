@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Player, Session, SessionVideo } from "@/lib/types";
-import { insertSession } from "@/lib/db";
+import { insertSession, recordSessionCompletion } from "@/lib/db";
 import { createClient } from "@/lib/supabase";
 import { probeVideoQuality, MIN_LONG_EDGE_PX, MIN_SHORT_EDGE_PX, MIN_FPS, type VideoQualityResult } from "@/lib/video-quality";
 import { transcodeToH264 } from "@/lib/transcode";
+import { sessionsLimitForPlan } from "@/lib/plan-features";
 
 const SESSION_TYPES = [
   "Net Session",
@@ -60,12 +61,16 @@ export function NewSessionForm({ player }: { player: Player }) {
   const [sessionDate, setSessionDate] = useState(today);
   const [sessionType, setSessionType] = useState<string>(SESSION_TYPES[0]);
   const [notes, setNotes]             = useState("");
+  const [rpe, setRpe] = useState<number | null>(null);
   const [angles, setAngles] = useState<Record<AngleId, AngleState>>({
     front: { ...EMPTY_ANGLE }, side: { ...EMPTY_ANGLE }, back: { ...EMPTY_ANGLE },
   });
   const [submitting, setSubmitting]   = useState(false);
   const [submitted,  setSubmitted]    = useState(false);
   const [submitError, setSubmitError] = useState("");
+
+  const sessionsLimit = sessionsLimitForPlan(player.subscription.plan);
+  const limitReached = sessionsLimit !== null && player.subscription.sessionsUsed >= sessionsLimit;
 
   const initials = player.name.split(" ").map((n) => n[0] ?? "").join("");
   const selectedCount = Object.values(angles).filter((a) => a.file && a.status !== "invalid").length;
@@ -186,6 +191,7 @@ export function NewSessionForm({ player }: { player: Player }) {
     }
 
     // Save session to Supabase DB
+    const xpEarned = 50 + videos.length * 20;
     try {
       await insertSession({
         id: sessionId,
@@ -196,8 +202,10 @@ export function NewSessionForm({ player }: { player: Player }) {
         videos,
         ball_speed_kmh: null,
         front_knee_angle_deg: null,
-        xp_earned: 50 + videos.length * 20,
+        xp_earned: xpEarned,
+        rpe,
       });
+      await recordSessionCompletion(player.id, xpEarned);
     } catch (err) {
       const msg = (err as { message?: string })?.message ?? String(err);
       setSubmitError(`Failed to save session: ${msg}`);
@@ -232,6 +240,20 @@ export function NewSessionForm({ player }: { player: Player }) {
         </div>
       </div>
 
+      {limitReached ? (
+        <div className="bg-surface rounded-2xl p-8 text-center">
+          <p className="text-white font-semibold mb-2">Monthly session limit reached</p>
+          <p className="text-zinc-400 text-sm mb-6">
+            {player.name} has used {player.subscription.sessionsUsed}/{sessionsLimit} sessions on the Free plan this month. Upgrade to Player Pro for unlimited session logging.
+          </p>
+          <Link
+            href={`/players/${player.id}/subscription`}
+            className="inline-block px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity"
+          >
+            View Upgrade Options
+          </Link>
+        </div>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Session details */}
         <div className="bg-surface rounded-2xl p-6">
@@ -268,6 +290,25 @@ export function NewSessionForm({ player }: { player: Player }) {
                   placeholder="Key observations, focus areas, drills covered…"
                 />
               </Field>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+                RPE — Rate of Perceived Exertion <span className="normal-case text-zinc-600">(optional, 1 easy – 10 maximal)</span>
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setRpe(rpe === n ? null : n)}
+                    className={`w-9 h-9 rounded-lg text-sm font-bold border transition-colors cursor-pointer ${
+                      rpe === n ? "bg-pace-green border-pace-green text-black" : "bg-ink border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -440,6 +481,7 @@ export function NewSessionForm({ player }: { player: Player }) {
           </Link>
         </div>
       </form>
+      )}
     </div>
   );
 }

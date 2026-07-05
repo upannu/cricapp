@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Player, PlanTier } from "@/lib/types";
 import { formatDate, getPlayerStatus } from "@/lib/utils";
+import { isPaidPlan } from "@/lib/stripe-client";
 
 const PLANS: { tier: PlanTier; price: string; sessions: number | null; features: string[] }[] = [
   {
@@ -15,13 +15,13 @@ const PLANS: { tier: PlanTier; price: string; sessions: number | null; features:
   },
   {
     tier: "Player Pro",
-    price: "$29 / month",
+    price: "$9.99 / month",
     sessions: null,
     features: ["Unlimited sessions", "AI biomechanics", "Progress reports", "Video library"],
   },
   {
     tier: "Coach Pro",
-    price: "$79 / month",
+    price: "$29.99 / month",
     sessions: null,
     features: [
       "Everything in Player Pro",
@@ -33,32 +33,58 @@ const PLANS: { tier: PlanTier; price: string; sessions: number | null; features:
   },
 ];
 
-const MOCK_HISTORY = [
-  { date: "2026-01-15", description: "Player Pro — Monthly renewal", amount: "$29.00", status: "Paid" },
-  { date: "2025-12-15", description: "Player Pro — Monthly renewal", amount: "$29.00", status: "Paid" },
-  { date: "2025-11-15", description: "Player Pro — Monthly renewal", amount: "$29.00", status: "Paid" },
-  { date: "2025-10-15", description: "Player Pro — First payment", amount: "$29.00", status: "Paid" },
-];
-
 export function SubscriptionPage({ player }: { player: Player }) {
-  const router = useRouter();
   const status = getPlayerStatus(player.subscription.endDate);
   const [selectedPlan, setSelectedPlan] = useState<PlanTier>(player.subscription.plan);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
+  const [error, setError] = useState("");
 
   const daysLeft = Math.ceil(
     (new Date(player.subscription.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
 
-  function handleSave() {
-    setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
-      setSaved(true);
-      setTimeout(() => router.push(`/players/${player.id}`), 1200);
-    }, 900);
+  async function handleCheckout() {
+    if (!isPaidPlan(selectedPlan)) return;
+    setError("");
+    setRedirecting(true);
+    try {
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: player.id, plan: selectedPlan }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Could not start checkout.");
+      window.location.href = data.url;
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? String(err));
+      setRedirecting(false);
+    }
   }
+
+  async function handleManageBilling() {
+    setError("");
+    setRedirecting(true);
+    try {
+      const res = await fetch("/api/stripe/create-portal-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: player.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Could not open billing portal.");
+      window.location.href = data.url;
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? String(err));
+      setRedirecting(false);
+    }
+  }
+
+  const hasBillingAccount = !!player.subscription.stripeCustomerId;
+  const hasActiveSub =
+    player.subscription.subscriptionStatus === "active" ||
+    player.subscription.subscriptionStatus === "trialing";
+  const planChanged = selectedPlan !== player.subscription.plan;
 
   const initials = player.name
     .split(" ")
@@ -227,28 +253,41 @@ export function SubscriptionPage({ player }: { player: Player }) {
         </div>
       </div>
 
-      {/* Renewal / save actions */}
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Billing actions */}
       <div className="flex flex-wrap items-center gap-3 mb-8">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving || saved}
-          className={`px-6 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer ${
-            saved
-              ? "bg-pace-green/60 text-black"
-              : saving
-                ? "bg-pace-green/80 text-black"
-                : "bg-pace-green text-black hover:opacity-90"
-          }`}
-        >
-          {saved ? "✓ Saved" : saving ? "Saving…" : "Save Changes"}
-        </button>
-        {(status === "Expiring" || status === "Expired") && (
+        {hasActiveSub ? (
           <button
             type="button"
-            className="px-6 py-3 rounded-xl text-sm font-bold bg-fire text-white hover:opacity-90 transition-opacity cursor-pointer"
+            onClick={handleManageBilling}
+            disabled={redirecting}
+            className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
           >
-            Renew Now
+            {redirecting ? "Redirecting…" : "Manage Billing"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleCheckout}
+            disabled={redirecting || !isPaidPlan(selectedPlan) || !planChanged}
+            className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+          >
+            {redirecting ? "Redirecting…" : `Subscribe to ${selectedPlan}`}
+          </button>
+        )}
+        {hasBillingAccount && !hasActiveSub && (
+          <button
+            type="button"
+            onClick={handleManageBilling}
+            disabled={redirecting}
+            className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer"
+          >
+            View billing history
           </button>
         )}
         <Link
@@ -259,46 +298,11 @@ export function SubscriptionPage({ player }: { player: Player }) {
         </Link>
       </div>
 
-      {/* Payment history */}
-      <div className="bg-surface rounded-2xl p-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">
-          Payment History
-        </h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b border-zinc-700">
-                <th className="pb-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider pr-6">
-                  Date
-                </th>
-                <th className="pb-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider pr-6">
-                  Description
-                </th>
-                <th className="pb-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider pr-6">
-                  Amount
-                </th>
-                <th className="pb-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800">
-              {MOCK_HISTORY.map((row, i) => (
-                <tr key={i}>
-                  <td className="py-3 text-zinc-300 pr-6">{formatDate(row.date)}</td>
-                  <td className="py-3 text-white pr-6">{row.description}</td>
-                  <td className="py-3 text-zinc-300 font-mono pr-6">{row.amount}</td>
-                  <td className="py-3">
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-pace-green/20 text-pace-green">
-                      {row.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {hasActiveSub && (
+        <p className="text-zinc-500 text-xs -mt-4 mb-8">
+          To switch plans, update your payment method, view invoices, or cancel, use Manage Billing above — it opens Stripe&apos;s secure billing portal.
+        </p>
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import type { Session, BookingType, Player, Coach, Academy, CameraCalibration, VideoAnnotation, VoiceNote, Assessment } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchCameraCalibration, fetchVideoAnnotations, fetchVoiceNotes, fetchAssessments } from "@/lib/db";
+import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchCameraCalibration, fetchVideoAnnotations, fetchVoiceNotes, fetchAssessments, updateSessionRpe } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
 import { extractPoseSequence, type PoseFrame } from "@/lib/pose";
 import { computeBiomechanics } from "@/lib/biomechanics";
@@ -15,6 +15,7 @@ import { CameraCalibrationModal } from "@/components/CameraCalibrationModal";
 import { VideoAnnotator } from "@/components/VideoAnnotator";
 import { VoiceNoteRecorder } from "@/components/VoiceNoteRecorder";
 import { AssessmentForm } from "@/components/AssessmentForm";
+import { canGenerateAiReports } from "@/lib/plan-features";
 
 const SESSION_TYPES: BookingType[] = [
   "Net Session",
@@ -99,6 +100,18 @@ export function SessionsClient() {
   const [annotatingVideo, setAnnotatingVideo] = useState<{ session: Session; angle: "front" | "side" | "back"; url: string } | null>(null);
   const [voiceNoteSession, setVoiceNoteSession] = useState<Session | null>(null);
   const [assessmentSession, setAssessmentSession] = useState<Session | null>(null);
+  const [editingRpeId, setEditingRpeId] = useState<string | null>(null);
+
+  async function handleSetRpe(session: Session, rpe: number | null) {
+    setEditingRpeId(null);
+    setSessions((prev) => prev.map((s) => (s.id === session.id ? { ...s, rpe } : s)));
+    try {
+      await updateSessionRpe(session.id, rpe);
+    } catch {
+      // Revert on failure — non-critical enough not to need a dedicated error banner
+      setSessions((prev) => prev.map((s) => (s.id === session.id ? { ...s, rpe: session.rpe } : s)));
+    }
+  }
 
   useEffect(() => {
     if (!expandedId || sessionExtras[expandedId]) return;
@@ -474,6 +487,33 @@ export function SessionsClient() {
                             label="Videos"
                             value={`${session.videos.length} / 3`}
                           />
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-xs text-zinc-400">RPE</span>
+                            {editingRpeId === session.id ? (
+                              <div className="flex flex-wrap gap-1 justify-end">
+                                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                                  <button
+                                    key={n}
+                                    type="button"
+                                    onClick={() => handleSetRpe(session, n)}
+                                    className={`w-6 h-6 rounded text-[10px] font-bold border cursor-pointer ${
+                                      session.rpe === n ? "bg-pace-green border-pace-green text-black" : "bg-surface border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                                    }`}
+                                  >
+                                    {n}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setEditingRpeId(session.id)}
+                                className="text-xs font-semibold font-mono text-white hover:text-pace-green transition-colors cursor-pointer"
+                              >
+                                {session.rpe != null ? `${session.rpe}/10 ✎` : "Log RPE"}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -631,6 +671,14 @@ export function SessionsClient() {
                             className="px-4 py-2 text-xs font-semibold bg-pace-green/20 text-pace-green border border-pace-green/30 rounded-lg hover:bg-pace-green/30 transition-colors"
                           >
                             ✓ View Report
+                          </Link>
+                        ) : player && !canGenerateAiReports(player.subscription.plan) ? (
+                          <Link
+                            href={`/players/${player.id}/subscription`}
+                            className="px-4 py-2 text-xs font-semibold bg-zinc-700/50 text-zinc-400 border border-zinc-600 rounded-lg hover:text-white hover:border-zinc-500 transition-colors"
+                            title="AI reports require Player Pro or higher"
+                          >
+                            🔒 AI Report (Upgrade)
                           </Link>
                         ) : (
                           <button

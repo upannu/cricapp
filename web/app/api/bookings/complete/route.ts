@@ -52,6 +52,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Could not update booking status: ${statusError.message}` }, { status: 500 });
   }
 
+  // 2b. Credit the player's XP and session counts — previously never happened here either.
+  const { data: playerRow } = await supabase
+    .from("players")
+    .select("xp, sessions_count, sub_sessions_used")
+    .eq("id", booking.player_id)
+    .single();
+  if (playerRow) {
+    await supabase.from("players").update({
+      xp: (playerRow.xp ?? 0) + 50,
+      sessions_count: (playerRow.sessions_count ?? 0) + 1,
+      sub_sessions_used: (playerRow.sub_sessions_used ?? 0) + 1,
+    }).eq("id", booking.player_id);
+  }
+
   // 3. Draw down the linked pack, if any
   if (booking.pack_id) {
     const { data: pack, error: packFetchError } = await supabase

@@ -19,6 +19,10 @@ export interface Subscription {
   endDate: string;
   sessionsUsed: number;
   sessionsLimit: number | null;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  /** Stripe's own subscription status (active, past_due, canceled, ...) — the webhook-driven source of truth, not `plan` alone. */
+  subscriptionStatus?: string;
 }
 
 export interface BiomechanicsData {
@@ -252,6 +256,8 @@ export interface Session {
   frontKneeAngleDeg: number | null;
   xpEarned: number;
   bookingId?: string;
+  /** Rate of Perceived Exertion, 1 (very easy) - 10 (maximal effort) — logged by the coach or the player. */
+  rpe?: number | null;
 }
 
 export interface Player {

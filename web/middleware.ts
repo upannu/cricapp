@@ -36,7 +36,10 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/signup") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password") ||
-    pathname.startsWith("/api/lookup-player");
+    pathname.startsWith("/api/lookup-player") ||
+    // Stripe calls this server-to-server with no Supabase session cookie — it authenticates
+    // via its own HMAC signature (verified inside the route), not via signed-in user session.
+    pathname.startsWith("/api/stripe/webhook");
 
   if (!user && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", request.url));

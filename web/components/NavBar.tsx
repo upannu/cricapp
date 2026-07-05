@@ -14,6 +14,7 @@ const NAV_ALL = [
   { label: "Packs",    href: "/session-packs" },
   { label: "Coaches",  href: "/coaches" },
   { label: "Reports",  href: "/reports" },
+  { label: "Performance", href: "/performance" },
 ];
 
 const ROLE_LABELS: Record<UserRole, string> = {
