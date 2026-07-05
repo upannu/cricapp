@@ -31,6 +31,11 @@ export function sessionsLimitForPlan(plan: PlanTier): number | null {
   return plan === "Free" ? 4 : null;
 }
 
+/** Free tier's daily Coach AI chat message cap. Paid tiers are unlimited (null). */
+export function chatMessagesLimitForPlan(plan: PlanTier): number | null {
+  return plan === "Free" ? 3 : null;
+}
+
 export function isUnlimited(sessionsLimit: number | null): boolean {
   return sessionsLimit === null;
 }
