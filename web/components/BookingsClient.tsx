@@ -336,7 +336,9 @@ export function BookingsClient() {
                       onChange={(e) => setDraft({ ...draft, packId: e.target.checked ? activePack.id : undefined })}
                       className="accent-pace-green cursor-pointer"
                     />
-                    Draw from active pack ({remaining} session{remaining !== 1 ? "s" : ""} remaining)
+                    Draw from active pack ({remaining}{" "}
+                    {remaining === 1 ? "session" : "sessions"}{" "}
+                    remaining)
                   </label>
                 );
               })()}

@@ -277,8 +277,15 @@ export async function updatePlayer(id: string, edits: Partial<DbPlayer>): Promis
   if (error) throw error;
 }
 
-/** Was never actually happening — a session's xpEarned was inserted onto the session row but never added to the player's running total or their monthly session count. */
-export async function recordSessionCompletion(playerId: string, xpEarned: number): Promise<void> {
+/**
+ * Was never actually happening — a session's xpEarned was inserted onto the session row but never
+ * added to the player's running total or their monthly session count.
+ *
+ * `packId`: pass this when the session draws down a prepaid session pack. A pack session doesn't
+ * also count against the subscription's own monthly quota — the academy already sold and collected
+ * for it, so charging it against the Free-plan cap too would double-charge the player for one session.
+ */
+export async function recordSessionCompletion(playerId: string, xpEarned: number, packId?: string): Promise<void> {
   const sb = createClient();
   const { data, error: fetchError } = await sb
     .from("players")
@@ -291,10 +298,17 @@ export async function recordSessionCompletion(playerId: string, xpEarned: number
     .update({
       xp: (data.xp ?? 0) + xpEarned,
       sessions_count: (data.sessions_count ?? 0) + 1,
-      sub_sessions_used: (data.sub_sessions_used ?? 0) + 1,
+      ...(packId ? {} : { sub_sessions_used: (data.sub_sessions_used ?? 0) + 1 }),
     })
     .eq("id", playerId);
   if (error) throw error;
+
+  if (packId) {
+    const { data: pack, error: packError } = await sb.from("session_packs").select("sessions_used").eq("id", packId).single();
+    if (!packError && pack) {
+      await sb.from("session_packs").update({ sessions_used: pack.sessions_used + 1 }).eq("id", packId);
+    }
+  }
 }
 
 export async function insertPlayer(p: DbPlayer): Promise<void> {

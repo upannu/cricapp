@@ -53,6 +53,8 @@ export async function POST(request: Request) {
   }
 
   // 2b. Credit the player's XP and session counts — previously never happened here either.
+  // A booking drawing from a prepaid pack doesn't also burn the subscription's monthly quota —
+  // that would double-charge the player for one session (once via the pack, once via the cap).
   const { data: playerRow } = await supabase
     .from("players")
     .select("xp, sessions_count, sub_sessions_used")
@@ -62,7 +64,7 @@ export async function POST(request: Request) {
     await supabase.from("players").update({
       xp: (playerRow.xp ?? 0) + 50,
       sessions_count: (playerRow.sessions_count ?? 0) + 1,
-      sub_sessions_used: (playerRow.sub_sessions_used ?? 0) + 1,
+      ...(booking.pack_id ? {} : { sub_sessions_used: (playerRow.sub_sessions_used ?? 0) + 1 }),
     }).eq("id", booking.player_id);
   }
 
