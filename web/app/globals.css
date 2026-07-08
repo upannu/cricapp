@@ -15,3 +15,12 @@ body {
   background-color: #050F1F;
   color: #ffffff;
 }
+
+/* Keeps a scrollable element's overflow functional as a fallback without showing the scrollbar chrome. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

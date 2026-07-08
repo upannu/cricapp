@@ -87,7 +87,7 @@ export function NavBar() {
 
   return (
     <header className="bg-surface border-b border-zinc-700/60 sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center h-16 gap-4 lg:gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center h-16 gap-4 xl:gap-5">
         {/* Logo */}
         <Link href={isPlayerOrParent ? "/portal" : "/players"} className="flex items-center gap-2 flex-shrink-0">
           <svg width="22" height="22" viewBox="0 0 32 32" fill="none" className="flex-shrink-0">
@@ -106,23 +106,23 @@ export function NavBar() {
         </Link>
 
         {/* Desktop nav — scrolls horizontally rather than squeezing/overlapping when it doesn't fit */}
-        <nav className="hidden lg:flex items-stretch gap-1 flex-1 min-w-0 overflow-x-auto">
+        <nav className="hidden xl:flex items-stretch gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
           {desktopNavLinks.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`px-4 flex items-center flex-shrink-0 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${linkClasses(item.href)}`}
+              className={`px-2.5 xl:px-3.5 flex items-center flex-shrink-0 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${linkClasses(item.href)}`}
             >
               {item.label}
             </Link>
           ))}
         </nav>
 
-        <div className="flex-1 lg:hidden" />
+        <div className="flex-1 xl:hidden" />
 
         {/* User + role (desktop) */}
         {user && (
-          <div className="hidden lg:flex items-center gap-3 flex-shrink-0">
+          <div className="hidden xl:flex items-center gap-3 flex-shrink-0">
             {user.role === "platform_admin" && (
               <Link
                 href="/admin/approvals"
@@ -168,7 +168,7 @@ export function NavBar() {
 
         {/* Mobile: avatar + hamburger */}
         {user && (
-          <div className="flex lg:hidden items-center gap-2 flex-shrink-0">
+          <div className="flex xl:hidden items-center gap-2 flex-shrink-0">
             <div className="w-8 h-8 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-xs flex-shrink-0">
               {initials}
             </div>
@@ -198,7 +198,7 @@ export function NavBar() {
 
       {/* Mobile dropdown panel */}
       {user && mobileOpen && (
-        <div className="lg:hidden border-t border-zinc-700/60 bg-surface max-h-[calc(100vh-4rem)] overflow-y-auto">
+        <div className="xl:hidden border-t border-zinc-700/60 bg-surface max-h-[calc(100vh-4rem)] overflow-y-auto">
           <nav className="flex flex-col px-2 py-2">
             {navLinks.map((item) => (
               <Link
