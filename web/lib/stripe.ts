@@ -31,7 +31,9 @@ export function priceIdForPlan(plan: PaidPlan): string {
     plan === "Player Pro"
       ? process.env.STRIPE_PRICE_PLAYER_PRO
       : process.env.STRIPE_PRICE_COACH_PRO;
-  if (!priceId) throw new Error(`No Stripe price configured for plan "${plan}".`);
+  if (!priceId || priceId.startsWith("REPLACE_ME")) {
+    throw new Error(`No Stripe price configured for plan "${plan}" — set STRIPE_PRICE_${plan === "Player Pro" ? "PLAYER_PRO" : "COACH_PRO"} in .env.local.`);
+  }
   return priceId;
 }
 

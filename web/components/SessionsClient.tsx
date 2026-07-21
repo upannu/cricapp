@@ -667,12 +667,23 @@ export function SessionsClient() {
                       )}
                       {session.videos.length > 0 && (
                         reportStatus[session.id] === "success" && player ? (
-                          <Link
-                            href={`/players/${player.id}/reports`}
-                            className="px-4 py-2 text-xs font-semibold bg-pace-green/20 text-pace-green border border-pace-green/30 rounded-lg hover:bg-pace-green/30 transition-colors"
-                          >
-                            ✓ View Report
-                          </Link>
+                          <>
+                            <Link
+                              href={`/players/${player.id}/reports`}
+                              className="px-4 py-2 text-xs font-semibold bg-pace-green/20 text-pace-green border border-pace-green/30 rounded-lg hover:bg-pace-green/30 transition-colors"
+                            >
+                              ✓ View Report
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleGenerateReport(session)}
+                              disabled={generatingId === session.id}
+                              title="Generates a fresh report from this session's video — the old one stays too, delete it from the Reports page if you don't need it."
+                              className="px-4 py-2 text-xs font-semibold bg-zinc-700/50 text-zinc-300 border border-zinc-600 rounded-lg hover:text-white hover:border-zinc-500 transition-colors disabled:opacity-60 cursor-pointer"
+                            >
+                              {generatingId === session.id ? (generatingStage || "Analyzing…") : "🔄 Regenerate"}
+                            </button>
+                          </>
                         ) : player && !canGenerateAiReports(player.subscription.plan) ? (
                           <Link
                             href={`/players/${player.id}/subscription`}

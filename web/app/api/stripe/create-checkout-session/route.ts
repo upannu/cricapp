@@ -43,28 +43,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Player not found." }, { status: 404 });
   }
 
-  let customerId = player.stripe_customer_id as string | null;
-  if (!customerId) {
-    const customer = await stripe.customers.create({
-      email: player.email,
-      name: player.name,
-      metadata: { player_id: playerId },
+  try {
+    let customerId = player.stripe_customer_id as string | null;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: player.email,
+        name: player.name,
+        metadata: { player_id: playerId },
+      });
+      customerId = customer.id;
+      await supabase.from("players").update({ stripe_customer_id: customerId }).eq("id", playerId);
+    }
+
+    const origin = new URL(request.url).origin;
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price: priceIdForPlan(plan), quantity: 1 }],
+      client_reference_id: playerId,
+      subscription_data: { metadata: { player_id: playerId, plan } },
+      metadata: { player_id: playerId, plan },
+      success_url: `${origin}/players/${playerId}/subscription?checkout=success`,
+      cancel_url: `${origin}/players/${playerId}/subscription?checkout=cancelled`,
     });
-    customerId = customer.id;
-    await supabase.from("players").update({ stripe_customer_id: customerId }).eq("id", playerId);
+
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    const message = (err as { message?: string })?.message ?? "Could not start checkout.";
+    return NextResponse.json({ error: message }, { status: 502 });
   }
-
-  const origin = new URL(request.url).origin;
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer: customerId,
-    line_items: [{ price: priceIdForPlan(plan), quantity: 1 }],
-    client_reference_id: playerId,
-    subscription_data: { metadata: { player_id: playerId, plan } },
-    metadata: { player_id: playerId, plan },
-    success_url: `${origin}/players/${playerId}/subscription?checkout=success`,
-    cancel_url: `${origin}/players/${playerId}/subscription?checkout=cancelled`,
-  });
-
-  return NextResponse.json({ url: session.url });
 }
