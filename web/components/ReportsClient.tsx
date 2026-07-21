@@ -484,6 +484,11 @@ function ReportCard({
             <div className="sm:col-span-2 bg-ink rounded-xl p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Full Analysis</p>
               <p className="text-sm text-zinc-300 leading-relaxed">{r.summary}</p>
+              {r.metrics && (
+                <p className="text-xs text-amber/80 mt-3 leading-relaxed">
+                  ⚠ AI-generated — it can make mistakes. Discuss the details with a coach before acting on it.
+                </p>
+              )}
             </div>
 
             <div className="bg-ink rounded-xl p-4 space-y-3">

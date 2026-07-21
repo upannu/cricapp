@@ -127,9 +127,12 @@ export function CoachChatWidget() {
             )}
           </div>
 
+          <p className="text-[10px] text-amber/80 text-center px-3 pt-2 border-t border-zinc-700/60">
+            ⚠ AI-generated — it can make mistakes. Discuss the details with a coach before acting on it.
+          </p>
           <form
             onSubmit={(e) => { e.preventDefault(); send(input); }}
-            className="flex items-center gap-2 p-3 border-t border-zinc-700/60"
+            className="flex items-center gap-2 p-3"
           >
             <input
               type="text"

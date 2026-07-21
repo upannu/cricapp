@@ -74,10 +74,11 @@ export function NavBar() {
         ...(user?.role === "platform_admin" ? [{ label: "Manage Content", href: "/admin/academy" }, { label: "Approvals", href: "/admin/approvals" }] : []),
       ];
 
-  // "Approvals" is docked as a fixed icon button on desktop (see below) rather than living in the
-  // scrolling nav row — with a long name + role badge there often isn't room for a 9th nav item,
-  // and a squeezed flex item with whitespace-nowrap text just overflows invisibly instead of wrapping.
-  const desktopNavLinks = navLinks.filter((item) => item.label !== "Approvals");
+  // "Approvals" and "Manage Content" are docked as fixed icon buttons on desktop (see below)
+  // rather than living in the scrolling nav row — with a long name + role badge there often
+  // isn't room for a 9th (or 10th) nav item, and a squeezed flex item with whitespace-nowrap
+  // text just overflows invisibly instead of wrapping.
+  const desktopNavLinks = navLinks.filter((item) => item.label !== "Approvals" && item.label !== "Manage Content");
 
   function linkClasses(href: string, amber = false) {
     const isActive = pathname.startsWith(href);
@@ -123,6 +124,20 @@ export function NavBar() {
         {/* User + role (desktop) */}
         {user && (
           <div className="hidden xl:flex items-center gap-3 flex-shrink-0">
+            {user.role === "platform_admin" && (
+              <Link
+                href="/admin/academy"
+                title="Manage Content"
+                className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                  pathname.startsWith("/admin/academy") ? "text-pace-green bg-pace-green/10" : "text-zinc-400 hover:text-white hover:bg-zinc-700/50"
+                }`}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                </svg>
+              </Link>
+            )}
             {user.role === "platform_admin" && (
               <Link
                 href="/admin/approvals"

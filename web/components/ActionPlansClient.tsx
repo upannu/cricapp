@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import type { Player, ActionPlan, ActionPlanPriority, ActionPlanStatus } from "@/lib/types";
-import { fetchActionPlans, upsertActionPlan, deleteActionPlan } from "@/lib/db";
+import type { Player, ActionPlan, ActionPlanPriority, ActionPlanStatus, Report } from "@/lib/types";
+import { fetchActionPlans, upsertActionPlan, deleteActionPlan, fetchReports } from "@/lib/db";
+import { formatDate } from "@/lib/utils";
 
 const PRIORITY_STYLES: Record<ActionPlanPriority, string> = {
   High: "bg-fire/20 text-fire",
@@ -19,6 +20,7 @@ const STATUS_STYLES: Record<ActionPlanStatus, string> = {
 
 export function ActionPlansClient({ player }: { player: Player }) {
   const [plans, setPlans] = useState<ActionPlan[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ActionPlan | null>(null);
@@ -26,13 +28,44 @@ export function ActionPlansClient({ player }: { player: Player }) {
   const [adding, setAdding] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-    fetchActionPlans(player.id).then((p) => {
+    Promise.all([fetchActionPlans(player.id), fetchReports(player.id)]).then(([p, r]) => {
       setPlans(p);
+      setReports(r);
       setLoading(false);
     });
   }, [player.id]);
+
+  // Most recent Biomechanics report with at least one flagged, drill-mapped issue —
+  // the AI plan generator needs something concrete to build a plan around.
+  const latestUsableReport = useMemo(
+    () => reports.find((r) => r.drills && r.drills.length > 0) ?? null,
+    [reports],
+  );
+
+  async function generateAiPlan() {
+    if (!latestUsableReport) return;
+    setGenerating(true);
+    setError("");
+    try {
+      const res = await fetch("/api/generate-action-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: player.id, reportId: latestUsableReport.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to generate action plan.");
+      setPlans((prev) => [data.plan as ActionPlan, ...prev]);
+      setSaved(data.plan.id);
+      setTimeout(() => setSaved(null), 2000);
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   const initials = player.name
     .split(" ")
@@ -323,12 +356,37 @@ export function ActionPlansClient({ player }: { player: Player }) {
         </>
       )}
 
-      {/* Coming soon note */}
-      <div className="mt-8 rounded-2xl border border-pace-green/20 bg-pace-green/5 p-5 text-center">
-        <span className="w-1.5 h-1.5 rounded-full bg-pace-green inline-block mr-2 animate-pulse" />
-        <span className="text-pace-green text-xs font-semibold uppercase tracking-wider">
-          AI-generated action plans from biomechanics data — coming soon
-        </span>
+      {/* AI-generated action plan from biomechanics data */}
+      <div className="mt-8 rounded-2xl border border-pace-green/20 bg-pace-green/5 p-5">
+        {latestUsableReport ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-pace-green text-xs font-semibold uppercase tracking-wider mb-1">
+                AI-Generated Action Plan
+              </p>
+              <p className="text-zinc-400 text-xs">
+                Builds a plan from the {formatDate(latestUsableReport.date)} biomechanics report's flagged
+                issues and matched drills.
+              </p>
+              <p className="text-xs text-amber/80 mt-1.5">
+                ⚠ AI-generated — it can make mistakes. Discuss the details with a coach before acting on it.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={generateAiPlan}
+              disabled={generating}
+              className="px-4 py-2 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 flex-shrink-0"
+            >
+              {generating ? "Generating…" : "✨ Generate AI Action Plan"}
+            </button>
+          </div>
+        ) : (
+          <p className="text-zinc-500 text-xs text-center">
+            <span className="w-1.5 h-1.5 rounded-full bg-zinc-600 inline-block mr-2" />
+            Generate a biomechanics report with a flagged issue first to unlock an AI-generated action plan.
+          </p>
+        )}
       </div>
     </div>
   );

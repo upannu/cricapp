@@ -119,6 +119,11 @@ export default async function PlayerReportsPage({
                   {r.highlight && (
                     <p className="mt-1.5 text-xs text-amber font-semibold">★ {r.highlight}</p>
                   )}
+                  {r.metrics && (
+                    <p className="mt-1.5 text-xs text-amber/80">
+                      ⚠ AI-generated — it can make mistakes. Discuss the details with a coach before acting on it.
+                    </p>
+                  )}
                   {(r.actionType || r.injuryRisk) && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {r.actionType && (

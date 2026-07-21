@@ -397,7 +397,7 @@ async function buildReportPdf(opts: {
 }): Promise<Uint8Array> {
   const { playerName, date, sessionDate, narrative, biomechanics, frontKneeAngleDeg, finalSpeedKmh, skeletonFrames, ballTracking, pitchMapBase64, drills } = opts;
   const doc = await PDFDocument.create();
-  const page = doc.addPage([595, 842]); // A4
+  let page = doc.addPage([595, 842]); // A4
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
 
@@ -406,6 +406,40 @@ async function buildReportPdf(opts: {
   const gray = rgb(0.4, 0.4, 0.42);
 
   let y = 780;
+  const BOTTOM_MARGIN = 50;
+
+  // The first page's content is AI-generated free text of unpredictable length
+  // (summary/flags/highlight/tags/drills) — a fixed y for the trailing disclaimer
+  // used to silently overlap whatever dynamic content ran long. ensureSpace/drawWrapped
+  // below make every section (including the disclaimer) start a fresh page instead.
+  function ensureSpace(needed: number) {
+    if (y < BOTTOM_MARGIN + needed) {
+      page = doc.addPage([595, 842]);
+      y = 780;
+    }
+  }
+
+  function drawWrapped(text: string, x: number, maxWidth: number, size: number, fnt: typeof font, color: ReturnType<typeof rgb>) {
+    const words = text.split(" ");
+    let line = "";
+    for (const word of words) {
+      const testLine = line ? `${line} ${word}` : word;
+      if (fnt.widthOfTextAtSize(testLine, size) > maxWidth && line) {
+        ensureSpace(size + 6);
+        page.drawText(line, { x, y, size, font: fnt, color });
+        y -= size + 6;
+        line = word;
+      } else {
+        line = testLine;
+      }
+    }
+    if (line) {
+      ensureSpace(size + 6);
+      page.drawText(line, { x, y, size, font: fnt, color });
+      y -= size + 6;
+    }
+  }
+
   page.drawText("PACE HQ", { x: 50, y, size: 22, font: bold, color: green });
   y -= 20;
   page.drawText("AI Bowling Biomechanics Report", { x: 50, y, size: 14, font, color: dark });
@@ -437,64 +471,72 @@ async function buildReportPdf(opts: {
   }
   y -= 12;
 
+  ensureSpace(120);
   page.drawText("Zone Scores", { x: 50, y, size: 13, font: bold, color: dark });
   y -= 20;
   const zoneLabels: Record<ZoneId, string> = { approach: "Approach", deliveryStride: "Delivery Stride", release: "Release", followThrough: "Follow-Through" };
   for (const [zone, label] of Object.entries(zoneLabels) as [ZoneId, string][]) {
     const score = biomechanics.zoneScores[zone];
+    ensureSpace(18);
     page.drawText(label, { x: 50, y, size: 11, font, color: gray });
     page.drawText(score !== null ? `${score}/100` : "n/a", { x: 260, y, size: 11, font: bold, color: dark });
     y -= 18;
   }
   y -= 12;
 
+  ensureSpace(60);
   page.drawText("Summary", { x: 50, y, size: 13, font: bold, color: dark });
   y -= 20;
-  y = drawWrappedText(page, sanitizeForPdf(narrative.summary), 50, y, 495, 11, font, dark);
+  drawWrapped(sanitizeForPdf(narrative.summary), 50, 495, 11, font, dark);
   y -= 16;
 
   if (biomechanics.flags.length > 0) {
+    ensureSpace(40);
     page.drawText("Flags", { x: 50, y, size: 13, font: bold, color: dark });
     y -= 20;
     for (const flag of biomechanics.flags) {
-      y = drawWrappedText(page, sanitizeForPdf(flag), 50, y, 495, 10, font, gray);
+      drawWrapped(sanitizeForPdf(flag), 50, 495, 10, font, gray);
       y -= 8;
     }
     y -= 8;
   }
 
   if (narrative.highlight) {
+    ensureSpace(50);
     page.drawText("Highlight", { x: 50, y, size: 13, font: bold, color: dark });
     y -= 20;
-    y = drawWrappedText(page, sanitizeForPdf(narrative.highlight), 50, y, 495, 11, font, dark);
+    drawWrapped(sanitizeForPdf(narrative.highlight), 50, 495, 11, font, dark);
     y -= 16;
   }
 
   if (narrative.tags.length > 0) {
+    ensureSpace(50);
     page.drawText("Tags", { x: 50, y, size: 13, font: bold, color: dark });
     y -= 20;
-    y = drawWrappedText(page, sanitizeForPdf(narrative.tags.join(" · ")), 50, y, 495, 11, font, gray);
+    drawWrapped(sanitizeForPdf(narrative.tags.join(" · ")), 50, 495, 11, font, gray);
     y -= 16;
   }
 
   if (drills.length > 0) {
+    ensureSpace(40);
     page.drawText("Recommended Drills", { x: 50, y, size: 13, font: bold, color: dark });
     y -= 20;
     for (const drill of drills) {
+      ensureSpace(30);
       page.drawText(sanitizeForPdf(drill.name), { x: 50, y, size: 11, font: bold, color: dark });
       y -= 15;
-      y = drawWrappedText(page, sanitizeForPdf(`Focus: ${drill.focus}`), 50, y, 495, 9, font, gray);
-      y = drawWrappedText(page, sanitizeForPdf(drill.description), 50, y, 495, 10, font, dark);
+      drawWrapped(sanitizeForPdf(`Focus: ${drill.focus}`), 50, 495, 9, font, gray);
+      drawWrapped(sanitizeForPdf(drill.description), 50, 495, 10, font, dark);
       y -= 10;
     }
   }
 
-  page.drawText(
-    sanitizeForPdf(biomechanics.disclaimer),
-    { x: 50, y: 60, size: 8, font, color: gray, maxWidth: 495 },
-  );
+  ensureSpace(30);
+  drawWrapped(sanitizeForPdf(biomechanics.disclaimer), 50, 495, 8, font, gray);
   if (ballTracking?.note) {
-    page.drawText(sanitizeForPdf(`Ball tracking: ${ballTracking.note}`), { x: 50, y: 45, size: 8, font, color: gray, maxWidth: 495 });
+    y -= 4;
+    ensureSpace(20);
+    drawWrapped(sanitizeForPdf(`Ball tracking: ${ballTracking.note}`), 50, 495, 8, font, gray);
   }
 
   // Second page: skeleton-overlay key frames, so the coach can see exactly
