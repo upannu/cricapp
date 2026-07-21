@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { fetchPlayer, fetchCoaches, fetchAcademies, upsertBooking } from "@/lib/db";
-import { getSessionFee, getInitials } from "@/lib/utils";
+import { getSessionFee, getInitials, distanceKm } from "@/lib/utils";
 import { canUseMarketplace } from "@/lib/plan-features";
 import type { Player, Coach, Academy, AgeGroup, BookingType } from "@/lib/types";
 
@@ -24,6 +24,32 @@ export function FindCoachClient() {
   const [specFilter, setSpecFilter] = useState("");
   const [ageFilter, setAgeFilter] = useState<AgeGroup | "all">("all");
   const [requestCoach, setRequestCoach] = useState<Coach | null>(null);
+  const [locationQuery, setLocationQuery] = useState("");
+  const [radiusKm, setRadiusKm] = useState(25);
+  const [searchCoords, setSearchCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoSearching, setGeoSearching] = useState(false);
+  const [geoError, setGeoError] = useState("");
+
+  async function handleLocationSearch() {
+    if (!locationQuery.trim()) { setSearchCoords(null); setGeoError(""); return; }
+    setGeoSearching(true);
+    setGeoError("");
+    try {
+      const res = await fetch("/api/geocode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: locationQuery }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not find that location.");
+      setSearchCoords({ lat: data.lat, lng: data.lng });
+    } catch (err) {
+      setSearchCoords(null);
+      setGeoError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setGeoSearching(false);
+    }
+  }
 
   useEffect(() => {
     if (!user?.playerId) return;
@@ -71,11 +97,25 @@ export function FindCoachClient() {
 
   const myAcademy = academies.find((a) => a.playerIds.includes(player.id));
   const marketplaceCoaches = coaches.filter((c) => c.marketplaceVisible && (!myAcademy || c.academyId === myAcademy.id));
-  const filtered = marketplaceCoaches.filter((c) => {
-    if (specFilter && !c.specialization.toLowerCase().includes(specFilter.toLowerCase()) && !c.bio.toLowerCase().includes(specFilter.toLowerCase())) return false;
-    if (ageFilter !== "all" && !c.ageGroupsFocus.includes(ageFilter)) return false;
-    return true;
-  });
+  const filtered = marketplaceCoaches
+    .filter((c) => {
+      if (specFilter && !c.specialization.toLowerCase().includes(specFilter.toLowerCase()) && !c.bio.toLowerCase().includes(specFilter.toLowerCase())) return false;
+      if (ageFilter !== "all" && !c.ageGroupsFocus.includes(ageFilter)) return false;
+      // Coaches whose location hasn't been geocoded yet can't be distance-filtered — exclude them
+      // only once a location search is actually active, so they still show up otherwise.
+      if (searchCoords && (c.lat === undefined || c.lng === undefined)) return false;
+      if (searchCoords && c.lat !== undefined && c.lng !== undefined) {
+        if (distanceKm(searchCoords.lat, searchCoords.lng, c.lat, c.lng) > radiusKm) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (!searchCoords || a.lat === undefined || a.lng === undefined || b.lat === undefined || b.lng === undefined) return 0;
+      return (
+        distanceKm(searchCoords.lat, searchCoords.lng, a.lat, a.lng) -
+        distanceKm(searchCoords.lat, searchCoords.lng, b.lat, b.lng)
+      );
+    });
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
@@ -87,7 +127,7 @@ export function FindCoachClient() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-3">
         <input
           type="text"
           value={specFilter}
@@ -104,6 +144,43 @@ export function FindCoachClient() {
           {AGE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
       </div>
+
+      {/* Location radius search */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <input
+          type="text"
+          value={locationQuery}
+          onChange={(e) => setLocationQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleLocationSearch()}
+          placeholder="Search near a suburb, city, or postcode…"
+          className="flex-1 min-w-48 bg-surface rounded-xl px-4 py-2.5 text-white placeholder-zinc-500 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
+        />
+        <select
+          value={radiusKm}
+          onChange={(e) => setRadiusKm(Number(e.target.value))}
+          className="bg-surface rounded-xl px-3 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm cursor-pointer"
+        >
+          {[10, 25, 50, 100].map((r) => <option key={r} value={r}>within {r} km</option>)}
+        </select>
+        <button
+          type="button"
+          onClick={handleLocationSearch}
+          disabled={geoSearching}
+          className="px-4 py-2.5 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+        >
+          {geoSearching ? "Searching…" : "Search"}
+        </button>
+        {searchCoords && (
+          <button
+            type="button"
+            onClick={() => { setLocationQuery(""); setSearchCoords(null); setGeoError(""); }}
+            className="text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      {geoError && <p className="text-xs text-red-400 -mt-4 mb-4">{geoError}</p>}
 
       {filtered.length === 0 ? (
         <div className="bg-surface rounded-2xl p-16 text-center">
@@ -131,7 +208,11 @@ export function FindCoachClient() {
               </div>
               <p className="text-zinc-400 text-xs leading-relaxed flex-1 mb-4 line-clamp-4">{coach.bio || "No bio yet."}</p>
               <div className="flex items-center justify-between">
-                <span className="text-xs text-zinc-500">{coach.certificationLevel} · {coach.location}</span>
+                <span className="text-xs text-zinc-500">
+                  {coach.certificationLevel} · {coach.location}
+                  {searchCoords && coach.lat !== undefined && coach.lng !== undefined &&
+                    ` · ${distanceKm(searchCoords.lat, searchCoords.lng, coach.lat, coach.lng).toFixed(1)} km`}
+                </span>
                 <button
                   type="button"
                   onClick={() => setRequestCoach(coach)}

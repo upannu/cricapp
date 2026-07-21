@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions } from "@/lib/db";
+import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts } from "@/lib/db";
 import { formatDate, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
 import { PlayerMessages } from "@/components/PlayerMessages";
-import { computeInjuryRiskTrend, computeRpeSummary, type InjuryRiskTrend, type RpeSummary } from "@/lib/performance-trends";
+import { computeInjuryRiskTrend, computeRpeSummary, computeSCLoadSummary, type InjuryRiskTrend, type RpeSummary, type SCLoadSummary } from "@/lib/performance-trends";
 import { Sparkline } from "@/components/Sparkline";
 import { BadgeStrip } from "@/components/BadgeStrip";
 import type { Academy, Coach, Player, PlayerStatus } from "@/lib/types";
@@ -24,16 +24,18 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
   const [notFound, setNotFound] = useState(false);
   const [riskTrend, setRiskTrend] = useState<InjuryRiskTrend | null>(null);
   const [rpeSummary, setRpeSummary] = useState<RpeSummary | null>(null);
+  const [scLoadSummary, setSCLoadSummary] = useState<SCLoadSummary | null>(null);
   const [reportCount, setReportCount] = useState(0);
 
   useEffect(() => {
-    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches(), fetchReports(playerId), fetchSessions(undefined, [playerId])]).then(([p, a, c, reports, sessions]) => {
+    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches(), fetchReports(playerId), fetchSessions(undefined, [playerId]), fetchSCWorkouts(playerId)]).then(([p, a, c, reports, sessions, scWorkouts]) => {
       if (!p) setNotFound(true);
       else setPlayer(p);
       setAcademies(a);
       setCoaches(c);
       setRiskTrend(computeInjuryRiskTrend(reports));
       setRpeSummary(computeRpeSummary(sessions));
+      setSCLoadSummary(computeSCLoadSummary(scWorkouts));
       setReportCount(reports.length);
     });
   }, [playerId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -269,6 +271,21 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           />
           <InfoRow label="Age group" value={player.ageGroup} />
           <InfoRow label="Club" value={player.club} />
+          <InfoRow label="Playing level" value={player.playingLevel} />
+          <InfoRow label="Batting hand" value={player.battingHand} />
+          <InfoRow
+            label="Height / Weight"
+            value={
+              player.heightCm || player.weightKg
+                ? [
+                    player.heightCm ? `${player.heightCm} cm` : null,
+                    player.weightKg ? `${player.weightKg} kg` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : <span className="text-zinc-600">Not set</span>
+            }
+          />
           <InfoRow label="Coach" value={getCoachOrAcademyLabel(player, coaches, academies)} />
           <InfoRow
             label="Guardian consent"
@@ -290,7 +307,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
       </div>
 
       {/* Performance trends */}
-      {(riskTrend?.history.length || rpeSummary?.history.length) ? (
+      {(riskTrend?.history.length || rpeSummary?.history.length || scLoadSummary?.history.length) ? (
         <div className="bg-surface rounded-2xl p-5 mb-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-4">Performance Trends</p>
 
@@ -299,8 +316,13 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
               <p className="text-red-400 text-sm font-semibold">⚠ {riskTrend.alertReason}</p>
             </div>
           )}
+          {scLoadSummary?.alert && (
+            <div className="bg-red-500/5 border border-red-500/30 rounded-xl px-4 py-3 mb-4">
+              <p className="text-red-400 text-sm font-semibold">⚠ {scLoadSummary.alertReason}</p>
+            </div>
+          )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {riskTrend && riskTrend.history.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -323,6 +345,18 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
                   <span className="text-xs font-mono text-white">7-day load: {rpeSummary.weeklyLoad}</span>
                 </div>
                 <Sparkline values={rpeSummary.history.map((h) => h.rpe)} min={1} max={10} color="#E8B93F" />
+              </div>
+            )}
+            {scLoadSummary && scLoadSummary.history.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-zinc-400">S&C Weekly Load</span>
+                  <span className="text-xs font-mono text-white">{scLoadSummary.currentWeekLoad.toLocaleString()} AU</span>
+                </div>
+                <Sparkline
+                  values={scLoadSummary.history.map((h) => h.totalLoad)}
+                  color={scLoadSummary.alert ? "#FF4D4D" : "#00D4AA"}
+                />
               </div>
             )}
           </div>
@@ -350,6 +384,12 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-surface text-white border-zinc-700 hover:bg-surface-hover"
         >
           Action Plans
+        </Link>
+        <Link
+          href={`/players/${playerId}/sc-log`}
+          className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-surface text-white border-zinc-700 hover:bg-surface-hover"
+        >
+          S&C Log
         </Link>
         <Link
           href={`/players/${playerId}/subscription`}

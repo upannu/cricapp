@@ -32,6 +32,22 @@ export async function POST(request: Request) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+
+      if (session.metadata?.type === "pack_payment") {
+        const packId = session.metadata?.pack_id;
+        if (packId) {
+          await supabase.from("session_packs").update({ payment_status: "Paid" }).eq("id", packId);
+        }
+        break;
+      }
+      if (session.metadata?.type === "booking_payment") {
+        const bookingId = session.metadata?.booking_id;
+        if (bookingId) {
+          await supabase.from("bookings").update({ payment_status: "Paid" }).eq("id", bookingId);
+        }
+        break;
+      }
+
       const playerId = session.metadata?.player_id ?? session.client_reference_id;
       if (!playerId || typeof session.subscription !== "string" || typeof session.customer !== "string") break;
 
@@ -74,6 +90,13 @@ export async function POST(request: Request) {
         sub_sessions_limit: 4,
         stripe_subscription_id: null,
       }).eq("stripe_subscription_id", subscription.id);
+      break;
+    }
+
+    case "account.updated": {
+      const account = event.data.object as Stripe.Account;
+      const onboarded = !!account.charges_enabled && !!account.payouts_enabled;
+      await supabase.from("coaches").update({ stripe_connect_onboarded: onboarded }).eq("stripe_connect_account_id", account.id);
       break;
     }
 

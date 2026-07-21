@@ -15,7 +15,7 @@ const CERT_STYLES: Record<CertificationLevel, string> = {
   "Elite":   "bg-pace-green/20 text-pace-green",
 };
 
-type DraftCoach = Omit<Coach, "id">;
+type DraftCoach = Omit<Coach, "id" | "stripeConnectAccountId" | "stripeConnectOnboarded">;
 
 const EMPTY_DRAFT: DraftCoach = {
   name: "",
@@ -30,6 +30,7 @@ const EMPTY_DRAFT: DraftCoach = {
   bio: "",
   academyId: "",
   marketplaceVisible: false,
+  available: true,
 };
 
 let _coachAcademies: Academy[] = [];
@@ -60,6 +61,8 @@ export function CoachesClient() {
   const [reassignTarget, setReassignTarget] = useState<{ coachId: string; playerCount: number } | null>(null);
   const [reassignToCoachId, setReassignToCoachId] = useState("");
   const [reassigning, setReassigning] = useState(false);
+  const [payoutLoading, setPayoutLoading] = useState<string | null>(null);
+  const [payoutError, setPayoutError] = useState<{ coachId: string; message: string } | null>(null);
 
   const defaultAcademyId = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
 
@@ -74,6 +77,43 @@ export function CoachesClient() {
       _coachPlayers = p;
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSetupPayouts(coachId: string) {
+    setPayoutLoading(coachId);
+    setPayoutError(null);
+    try {
+      const res = await fetch("/api/stripe/connect/onboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coachId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Could not start payout onboarding.");
+      window.location.href = data.url;
+    } catch (err) {
+      setPayoutError({ coachId, message: (err as { message?: string })?.message ?? String(err) });
+      setPayoutLoading(null);
+    }
+  }
+
+  async function handleViewPayouts(coachId: string) {
+    setPayoutLoading(coachId);
+    setPayoutError(null);
+    try {
+      const res = await fetch("/api/stripe/connect/login-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coachId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Could not open payouts dashboard.");
+      window.open(data.url, "_blank", "noopener,noreferrer");
+      setPayoutLoading(null);
+    } catch (err) {
+      setPayoutError({ coachId, message: (err as { message?: string })?.message ?? String(err) });
+      setPayoutLoading(null);
+    }
+  }
 
   function scrollToForm() {
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
@@ -105,6 +145,7 @@ export function CoachesClient() {
       bio: coach.bio,
       academyId: coach.academyId,
       marketplaceVisible: coach.marketplaceVisible,
+      available: coach.available,
     });
     setFormError("");
     setShowForm(true);
@@ -125,7 +166,31 @@ export function CoachesClient() {
     setSaving(true);
 
     const newId = editingId ?? `c_${Date.now()}`;
-    const coach: Coach = { id: newId, ...draft, name: draft.name.trim(), email: draft.email.trim() };
+    const existing = editingId ? coaches.find((c) => c.id === editingId) : undefined;
+    const coach: Coach = {
+      id: newId, ...draft, name: draft.name.trim(), email: draft.email.trim(),
+      stripeConnectAccountId: existing?.stripeConnectAccountId,
+      stripeConnectOnboarded: existing?.stripeConnectOnboarded ?? false,
+      lat: existing?.lat, lng: existing?.lng,
+    };
+
+    // Re-geocode whenever the location text changes — best-effort, never blocks the save.
+    if (coach.location.trim() && coach.location !== existing?.location) {
+      try {
+        const geoRes = await fetch("/api/geocode", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: coach.location }),
+        });
+        const geoData = await geoRes.json();
+        if (geoRes.ok) {
+          coach.lat = geoData.lat;
+          coach.lng = geoData.lng;
+        }
+      } catch {
+        // Geocoding is a nice-to-have for the marketplace radius search — never block a coach save on it.
+      }
+    }
 
     try {
       await upsertCoach({
@@ -133,7 +198,8 @@ export function CoachesClient() {
         specialization: coach.specialization, age_groups_focus: coach.ageGroupsFocus,
         location: coach.location, status: coach.status, joined_date: coach.joinedDate,
         certification_level: coach.certificationLevel, bio: coach.bio, academy_id: coach.academyId,
-        marketplace_visible: coach.marketplaceVisible,
+        marketplace_visible: coach.marketplaceVisible, available: coach.available,
+        lat: coach.lat ?? null, lng: coach.lng ?? null,
       });
     } catch (err) {
       const msg = (err as { message?: string })?.message ?? String(err);
@@ -331,6 +397,18 @@ export function CoachesClient() {
                 <span className="text-sm text-white font-medium">Visible in the coach marketplace</span>
               </label>
               <p className="text-xs text-zinc-500 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
+            </div>
+            <div className="sm:col-span-2">
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={draft.available}
+                  onChange={(e) => setDraft({ ...draft, available: e.target.checked })}
+                  className="w-4 h-4 rounded accent-pace-green cursor-pointer"
+                />
+                <span className="text-sm text-white font-medium">Actively taking new players</span>
+              </label>
+              <p className="text-xs text-zinc-500 mt-1 ml-6">Turn off to stay listed in the marketplace but show as unavailable for new bookings.</p>
             </div>
           </div>
 
@@ -563,6 +641,29 @@ export function CoachesClient() {
                         {g}
                       </span>
                     ))}
+                  </div>
+                )}
+
+                {/* Payouts — visible to staff, or to the coach viewing their own card */}
+                {(user?.role !== "coach" || user.coachId === coach.id) && (
+                  <div className="mt-4 pt-4 border-t border-zinc-700/40 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-zinc-500">Payouts</p>
+                      <p className={`text-xs font-semibold ${coach.stripeConnectOnboarded ? "text-pace-green" : "text-zinc-400"}`}>
+                        {coach.stripeConnectOnboarded ? "✓ Connected" : coach.stripeConnectAccountId ? "Onboarding incomplete" : "Not set up"}
+                      </p>
+                      {payoutError?.coachId === coach.id && (
+                        <p className="text-xs text-red-400 mt-0.5">{payoutError.message}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => coach.stripeConnectOnboarded ? handleViewPayouts(coach.id) : handleSetupPayouts(coach.id)}
+                      disabled={payoutLoading === coach.id}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer disabled:opacity-60 text-zinc-300 border-zinc-600 hover:border-pace-green hover:text-pace-green flex-shrink-0"
+                    >
+                      {payoutLoading === coach.id ? "Loading…" : coach.stripeConnectOnboarded ? "View payouts" : "Set up payouts"}
+                    </button>
                   </div>
                 )}
               </div>

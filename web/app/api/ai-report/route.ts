@@ -7,7 +7,7 @@ import { drillsForMetricIds, type Drill } from "@/lib/drills";
 
 const PDF_BUCKET = "session-reports";
 
-type Phase = "backFootContact" | "frontFootContact" | "release" | "followThrough";
+type Phase = "backFootContact" | "frontFootContact" | "peakLoad" | "release" | "followThrough";
 type ZoneId = "approach" | "deliveryStride" | "release" | "followThrough";
 
 interface ReportMetric {
@@ -368,6 +368,7 @@ function formatSessionDateTime(iso: string): string {
 const PHASE_LABELS: Record<Phase, string> = {
   backFootContact: "Back-Foot Contact",
   frontFootContact: "Front-Foot Contact",
+  peakLoad: "Peak Load (Brace Point)",
   release: "Release",
   followThrough: "Follow-Through",
 };
@@ -502,9 +503,10 @@ async function buildReportPdf(opts: {
     const imgPage = doc.addPage([595, 842]);
     imgPage.drawText("Skeleton Overlay - Key Phases", { x: 50, y: 790, size: 14, font: bold, color: dark });
 
-    const cellW = 247, cellH = 280;
-    const positions = [[50, 480], [298, 480], [50, 180], [298, 180]];
-    for (let i = 0; i < Math.min(4, skeletonFrames.length); i++) {
+    // 2 columns x 3 rows — fits all 5 phases (BFC/FFC/peak-load/release/follow-through) on one page.
+    const cellW = 247, cellH = 220;
+    const positions = [[50, 560], [298, 560], [50, 320], [298, 320], [50, 80], [298, 80]];
+    for (let i = 0; i < Math.min(positions.length, skeletonFrames.length); i++) {
       const frame = skeletonFrames[i];
       const [x, yPos] = positions[i];
       try {

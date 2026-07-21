@@ -70,6 +70,7 @@ const ANGLE_PRIORITY = ["side", "front", "back"] as const;
 const PHASE_TIME_KEYS = [
   ["backFootContact", "backFootContactSec"],
   ["frontFootContact", "frontFootContactSec"],
+  ["peakLoad", "peakLoadSec"],
   ["release", "releaseSec"],
   ["followThrough", "followThroughSec"],
 ] as const;

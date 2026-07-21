@@ -7,7 +7,7 @@
 // the biomechanics engine), so this trends that existing history rather than
 // inventing a parallel data source.
 
-import type { Report, Session, InjuryRisk } from "./types";
+import type { Report, Session, InjuryRisk, SCWorkout } from "./types";
 
 const RISK_RANK: Record<InjuryRisk, number> = { Low: 0, Moderate: 1, High: 2 };
 
@@ -88,4 +88,66 @@ export function computeRpeSummary(sessions: Session[]): RpeSummary {
   const recentAvg = recent.length ? Math.round((recent.reduce((sum, s) => sum + s.rpe, 0) / recent.length) * 10) / 10 : null;
 
   return { weeklyLoad, recentAvg, history: withRpe };
+}
+
+// ─── S&C weekly training load ──────────────────────────────────────────────────
+//
+// Uses the session-RPE method (Foster et al.) — load = duration (mins) × RPE,
+// summed per calendar week (Monday start). This is a distinct load stream from
+// cricket-session RPE above: S&C workouts always carry a duration, so they can
+// be combined into a proper load unit rather than the bare RPE sum used there.
+
+export interface WeeklyLoadPoint { weekStart: string; totalLoad: number; workoutCount: number }
+
+export interface SCLoadSummary {
+  currentWeekLoad: number;
+  previousWeekLoad: number;
+  changePercent: number | null;
+  /** Simplified acute:chronic ratio — chronic is the average of the last 3 completed weeks, not a rolling EWMA. */
+  acwr: number | null;
+  alert: boolean;
+  alertReason: string | null;
+  history: WeeklyLoadPoint[];
+}
+
+function startOfWeek(dateStr: string): string {
+  const d = new Date(dateStr);
+  const day = d.getUTCDay();
+  const diff = (day + 6) % 7; // days since Monday
+  d.setUTCDate(d.getUTCDate() - diff);
+  return d.toISOString().split("T")[0];
+}
+
+export function computeSCLoadSummary(workouts: SCWorkout[]): SCLoadSummary {
+  const byWeek = new Map<string, WeeklyLoadPoint>();
+  for (const w of workouts) {
+    const weekStart = startOfWeek(w.date);
+    const entry = byWeek.get(weekStart) ?? { weekStart, totalLoad: 0, workoutCount: 0 };
+    entry.totalLoad += w.durationMins * w.rpe;
+    entry.workoutCount += 1;
+    byWeek.set(weekStart, entry);
+  }
+
+  const history = Array.from(byWeek.values()).sort((a, b) => a.weekStart.localeCompare(b.weekStart)).slice(-6);
+
+  if (history.length === 0) {
+    return { currentWeekLoad: 0, previousWeekLoad: 0, changePercent: null, acwr: null, alert: false, alertReason: null, history: [] };
+  }
+
+  const currentWeekLoad = history[history.length - 1].totalLoad;
+  const previousWeekLoad = history.length >= 2 ? history[history.length - 2].totalLoad : 0;
+  const changePercent = previousWeekLoad > 0 ? Math.round(((currentWeekLoad - previousWeekLoad) / previousWeekLoad) * 100) : null;
+
+  const priorWeeks = history.slice(0, -1).slice(-3);
+  const chronicAvg = priorWeeks.length ? priorWeeks.reduce((sum, w) => sum + w.totalLoad, 0) / priorWeeks.length : null;
+  const acwr = chronicAvg ? Math.round((currentWeekLoad / chronicAvg) * 100) / 100 : null;
+
+  let alert = false;
+  let alertReason: string | null = null;
+  if (acwr !== null && acwr >= 1.5 && priorWeeks.length >= 2) {
+    alert = true;
+    alertReason = `This week's S&C load is ${acwr}x the recent 3-week average — a rapid spike linked to higher injury risk.`;
+  }
+
+  return { currentWeekLoad, previousWeekLoad, changePercent, acwr, alert, alertReason, history };
 }

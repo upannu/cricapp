@@ -71,7 +71,7 @@ export function NavBar() {
       ]
     : [
         ...NAV_ALL,
-        ...(user?.role === "platform_admin" ? [{ label: "Approvals", href: "/admin/approvals" }] : []),
+        ...(user?.role === "platform_admin" ? [{ label: "Manage Content", href: "/admin/academy" }, { label: "Approvals", href: "/admin/approvals" }] : []),
       ];
 
   // "Approvals" is docked as a fixed icon button on desktop (see below) rather than living in the

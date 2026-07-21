@@ -497,6 +497,7 @@ export function SessionPacksClient() {
                                   <div className="text-lg font-bold text-white">${total.toLocaleString()}</div>
                                   <div className="text-[10px] text-zinc-500">total due</div>
                                 </div>
+                                <PayOnlineButton packId={pk.id} />
                                 <MarkPaidButton packId={pk.id} onPaid={() => handleMarkPaid(pk.id)} />
                               </div>
                             </div>
@@ -779,6 +780,40 @@ export function SessionPacksClient() {
 }
 
 // ─── Mark Paid Button ────────────────────────────────────────────────────────
+
+function PayOnlineButton({ packId }: { packId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handlePay() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/stripe/create-pack-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Could not start checkout.");
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="text-right">
+      <button type="button" onClick={handlePay} disabled={loading}
+        className="px-4 py-2 text-xs font-bold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 cursor-pointer transition-colors disabled:opacity-60">
+        {loading ? "Loading…" : "Pay Online"}
+      </button>
+      {error && <p className="text-[10px] text-red-400 mt-1 max-w-32">{error}</p>}
+    </div>
+  );
+}
 
 function MarkPaidButton({ packId, onPaid }: { packId: string; onPaid: () => void }) {
   const [done, setDone] = useState(false);

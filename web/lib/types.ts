@@ -8,6 +8,8 @@ export type BowlingStyle =
   | 'Right Arm Medium'
   | 'Left Arm Medium';
 export type AgeGroup = 'U10' | 'U11' | 'U12' | 'U13' | 'U14' | 'U16' | 'U19' | 'Senior';
+export type PlayingLevel = 'Beginner' | 'Club' | 'Representative' | 'State' | 'National';
+export type BattingHand = 'Right Hand' | 'Left Hand';
 export type ActionType = 'Side-on' | 'Front-on' | 'Mixed';
 export type InjuryRisk = 'Low' | 'Moderate' | 'High';
 export type AcademyStage = 'Foundation' | 'Mechanics' | 'Velocity' | 'Elite';
@@ -53,6 +55,8 @@ export interface Article {
   keyTakeaways: string[];
   bodyMd: string;
   published: boolean;
+  /** Optional embed URL (YouTube/Vimeo/direct file) shown above the article body. */
+  videoUrl?: string;
 }
 
 export interface DailyTip {
@@ -149,6 +153,7 @@ export interface ReportBiomechanics {
   phases: {
     backFootContactSec: number | null;
     frontFootContactSec: number | null;
+    peakLoadSec: number | null;
     releaseSec: number | null;
     followThroughSec: number | null;
   };
@@ -192,7 +197,7 @@ export interface CameraCalibration {
 }
 
 export interface SkeletonImage {
-  phase: 'backFootContact' | 'frontFootContact' | 'release' | 'followThrough';
+  phase: 'backFootContact' | 'frontFootContact' | 'peakLoad' | 'release' | 'followThrough';
   url: string;
 }
 
@@ -235,6 +240,13 @@ export interface Coach {
   bio: string;
   academyId: string;
   marketplaceVisible: boolean;
+  /** Directory-listing "actively taking new players" toggle — distinct from `status` (Active/Inactive on the platform). */
+  available: boolean;
+  stripeConnectAccountId?: string;
+  stripeConnectOnboarded: boolean;
+  /** Geocoded from `location` on save — absent until the geocoding API has resolved it at least once. */
+  lat?: number;
+  lng?: number;
 }
 
 export type BookingStatus = 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed';
@@ -261,6 +273,8 @@ export interface Booking {
   packId?: string;
   /** Set when a player submitted this via the coach marketplace, rather than staff creating it directly. */
   source?: 'marketplace';
+  /** Only meaningful when there's no `packId` — a pack-drawn booking is already paid for via the pack. */
+  paymentStatus: PaymentStatus;
 }
 
 export interface SessionVideo {
@@ -293,6 +307,10 @@ export interface Player {
   id: string;
   name: string;
   bowlingStyle: BowlingStyle;
+  battingHand: BattingHand;
+  playingLevel: PlayingLevel;
+  heightCm: number | null;
+  weightKg: number | null;
   addedDate: string;
   email: string;
   phone: string;
@@ -326,6 +344,22 @@ export interface ActionPlan {
   status: ActionPlanStatus;
   dueDate: string;
   drills: string[];
+  notes: string;
+  createdAt?: string;
+}
+
+// ─── S&C (strength & conditioning) manual workout log ──────────────────────────
+
+export type SCWorkoutType = 'Strength' | 'Conditioning' | 'Speed & Agility' | 'Mobility' | 'Recovery';
+
+export interface SCWorkout {
+  id: string;
+  playerId: string;
+  date: string;
+  workoutType: SCWorkoutType;
+  durationMins: number;
+  /** Rate of Perceived Exertion, 1 (very easy) - 10 (maximal effort). */
+  rpe: number;
   notes: string;
   createdAt?: string;
 }

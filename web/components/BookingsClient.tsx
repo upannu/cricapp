@@ -71,6 +71,7 @@ const EMPTY_DRAFT: DraftBooking = {
   location: "",
   notes: "",
   feeAud: 0,
+  paymentStatus: "Pending",
 };
 
 let _players: Player[] = [];
@@ -168,7 +169,7 @@ export function BookingsClient() {
 
   function openEdit(b: Booking) {
     setEditingId(b.id);
-    setDraft({ playerId: b.playerId, coachId: b.coachId, date: b.date, time: b.time, durationMins: b.durationMins, type: b.type, status: b.status, location: b.location, notes: b.notes, feeAud: b.feeAud, packId: b.packId });
+    setDraft({ playerId: b.playerId, coachId: b.coachId, date: b.date, time: b.time, durationMins: b.durationMins, type: b.type, status: b.status, location: b.location, notes: b.notes, feeAud: b.feeAud, packId: b.packId, paymentStatus: b.paymentStatus });
     setFormError("");
     setShowForm(true);
     scrollToForm();
@@ -187,10 +188,12 @@ export function BookingsClient() {
     setFormError("");
 
     const newId = editingId ?? `b_${Date.now()}`;
-    const booking: Booking = { id: newId, ...draft };
+    // A pack-drawn booking is already paid for — the pack itself carries the payment status.
+    const paymentStatus = draft.packId ? "Paid" : draft.paymentStatus;
+    const booking: Booking = { id: newId, ...draft, paymentStatus };
 
     try {
-      await upsertBooking({ id: booking.id, player_id: booking.playerId, coach_id: booking.coachId, date: booking.date, time: booking.time, duration_mins: booking.durationMins, type: booking.type, status: booking.status, location: booking.location, notes: booking.notes, fee_aud: booking.feeAud, pack_id: booking.packId ?? null });
+      await upsertBooking({ id: booking.id, player_id: booking.playerId, coach_id: booking.coachId, date: booking.date, time: booking.time, duration_mins: booking.durationMins, type: booking.type, status: booking.status, location: booking.location, notes: booking.notes, fee_aud: booking.feeAud, pack_id: booking.packId ?? null, payment_status: booking.paymentStatus });
     } catch (err) {
       setFormError((err as { message?: string })?.message ?? String(err));
       return;
@@ -667,6 +670,14 @@ function BookingCard({
                   </div>
                 </div>
               )}
+              {b.feeAud > 0 && !b.packId && (
+                <div className="mt-3 pt-3 border-t border-zinc-700/50 flex items-center justify-between gap-3">
+                  <span className={`text-xs font-semibold ${b.paymentStatus === "Paid" ? "text-pace-green" : "text-amber"}`}>
+                    {b.paymentStatus === "Paid" ? "✓ Paid" : "Payment pending"}
+                  </span>
+                  {b.paymentStatus !== "Paid" && <BookingPayOnlineButton bookingId={b.id} />}
+                </div>
+              )}
             </div>
 
             {/* Notes */}
@@ -790,6 +801,40 @@ function StatCard({ label, value, color }: { label: string; value: number; color
     <div className="bg-surface rounded-2xl p-5 text-center">
       <div className={`text-2xl font-bold mb-1 ${color}`}>{value}</div>
       <div className="text-xs text-zinc-400">{label}</div>
+    </div>
+  );
+}
+
+function BookingPayOnlineButton({ bookingId }: { bookingId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handlePay() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/stripe/create-booking-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Could not start checkout.");
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="text-right">
+      <button type="button" onClick={handlePay} disabled={loading}
+        className="px-3 py-1.5 text-xs font-bold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 cursor-pointer transition-colors disabled:opacity-60">
+        {loading ? "Loading…" : "Pay Online"}
+      </button>
+      {error && <p className="text-[10px] text-red-400 mt-1 max-w-40">{error}</p>}
     </div>
   );
 }

@@ -1,12 +1,13 @@
 import { createClient } from "@/lib/supabase";
 import type {
   Player, Coach, Academy, Booking, Session, SessionPack, Message, Report,
-  BowlingStyle, AgeGroup, GuardianConsent, PlanTier, ActionType,
+  BowlingStyle, AgeGroup, BattingHand, PlayingLevel, GuardianConsent, PlanTier, ActionType,
   InjuryRisk, AcademyStage, BookingType, BookingStatus, MessageChannel,
   ReportBiomechanics, SkeletonImage, ReportDrill, BallTrackingResult, CameraCalibration,
   ActionPlan, ActionPlanPriority, ActionPlanStatus,
+  SCWorkout, SCWorkoutType,
   VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
-  Article, ArticleCategory, DailyTip, ArticleRead,
+  Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 
@@ -15,6 +16,8 @@ import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONU
 export interface DbPlayer {
   id: string; name: string; email: string; phone: string;
   bowling_style: string; age_group: string; club: string;
+  batting_hand?: string; playing_level?: string;
+  height_cm?: number | null; weight_kg?: number | null;
   coach_id: string | null; guardian_consent_status: string;
   guardian_consent_confirmed_at?: string | null;
   guardian_consent_confirmed_by?: string | null;
@@ -37,6 +40,11 @@ export interface DbCoach {
   status: string; joined_date: string; certification_level: string;
   bio: string; academy_id: string | null;
   marketplace_visible: boolean;
+  available?: boolean;
+  stripe_connect_account_id?: string | null;
+  stripe_connect_onboarded?: boolean;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export interface DbAcademy {
@@ -53,6 +61,7 @@ export interface DbBooking {
   time: string; duration_mins: number; type: string; status: string;
   location: string; notes: string; fee_aud: number; pack_id?: string | null;
   source?: string | null;
+  payment_status?: string;
 }
 
 export interface DbSession {
@@ -105,6 +114,10 @@ export function dbToPlayer(r: DbPlayer): Player {
   return {
     id: r.id, name: r.name, email: r.email, phone: r.phone,
     bowlingStyle: r.bowling_style as BowlingStyle,
+    battingHand: (r.batting_hand ?? "Right Hand") as BattingHand,
+    playingLevel: (r.playing_level ?? "Club") as PlayingLevel,
+    heightCm: r.height_cm ?? null,
+    weightKg: r.weight_kg ?? null,
     ageGroup: r.age_group as AgeGroup,
     club: r.club, coachId: r.coach_id ?? "",
     guardianConsentStatus: r.guardian_consent_status as GuardianConsent,
@@ -149,6 +162,11 @@ export function dbToCoach(r: DbCoach): Coach {
     certificationLevel: r.certification_level as Coach["certificationLevel"],
     bio: r.bio, academyId: r.academy_id ?? "",
     marketplaceVisible: r.marketplace_visible ?? false,
+    available: r.available ?? true,
+    stripeConnectAccountId: r.stripe_connect_account_id ?? undefined,
+    stripeConnectOnboarded: r.stripe_connect_onboarded ?? false,
+    lat: r.lat ?? undefined,
+    lng: r.lng ?? undefined,
   };
 }
 
@@ -176,6 +194,7 @@ export function dbToBooking(r: DbBooking): Booking {
     location: r.location, notes: r.notes, feeAud: r.fee_aud,
     packId: r.pack_id ?? undefined,
     source: (r.source as Booking["source"]) ?? undefined,
+    paymentStatus: (r.payment_status as PaymentStatus) ?? "Pending",
   };
 }
 
@@ -524,6 +543,41 @@ export async function deleteActionPlan(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ─── S&C workouts ────────────────────────────────────────────────────────────
+
+export interface DbSCWorkout {
+  id: string; player_id: string; date: string; workout_type: string;
+  duration_mins: number; rpe: number; notes: string; created_at?: string;
+}
+
+export function dbToSCWorkout(r: DbSCWorkout): SCWorkout {
+  return {
+    id: r.id, playerId: r.player_id, date: r.date,
+    workoutType: r.workout_type as SCWorkoutType,
+    durationMins: r.duration_mins, rpe: r.rpe, notes: r.notes ?? "",
+    createdAt: r.created_at,
+  };
+}
+
+export async function fetchSCWorkouts(playerId: string): Promise<SCWorkout[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("sc_workouts").select("*").eq("player_id", playerId).order("date", { ascending: false });
+  if (error) throw error;
+  return (data as DbSCWorkout[]).map(dbToSCWorkout);
+}
+
+export async function upsertSCWorkout(w: DbSCWorkout): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("sc_workouts").upsert(w);
+  if (error) throw error;
+}
+
+export async function deleteSCWorkout(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("sc_workouts").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ─── Video annotations ──────────────────────────────────────────────────────
 
 export interface DbVideoAnnotation {
@@ -634,6 +688,7 @@ export interface DbArticle {
   id: string; stage: string; order_in_stage: number; title: string;
   read_time_minutes: number; related_metric: string | null;
   key_takeaways: string[]; body_md: string; published: boolean;
+  video_url?: string | null;
 }
 
 export function dbToArticle(r: DbArticle): Article {
@@ -642,7 +697,29 @@ export function dbToArticle(r: DbArticle): Article {
     title: r.title, readTimeMinutes: r.read_time_minutes,
     relatedMetric: r.related_metric ?? undefined,
     keyTakeaways: r.key_takeaways ?? [], bodyMd: r.body_md, published: r.published,
+    videoUrl: r.video_url ?? undefined,
   };
+}
+
+/** Admin CRUD — includes unpublished articles, unlike `fetchArticles` (the player-facing feed). */
+export async function fetchAllArticlesForAdmin(): Promise<Article[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("articles").select("*").order("stage").order("order_in_stage");
+  if (error) throw error;
+  const articles = (data as DbArticle[]).map(dbToArticle);
+  return articles.sort((a, b) => STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage) || a.orderInStage - b.orderInStage);
+}
+
+export async function upsertArticle(a: DbArticle): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("articles").upsert(a);
+  if (error) throw error;
+}
+
+export async function deleteArticle(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("articles").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export async function fetchArticles(): Promise<Article[]> {
@@ -689,6 +766,18 @@ export async function fetchTipArchive(limit = 30): Promise<DailyTip[]> {
   const { data, error } = await sb.from("daily_tips").select("*").order("publish_date", { ascending: false }).limit(limit);
   if (error) throw error;
   return (data as DbDailyTip[]).map(dbToDailyTip);
+}
+
+export async function upsertDailyTip(t: DbDailyTip): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("daily_tips").upsert(t);
+  if (error) throw error;
+}
+
+export async function deleteDailyTip(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("daily_tips").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export interface DbArticleRead {

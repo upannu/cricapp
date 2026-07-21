@@ -18,6 +18,8 @@ const BOWLING_STYLES = [
 const AGE_GROUPS = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"] as const;
 const PLANS = ["Free", "Player Pro", "Coach Pro"] as const;
 const CONSENT_OPTIONS = ["N/A", "Confirmed", "Pending"] as const;
+const PLAYING_LEVELS = ["Beginner", "Club", "Representative", "State", "National"] as const;
+const BATTING_HANDS = ["Right Hand", "Left Hand"] as const;
 
 export function EditPlayerForm({ player }: { player: Player }) {
   const router = useRouter();
@@ -28,6 +30,10 @@ export function EditPlayerForm({ player }: { player: Player }) {
   const [email, setEmail] = useState(player.email);
   const [phone, setPhone] = useState(player.phone);
   const [bowlingStyle, setBowlingStyle] = useState(player.bowlingStyle);
+  const [battingHand, setBattingHand] = useState(player.battingHand);
+  const [playingLevel, setPlayingLevel] = useState(player.playingLevel);
+  const [heightCm, setHeightCm] = useState(player.heightCm?.toString() ?? "");
+  const [weightKg, setWeightKg] = useState(player.weightKg?.toString() ?? "");
   const [ageGroup, setAgeGroup] = useState(player.ageGroup);
   const [club, setClub] = useState(player.club);
   const [guardianConsent, setGuardianConsent] = useState(
@@ -61,6 +67,10 @@ export function EditPlayerForm({ player }: { player: Player }) {
     updatePlayer(player.id, {
       name, email, phone,
       bowling_style: bowlingStyle,
+      batting_hand: battingHand,
+      playing_level: playingLevel,
+      height_cm: heightCm ? parseFloat(heightCm) : null,
+      weight_kg: weightKg ? parseFloat(weightKg) : null,
       age_group: ageGroup,
       club,
       guardian_consent_status: guardianConsent,
@@ -170,6 +180,58 @@ export function EditPlayerForm({ player }: { player: Player }) {
                 value={club}
                 onChange={(e) => setClub(e.target.value)}
                 className={inputCls}
+              />
+            </Field>
+
+            <Field label="Batting Hand">
+              <select
+                value={battingHand}
+                onChange={(e) => setBattingHand(e.target.value as typeof battingHand)}
+                className={selectCls}
+              >
+                {BATTING_HANDS.map((h) => (
+                  <option key={h} value={h}>
+                    {h}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Playing Level">
+              <select
+                value={playingLevel}
+                onChange={(e) => setPlayingLevel(e.target.value as typeof playingLevel)}
+                className={selectCls}
+              >
+                {PLAYING_LEVELS.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Height (cm)">
+              <input
+                type="number"
+                value={heightCm}
+                onChange={(e) => setHeightCm(e.target.value)}
+                className={inputCls}
+                placeholder="e.g. 165"
+                min={0}
+                step="0.1"
+              />
+            </Field>
+
+            <Field label="Weight (kg)">
+              <input
+                type="number"
+                value={weightKg}
+                onChange={(e) => setWeightKg(e.target.value)}
+                className={inputCls}
+                placeholder="e.g. 58"
+                min={0}
+                step="0.1"
               />
             </Field>
 

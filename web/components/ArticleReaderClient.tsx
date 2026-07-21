@@ -8,6 +8,15 @@ import { isArticleUnlocked, stageLockReason } from "@/lib/academy-content";
 import { ArticleBody } from "@/components/ArticleBody";
 import type { Player, Article, AcademyStage } from "@/lib/types";
 
+/** Returns an iframe-embeddable URL for YouTube/Vimeo links, or null for a direct video file (rendered via <video> instead). */
+function toEmbedUrl(url: string): string | null {
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  if (yt) return `https://www.youtube.com/embed/${yt[1]}`;
+  const vimeo = url.match(/vimeo\.com\/(\d+)/);
+  if (vimeo) return `https://player.vimeo.com/video/${vimeo[1]}`;
+  return null;
+}
+
 const STAGE_STYLES: Record<AcademyStage, string> = {
   Foundation: "bg-pace-green/10 text-pace-green border-pace-green/30",
   Mechanics: "bg-blue-500/10 text-blue-400 border-blue-500/30",
@@ -107,6 +116,20 @@ export function ArticleReaderClient({ articleId }: { articleId: string }) {
       </div>
 
       <h1 className="text-xl font-bold text-white mb-4">{article.title}</h1>
+
+      {article.videoUrl && (
+        <div className="mb-6 rounded-2xl overflow-hidden bg-black aspect-video">
+          {(() => {
+            const embed = toEmbedUrl(article.videoUrl);
+            return embed ? (
+              <iframe src={embed} className="w-full h-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+            ) : (
+              // eslint-disable-next-line jsx-a11y/media-has-caption
+              <video src={article.videoUrl} controls className="w-full h-full" />
+            );
+          })()}
+        </div>
+      )}
 
       <div className="bg-surface rounded-2xl p-5 mb-6">
         <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Key takeaways</p>

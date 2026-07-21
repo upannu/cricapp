@@ -34,6 +34,7 @@ const ZONE_LABELS: Record<"approach" | "deliveryStride" | "release" | "followThr
 const SKELETON_PHASE_LABELS: Record<string, string> = {
   backFootContact: "Back-Foot Contact",
   frontFootContact: "Front-Foot Contact",
+  peakLoad: "Peak Load (Brace Point)",
   release: "Release",
   followThrough: "Follow-Through",
 };

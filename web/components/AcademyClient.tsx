@@ -298,6 +298,7 @@ export function AcademyClient() {
     const newPlayer: Player = {
       id: newId, name: newPlayerDraft.name.trim(), email: newPlayerDraft.email.trim(),
       phone: "", ageGroup: newPlayerDraft.ageGroup, bowlingStyle: newPlayerDraft.bowlingStyle,
+      battingHand: "Right Hand", playingLevel: "Club", heightCm: null, weightKg: null,
       club: newPlayerDraft.club.trim(), addedDate: now, coachId: "",
       guardianConsentStatus: "Pending",
       subscription: {
@@ -337,7 +338,7 @@ export function AcademyClient() {
       phone: newCoachDraft.phone.trim(), specialization: newCoachDraft.specialization.trim(),
       ageGroupsFocus: [], location: "", status: "Active", joinedDate: now,
       certificationLevel: newCoachDraft.certificationLevel, bio: "", academyId: "",
-      marketplaceVisible: false,
+      marketplaceVisible: false, available: true, stripeConnectOnboarded: false,
     };
     try {
       await upsertCoach({

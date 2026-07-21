@@ -99,6 +99,8 @@ function trunkLeanDeg(f: PoseFrame): number {
 export interface DeliveryPhases {
   backFootContactSec: number | null;
   frontFootContactSec: number | null;
+  /** Point of maximum front-knee flexion between FFC and release — the load/de-load transition (see peakLoadSec doc below). */
+  peakLoadSec: number | null;
   releaseSec: number | null;
   followThroughSec: number | null;
 }
@@ -140,6 +142,17 @@ function findPeakSpeedIndex(frames: PoseFrame[], idx: number, searchFrom: number
   return best >= 0 ? best : null;
 }
 
+/** Index of minimum joint angle (peak flexion) in [searchFrom, searchTo]. */
+function findMinAngleIndex(frames: PoseFrame[], hipIdx: number, kneeIdx: number, ankleIdx: number, searchFrom: number, searchTo: number): number | null {
+  if (searchFrom > searchTo) return null;
+  let best = -1, bestAngle = Infinity;
+  for (let i = searchFrom; i <= searchTo; i++) {
+    const a = angleAt(frames[i].worldLandmarks[hipIdx], frames[i].worldLandmarks[kneeIdx], frames[i].worldLandmarks[ankleIdx]);
+    if (a < bestAngle) { bestAngle = a; best = i; }
+  }
+  return best >= 0 ? best : null;
+}
+
 /**
  * Detects back-foot contact, front-foot contact, release, and follow-through
  * from a side-angle pose sequence. Any phase that can't be confidently
@@ -147,9 +160,11 @@ function findPeakSpeedIndex(frames: PoseFrame[], idx: number, searchFrom: number
  * it are simply omitted instead of fabricated.
  */
 export function detectDeliveryPhases(frames: PoseFrame[], bowlingSide: Side): DeliveryPhases {
-  if (frames.length < 6) return { backFootContactSec: null, frontFootContactSec: null, releaseSec: null, followThroughSec: null };
+  if (frames.length < 6) return { backFootContactSec: null, frontFootContactSec: null, peakLoadSec: null, releaseSec: null, followThroughSec: null };
 
   const frontSide = otherSide(bowlingSide);
+  const frontHip = sideIdx(frontSide).hip;
+  const frontKnee = sideIdx(frontSide).knee;
   const frontAnkle = sideIdx(frontSide).ankle;
   const backAnkle = sideIdx(bowlingSide).ankle;
   const bowlingWrist = sideIdx(bowlingSide).wrist;
@@ -163,6 +178,13 @@ export function detectDeliveryPhases(frames: PoseFrame[], bowlingSide: Side): De
   // Release: peak bowling-wrist speed shortly after FFC.
   const releaseSearchStart = ffcIdx ?? Math.floor(n * 0.5);
   const releaseIdx = findPeakSpeedIndex(frames, bowlingWrist, releaseSearchStart, n - 1);
+  // Peak load: the front leg lands (FFC) already somewhat flexed, then briefly flexes
+  // further as it absorbs the landing impact (eccentric "loading") before extending/bracing
+  // to drive the trunk and arm through to release (concentric "unloading"). The transition
+  // between those two sub-phases is the frame of maximum front-knee flexion in that window.
+  const peakLoadIdx = (ffcIdx !== null && releaseIdx !== null && releaseIdx > ffcIdx)
+    ? findMinAngleIndex(frames, frontHip, frontKnee, frontAnkle, ffcIdx, releaseIdx)
+    : null;
   // Follow-through: ~0.35s after release, clamped to the available sequence.
   let followIdx: number | null = null;
   if (releaseIdx !== null) {
@@ -173,6 +195,7 @@ export function detectDeliveryPhases(frames: PoseFrame[], bowlingSide: Side): De
   return {
     backFootContactSec: bfcIdx !== null ? frames[bfcIdx].tSec : null,
     frontFootContactSec: ffcIdx !== null ? frames[ffcIdx].tSec : null,
+    peakLoadSec: peakLoadIdx !== null ? frames[peakLoadIdx].tSec : null,
     releaseSec: releaseIdx !== null ? frames[releaseIdx].tSec : null,
     followThroughSec: followIdx !== null ? frames[followIdx].tSec : null,
   };
@@ -300,6 +323,7 @@ export function computeBiomechanics(frames: PoseFrame[], bowlingStyle: string): 
   const phases = detectDeliveryPhases(frames, side);
   const bfcF = nearestFrame(frames, phases.backFootContactSec);
   const ffcF = nearestFrame(frames, phases.frontFootContactSec);
+  const loadF = nearestFrame(frames, phases.peakLoadSec);
   const relF = nearestFrame(frames, phases.releaseSec);
   const ftF = nearestFrame(frames, phases.followThroughSec);
 
@@ -392,6 +416,16 @@ export function computeBiomechanics(frames: PoseFrame[], bowlingStyle: string): 
     metrics.push(metric("elbowExtension", "Bowling elbow extension at release", "release", angleAt(relF.worldLandmarks[bIdx.shoulder], relF.worldLandmarks[bIdx.elbow], relF.worldLandmarks[bIdx.wrist]), "°"));
     const releaseHeight = (relF.worldLandmarks[bIdx.wrist].y - relF.worldLandmarks[fIdx.ankle].y) / bodyHeightRef;
     metrics.push(metric("releaseHeight", "Release height", "release", Math.abs(releaseHeight), "× body height"));
+
+    // Peak bowling-wrist speed was already computed to locate the release frame
+    // (it's the definition of "release" — the wrist-speed peak) but the magnitude
+    // itself was discarded. Surfacing it here, normalized by body height like the
+    // other distance metrics, rather than fabricating a km/h figure — see file
+    // header disclaimer on why this engine never reports absolute real-world speeds.
+    const wristSpeeds = speedSeries(frames, bIdx.wrist);
+    const releaseFrameIdx = frames.indexOf(relF);
+    const armSpeed = releaseFrameIdx >= 0 ? wristSpeeds[releaseFrameIdx] / bodyHeightRef : null;
+    metrics.push(metric("armSpeedRelease", "Bowling arm speed at release", "release", armSpeed, "× body height/s"));
     metrics.push(metric("trunkLateralRelease", "Trunk lateral flexion at release", "release", trunkLeanDeg(relF), "°"));
     metrics.push(metric("nonBowlingArmElev", "Non-bowling arm elevation at release", "release", angleFromHorizontal(relF.worldLandmarks[fIdx.shoulder], relF.worldLandmarks[fIdx.wrist]), "°"));
 
@@ -407,10 +441,30 @@ export function computeBiomechanics(frames: PoseFrame[], bowlingStyle: string): 
   } else {
     metrics.push(metric("bowlingArmElevation", "Bowling arm elevation at release", "release", null, "°"));
     metrics.push(metric("elbowExtension", "Bowling elbow extension at release", "release", null, "°"));
+    metrics.push(metric("armSpeedRelease", "Bowling arm speed at release", "release", null, "× body height/s"));
     metrics.push(metric("releaseHeight", "Release height", "release", null, "× body height"));
     metrics.push(metric("trunkLateralRelease", "Trunk lateral flexion at release", "release", null, "°"));
     metrics.push(metric("nonBowlingArmElev", "Non-bowling arm elevation at release", "release", null, "°"));
     metrics.push(metric("headDrift", "Head lateral drift (FFC to release)", "release", null, "× shoulder width"));
+  }
+
+  // ── Loading / unloading (front-leg brace mechanics, FFC -> peak load -> release) ──
+  const kneeAtPeakLoad = loadF ? angleAt(loadF.worldLandmarks[fIdx.hip], loadF.worldLandmarks[fIdx.knee], loadF.worldLandmarks[fIdx.ankle]) : null;
+
+  if (ffcF && loadF) {
+    metrics.push(metric("loadPhaseDurationMs", "Loading phase duration (FFC to peak brace)", "deliveryStride", (loadF.tSec - ffcF.tSec) * 1000, "ms"));
+    metrics.push(metric("loadingFlexionDeg", "Additional front-knee flexion during loading", "deliveryStride", kneeAtFFC !== null && kneeAtPeakLoad !== null ? kneeAtFFC - kneeAtPeakLoad : null, "°"));
+  } else {
+    metrics.push(metric("loadPhaseDurationMs", "Loading phase duration (FFC to peak brace)", "deliveryStride", null, "ms"));
+    metrics.push(metric("loadingFlexionDeg", "Additional front-knee flexion during loading", "deliveryStride", null, "°"));
+  }
+
+  if (loadF && relF) {
+    metrics.push(metric("unloadPhaseDurationMs", "Unloading phase duration (peak brace to release)", "release", (relF.tSec - loadF.tSec) * 1000, "ms"));
+    metrics.push(metric("unloadingExtensionDeg", "Front-knee extension during unload", "release", kneeAtRelease !== null && kneeAtPeakLoad !== null ? kneeAtRelease - kneeAtPeakLoad : null, "°"));
+  } else {
+    metrics.push(metric("unloadPhaseDurationMs", "Unloading phase duration (peak brace to release)", "release", null, "ms"));
+    metrics.push(metric("unloadingExtensionDeg", "Front-knee extension during unload", "release", null, "°"));
   }
 
   // ── Follow-through ──
