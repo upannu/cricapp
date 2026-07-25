@@ -60,11 +60,13 @@ export async function POST(request: Request) {
       await supabase.from("coaches").update({ stripe_connect_account_id: accountId }).eq("id", coachId);
     }
 
+    // Payout management (Set up payouts / View Payouts) lives inline on the coaches list
+    // itself — there's no dedicated per-coach payouts page, so send both links back there.
     const origin = new URL(request.url).origin;
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
-      refresh_url: `${origin}/coaches/${coachId}/payouts?refresh=1`,
-      return_url: `${origin}/coaches/${coachId}/payouts?onboarding=return`,
+      refresh_url: `${origin}/coaches?refresh=1`,
+      return_url: `${origin}/coaches?onboarding=return`,
       type: "account_onboarding",
     });
 

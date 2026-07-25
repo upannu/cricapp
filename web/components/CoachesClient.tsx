@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, deleteCoach, reassignCoachPlayers } from "@/lib/db";
@@ -46,6 +47,9 @@ function academyById(id: string) {
 
 export function CoachesClient() {
   const { user } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [payoutNotice, setPayoutNotice] = useState<"return" | "refresh" | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -77,6 +81,16 @@ export function CoachesClient() {
       _coachPlayers = p;
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Coming back from Stripe's hosted onboarding flow — strip the query param once read so
+  // refreshing the page doesn't keep re-showing the notice.
+  useEffect(() => {
+    const onboarding = searchParams.get("onboarding");
+    const refresh = searchParams.get("refresh");
+    if (onboarding === "return") setPayoutNotice("return");
+    else if (refresh) setPayoutNotice("refresh");
+    if (onboarding || refresh) router.replace("/coaches");
+  }, [searchParams, router]);
 
   async function handleSetupPayouts(coachId: string) {
     setPayoutLoading(coachId);
@@ -293,6 +307,25 @@ export function CoachesClient() {
           </button>
         )}
       </div>
+
+      {/* Returning from Stripe's hosted payout onboarding */}
+      {payoutNotice && (
+        <div className="flex items-start justify-between gap-3 bg-amber/10 border border-amber/30 rounded-xl px-4 py-3 mb-6">
+          <p className="text-sm text-amber">
+            {payoutNotice === "return"
+              ? "⏳ Payout setup submitted. It can take a few minutes for Stripe to confirm — refresh this page shortly if the coach still shows \"Not set up.\""
+              : "Your payout setup link expired before you finished. Click \"Set up payouts\" again to continue."}
+          </p>
+          <button
+            type="button"
+            onClick={() => setPayoutNotice(null)}
+            className="text-amber/70 hover:text-amber transition-colors cursor-pointer text-lg leading-none flex-shrink-0"
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">

@@ -16,8 +16,10 @@ export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get("stripe-signature");
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!signature || !webhookSecret) {
-    return NextResponse.json({ error: "Webhook not configured." }, { status: 500 });
+  if (!signature || !webhookSecret || webhookSecret.startsWith("REPLACE_ME")) {
+    // Distinct from a signature-verification failure below — this means nobody has set
+    // STRIPE_WEBHOOK_SECRET yet, not that a real secret was entered wrong.
+    return NextResponse.json({ error: "Webhook not configured — set STRIPE_WEBHOOK_SECRET." }, { status: 500 });
   }
 
   let event: Stripe.Event;
