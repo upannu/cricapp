@@ -265,6 +265,17 @@ export function dbToMessage(r: DbMessage): Message {
 
 export async function fetchPlayers(coachId?: string, academyId?: string): Promise<Player[]> {
   const sb = createClient();
+  // Players don't carry an academy_id column — an academy's roster lives as a player_ids
+  // array on the academy row instead, so scoping by academy needs that lookup first.
+  if (academyId) {
+    const { data: academy, error: academyError } = await sb.from("academies").select("player_ids").eq("id", academyId).single();
+    if (academyError) throw academyError;
+    const playerIds = academy?.player_ids ?? [];
+    if (playerIds.length === 0) return [];
+    const { data, error } = await sb.from("players").select("*").in("id", playerIds).order("name");
+    if (error) throw error;
+    return (data as DbPlayer[]).map(dbToPlayer);
+  }
   let q = sb.from("players").select("*").order("name");
   if (coachId) q = q.eq("coach_id", coachId);
   const { data, error } = await q;

@@ -77,7 +77,8 @@ export function ReportsClient() {
 
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
-    Promise.all([fetchReports(), fetchPlayers(coachId), fetchAcademies(), fetchCoaches()]).then(([r, p, a, c]) => {
+    const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
+    Promise.all([fetchReports(), fetchPlayers(coachId, academyId), fetchAcademies(), fetchCoaches()]).then(([r, p, a, c]) => {
       setReports(r);
       _reportPlayers = p;
       _reportAcademies = a;

@@ -132,16 +132,17 @@ export function SessionsClient() {
 
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
-    // Players are already scoped to the coach's own roster below — sessions must be
-    // scoped the same way, or a coach sees other coaches' players' session data with
-    // no name to show for it (was fetching every session in the system, unscoped).
+    const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
+    // Players are already scoped to the coach's/academy's own roster below — sessions must
+    // be scoped the same way, or a coach/academy admin sees other people's players' session
+    // data with no name to show for it (was fetching every session in the system, unscoped).
     Promise.all([
-      fetchPlayers(coachId),
+      fetchPlayers(coachId, academyId),
       fetchCoaches(),
       fetchAcademies(),
     ]).then(([p, c, ac]) => {
       _sessPlayers = p; _sessCoaches = c; _sessAcademies = ac;
-      const scopedPlayerIds = coachId ? p.map((pl) => pl.id) : undefined;
+      const scopedPlayerIds = (coachId || academyId) ? p.map((pl) => pl.id) : undefined;
       return Promise.all([fetchSessions(undefined, scopedPlayerIds), fetchReports()]);
     }).then(([s, r]) => {
       setSessions(s);

@@ -110,9 +110,10 @@ export function BookingsClient() {
 
   useEffect(() => {
     const coachId = user?.role === "coach" ? (user.coachId ?? undefined) : undefined;
+    const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
     Promise.all([
       fetchBookings(coachId),
-      fetchPlayers(user?.role === "coach" ? user.coachId : undefined),
+      fetchPlayers(coachId, academyId),
       fetchCoaches(),
       fetchAcademies(),
       fetchSessionPacks(),
