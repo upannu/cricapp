@@ -411,9 +411,13 @@ export async function deleteBooking(id: string): Promise<void> {
 }
 
 export async function fetchSessions(coachName?: string, playerIds?: string[]): Promise<Session[]> {
+  // An empty array means "scoped to zero players" (e.g. a coach with no players assigned) and
+  // must return no sessions — distinct from `undefined`, which means no scoping was requested.
+  // `playerIds?.length` alone can't tell these apart, since an empty array's length is also falsy.
+  if (playerIds && playerIds.length === 0) return [];
   const sb = createClient();
   let q = sb.from("sessions").select("*").order("date", { ascending: false });
-  if (playerIds?.length) q = q.in("player_id", playerIds);
+  if (playerIds && playerIds.length > 0) q = q.in("player_id", playerIds);
   const { data, error } = await q;
   if (error) throw error;
   return (data as DbSession[]).map(dbToSession);
