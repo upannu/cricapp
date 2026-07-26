@@ -1,43 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import type { Player, PlanTier } from "@/lib/types";
+import type { Player, PlanTier, PlatformSettings } from "@/lib/types";
 import { formatDate, getPlayerStatus } from "@/lib/utils";
 import { isPaidPlan } from "@/lib/stripe-client";
+import { fetchPlatformSettings } from "@/lib/db";
 
-const PLANS: { tier: PlanTier; price: string; sessions: number | null; features: string[] }[] = [
-  {
-    tier: "Free",
-    price: "Free",
-    sessions: 4,
-    features: ["4 sessions total", "Basic video upload", "Manual analysis"],
-  },
-  {
-    tier: "Player Pro",
-    price: "$9.99 / month",
-    sessions: null,
-    features: ["Unlimited sessions", "AI biomechanics", "Progress reports", "Video library"],
-  },
-  {
-    tier: "Coach Pro",
-    price: "$29.99 / month",
-    sessions: null,
-    features: [
-      "Everything in Player Pro",
-      "Unlimited players",
-      "Academy management",
-      "Bulk reports",
-      "Priority support",
-    ],
-  },
-];
+function buildPlans(settings: PlatformSettings | null): { tier: PlanTier; price: string; sessions: number | null; features: string[] }[] {
+  return [
+    {
+      tier: "Free",
+      price: "Free",
+      sessions: 4,
+      features: ["4 sessions total", "Basic video upload", "Manual analysis"],
+    },
+    {
+      tier: "Player Pro",
+      price: settings ? `$${settings.playerProPriceAud.toFixed(2)} / month` : "…",
+      sessions: null,
+      features: ["Unlimited sessions", "AI biomechanics", "Progress reports", "Video library"],
+    },
+    {
+      tier: "Coach Pro",
+      price: settings ? `$${settings.coachProPriceAud.toFixed(2)} / month` : "…",
+      sessions: null,
+      features: [
+        "Everything in Player Pro",
+        "Unlimited players",
+        "Academy management",
+        "Bulk reports",
+        "Priority support",
+      ],
+    },
+  ];
+}
 
 export function SubscriptionPage({ player }: { player: Player }) {
   const status = getPlayerStatus(player.subscription.endDate);
   const [selectedPlan, setSelectedPlan] = useState<PlanTier>(player.subscription.plan);
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState("");
+  const [settings, setSettings] = useState<PlatformSettings | null>(null);
+
+  useEffect(() => {
+    fetchPlatformSettings().then(setSettings).catch(() => {});
+  }, []);
+
+  const PLANS = useMemo(() => buildPlans(settings), [settings]);
 
   const daysLeft = Math.ceil(
     (new Date(player.subscription.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)

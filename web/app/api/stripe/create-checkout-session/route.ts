@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { stripe, isPaidPlan, priceIdForPlan } from "@/lib/stripe";
+import { stripe, isPaidPlan } from "@/lib/stripe";
 
 export async function POST(request: Request) {
   const { playerId, plan } = (await request.json()) as { playerId?: string; plan?: string };
@@ -43,6 +43,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Player not found." }, { status: 404 });
   }
 
+  // Priced from the database (editable at /admin/pricing) rather than a pre-created Stripe
+  // Price object — avoids needing to visit the Stripe dashboard to change a subscription price.
+  const { data: settings, error: settingsError } = await supabase
+    .from("platform_settings")
+    .select("player_pro_price_aud, coach_pro_price_aud")
+    .eq("id", "default")
+    .single();
+  if (settingsError || !settings) {
+    return NextResponse.json({ error: "Pricing is not configured." }, { status: 500 });
+  }
+  const priceAud = plan === "Player Pro" ? settings.player_pro_price_aud : settings.coach_pro_price_aud;
+
   try {
     let customerId = player.stripe_customer_id as string | null;
     if (!customerId) {
@@ -59,7 +71,15 @@ export async function POST(request: Request) {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
-      line_items: [{ price: priceIdForPlan(plan), quantity: 1 }],
+      line_items: [{
+        price_data: {
+          currency: "aud",
+          unit_amount: Math.round(priceAud * 100),
+          recurring: { interval: "month" },
+          product_data: { name: plan },
+        },
+        quantity: 1,
+      }],
       client_reference_id: playerId,
       subscription_data: { metadata: { player_id: playerId, plan } },
       metadata: { player_id: playerId, plan },

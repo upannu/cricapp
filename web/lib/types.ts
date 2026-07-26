@@ -1,4 +1,10 @@
 export type PlanTier = 'Coach Pro' | 'Player Pro' | 'Free';
+
+/** Platform-wide subscription prices, editable by a platform admin — see /admin/pricing. */
+export interface PlatformSettings {
+  playerProPriceAud: number;
+  coachProPriceAud: number;
+}
 export type PlayerStatus = 'Active' | 'Expiring' | 'Expired';
 export type BowlingStyle =
   | 'Right Arm Fast'

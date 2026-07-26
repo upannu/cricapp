@@ -8,6 +8,7 @@ import type {
   SCWorkout, SCWorkoutType,
   VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
   Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
+  PlatformSettings,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 
@@ -902,4 +903,23 @@ export async function recordTipView(playerId: string): Promise<{ streak: number;
   if (updateError) throw updateError;
 
   return { streak: newStreak, bonusAwarded };
+}
+
+// ─── Platform settings (subscription pricing) ───────────────────────────────
+
+export interface DbPlatformSettings {
+  id: string;
+  player_pro_price_aud: number;
+  coach_pro_price_aud: number;
+}
+
+export function dbToPlatformSettings(r: DbPlatformSettings): PlatformSettings {
+  return { playerProPriceAud: r.player_pro_price_aud, coachProPriceAud: r.coach_pro_price_aud };
+}
+
+export async function fetchPlatformSettings(): Promise<PlatformSettings> {
+  const sb = createClient();
+  const { data, error } = await sb.from("platform_settings").select("*").eq("id", "default").single();
+  if (error) throw error;
+  return dbToPlatformSettings(data as DbPlatformSettings);
 }

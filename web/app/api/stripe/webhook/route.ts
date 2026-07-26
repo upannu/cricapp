@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { stripe, planForPriceId } from "@/lib/stripe";
+import { stripe } from "@/lib/stripe";
 
 function serviceClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -54,8 +54,7 @@ export async function POST(request: Request) {
       if (!playerId || typeof session.subscription !== "string" || typeof session.customer !== "string") break;
 
       const subscription = await stripe.subscriptions.retrieve(session.subscription);
-      const priceId = subscription.items.data[0]?.price.id;
-      const plan = (priceId && planForPriceId(priceId)) ?? session.metadata?.plan;
+      const plan = subscription.metadata?.plan ?? session.metadata?.plan;
 
       await supabase.from("players").update({
         stripe_customer_id: session.customer,
@@ -71,8 +70,7 @@ export async function POST(request: Request) {
 
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
-      const priceId = subscription.items.data[0]?.price.id;
-      const plan = priceId ? planForPriceId(priceId) : null;
+      const plan = subscription.metadata?.plan ?? null;
       const isActive = subscription.status === "active" || subscription.status === "trialing";
 
       await supabase.from("players").update({
