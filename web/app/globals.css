@@ -24,3 +24,11 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Native date/time inputs render a dark calendar/clock icon by default, which is
+   nearly invisible against this app's dark input backgrounds — invert it to white. */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}

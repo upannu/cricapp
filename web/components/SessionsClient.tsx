@@ -138,7 +138,7 @@ export function SessionsClient() {
     // data with no name to show for it (was fetching every session in the system, unscoped).
     Promise.all([
       fetchPlayers(coachId, academyId),
-      fetchCoaches(),
+      fetchCoaches(academyId),
       fetchAcademies(),
     ]).then(([p, c, ac]) => {
       _sessPlayers = p; _sessCoaches = c; _sessAcademies = ac;

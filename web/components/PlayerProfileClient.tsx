@@ -77,6 +77,44 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
         </Link>
       </div>
 
+      {/* Quick actions */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <Link
+          href={`/players/${playerId}/reports`}
+          className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-surface text-white border-zinc-700 hover:bg-surface-hover"
+        >
+          View All Reports
+        </Link>
+        <Link
+          href={`/players/${playerId}/action-plans`}
+          className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-surface text-white border-zinc-700 hover:bg-surface-hover"
+        >
+          Action Plans
+        </Link>
+        <Link
+          href={`/players/${playerId}/sc-log`}
+          className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-surface text-white border-zinc-700 hover:bg-surface-hover"
+        >
+          S&C Log
+        </Link>
+        <Link
+          href={`/players/${playerId}/subscription`}
+          className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
+            status !== "Active"
+              ? "bg-fire/10 text-fire border-fire/30 hover:bg-fire/20"
+              : "bg-surface text-white border-zinc-700 hover:bg-surface-hover"
+          }`}
+        >
+          Manage Subscription
+        </Link>
+        <Link
+          href={`/players/${playerId}/new-session`}
+          className="px-5 py-2.5 bg-pace-green text-black rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
+        >
+          + New Session
+        </Link>
+      </div>
+
       {/* Header card */}
       <div className="bg-surface rounded-2xl p-6 mb-4 flex items-start gap-5">
         <div className="w-20 h-20 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-2xl flex-shrink-0">
@@ -371,43 +409,6 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
         playerPhone={player.phone}
       />
 
-      {/* Footer actions */}
-      <div className="flex flex-wrap gap-3">
-        <Link
-          href={`/players/${playerId}/reports`}
-          className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-surface text-white border-zinc-700 hover:bg-surface-hover"
-        >
-          View All Reports
-        </Link>
-        <Link
-          href={`/players/${playerId}/action-plans`}
-          className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-surface text-white border-zinc-700 hover:bg-surface-hover"
-        >
-          Action Plans
-        </Link>
-        <Link
-          href={`/players/${playerId}/sc-log`}
-          className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-surface text-white border-zinc-700 hover:bg-surface-hover"
-        >
-          S&C Log
-        </Link>
-        <Link
-          href={`/players/${playerId}/subscription`}
-          className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
-            status !== "Active"
-              ? "bg-fire/10 text-fire border-fire/30 hover:bg-fire/20"
-              : "bg-surface text-white border-zinc-700 hover:bg-surface-hover"
-          }`}
-        >
-          Manage Subscription
-        </Link>
-        <Link
-          href={`/players/${playerId}/new-session`}
-          className="px-5 py-2.5 bg-pace-green text-black rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
-        >
-          + New Session
-        </Link>
-      </div>
     </div>
   );
 }

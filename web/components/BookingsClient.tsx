@@ -114,7 +114,7 @@ export function BookingsClient() {
     Promise.all([
       fetchBookings(coachId),
       fetchPlayers(coachId, academyId),
-      fetchCoaches(),
+      fetchCoaches(academyId),
       fetchAcademies(),
       fetchSessionPacks(),
     ]).then(([bk, pl, co, ac, pk]) => {

@@ -72,7 +72,7 @@ export function CoachesClient() {
 
   useEffect(() => {
     Promise.all([
-      fetchCoaches(),
+      fetchCoaches(defaultAcademyId || undefined),
       fetchAcademies(),
       fetchPlayers(),
     ]).then(([c, a, p]) => {

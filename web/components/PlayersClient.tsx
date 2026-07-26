@@ -34,7 +34,7 @@ export function PlayersClient() {
     if (!user) return;
     const coachId = user.role === "coach" ? user.coachId : undefined;
     const academyId = user.role === "academy_admin" ? user.academyId : undefined;
-    Promise.all([fetchPlayers(coachId, academyId), fetchAcademies(), fetchCoaches()]).then(([p, a, c]) => {
+    Promise.all([fetchPlayers(coachId, academyId), fetchAcademies(), fetchCoaches(academyId)]).then(([p, a, c]) => {
       setPlayers(p);
       setAcademies(a);
       setCoaches(c);

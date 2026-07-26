@@ -87,7 +87,7 @@ export function SessionPacksClient() {
       fetchSessionPacks(),
       fetchPlayers(coachId, academyId),
       fetchAcademies(),
-      fetchCoaches(),
+      fetchCoaches(academyId),
       fetchBookings(),
     ]).then(([pk, pl, ac, co, bk]) => {
       setPacks(pk); _packPlayers = pl; _packAcademies = ac; _packCoaches = co; _packBookings = bk;
