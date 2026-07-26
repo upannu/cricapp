@@ -879,8 +879,18 @@ export function AcademyClient() {
 
             <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-700/50">
               <h2 className="text-white font-bold">{editingId ? "Edit Academy" : "New Academy"}</h2>
-              <button type="button" onClick={closeModal}
-                className="text-zinc-400 hover:text-white transition-colors cursor-pointer text-xl leading-none p-1">✕</button>
+              <div className="flex items-center gap-3">
+                {editingId && (user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === editingId)) && (
+                  <Link
+                    href={`/academies/${editingId}/billing`}
+                    className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity"
+                  >
+                    Manage Billing →
+                  </Link>
+                )}
+                <button type="button" onClick={closeModal}
+                  className="text-zinc-400 hover:text-white transition-colors cursor-pointer text-xl leading-none p-1">✕</button>
+              </div>
             </div>
 
             <div className="px-6 py-5 space-y-6 max-h-[76vh] overflow-y-auto">

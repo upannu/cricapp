@@ -3,8 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { UserRole } from "@/lib/types";
+
+const ADMIN_TOOLS = [
+  { label: "Manage Content", href: "/admin/academy" },
+  { label: "Subscription Pricing", href: "/admin/pricing" },
+  { label: "Plan Catalog", href: "/admin/plans" },
+  { label: "Approvals", href: "/admin/approvals" },
+];
 
 const NAV_ALL = [
   { label: "Players",  href: "/players" },
@@ -39,6 +46,8 @@ export function NavBar() {
   const { user, logout } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const adminMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user?.role !== "platform_admin") return;
@@ -51,7 +60,19 @@ export function NavBar() {
   // Close the mobile menu automatically whenever the route changes.
   useEffect(() => {
     setMobileOpen(false);
+    setAdminMenuOpen(false);
   }, [pathname]);
+
+  // Close the admin tools dropdown on outside click.
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) {
+        setAdminMenuOpen(false);
+      }
+    }
+    if (adminMenuOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [adminMenuOpen]);
 
   function handleLogout() {
     logout();
@@ -71,14 +92,14 @@ export function NavBar() {
       ]
     : [
         ...NAV_ALL,
-        ...(user?.role === "platform_admin" ? [{ label: "Manage Content", href: "/admin/academy" }, { label: "Pricing", href: "/admin/pricing" }, { label: "Plans", href: "/admin/plans" }, { label: "Approvals", href: "/admin/approvals" }] : []),
+        ...(user?.role === "platform_admin" ? ADMIN_TOOLS : []),
       ];
 
-  // "Approvals", "Manage Content", "Pricing", and "Plans" are docked as fixed icon buttons on
-  // desktop (see below) rather than living in the scrolling nav row — with a long name + role
-  // badge there often isn't room for a 9th+ nav item, and a squeezed flex item with
-  // whitespace-nowrap text just overflows invisibly instead of wrapping.
-  const desktopNavLinks = navLinks.filter((item) => item.label !== "Approvals" && item.label !== "Manage Content" && item.label !== "Pricing" && item.label !== "Plans");
+  // Admin tools are docked as a single dropdown on desktop (see below) rather than living in the
+  // scrolling nav row — with a long name + role badge there often isn't room for a 9th+ nav item,
+  // and a squeezed flex item with whitespace-nowrap text just overflows invisibly instead of
+  // wrapping. This also means adding another admin tool later never re-squeezes this row again.
+  const desktopNavLinks = isPlayerOrParent ? navLinks : NAV_ALL;
 
   function linkClasses(href: string, amber = false) {
     const isActive = pathname.startsWith(href);
@@ -125,67 +146,49 @@ export function NavBar() {
         {user && (
           <div className="hidden xl:flex items-center gap-3 flex-shrink-0">
             {user.role === "platform_admin" && (
-              <Link
-                href="/admin/academy"
-                title="Manage Content"
-                className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
-                  pathname.startsWith("/admin/academy") ? "text-pace-green bg-pace-green/10" : "text-zinc-400 hover:text-white hover:bg-zinc-700/50"
-                }`}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-                </svg>
-              </Link>
-            )}
-            {user.role === "platform_admin" && (
-              <Link
-                href="/admin/pricing"
-                title="Subscription Pricing"
-                className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
-                  pathname.startsWith("/admin/pricing") ? "text-pace-green bg-pace-green/10" : "text-zinc-400 hover:text-white hover:bg-zinc-700/50"
-                }`}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="1" x2="12" y2="23" />
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                </svg>
-              </Link>
-            )}
-            {user.role === "platform_admin" && (
-              <Link
-                href="/admin/plans"
-                title="Plan Catalog"
-                className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
-                  pathname.startsWith("/admin/plans") ? "text-pace-green bg-pace-green/10" : "text-zinc-400 hover:text-white hover:bg-zinc-700/50"
-                }`}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7" rx="1" />
-                  <rect x="14" y="3" width="7" height="7" rx="1" />
-                  <rect x="3" y="14" width="7" height="7" rx="1" />
-                  <rect x="14" y="14" width="7" height="7" rx="1" />
-                </svg>
-              </Link>
-            )}
-            {user.role === "platform_admin" && (
-              <Link
-                href="/admin/approvals"
-                title="Approvals"
-                className={`relative p-2 rounded-lg transition-colors flex-shrink-0 ${
-                  pathname.startsWith("/admin/approvals") ? "text-amber bg-amber/10" : "text-zinc-400 hover:text-white hover:bg-zinc-700/50"
-                }`}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                </svg>
-                {pendingCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold px-1 py-0.5 rounded-full min-w-[16px] text-center leading-none">
-                    {pendingCount}
-                  </span>
+              <div className="relative flex-shrink-0" ref={adminMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setAdminMenuOpen((v) => !v)}
+                  title="Admin tools"
+                  className={`relative p-2 rounded-lg transition-colors flex-shrink-0 cursor-pointer ${
+                    adminMenuOpen || ADMIN_TOOLS.some((t) => pathname.startsWith(t.href))
+                      ? "text-pace-green bg-pace-green/10"
+                      : "text-zinc-400 hover:text-white hover:bg-zinc-700/50"
+                  }`}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold px-1 py-0.5 rounded-full min-w-[16px] text-center leading-none">
+                      {pendingCount}
+                    </span>
+                  )}
+                </button>
+
+                {adminMenuOpen && (
+                  <div className="absolute right-0 top-10 z-30 w-52 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
+                    {ADMIN_TOOLS.map((tool) => (
+                      <Link
+                        key={tool.href}
+                        href={tool.href}
+                        className={`flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
+                          pathname.startsWith(tool.href) ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                        }`}
+                      >
+                        {tool.label}
+                        {tool.label === "Approvals" && pendingCount > 0 && (
+                          <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                            {pendingCount}
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
                 )}
-              </Link>
+              </div>
             )}
             <div className="text-right min-w-0">
               <p className="text-sm font-medium text-white leading-tight truncate max-w-[160px]">{user.name}</p>
