@@ -160,7 +160,7 @@ export function SessionsClient() {
 
   const visibleCoaches = _sessCoaches;
 
-  async function handleGenerateReport(session: Session) {
+  async function handleGenerateReport(session: Session, useAssessmentCredit = false) {
     setGeneratingId(session.id);
     setGeneratingStage("Loading pose model…");
     setReportError("");
@@ -260,11 +260,16 @@ export function SessionsClient() {
           ballTracking,
           pitchMapBase64,
           skeletonFrames,
+          useAssessmentCredit,
         }),
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Failed to generate report");
 
+      if (useAssessmentCredit) {
+        const target = _sessPlayers.find((p) => p.id === session.playerId);
+        if (target) target.assessmentCredits = Math.max(0, target.assessmentCredits - 1);
+      }
       setReportStatus((prev) => ({ ...prev, [session.id]: "success" }));
     } catch (err) {
       const msg = (err as { message?: string })?.message ?? String(err);
@@ -689,6 +694,16 @@ export function SessionsClient() {
                               {generatingId === session.id ? (generatingStage || "Analyzing…") : "🔄 Regenerate"}
                             </button>
                           </>
+                        ) : player && !canGenerateAiReports(player.subscription.plan) && player.assessmentCredits > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => handleGenerateReport(session, true)}
+                            disabled={generatingId === session.id}
+                            title="Spends one purchased Individual Action Assessment credit"
+                            className="px-4 py-2 text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-60 cursor-pointer"
+                          >
+                            {generatingId === session.id ? (generatingStage || "Analyzing…") : `🎫 Use Assessment Credit (${player.assessmentCredits} left)`}
+                          </button>
                         ) : player && !canGenerateAiReports(player.subscription.plan) ? (
                           <Link
                             href={`/players/${player.id}/subscription`}

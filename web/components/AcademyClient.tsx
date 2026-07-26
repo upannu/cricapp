@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach } from "@/lib/types";
+import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, insertPlayer } from "@/lib/db";
+import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, insertPlayer, fetchActivePlans } from "@/lib/db";
 import type { CertificationLevel } from "@/lib/types";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
@@ -71,6 +71,7 @@ export function AcademyClient() {
   const [academies,   setAcademies]   = useState<Academy[]>([]);
   const [allPlayers,  setAllPlayers]  = useState<Player[]>([]);
   const [allCoaches,  setAllCoaches]  = useState<Coach[]>([]);
+  const [orgPlans,    setOrgPlans]    = useState<Plan[]>([]);
 
   // Accordion
   const [expandedId,      setExpandedId]      = useState<string | null>(null);
@@ -115,8 +116,9 @@ export function AcademyClient() {
   const [sortBy,       setSortBy]       = useState<SortOption>("name");
 
   useEffect(() => {
-    Promise.all([fetchAcademies(), fetchPlayers(), fetchCoaches()]).then(([a, p, c]) => {
+    Promise.all([fetchAcademies(), fetchPlayers(), fetchCoaches(), fetchActivePlans()]).then(([a, p, c, plans]) => {
       setAcademies(a); setAllPlayers(p); setAllCoaches(c);
+      setOrgPlans(plans.filter((x) => x.audience === "organization"));
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -310,6 +312,7 @@ export function AcademyClient() {
       academy: { stage: "Foundation", completionPercent: 0, totalSessions: 0, xp: 0, articlesRead: 0 },
       sessionsCount: 0, lastActive: now, xp: 0,
       tipStreakCount: 0, tipBestStreak: 0,
+      assessmentCredits: 0,
     };
     await insertPlayer({
       id: newId, name: newPlayer.name, email: newPlayer.email, phone: "",
@@ -556,6 +559,16 @@ export function AcademyClient() {
                       <div className="text-[10px] text-zinc-500">Fee/session</div>
                     </div>
                   </div>
+
+                  {(user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === academy.id)) && (
+                    <Link
+                      href={`/academies/${academy.id}/billing`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors flex-shrink-0"
+                    >
+                      Billing
+                    </Link>
+                  )}
 
                   {/* ⋮ menu */}
                   {user?.role === "platform_admin" && (
@@ -1143,6 +1156,18 @@ export function AcademyClient() {
                     {showNewPlayer ? "Cancel" : "+ Add New Player"}
                   </button>
                 </div>
+
+                {(() => {
+                  const editingAcademy = academies.find((a) => a.id === editingId);
+                  const activePlan = orgPlans.find((p) => p.id === editingAcademy?.planId);
+                  if (!activePlan?.seatCap || draft.playerIds.length <= activePlan.seatCap) return null;
+                  return (
+                    <div className="mb-3 px-3 py-2 rounded-lg bg-amber/10 border border-amber/30 text-amber text-xs">
+                      {draft.playerIds.length} bowlers assigned, but the {activePlan.name} plan is capped at {activePlan.seatCap}.{" "}
+                      <Link href={`/academies/${editingId}/billing`} className="underline hover:opacity-80">Upgrade the license</Link> to cover the extra seats.
+                    </div>
+                  );
+                })()}
 
                 {showNewPlayer && (
                   <div className="bg-ink rounded-xl p-4 mb-3 border border-pace-green/30">

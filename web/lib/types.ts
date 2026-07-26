@@ -5,6 +5,28 @@ export interface PlatformSettings {
   playerProPriceAud: number;
   coachProPriceAud: number;
 }
+
+/**
+ * A row in the configurable plan catalog (Library, Individual Assessment, Academy/Club/Board
+ * licenses) — editable by a platform admin at /admin/plans, separate from the fixed Player Pro /
+ * Coach Pro pricing above. `accessDurationMonths` and `includedNotes` only apply to plans whose
+ * software access window is shorter than their billing period (e.g. the board tier: billed
+ * yearly, access lasts 3 months).
+ */
+export interface Plan {
+  id: string;
+  slug: string;
+  name: string;
+  audience: 'individual' | 'organization';
+  billingType: 'subscription' | 'one_time';
+  billingInterval: 'month' | 'year' | null;
+  priceAud: number;
+  seatCap: number | null;
+  accessDurationMonths: number | null;
+  includedNotes: string | null;
+  active: boolean;
+  sortOrder: number;
+}
 export type PlayerStatus = 'Active' | 'Expiring' | 'Expired';
 export type BowlingStyle =
   | 'Right Arm Fast'
@@ -98,6 +120,13 @@ export interface Academy {
   sessionFeeAud: number;
   sessionTypeFees: Partial<Record<BookingType, number>>;
   ageFees: Partial<Record<AgeGroup, number>>;
+  /** Org-level billing (Academy/Club/Board license) — separate from the per-session fees above. */
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  subscriptionStatus?: string;
+  planId?: string;
+  /** Only meaningful when the active plan has accessDurationMonths set (e.g. the board tier). */
+  accessExpiresAt?: string;
 }
 
 export type UserRole = 'platform_admin' | 'academy_admin' | 'coach' | 'player' | 'parent';
@@ -335,6 +364,11 @@ export interface Player {
   xp: number;
   tipStreakCount: number;
   tipBestStreak: number;
+  /** Independent of `subscription.plan` — a player can hold Library access without Player Pro. */
+  libraryStripeSubscriptionId?: string;
+  librarySubscriptionStatus?: string | null;
+  /** One-time-purchased AI report credits, consumed outside the subscription session cap. */
+  assessmentCredits: number;
 }
 
 // ─── Coach workflow: action plans, video annotation, voice notes, assessments ──

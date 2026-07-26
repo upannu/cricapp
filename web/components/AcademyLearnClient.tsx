@@ -112,8 +112,9 @@ export function AcademyLearnClient() {
       <div className="space-y-4">
         {STAGE_ORDER.map((stage) => {
           const stageArticles = articles.filter((a) => a.stage === stage);
-          const unlocked = isStageUnlocked(stage, player.subscription.plan, readCountByStage);
-          const lockReason = stageLockReason(stage, player.subscription.plan, readCountByStage);
+          const hasLibraryAccess = player.librarySubscriptionStatus === "active" || player.librarySubscriptionStatus === "trialing";
+          const unlocked = isStageUnlocked(stage, player.subscription.plan, readCountByStage, hasLibraryAccess);
+          const lockReason = stageLockReason(stage, player.subscription.plan, readCountByStage, hasLibraryAccess);
           const readInStage = readCountByStage[stage] ?? 0;
 
           return (

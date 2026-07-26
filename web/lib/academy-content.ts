@@ -29,14 +29,19 @@ const UNLOCK_REQUIREMENT: Partial<Record<AcademyStage, { afterStage: AcademyStag
   Elite: { afterStage: "Velocity", count: 6 },
 };
 
-/** Stage gates require Player Pro (or higher) once past the free Foundation stage. */
+/**
+ * Stage gates require Player Pro (or higher) once past the free Foundation stage — OR a
+ * standalone Library subscription, which is sold independently of the main plan and only ever
+ * unlocks this article library (see /players/[id]/subscription's "Add-ons" section).
+ */
 export function isStageUnlocked(
   stage: AcademyStage,
   plan: PlanTier,
-  readCountByStage: Partial<Record<AcademyStage, number>>
+  readCountByStage: Partial<Record<AcademyStage, number>>,
+  hasLibraryAccess = false
 ): boolean {
   if (stage === "Foundation") return true;
-  if (!isPaidPlan(plan)) return false;
+  if (!isPaidPlan(plan) && !hasLibraryAccess) return false;
   const req = UNLOCK_REQUIREMENT[stage];
   if (!req) return true;
   return (readCountByStage[req.afterStage] ?? 0) >= req.count;
@@ -45,19 +50,21 @@ export function isStageUnlocked(
 export function isArticleUnlocked(
   article: Article,
   plan: PlanTier,
-  readCountByStage: Partial<Record<AcademyStage, number>>
+  readCountByStage: Partial<Record<AcademyStage, number>>,
+  hasLibraryAccess = false
 ): boolean {
-  return isStageUnlocked(article.stage, plan, readCountByStage);
+  return isStageUnlocked(article.stage, plan, readCountByStage, hasLibraryAccess);
 }
 
 /** The furthest stage a player has actually unlocked, for display as their current "Academy Progress" stage. */
 export function currentUnlockedStage(
   plan: PlanTier,
-  readCountByStage: Partial<Record<AcademyStage, number>>
+  readCountByStage: Partial<Record<AcademyStage, number>>,
+  hasLibraryAccess = false
 ): AcademyStage {
   let current: AcademyStage = "Foundation";
   for (const stage of STAGE_ORDER) {
-    if (isStageUnlocked(stage, plan, readCountByStage)) current = stage;
+    if (isStageUnlocked(stage, plan, readCountByStage, hasLibraryAccess)) current = stage;
   }
   return current;
 }
@@ -65,14 +72,15 @@ export function currentUnlockedStage(
 export function stageLockReason(
   stage: AcademyStage,
   plan: PlanTier,
-  readCountByStage: Partial<Record<AcademyStage, number>>
+  readCountByStage: Partial<Record<AcademyStage, number>>,
+  hasLibraryAccess = false
 ): string | null {
-  if (isStageUnlocked(stage, plan, readCountByStage)) return null;
+  if (isStageUnlocked(stage, plan, readCountByStage, hasLibraryAccess)) return null;
   const req = UNLOCK_REQUIREMENT[stage];
   if (!req) return null;
   const have = readCountByStage[req.afterStage] ?? 0;
   const parts: string[] = [];
   if (have < req.count) parts.push(`Read ${req.count - have} more ${req.afterStage} article${req.count - have === 1 ? "" : "s"}`);
-  if (!isPaidPlan(plan)) parts.push("Upgrade to Player Pro");
+  if (!isPaidPlan(plan) && !hasLibraryAccess) parts.push("Upgrade to Player Pro or subscribe to Library");
   return parts.join(" and ") + " to unlock.";
 }

@@ -49,6 +49,53 @@ export async function POST(request: Request) {
         }
         break;
       }
+      if (session.metadata?.type === "assessment_payment") {
+        const assessmentPlayerId = session.metadata?.player_id;
+        if (assessmentPlayerId) {
+          const { data: p } = await supabase.from("players").select("assessment_credits").eq("id", assessmentPlayerId).single();
+          await supabase.from("players").update({ assessment_credits: (p?.assessment_credits ?? 0) + 1 }).eq("id", assessmentPlayerId);
+        }
+        break;
+      }
+      if (session.metadata?.type === "library_subscription") {
+        const libraryPlayerId = session.metadata?.player_id;
+        if (libraryPlayerId && typeof session.subscription === "string") {
+          const librarySub = await stripe.subscriptions.retrieve(session.subscription);
+          await supabase.from("players").update({
+            library_stripe_subscription_id: librarySub.id,
+            library_subscription_status: librarySub.status,
+          }).eq("id", libraryPlayerId);
+        }
+        break;
+      }
+      if (session.metadata?.type === "academy_subscription") {
+        const academyId = session.metadata?.academy_id;
+        const planId = session.metadata?.plan_id;
+        if (academyId && typeof session.subscription === "string") {
+          const academySub = await stripe.subscriptions.retrieve(session.subscription);
+
+          // The board tier bills yearly but only grants a shorter AI-monitoring window per cycle
+          // (access_duration_months) — everything else leaves access tied to subscription_status.
+          let accessExpiresAt: string | null = null;
+          if (planId) {
+            const { data: plan } = await supabase.from("plans").select("access_duration_months").eq("id", planId).single();
+            if (plan?.access_duration_months) {
+              const expires = new Date();
+              expires.setMonth(expires.getMonth() + plan.access_duration_months);
+              accessExpiresAt = expires.toISOString();
+            }
+          }
+
+          await supabase.from("academies").update({
+            stripe_customer_id: typeof session.customer === "string" ? session.customer : undefined,
+            stripe_subscription_id: academySub.id,
+            subscription_status: academySub.status,
+            plan_id: planId ?? null,
+            access_expires_at: accessExpiresAt,
+          }).eq("id", academyId);
+        }
+        break;
+      }
 
       const playerId = session.metadata?.player_id ?? session.client_reference_id;
       if (!playerId || typeof session.subscription !== "string" || typeof session.customer !== "string") break;
@@ -70,6 +117,20 @@ export async function POST(request: Request) {
 
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
+
+      if (subscription.metadata?.type === "library_subscription") {
+        await supabase.from("players")
+          .update({ library_subscription_status: subscription.status })
+          .eq("library_stripe_subscription_id", subscription.id);
+        break;
+      }
+      if (subscription.metadata?.type === "academy_subscription") {
+        await supabase.from("academies")
+          .update({ subscription_status: subscription.status })
+          .eq("stripe_subscription_id", subscription.id);
+        break;
+      }
+
       const plan = subscription.metadata?.plan ?? null;
       const isActive = subscription.status === "active" || subscription.status === "trialing";
 
@@ -84,6 +145,20 @@ export async function POST(request: Request) {
 
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
+
+      if (subscription.metadata?.type === "library_subscription") {
+        await supabase.from("players")
+          .update({ library_subscription_status: "canceled", library_stripe_subscription_id: null })
+          .eq("library_stripe_subscription_id", subscription.id);
+        break;
+      }
+      if (subscription.metadata?.type === "academy_subscription") {
+        await supabase.from("academies")
+          .update({ subscription_status: "canceled", stripe_subscription_id: null, plan_id: null, access_expires_at: null })
+          .eq("stripe_subscription_id", subscription.id);
+        break;
+      }
+
       await supabase.from("players").update({
         sub_plan: "Free",
         subscription_status: "canceled",

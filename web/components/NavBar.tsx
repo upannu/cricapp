@@ -71,14 +71,14 @@ export function NavBar() {
       ]
     : [
         ...NAV_ALL,
-        ...(user?.role === "platform_admin" ? [{ label: "Manage Content", href: "/admin/academy" }, { label: "Pricing", href: "/admin/pricing" }, { label: "Approvals", href: "/admin/approvals" }] : []),
+        ...(user?.role === "platform_admin" ? [{ label: "Manage Content", href: "/admin/academy" }, { label: "Pricing", href: "/admin/pricing" }, { label: "Plans", href: "/admin/plans" }, { label: "Approvals", href: "/admin/approvals" }] : []),
       ];
 
-  // "Approvals", "Manage Content", and "Pricing" are docked as fixed icon buttons on desktop
-  // (see below) rather than living in the scrolling nav row — with a long name + role badge
-  // there often isn't room for a 9th+ nav item, and a squeezed flex item with whitespace-nowrap
-  // text just overflows invisibly instead of wrapping.
-  const desktopNavLinks = navLinks.filter((item) => item.label !== "Approvals" && item.label !== "Manage Content" && item.label !== "Pricing");
+  // "Approvals", "Manage Content", "Pricing", and "Plans" are docked as fixed icon buttons on
+  // desktop (see below) rather than living in the scrolling nav row — with a long name + role
+  // badge there often isn't room for a 9th+ nav item, and a squeezed flex item with
+  // whitespace-nowrap text just overflows invisibly instead of wrapping.
+  const desktopNavLinks = navLinks.filter((item) => item.label !== "Approvals" && item.label !== "Manage Content" && item.label !== "Pricing" && item.label !== "Plans");
 
   function linkClasses(href: string, amber = false) {
     const isActive = pathname.startsWith(href);
@@ -149,6 +149,22 @@ export function NavBar() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="1" x2="12" y2="23" />
                   <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+              </Link>
+            )}
+            {user.role === "platform_admin" && (
+              <Link
+                href="/admin/plans"
+                title="Plan Catalog"
+                className={`p-2 rounded-lg transition-colors flex-shrink-0 ${
+                  pathname.startsWith("/admin/plans") ? "text-pace-green bg-pace-green/10" : "text-zinc-400 hover:text-white hover:bg-zinc-700/50"
+                }`}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="7" height="7" rx="1" />
                 </svg>
               </Link>
             )}

@@ -63,7 +63,8 @@ export default async function PlayerAcademyPage({
       <div className="space-y-4">
         {STAGE_ORDER.map((stage) => {
           const stageArticles = articles.filter((a) => a.stage === stage);
-          const unlocked = isStageUnlocked(stage, player.subscription.plan, readCountByStage);
+          const hasLibraryAccess = player.librarySubscriptionStatus === "active" || player.librarySubscriptionStatus === "trialing";
+          const unlocked = isStageUnlocked(stage, player.subscription.plan, readCountByStage, hasLibraryAccess);
           const readInStage = readCountByStage[stage] ?? 0;
 
           return (

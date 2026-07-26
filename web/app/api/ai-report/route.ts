@@ -78,7 +78,7 @@ const NARRATIVE_SCHEMA = {
 };
 
 export async function POST(request: Request) {
-  const { sessionId, playerId, angleUsed, biomechanics, skeletonFrames, ballTracking, pitchMapBase64 } = (await request.json()) as {
+  const { sessionId, playerId, angleUsed, biomechanics, skeletonFrames, ballTracking, pitchMapBase64, useAssessmentCredit } = (await request.json()) as {
     sessionId?: string;
     playerId?: string;
     angleUsed?: "front" | "side" | "back";
@@ -86,6 +86,7 @@ export async function POST(request: Request) {
     skeletonFrames?: SkeletonFrameInput[];
     ballTracking?: BallTrackingInput | null;
     pitchMapBase64?: string | null;
+    useAssessmentCredit?: boolean;
   };
 
   if (!playerId || !biomechanics) {
@@ -108,11 +109,22 @@ export async function POST(request: Request) {
 
   const { data: player, error: playerError } = await supabase
     .from("players")
-    .select("id, name, email, bowling_style, age_group")
+    .select("id, name, email, bowling_style, age_group, assessment_credits")
     .eq("id", playerId)
     .single();
   if (playerError || !player) {
     return NextResponse.json({ error: "Player not found." }, { status: 404 });
+  }
+
+  // Real money is attached to an assessment credit (unlike the plan-tier gate above it, which is
+  // enforced client-side only) — re-validate and spend it server-side before generating anything.
+  if (useAssessmentCredit) {
+    const credits = player.assessment_credits ?? 0;
+    if (credits <= 0) {
+      return NextResponse.json({ error: "No assessment credits remaining." }, { status: 402 });
+    }
+    const { error: spendError } = await supabase.from("players").update({ assessment_credits: credits - 1 }).eq("id", playerId);
+    if (spendError) return NextResponse.json({ error: spendError.message }, { status: 500 });
   }
 
   let sessionDate: string | null = null;

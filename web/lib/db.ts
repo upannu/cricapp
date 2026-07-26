@@ -8,7 +8,7 @@ import type {
   SCWorkout, SCWorkoutType,
   VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
   Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
-  PlatformSettings,
+  PlatformSettings, Plan,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 
@@ -28,6 +28,8 @@ export interface DbPlayer {
   sub_sessions_used: number; sub_sessions_limit: number | null;
   stripe_customer_id?: string | null; stripe_subscription_id?: string | null;
   subscription_status?: string | null;
+  library_stripe_subscription_id?: string | null; library_subscription_status?: string | null;
+  assessment_credits?: number;
   bio_ball_speed_kmh: number; bio_front_knee_angle_deg: number;
   bio_action_type: string; bio_injury_risk: string; bio_last_session: string;
   acad_stage: string; acad_completion_percent: number;
@@ -55,6 +57,9 @@ export interface DbAcademy {
   stage: string; coach_name: string; start_date: string; status: string;
   session_fee_aud: number; session_type_fees: Record<string, number>;
   age_fees: Record<string, number>;
+  stripe_customer_id?: string | null; stripe_subscription_id?: string | null;
+  subscription_status?: string | null; plan_id?: string | null;
+  access_expires_at?: string | null;
 }
 
 export interface DbBooking {
@@ -128,6 +133,9 @@ export function dbToPlayer(r: DbPlayer): Player {
     addedDate: r.added_date, sessionsCount: r.sessions_count,
     lastActive: r.last_active, xp: r.xp,
     tipStreakCount: r.tip_streak_count ?? 0, tipBestStreak: r.tip_best_streak ?? 0,
+    libraryStripeSubscriptionId: r.library_stripe_subscription_id ?? undefined,
+    librarySubscriptionStatus: r.library_subscription_status ?? null,
+    assessmentCredits: r.assessment_credits ?? 0,
     subscription: {
       plan: r.sub_plan as PlanTier,
       startDate: r.sub_start_date, endDate: r.sub_end_date,
@@ -184,6 +192,11 @@ export function dbToAcademy(r: DbAcademy): Academy {
     sessionFeeAud: r.session_fee_aud,
     sessionTypeFees: r.session_type_fees as Academy["sessionTypeFees"],
     ageFees: (r.age_fees ?? {}) as Academy["ageFees"],
+    stripeCustomerId: r.stripe_customer_id ?? undefined,
+    stripeSubscriptionId: r.stripe_subscription_id ?? undefined,
+    subscriptionStatus: r.subscription_status ?? undefined,
+    planId: r.plan_id ?? undefined,
+    accessExpiresAt: r.access_expires_at ?? undefined,
   };
 }
 
@@ -362,6 +375,12 @@ export async function fetchAcademies(): Promise<Academy[]> {
   const { data, error } = await sb.from("academies").select("*").order("name");
   if (error) throw error;
   return (data as DbAcademy[]).map(dbToAcademy);
+}
+
+export async function fetchAcademy(id: string): Promise<Academy | null> {
+  const sb = createClient();
+  const { data } = await sb.from("academies").select("*").eq("id", id).maybeSingle();
+  return data ? dbToAcademy(data as DbAcademy) : null;
 }
 
 export async function updateAcademy(id: string, edits: Partial<DbAcademy>): Promise<void> {
@@ -834,7 +853,7 @@ export async function recordArticleRead(
   }
 
   const [{ data: playerRow, error: playerError }, { data: readRows, error: readsError }] = await Promise.all([
-    sb.from("players").select("xp, acad_xp, acad_articles_read, sub_plan").eq("id", playerId).single(),
+    sb.from("players").select("xp, acad_xp, acad_articles_read, sub_plan, library_subscription_status").eq("id", playerId).single(),
     sb.from("article_reads").select("article_id").eq("player_id", playerId),
   ]);
   if (playerError) throw playerError;
@@ -855,7 +874,8 @@ export async function recordArticleRead(
   if (readIds.size === ACADEMY_TOTAL_ARTICLES) xpAwarded += ALL_ARTICLES_BONUS_XP;
 
   const newArticlesRead = readIds.size;
-  const newStage = currentUnlockedStage(playerRow.sub_plan as PlanTier, readCountByStage);
+  const hasLibraryAccess = playerRow.library_subscription_status === "active" || playerRow.library_subscription_status === "trialing";
+  const newStage = currentUnlockedStage(playerRow.sub_plan as PlanTier, readCountByStage, hasLibraryAccess);
 
   const { error: updateError } = await sb
     .from("players")
@@ -922,4 +942,60 @@ export async function fetchPlatformSettings(): Promise<PlatformSettings> {
   const { data, error } = await sb.from("platform_settings").select("*").eq("id", "default").single();
   if (error) throw error;
   return dbToPlatformSettings(data as DbPlatformSettings);
+}
+
+// ─── Plan catalog (Library, Individual Assessment, Academy/Club/Board licenses) ────────────
+
+export interface DbPlan {
+  id: string;
+  slug: string;
+  name: string;
+  audience: string;
+  billing_type: string;
+  billing_interval: string | null;
+  price_aud: number;
+  seat_cap: number | null;
+  access_duration_months: number | null;
+  included_notes: string | null;
+  active: boolean;
+  sort_order: number;
+}
+
+export function dbToPlan(r: DbPlan): Plan {
+  return {
+    id: r.id,
+    slug: r.slug,
+    name: r.name,
+    audience: r.audience as Plan["audience"],
+    billingType: r.billing_type as Plan["billingType"],
+    billingInterval: r.billing_interval as Plan["billingInterval"],
+    priceAud: r.price_aud,
+    seatCap: r.seat_cap,
+    accessDurationMonths: r.access_duration_months,
+    includedNotes: r.included_notes,
+    active: r.active,
+    sortOrder: r.sort_order,
+  };
+}
+
+/** All plans, including inactive ones — for the admin catalog screen. */
+export async function fetchAllPlans(): Promise<Plan[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("plans").select("*").order("sort_order");
+  if (error) throw error;
+  return (data as DbPlan[]).map(dbToPlan);
+}
+
+/** Only active plans — for player/academy-facing purchase screens. */
+export async function fetchActivePlans(): Promise<Plan[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("plans").select("*").eq("active", true).order("sort_order");
+  if (error) throw error;
+  return (data as DbPlan[]).map(dbToPlan);
+}
+
+export async function fetchPlanBySlug(slug: string): Promise<Plan | null> {
+  const sb = createClient();
+  const { data } = await sb.from("plans").select("*").eq("slug", slug).maybeSingle();
+  return data ? dbToPlan(data as DbPlan) : null;
 }

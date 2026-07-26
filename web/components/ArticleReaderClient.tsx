@@ -51,7 +51,8 @@ export function ArticleReaderClient({ articleId }: { articleId: string }) {
   for (const a of articles) {
     if (readIds.has(a.id)) readCountByStage[a.stage] = (readCountByStage[a.stage] ?? 0) + 1;
   }
-  const unlocked = article && player ? isArticleUnlocked(article, player.subscription.plan, readCountByStage) : false;
+  const hasLibraryAccess = player?.librarySubscriptionStatus === "active" || player?.librarySubscriptionStatus === "trialing";
+  const unlocked = article && player ? isArticleUnlocked(article, player.subscription.plan, readCountByStage, hasLibraryAccess) : false;
 
   useEffect(() => {
     if (!user?.playerId || !article || !unlocked || markedRef.current) return;
@@ -82,7 +83,7 @@ export function ArticleReaderClient({ articleId }: { articleId: string }) {
   }
 
   if (!unlocked) {
-    const reason = stageLockReason(article.stage, player.subscription.plan, readCountByStage);
+    const reason = stageLockReason(article.stage, player.subscription.plan, readCountByStage, hasLibraryAccess);
     return (
       <div className="max-w-2xl mx-auto px-6 py-16 text-center">
         <div className="text-4xl mb-3">🔒</div>

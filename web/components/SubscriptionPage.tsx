@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import type { Player, PlanTier, PlatformSettings } from "@/lib/types";
+import type { Player, PlanTier, PlatformSettings, Plan } from "@/lib/types";
 import { formatDate, getPlayerStatus } from "@/lib/utils";
 import { isPaidPlan } from "@/lib/stripe-client";
-import { fetchPlatformSettings } from "@/lib/db";
+import { fetchPlatformSettings, fetchActivePlans } from "@/lib/db";
 
 function buildPlans(settings: PlatformSettings | null): { tier: PlanTier; price: string; sessions: number | null; features: string[] }[] {
   return [
@@ -42,12 +42,42 @@ export function SubscriptionPage({ player }: { player: Player }) {
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState("");
   const [settings, setSettings] = useState<PlatformSettings | null>(null);
+  const [libraryPlan, setLibraryPlan] = useState<Plan | null>(null);
+  const [assessmentPlan, setAssessmentPlan] = useState<Plan | null>(null);
+  const [addonRedirecting, setAddonRedirecting] = useState<"library" | "assessment" | null>(null);
+  const [addonError, setAddonError] = useState("");
 
   useEffect(() => {
     fetchPlatformSettings().then(setSettings).catch(() => {});
+    fetchActivePlans().then((plans) => {
+      setLibraryPlan(plans.find((p) => p.slug === "library") ?? null);
+      setAssessmentPlan(plans.find((p) => p.slug === "individual-assessment") ?? null);
+    }).catch(() => {});
   }, []);
 
   const PLANS = useMemo(() => buildPlans(settings), [settings]);
+
+  const hasLibraryAccess =
+    player.librarySubscriptionStatus === "active" || player.librarySubscriptionStatus === "trialing";
+
+  async function handleAddonCheckout(kind: "library" | "assessment") {
+    setAddonError("");
+    setAddonRedirecting(kind);
+    try {
+      const endpoint = kind === "library" ? "/api/stripe/create-library-checkout-session" : "/api/stripe/create-assessment-checkout-session";
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: player.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Could not start checkout.");
+      window.location.href = data.url;
+    } catch (err) {
+      setAddonError((err as { message?: string })?.message ?? String(err));
+      setAddonRedirecting(null);
+    }
+  }
 
   const daysLeft = Math.ceil(
     (new Date(player.subscription.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
@@ -312,6 +342,69 @@ export function SubscriptionPage({ player }: { player: Player }) {
         <p className="text-zinc-500 text-xs -mt-4 mb-8">
           To switch plans, update your payment method, view invoices, or cancel, use Manage Billing above — it opens Stripe&apos;s secure billing portal.
         </p>
+      )}
+
+      {/* Add-ons — independent of the plan above: Library can be bought without Player Pro,
+          and an Assessment credit is a one-time purchase, not a subscription. */}
+      {(libraryPlan || assessmentPlan) && (
+        <div className="bg-surface rounded-2xl p-6 mb-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">Add-ons</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {libraryPlan && (
+              <div className="p-5 rounded-xl border-2 border-zinc-700 bg-ink">
+                <div className="text-sm font-bold text-white mb-1">{libraryPlan.name}</div>
+                <div className="text-lg font-bold text-white mb-3">
+                  ${libraryPlan.priceAud.toFixed(2)} / {libraryPlan.billingInterval}
+                </div>
+                <p className="text-xs text-zinc-400 mb-4">
+                  Unlocks the Academy article library independently of your main plan above.
+                </p>
+                {hasLibraryAccess ? (
+                  <button
+                    type="button"
+                    onClick={handleManageBilling}
+                    disabled={redirecting}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm font-bold bg-pace-green/20 text-pace-green cursor-pointer disabled:opacity-60"
+                  >
+                    ✓ Active — Manage Billing
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleAddonCheckout("library")}
+                    disabled={addonRedirecting === "library"}
+                    className="w-full px-4 py-2.5 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+                  >
+                    {addonRedirecting === "library" ? "Redirecting…" : "Subscribe"}
+                  </button>
+                )}
+              </div>
+            )}
+            {assessmentPlan && (
+              <div className="p-5 rounded-xl border-2 border-zinc-700 bg-ink">
+                <div className="text-sm font-bold text-white mb-1">{assessmentPlan.name}</div>
+                <div className="text-lg font-bold text-white mb-3">${assessmentPlan.priceAud.toFixed(2)} one-time</div>
+                <p className="text-xs text-zinc-400 mb-4">
+                  Buy a single AI biomechanics report, no subscription required.
+                  {player.assessmentCredits > 0 && (
+                    <span className="block mt-1 text-pace-green font-semibold">
+                      You have {player.assessmentCredits} unused credit{player.assessmentCredits === 1 ? "" : "s"}.
+                    </span>
+                  )}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleAddonCheckout("assessment")}
+                  disabled={addonRedirecting === "assessment"}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+                >
+                  {addonRedirecting === "assessment" ? "Redirecting…" : "Buy Assessment"}
+                </button>
+              </div>
+            )}
+          </div>
+          {addonError && <p className="text-red-400 text-sm mt-4">{addonError}</p>}
+        </div>
       )}
     </div>
   );
