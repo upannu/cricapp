@@ -160,6 +160,35 @@ export interface SessionPack {
   agreedDays: string[];
 }
 
+/** A recurring weekly group coaching session (e.g. "U14 Tuesday Nets") — attendance is taken
+ * per dated occurrence, drawing down each present player's own SessionPack. */
+export interface GroupSession {
+  id: string;
+  academyId: string;
+  coachId: string;
+  name: string;
+  sessionType: BookingType;
+  /** 0 = Sunday .. 6 = Saturday */
+  dayOfWeek: number;
+  time: string;
+  durationMins: number;
+  location: string;
+  active: boolean;
+  playerIds: string[];
+}
+
+export type AttendanceStatus = 'Present' | 'Absent';
+
+export interface AttendanceRecord {
+  id: string;
+  occurrenceId: string;
+  playerId: string;
+  status: AttendanceStatus;
+  /** Set only when this attendance actually drew down a SessionPack session. */
+  packId: string | null;
+  recordedAt: string;
+}
+
 export type MessageChannel = 'email' | 'sms';
 
 export interface Message {

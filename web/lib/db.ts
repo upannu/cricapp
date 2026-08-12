@@ -9,6 +9,7 @@ import type {
   VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
   Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
   PlatformSettings, Plan,
+  GroupSession, AttendanceStatus, AttendanceRecord,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 
@@ -493,6 +494,149 @@ export async function updatePackAgreedDays(id: string, agreedDays: string[]): Pr
   const sb = createClient();
   const { error } = await sb.from("session_packs").update({ agreed_days: agreedDays }).eq("id", id);
   if (error) throw error;
+}
+
+// ─── Group sessions & attendance ────────────────────────────────────────────
+
+export interface DbGroupSession {
+  id: string; academy_id: string; coach_id: string; name: string;
+  session_type: string; day_of_week: number; time: string;
+  duration_mins: number; location: string | null; active: boolean;
+}
+
+export function dbToGroupSession(r: DbGroupSession, playerIds: string[]): GroupSession {
+  return {
+    id: r.id, academyId: r.academy_id, coachId: r.coach_id, name: r.name,
+    sessionType: r.session_type as BookingType, dayOfWeek: r.day_of_week,
+    time: r.time, durationMins: r.duration_mins, location: r.location ?? "",
+    active: r.active, playerIds,
+  };
+}
+
+export async function fetchGroupSessions(academyId?: string, coachId?: string): Promise<GroupSession[]> {
+  const sb = createClient();
+  let q = sb.from("group_sessions").select("*").order("name");
+  if (academyId) q = q.eq("academy_id", academyId);
+  if (coachId) q = q.eq("coach_id", coachId);
+  const { data, error } = await q;
+  if (error) throw error;
+  const sessions = data as DbGroupSession[];
+  if (sessions.length === 0) return [];
+
+  const { data: rosterRows, error: rosterError } = await sb
+    .from("group_session_players")
+    .select("group_session_id, player_id")
+    .in("group_session_id", sessions.map((s) => s.id));
+  if (rosterError) throw rosterError;
+  const rosterBySession: Record<string, string[]> = {};
+  for (const row of (rosterRows ?? []) as { group_session_id: string; player_id: string }[]) {
+    (rosterBySession[row.group_session_id] ??= []).push(row.player_id);
+  }
+  return sessions.map((s) => dbToGroupSession(s, rosterBySession[s.id] ?? []));
+}
+
+export async function upsertGroupSession(g: Partial<DbGroupSession> & { id: string }): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("group_sessions").upsert(g);
+  if (error) throw error;
+}
+
+export async function setGroupSessionRoster(groupSessionId: string, playerIds: string[]): Promise<void> {
+  const sb = createClient();
+  const { error: delError } = await sb.from("group_session_players").delete().eq("group_session_id", groupSessionId);
+  if (delError) throw delError;
+  if (playerIds.length === 0) return;
+  const rows = playerIds.map((playerId) => ({
+    id: `gsp_${groupSessionId}_${playerId}`, group_session_id: groupSessionId, player_id: playerId,
+  }));
+  const { error: insError } = await sb.from("group_session_players").insert(rows);
+  if (insError) throw insError;
+}
+
+export interface DbAttendanceRecord {
+  id: string; occurrence_id: string; player_id: string; status: string;
+  pack_id: string | null; recorded_at?: string;
+}
+
+export function dbToAttendanceRecord(r: DbAttendanceRecord): AttendanceRecord {
+  return {
+    id: r.id, occurrenceId: r.occurrence_id, playerId: r.player_id,
+    status: r.status as AttendanceStatus, packId: r.pack_id, recordedAt: r.recorded_at ?? "",
+  };
+}
+
+export async function fetchAttendanceForDate(groupSessionId: string, date: string): Promise<AttendanceRecord[]> {
+  const sb = createClient();
+  const { data: occ } = await sb.from("group_session_occurrences").select("id")
+    .eq("group_session_id", groupSessionId).eq("date", date).maybeSingle();
+  if (!occ) return [];
+  const { data, error } = await sb.from("attendance_records").select("*").eq("occurrence_id", occ.id);
+  if (error) throw error;
+  return (data as DbAttendanceRecord[]).map(dbToAttendanceRecord);
+}
+
+export async function fetchPastOccurrences(groupSessionId: string): Promise<{ id: string; date: string }[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("group_session_occurrences").select("id, date")
+    .eq("group_session_id", groupSessionId).order("date", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as { id: string; date: string }[];
+}
+
+/**
+ * Records attendance for one occurrence date of a recurring group session. Each newly-Present
+ * player draws down one session from their own active SessionPack (matching session_type +
+ * academy) if they have one; reverting a previously-present, pack-consuming record back to
+ * Absent refunds that session. Re-saving an unchanged status is a no-op — mirrors
+ * recordSessionCompletion's pack drawdown, just applied across a roster in one save.
+ */
+export async function saveAttendance(
+  groupSessionId: string,
+  date: string,
+  sessionType: string,
+  academyId: string,
+  records: { playerId: string; status: AttendanceStatus }[],
+): Promise<void> {
+  const sb = createClient();
+
+  let occurrenceId: string;
+  const { data: existingOcc } = await sb.from("group_session_occurrences").select("id")
+    .eq("group_session_id", groupSessionId).eq("date", date).maybeSingle();
+  if (existingOcc) {
+    occurrenceId = existingOcc.id;
+  } else {
+    occurrenceId = `gso_${groupSessionId}_${date}`;
+    const { error } = await sb.from("group_session_occurrences").insert({ id: occurrenceId, group_session_id: groupSessionId, date });
+    if (error) throw error;
+  }
+
+  const { data: existingRecords } = await sb.from("attendance_records").select("*").eq("occurrence_id", occurrenceId);
+  const existingByPlayer: Record<string, DbAttendanceRecord> = {};
+  for (const r of (existingRecords ?? []) as DbAttendanceRecord[]) existingByPlayer[r.player_id] = r;
+
+  for (const rec of records) {
+    const existing = existingByPlayer[rec.playerId];
+    let packId: string | null = existing?.pack_id ?? null;
+
+    if (rec.status === "Present" && existing?.status !== "Present") {
+      const { data: pack } = await sb.from("session_packs")
+        .select("id, sessions_used, total_sessions")
+        .eq("player_id", rec.playerId).eq("session_type", sessionType).eq("academy_id", academyId)
+        .eq("status", "Active").maybeSingle();
+      packId = pack && pack.sessions_used < pack.total_sessions ? pack.id : null;
+      if (packId) await sb.from("session_packs").update({ sessions_used: pack!.sessions_used + 1 }).eq("id", packId);
+    } else if (rec.status === "Absent" && existing?.status === "Present" && existing.pack_id) {
+      const { data: pack } = await sb.from("session_packs").select("sessions_used").eq("id", existing.pack_id).single();
+      if (pack) await sb.from("session_packs").update({ sessions_used: Math.max(0, pack.sessions_used - 1) }).eq("id", existing.pack_id);
+      packId = null;
+    }
+
+    const id = existing?.id ?? `att_${occurrenceId}_${rec.playerId}`;
+    const { error } = await sb.from("attendance_records").upsert({
+      id, occurrence_id: occurrenceId, player_id: rec.playerId, status: rec.status, pack_id: packId,
+    });
+    if (error) throw error;
+  }
 }
 
 export async function fetchMessages(playerId: string): Promise<Message[]> {
