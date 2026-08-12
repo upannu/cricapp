@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getCaller, callerCanAccessPlayer } from "@/lib/server-auth";
 
 interface ReportMetric {
   id: string; label: string; zone: string;
@@ -58,6 +59,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "playerId and reportId are required." }, { status: 400 });
   }
 
+  const caller = await getCaller();
+  if (!caller) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey || anthropicKey.startsWith("REPLACE_ME")) {
     return NextResponse.json({ error: "AI action plans are not configured (missing ANTHROPIC_API_KEY)." }, { status: 500 });
@@ -71,6 +75,10 @@ export async function POST(request: Request) {
     serviceKey,
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
+
+  if (!(await callerCanAccessPlayer(supabase, caller, playerId))) {
+    return NextResponse.json({ error: "You don't have access to this player's action plans." }, { status: 403 });
+  }
 
   const { data: player, error: playerError } = await supabase
     .from("players")

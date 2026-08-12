@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import nodemailer from "nodemailer";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { drillsForMetricIds, type Drill } from "@/lib/drills";
+import { getCaller, callerCanAccessPlayer } from "@/lib/server-auth";
 
 const PDF_BUCKET = "session-reports";
 
@@ -93,6 +94,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "playerId and biomechanics are required." }, { status: 400 });
   }
 
+  const caller = await getCaller();
+  if (!caller) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
     return NextResponse.json({ error: "AI report generation is not configured (missing ANTHROPIC_API_KEY)." }, { status: 500 });
@@ -106,6 +110,10 @@ export async function POST(request: Request) {
     serviceKey,
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
+
+  if (!(await callerCanAccessPlayer(supabase, caller, playerId))) {
+    return NextResponse.json({ error: "You don't have access to generate reports for this player." }, { status: 403 });
+  }
 
   const { data: player, error: playerError } = await supabase
     .from("players")

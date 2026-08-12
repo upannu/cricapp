@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { fetchPlayerServer } from "@/lib/supabase-server";
+import { fetchPlayerServer, canAccessPlayerServer } from "@/lib/supabase-server";
 import { NewSessionForm } from "@/components/NewSessionForm";
 
 export default async function NewSessionPage({
@@ -9,7 +9,7 @@ export default async function NewSessionPage({
 }) {
   const { id } = await params;
   const player = await fetchPlayerServer(id);
-  if (!player) notFound();
+  if (!player || !(await canAccessPlayerServer(id))) notFound();
 
   return <NewSessionForm player={player} />;
 }

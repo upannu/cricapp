@@ -1,11 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { getCaller, callerCanAccessPlayer } from "@/lib/server-auth";
 
 export async function POST(request: Request) {
   const { bookingId, notes } = (await request.json()) as { bookingId?: string; notes?: string };
   if (!bookingId) {
     return NextResponse.json({ error: "bookingId is required." }, { status: 400 });
   }
+
+  const caller = await getCaller();
+  if (!caller) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) return NextResponse.json({ error: "Not configured." }, { status: 500 });
@@ -23,6 +27,9 @@ export async function POST(request: Request) {
     .single();
   if (bookingError || !booking) {
     return NextResponse.json({ error: "Booking not found." }, { status: 404 });
+  }
+  if (!(await callerCanAccessPlayer(supabase, caller, booking.player_id))) {
+    return NextResponse.json({ error: "You don't have access to this booking." }, { status: 403 });
   }
   if (booking.status === "Completed") {
     return NextResponse.json({ error: "This booking is already completed." }, { status: 400 });

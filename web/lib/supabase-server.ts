@@ -30,6 +30,33 @@ export async function fetchPlayerServer(id: string): Promise<Player | null> {
   return data ? dbToPlayer(data as DbPlayer) : null;
 }
 
+/**
+ * Ownership check for the /players/[id]/* server-rendered routes — without this, any
+ * logged-in coach/academy_admin could view or edit another academy's player just by
+ * changing the URL, since fetchPlayerServer itself has no scoping.
+ */
+export async function canAccessPlayerServer(targetPlayerId: string): Promise<boolean> {
+  const sb = await createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return false;
+  const role = user.user_metadata?.role as string | undefined;
+  if (role === "platform_admin") return true;
+  if (role === "player" || role === "parent") return user.user_metadata?.player_id === targetPlayerId;
+  if (role === "coach") {
+    const coachId = user.user_metadata?.coach_id as string | undefined;
+    if (!coachId) return false;
+    const { data } = await sb.from("players").select("coach_id").eq("id", targetPlayerId).single();
+    return data?.coach_id === coachId;
+  }
+  if (role === "academy_admin") {
+    const academyId = user.user_metadata?.academy_id as string | undefined;
+    if (!academyId) return false;
+    const { data } = await sb.from("academies").select("player_ids").eq("id", academyId).single();
+    return !!(data?.player_ids as string[] | undefined)?.includes(targetPlayerId);
+  }
+  return false;
+}
+
 export async function fetchReportsServer(playerId?: string): Promise<Report[]> {
   const sb = await createClient();
   let q = sb.from("reports").select("*").order("date", { ascending: false });

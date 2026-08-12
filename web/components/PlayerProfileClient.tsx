@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts } from "@/lib/db";
 import { formatDate, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
 import { PlayerMessages } from "@/components/PlayerMessages";
@@ -18,6 +19,7 @@ const DIRECTION_LABEL: Record<InjuryRiskTrend["direction"], string> = {
 };
 
 export function PlayerProfileClient({ playerId }: { playerId: string }) {
+  const { user } = useAuth();
   const [player, setPlayer] = useState<Player | null>(null);
   const [academies, setAcademies] = useState<Academy[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
@@ -28,7 +30,8 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
   const [reportCount, setReportCount] = useState(0);
 
   useEffect(() => {
-    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches(), fetchReports(playerId), fetchSessions(undefined, [playerId]), fetchSCWorkouts(playerId)]).then(([p, a, c, reports, sessions, scWorkouts]) => {
+    const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
+    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches(academyId), fetchReports(playerId), fetchSessions(undefined, [playerId]), fetchSCWorkouts(playerId)]).then(([p, a, c, reports, sessions, scWorkouts]) => {
       if (!p) setNotFound(true);
       else setPlayer(p);
       setAcademies(a);
@@ -38,7 +41,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
       setSCLoadSummary(computeSCLoadSummary(scWorkouts));
       setReportCount(reports.length);
     });
-  }, [playerId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [playerId, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (notFound) {
     return (

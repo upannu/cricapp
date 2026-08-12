@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchPlayerServer, fetchArticlesServer, fetchArticleReadsServer } from "@/lib/supabase-server";
+import { fetchPlayerServer, fetchArticlesServer, fetchArticleReadsServer, canAccessPlayerServer } from "@/lib/supabase-server";
 import { STAGE_ORDER, isStageUnlocked, ACADEMY_TOTAL_ARTICLES } from "@/lib/academy-content";
 import type { AcademyStage } from "@/lib/types";
 
@@ -17,12 +17,13 @@ export default async function PlayerAcademyPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [player, articles, reads] = await Promise.all([
+  const [player, articles, reads, allowed] = await Promise.all([
     fetchPlayerServer(id),
     fetchArticlesServer(),
     fetchArticleReadsServer(id),
+    canAccessPlayerServer(id),
   ]);
-  if (!player) notFound();
+  if (!player || !allowed) notFound();
 
   const readIds = new Set(reads.map((r) => r.articleId));
   const readCountByStage: Partial<Record<AcademyStage, number>> = {};

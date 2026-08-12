@@ -116,11 +116,13 @@ export function AcademyClient() {
   const [sortBy,       setSortBy]       = useState<SortOption>("name");
 
   useEffect(() => {
-    Promise.all([fetchAcademies(), fetchPlayers(), fetchCoaches(), fetchActivePlans()]).then(([a, p, c, plans]) => {
+    const coachId = user?.role === "coach" ? user.coachId : undefined;
+    const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
+    Promise.all([fetchAcademies(), fetchPlayers(coachId, academyId), fetchCoaches(academyId), fetchActivePlans()]).then(([a, p, c, plans]) => {
       setAcademies(a); setAllPlayers(p); setAllCoaches(c);
       setOrgPlans(plans.filter((x) => x.audience === "organization"));
     });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close 3-dot menu on outside click
   useEffect(() => {

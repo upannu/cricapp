@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchPlayerServer, fetchReportsServer } from "@/lib/supabase-server";
+import { fetchPlayerServer, fetchReportsServer, canAccessPlayerServer } from "@/lib/supabase-server";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { ReportActions } from "@/components/ReportActions";
 
@@ -24,11 +24,12 @@ export default async function PlayerReportsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [player, reports] = await Promise.all([
+  const [player, reports, allowed] = await Promise.all([
     fetchPlayerServer(id),
     fetchReportsServer(id),
+    canAccessPlayerServer(id),
   ]);
-  if (!player) notFound();
+  if (!player || !allowed) notFound();
 
   const initials = player.name.split(" ").map((n: string) => n[0] ?? "").join("");
   const sortedReports = [...reports].sort((a, b) => {

@@ -143,7 +143,7 @@ export function SessionsClient() {
     ]).then(([p, c, ac]) => {
       _sessPlayers = p; _sessCoaches = c; _sessAcademies = ac;
       const scopedPlayerIds = (coachId || academyId) ? p.map((pl) => pl.id) : undefined;
-      return Promise.all([fetchSessions(undefined, scopedPlayerIds), fetchReports()]);
+      return Promise.all([fetchSessions(undefined, scopedPlayerIds), fetchReports(undefined, scopedPlayerIds)]);
     }).then(([s, r]) => {
       setSessions(s);
       const alreadyReported: Record<string, "success"> = {};

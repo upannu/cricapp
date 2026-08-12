@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { fetchPlayerServer } from "@/lib/supabase-server";
+import { fetchPlayerServer, canAccessPlayerServer } from "@/lib/supabase-server";
 import { ActionPlansClient } from "@/components/ActionPlansClient";
 
 export default async function ActionPlansPage({
@@ -9,7 +9,7 @@ export default async function ActionPlansPage({
 }) {
   const { id } = await params;
   const player = await fetchPlayerServer(id);
-  if (!player) notFound();
+  if (!player || !(await canAccessPlayerServer(id))) notFound();
 
   return <ActionPlansClient player={player} />;
 }

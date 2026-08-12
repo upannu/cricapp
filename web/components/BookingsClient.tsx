@@ -112,14 +112,16 @@ export function BookingsClient() {
     const coachId = user?.role === "coach" ? (user.coachId ?? undefined) : undefined;
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
     Promise.all([
-      fetchBookings(coachId),
       fetchPlayers(coachId, academyId),
       fetchCoaches(academyId),
       fetchAcademies(),
-      fetchSessionPacks(),
-    ]).then(([bk, pl, co, ac, pk]) => {
+    ]).then(([pl, co, ac]) => {
+      _players = pl; _coaches = co; _academies = ac;
+      const scopedPlayerIds = academyId ? pl.map((p) => p.id) : undefined;
+      return Promise.all([fetchBookings(coachId, undefined, scopedPlayerIds), fetchSessionPacks(scopedPlayerIds)]);
+    }).then(([bk, pk]) => {
       setBookings(bk);
-      _players = pl; _coaches = co; _academies = ac; _packs = pk;
+      _packs = pk;
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   const [tab, setTab] = useState<FilterTab>("Upcoming");

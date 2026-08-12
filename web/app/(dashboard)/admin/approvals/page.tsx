@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
-import { fetchAcademies } from "@/lib/db";
+import { fetchAcademies, upsertAcademy } from "@/lib/db";
 import type { Academy } from "@/lib/types";
 
 type UserRole = "academy_admin" | "coach" | "player" | "parent";
@@ -45,6 +45,10 @@ export default function ApprovalsPage() {
   const [assignDialog,   setAssignDialog]   = useState<PendingRequest | null>(null);
   const [selectedAcademy, setSelectedAcademy] = useState("");
   const [errorMsg,       setErrorMsg]       = useState<string | null>(null);
+  const [creatingAcademy, setCreatingAcademy] = useState(false);
+  const [newAcademyName, setNewAcademyName] = useState("");
+  const [newAcademyLocation, setNewAcademyLocation] = useState("");
+  const [savingAcademy, setSavingAcademy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -97,11 +101,51 @@ export default function ApprovalsPage() {
     if (req.role === "academy_admin") {
       // Show academy picker first
       setSelectedAcademy("");
+      setCreatingAcademy(false);
+      setNewAcademyName("");
+      setNewAcademyLocation("");
       setAssignDialog(req);
     } else {
       // Coaches don't need academy assignment here
       doApprove(req);
     }
+  }
+
+  async function handleCreateAcademy() {
+    if (!newAcademyName.trim()) return;
+    setSavingAcademy(true);
+    setErrorMsg(null);
+    try {
+      const id = `ac${Date.now()}`;
+      const today = new Date().toISOString().split("T")[0];
+      await upsertAcademy({
+        id,
+        name: newAcademyName.trim(),
+        description: "",
+        location: newAcademyLocation.trim(),
+        player_ids: [],
+        player_counts: {},
+        coach_ids: [],
+        head_coach_id: "",
+        stage: "Foundation",
+        coach_name: "",
+        start_date: today,
+        status: "Active",
+        session_fee_aud: 0,
+        session_type_fees: {},
+        age_fees: {},
+      });
+      setAcademies((prev) => [...prev, {
+        id, name: newAcademyName.trim(), description: "", location: newAcademyLocation.trim(),
+        playerIds: [], playerCounts: {}, coachIds: [], headCoachId: "", stage: "Foundation",
+        coachName: "", startDate: today, status: "Active", sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
+      }]);
+      setSelectedAcademy(id);
+      setCreatingAcademy(false);
+    } catch (e) {
+      setErrorMsg(`Could not create academy: ${String(e)}`);
+    }
+    setSavingAcademy(false);
   }
 
   async function handleReject(userId: string) {
@@ -219,18 +263,63 @@ export default function ApprovalsPage() {
             </p>
             <div className="mb-5">
               <label className="block text-zinc-400 text-xs font-medium mb-1.5">Academy</label>
-              <select
-                value={selectedAcademy}
-                onChange={(e) => setSelectedAcademy(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-pace-green"
-              >
-                <option value="">— Select academy —</option>
-                {academies.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
-              {!selectedAcademy && (
-                <p className="text-zinc-500 text-xs mt-1.5">You can assign an academy later by editing the user.</p>
+              {!creatingAcademy ? (
+                <>
+                  <select
+                    value={selectedAcademy}
+                    onChange={(e) => setSelectedAcademy(e.target.value)}
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-pace-green"
+                  >
+                    <option value="">— Select academy —</option>
+                    {academies.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setCreatingAcademy(true)}
+                    className="mt-2 text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer"
+                  >
+                    + Create New Academy
+                  </button>
+                  {!selectedAcademy && (
+                    <p className="text-zinc-500 text-xs mt-1.5">You can assign an academy later by editing the user.</p>
+                  )}
+                </>
+              ) : (
+                <div className="bg-ink rounded-xl p-3 border border-pace-green/30 space-y-2">
+                  <input
+                    type="text"
+                    value={newAcademyName}
+                    onChange={(e) => setNewAcademyName(e.target.value)}
+                    placeholder="Academy name *"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-pace-green"
+                  />
+                  <input
+                    type="text"
+                    value={newAcademyLocation}
+                    onChange={(e) => setNewAcademyLocation(e.target.value)}
+                    placeholder="Location (optional)"
+                    className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-pace-green"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCreateAcademy}
+                      disabled={!newAcademyName.trim() || savingAcademy}
+                      className="flex-1 px-3 py-2 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
+                    >
+                      {savingAcademy ? "Creating…" : "Create & Select"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCreatingAcademy(false)}
+                      className="px-3 py-2 text-xs font-medium text-zinc-400 border border-zinc-700 rounded-lg hover:text-white cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
             <div className="flex gap-3">
@@ -240,7 +329,8 @@ export default function ApprovalsPage() {
               </button>
               <button type="button"
                 onClick={() => doApprove(assignDialog, selectedAcademy || undefined)}
-                className="flex-1 px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+                disabled={creatingAcademy}
+                className="flex-1 px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-40">
                 Approve
               </button>
             </div>

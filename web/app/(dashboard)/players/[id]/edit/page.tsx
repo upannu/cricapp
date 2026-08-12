@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { fetchPlayerServer } from "@/lib/supabase-server";
+import { fetchPlayerServer, canAccessPlayerServer } from "@/lib/supabase-server";
 import { EditPlayerForm } from "@/components/EditPlayerForm";
 
 export default async function EditPlayerPage({
@@ -9,7 +9,7 @@ export default async function EditPlayerPage({
 }) {
   const { id } = await params;
   const player = await fetchPlayerServer(id);
-  if (!player) notFound();
+  if (!player || !(await canAccessPlayerServer(id))) notFound();
 
   return <EditPlayerForm player={player} />;
 }

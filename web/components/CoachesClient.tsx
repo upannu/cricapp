@@ -71,16 +71,17 @@ export function CoachesClient() {
   const defaultAcademyId = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
 
   useEffect(() => {
+    const coachId = user?.role === "coach" ? user.coachId : undefined;
     Promise.all([
       fetchCoaches(defaultAcademyId || undefined),
       fetchAcademies(),
-      fetchPlayers(),
+      fetchPlayers(coachId, defaultAcademyId || undefined),
     ]).then(([c, a, p]) => {
       setCoaches(c);
       _coachAcademies = a;
       _coachPlayers = p;
     });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Coming back from Stripe's hosted onboarding flow — strip the query param once read so
   // refreshing the page doesn't keep re-showing the notice.

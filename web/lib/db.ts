@@ -413,11 +413,13 @@ export async function deleteAcademy(id: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function fetchBookings(coachId?: string, playerId?: string): Promise<Booking[]> {
+export async function fetchBookings(coachId?: string, playerId?: string, playerIds?: string[]): Promise<Booking[]> {
+  if (playerIds && playerIds.length === 0) return [];
   const sb = createClient();
   let q = sb.from("bookings").select("*").order("date", { ascending: false });
   if (coachId) q = q.eq("coach_id", coachId);
   if (playerId) q = q.eq("player_id", playerId);
+  if (playerIds && playerIds.length > 0) q = q.in("player_id", playerIds);
   const { data, error } = await q;
   if (error) throw error;
   return (data as DbBooking[]).map(dbToBooking);
@@ -510,10 +512,12 @@ export async function insertMessage(msg: Omit<DbMessage, "id">): Promise<void> {
   if (error) throw error;
 }
 
-export async function fetchReports(playerId?: string): Promise<Report[]> {
+export async function fetchReports(playerId?: string, playerIds?: string[]): Promise<Report[]> {
+  if (playerIds && playerIds.length === 0) return [];
   const sb = createClient();
   let q = sb.from("reports").select("*").order("date", { ascending: false });
   if (playerId) q = q.eq("player_id", playerId);
+  if (playerIds && playerIds.length > 0) q = q.in("player_id", playerIds);
   const { data, error } = await q;
   if (error) throw error;
   return (data as DbReport[]).map(dbToReport);

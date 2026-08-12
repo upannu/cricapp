@@ -78,11 +78,14 @@ export function ReportsClient() {
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
-    Promise.all([fetchReports(), fetchPlayers(coachId, academyId), fetchAcademies(), fetchCoaches(academyId)]).then(([r, p, a, c]) => {
-      setReports(r);
+    Promise.all([fetchPlayers(coachId, academyId), fetchAcademies(), fetchCoaches(academyId)]).then(([p, a, c]) => {
       _reportPlayers = p;
       _reportAcademies = a;
       _reportCoaches = c;
+      const scopedPlayerIds = (coachId || academyId) ? p.map((pl) => pl.id) : undefined;
+      return fetchReports(undefined, scopedPlayerIds);
+    }).then((r) => {
+      setReports(r);
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 

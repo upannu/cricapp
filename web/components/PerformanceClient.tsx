@@ -43,7 +43,9 @@ export function PerformanceClient() {
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
-    Promise.all([fetchPlayers(coachId, academyId), fetchReports(), fetchSessions()]).then(([players, reports, sessions]) => {
+    fetchPlayers(coachId, academyId).then(async (players) => {
+      const scopedPlayerIds = (coachId || academyId) ? players.map((p) => p.id) : undefined;
+      const [reports, sessions] = await Promise.all([fetchReports(undefined, scopedPlayerIds), fetchSessions(undefined, scopedPlayerIds)]);
       const playerIds = new Set(players.map((p) => p.id));
       const reportsByPlayer = groupBy(reports.filter((r) => playerIds.has(r.playerId)), (r: Report) => r.playerId);
       const sessionsByPlayer = groupBy(sessions.filter((s) => playerIds.has(s.playerId)), (s: Session) => s.playerId);

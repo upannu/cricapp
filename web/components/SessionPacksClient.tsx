@@ -84,13 +84,15 @@ export function SessionPacksClient() {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
     Promise.all([
-      fetchSessionPacks(),
       fetchPlayers(coachId, academyId),
       fetchAcademies(),
       fetchCoaches(academyId),
-      fetchBookings(),
-    ]).then(([pk, pl, ac, co, bk]) => {
-      setPacks(pk); _packPlayers = pl; _packAcademies = ac; _packCoaches = co; _packBookings = bk;
+    ]).then(([pl, ac, co]) => {
+      _packPlayers = pl; _packAcademies = ac; _packCoaches = co;
+      const scopedPlayerIds = (coachId || academyId) ? pl.map((p) => p.id) : undefined;
+      return Promise.all([fetchSessionPacks(scopedPlayerIds), fetchBookings(undefined, undefined, scopedPlayerIds)]);
+    }).then(([pk, bk]) => {
+      setPacks(pk); _packBookings = bk;
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
