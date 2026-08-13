@@ -572,6 +572,18 @@ export function AcademyClient() {
                     </Link>
                   )}
 
+                  {/* An academy_admin had no way to add players/coaches to their own academy at
+                      all — the only edit affordance was the platform_admin-only ⋮ menu below. */}
+                  {user?.role === "academy_admin" && user.academyId === academy.id && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); openEdit(academy); }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors flex-shrink-0 cursor-pointer"
+                    >
+                      Edit
+                    </button>
+                  )}
+
                   {/* ⋮ menu */}
                   {user?.role === "platform_admin" && (
                     <div className="relative flex-shrink-0">
