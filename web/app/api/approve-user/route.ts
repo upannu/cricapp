@@ -61,6 +61,20 @@ export async function POST(request: Request) {
     linkedPlayerId = playerMatch.id;
   }
 
+  // Coaches who self-signed-up (rather than being invited via the coaches admin UI, which
+  // already links coach_id at invite time) still need linking to their own coaches row here —
+  // best-effort by email match, not a hard requirement, since a coach may legitimately sign up
+  // before any coaches row exists for them yet.
+  let linkedCoachId: string | undefined;
+  if (reqData.role === "coach") {
+    const { data: coachMatch } = await supabase
+      .from("coaches")
+      .select("id")
+      .ilike("email", reqData.email)
+      .maybeSingle();
+    linkedCoachId = coachMatch?.id;
+  }
+
   // Find the auth user by email — the stored ID can be a ghost UUID
   // if the email was already registered when they signed up
   const { data: listData, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
@@ -77,6 +91,7 @@ export async function POST(request: Request) {
   const extraMeta: Record<string, unknown> = { approved: true };
   if (academyId) extraMeta.academy_id = academyId;
   if (linkedPlayerId) extraMeta.player_id = linkedPlayerId;
+  if (linkedCoachId) extraMeta.coach_id = linkedCoachId;
 
   const { error: updateError } = await supabase.auth.admin.updateUserById(authUser.id, {
     user_metadata: extraMeta,

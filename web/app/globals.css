@@ -25,6 +25,24 @@ body {
   display: none;
 }
 
+/* A visible-but-unobtrusive scrollbar — used where overflow needs a real cue that there's more
+   to scroll to (unlike .no-scrollbar above), but the browser's full-size native scrollbar chrome
+   is too heavy for something like a nav row. */
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+.thin-scrollbar::-webkit-scrollbar {
+  height: 4px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+}
+
 /* Native date/time inputs render a dark calendar/clock icon by default, which is
    nearly invisible against this app's dark input backgrounds — invert it to white. */
 input[type="date"]::-webkit-calendar-picker-indicator,

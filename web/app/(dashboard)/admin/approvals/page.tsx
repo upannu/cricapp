@@ -99,9 +99,11 @@ export default function ApprovalsPage() {
 
   function handleApproveClick(req: PendingRequest) {
     if (req.role === "academy_admin") {
-      // Show academy picker first
+      // Show academy picker first — defaults to "New Academy" since that's the far more common
+      // case (a fresh academy_admin signup almost always needs a fresh academy, not to be added
+      // to one that already has an admin) and was twice mistaken for the only option missing.
       setSelectedAcademy("");
-      setCreatingAcademy(false);
+      setCreatingAcademy(true);
       setNewAcademyName("");
       setNewAcademyLocation("");
       setAssignDialog(req);
@@ -258,13 +260,72 @@ export default function ApprovalsPage() {
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setAssignDialog(null)} />
           <div className="relative bg-surface rounded-2xl w-full max-w-sm shadow-2xl border border-zinc-700/50 p-6">
             <h3 className="text-white font-bold mb-1">Assign Academy</h3>
-            <p className="text-zinc-400 text-sm mb-5">
+            <p className="text-zinc-400 text-sm mb-4">
               Which academy will <span className="text-white font-semibold">{assignDialog.name}</span> manage?
             </p>
+
+            {/* Explicit choice, not a dropdown-plus-hidden-link — this exact ambiguity has
+                caused two real approvals to go out with no academy attached. */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <button
+                type="button"
+                onClick={() => setCreatingAcademy(true)}
+                className={`px-3 py-2.5 rounded-xl text-sm font-semibold border transition-colors cursor-pointer ${
+                  creatingAcademy ? "border-pace-green bg-pace-green/10 text-pace-green" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                }`}
+              >
+                New Academy
+              </button>
+              <button
+                type="button"
+                onClick={() => setCreatingAcademy(false)}
+                className={`px-3 py-2.5 rounded-xl text-sm font-semibold border transition-colors cursor-pointer ${
+                  !creatingAcademy ? "border-pace-green bg-pace-green/10 text-pace-green" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                }`}
+              >
+                Existing Academy
+              </button>
+            </div>
+
             <div className="mb-5">
-              <label className="block text-zinc-400 text-xs font-medium mb-1.5">Academy</label>
-              {!creatingAcademy ? (
+              {creatingAcademy ? (
+                <div className="space-y-2">
+                  <div>
+                    <label className="block text-zinc-400 text-xs font-medium mb-1.5">Academy Name *</label>
+                    <input
+                      type="text"
+                      value={newAcademyName}
+                      onChange={(e) => setNewAcademyName(e.target.value)}
+                      placeholder="e.g. Bella Vista Fast Bowling"
+                      className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-pace-green"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-zinc-400 text-xs font-medium mb-1.5">Location (optional)</label>
+                    <input
+                      type="text"
+                      value={newAcademyLocation}
+                      onChange={(e) => setNewAcademyLocation(e.target.value)}
+                      placeholder="e.g. Sydney, NSW"
+                      className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-pace-green"
+                    />
+                  </div>
+                  {selectedAcademy ? (
+                    <p className="text-pace-green text-xs">✓ Created — ready to approve.</p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleCreateAcademy}
+                      disabled={!newAcademyName.trim() || savingAcademy}
+                      className="w-full px-3 py-2.5 text-sm font-bold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
+                    >
+                      {savingAcademy ? "Creating…" : "Create Academy"}
+                    </button>
+                  )}
+                </div>
+              ) : (
                 <>
+                  <label className="block text-zinc-400 text-xs font-medium mb-1.5">Academy</label>
                   <select
                     value={selectedAcademy}
                     onChange={(e) => setSelectedAcademy(e.target.value)}
@@ -275,51 +336,10 @@ export default function ApprovalsPage() {
                       <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
                   </select>
-                  <button
-                    type="button"
-                    onClick={() => setCreatingAcademy(true)}
-                    className="mt-2 text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer"
-                  >
-                    + Create New Academy
-                  </button>
                   {!selectedAcademy && (
-                    <p className="text-zinc-500 text-xs mt-1.5">You can assign an academy later by editing the user.</p>
+                    <p className="text-amber text-xs mt-1.5">⚠ Approving with no academy selected leaves this admin unable to manage anything until one is assigned later.</p>
                   )}
                 </>
-              ) : (
-                <div className="bg-ink rounded-xl p-3 border border-pace-green/30 space-y-2">
-                  <input
-                    type="text"
-                    value={newAcademyName}
-                    onChange={(e) => setNewAcademyName(e.target.value)}
-                    placeholder="Academy name *"
-                    className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-pace-green"
-                  />
-                  <input
-                    type="text"
-                    value={newAcademyLocation}
-                    onChange={(e) => setNewAcademyLocation(e.target.value)}
-                    placeholder="Location (optional)"
-                    className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-pace-green"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleCreateAcademy}
-                      disabled={!newAcademyName.trim() || savingAcademy}
-                      className="flex-1 px-3 py-2 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
-                    >
-                      {savingAcademy ? "Creating…" : "Create & Select"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCreatingAcademy(false)}
-                      className="px-3 py-2 text-xs font-medium text-zinc-400 border border-zinc-700 rounded-lg hover:text-white cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
               )}
             </div>
             <div className="flex gap-3">
@@ -329,7 +349,7 @@ export default function ApprovalsPage() {
               </button>
               <button type="button"
                 onClick={() => doApprove(assignDialog, selectedAcademy || undefined)}
-                disabled={creatingAcademy}
+                disabled={creatingAcademy && !selectedAcademy}
                 className="flex-1 px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-40">
                 Approve
               </button>

@@ -236,7 +236,7 @@ export function CoachesClient() {
       fetch("/api/invite-coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: coach.email, name: coach.name }),
+        body: JSON.stringify({ email: coach.email, name: coach.name, coachId: newId }),
       })
         .then((r) => r.json())
         .then((data) => {

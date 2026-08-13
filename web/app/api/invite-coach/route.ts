@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getCaller } from "@/lib/server-auth";
 
 export async function POST(request: Request) {
-  const { email, name } = await request.json();
+  const { email, name, coachId } = await request.json();
 
   if (!email || !name) {
     return NextResponse.json({ error: "Name and email are required." }, { status: 400 });
@@ -27,8 +27,12 @@ export async function POST(request: Request) {
 
   const origin = request.headers.get("origin") ?? "";
 
+  // Without linking coach_id here, an invited coach's login would never resolve to their own
+  // coaches row — under real RLS (not the old permissive policy) that means seeing no players,
+  // no sessions, nothing. The coach record is always created immediately before this call, so
+  // coachId is already known — no lookup needed.
   const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
-    data: { name, role: "coach" },
+    data: { name, role: "coach", ...(coachId ? { coach_id: coachId } : {}) },
     redirectTo: `${origin}/reset-password`,
   });
 
