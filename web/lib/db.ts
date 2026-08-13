@@ -396,6 +396,17 @@ export async function upsertCoach(c: Partial<DbCoach> & { id: string }): Promise
   if (error) throw error;
 }
 
+// Coaches created inline while editing an academy are inserted with academy_id: null (only
+// academies.coach_ids references them at that point) - call this after saving the academy so
+// coaches.academy_id stays in sync with the array, matching what fetchCoaches(academyId) and
+// the RLS policies scope by.
+export async function setCoachesAcademy(academyId: string, coachIds: string[]): Promise<void> {
+  if (coachIds.length === 0) return;
+  const sb = createClient();
+  const { error } = await sb.from("coaches").update({ academy_id: academyId }).in("id", coachIds);
+  if (error) throw error;
+}
+
 export async function deleteCoach(id: string): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("coaches").delete().eq("id", id);

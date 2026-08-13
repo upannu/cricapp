@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, insertPlayer, fetchActivePlans } from "@/lib/db";
+import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, fetchActivePlans } from "@/lib/db";
 import type { CertificationLevel } from "@/lib/types";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
@@ -253,6 +253,26 @@ export function AcademyClient() {
       const msg = (err as { message?: string })?.message ?? String(err);
       setFormError(`Save failed: ${msg}`);
       setSaving(false); return;
+    }
+
+    // Coaches created inline via "+ Create New Coach" are inserted with academy_id: null;
+    // back-fill it now that the academy row (and its coach_ids array) has been saved, so
+    // scoped views (fetchCoaches(academyId), the Coaches page) can actually find them.
+    const coachesNeedingBackfill = newAcademy.coachIds.filter((cid) => {
+      const c = allCoaches.find((ac) => ac.id === cid);
+      return c && c.academyId !== id;
+    });
+    if (coachesNeedingBackfill.length > 0) {
+      try {
+        await setCoachesAcademy(id, coachesNeedingBackfill);
+        setAllCoaches((prev) => prev.map((c) =>
+          coachesNeedingBackfill.includes(c.id) ? { ...c, academyId: id } : c
+        ));
+      } catch (err) {
+        const msg = (err as { message?: string })?.message ?? String(err);
+        setFormError(`Academy saved, but linking coaches failed: ${msg}`);
+        setSaving(false); return;
+      }
     }
 
     setAcademies((prev) =>
