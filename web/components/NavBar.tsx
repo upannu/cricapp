@@ -128,16 +128,17 @@ export function NavBar() {
           </span>
         </Link>
 
-        {/* Desktop nav — scrolls horizontally rather than squeezing/overlapping when it doesn't fit.
-            Uses a thin, subtle scrollbar rather than the browser's full-size native one (too heavy
-            for a nav row) or a fully hidden one (let an over-full row silently clip trailing items
-            with no visual cue there was more to scroll to). */}
-        <nav className="hidden xl:flex items-stretch gap-1 flex-1 min-w-0 overflow-x-auto thin-scrollbar">
+        {/* Desktop nav — the header's max-w-7xl container caps content width at 1280px
+            regardless of viewport, so this padding is tuned to fit all items with real margin
+            to spare at that width rather than relying on overflow scroll to bail it out. Kept
+            overflow-x-auto + thin-scrollbar as a fallback (not overflow-hidden or no-scrollbar)
+            so a future added item degrades to a visible scroll rather than silently clipping. */}
+        <nav className="hidden xl:flex items-stretch flex-1 min-w-0 overflow-x-auto thin-scrollbar">
           {desktopNavLinks.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className={`px-2.5 xl:px-3.5 flex items-center flex-shrink-0 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${linkClasses(item.href)}`}
+              className={`px-2 flex items-center flex-shrink-0 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${linkClasses(item.href)}`}
             >
               {item.label}
             </Link>
