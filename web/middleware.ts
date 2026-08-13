@@ -37,6 +37,10 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password") ||
     pathname.startsWith("/api/lookup-player") ||
+    // Fired from the signup form before the new user has a session (email confirmation is
+    // required, so signUp() doesn't return one yet) — just relays name/email/role into an
+    // admin-notification email, no protected data touched.
+    pathname.startsWith("/api/notify-admin-signup") ||
     // Stripe calls this server-to-server with no Supabase session cookie — it authenticates
     // via its own HMAC signature (verified inside the route), not via signed-in user session.
     pathname.startsWith("/api/stripe/webhook");
