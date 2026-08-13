@@ -57,6 +57,19 @@ export async function canAccessPlayerServer(targetPlayerId: string): Promise<boo
   return false;
 }
 
+/**
+ * Academy players get their access through the academy's own plan — the personal
+ * Player Pro/Coach Pro subscription page doesn't apply to them.
+ */
+export async function isAcademyPlayerServer(playerId: string): Promise<boolean> {
+  const sb = await createClient();
+  const { count } = await sb
+    .from("academies")
+    .select("id", { count: "exact", head: true })
+    .contains("player_ids", [playerId]);
+  return !!count && count > 0;
+}
+
 export async function fetchReportsServer(playerId?: string): Promise<Report[]> {
   const sb = await createClient();
   let q = sb.from("reports").select("*").order("date", { ascending: false });

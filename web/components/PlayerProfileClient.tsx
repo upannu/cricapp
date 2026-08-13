@@ -57,6 +57,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
   if (!player) return null;
 
   const status = getPlayerStatus(player.subscription.endDate);
+  const isAcademyPlayer = academies.some((a) => a.playerIds.includes(player.id));
   const initials = player.name
     .split(" ")
     .map((n) => n[0] ?? "")
@@ -100,16 +101,18 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
         >
           S&C Log
         </Link>
-        <Link
-          href={`/players/${playerId}/subscription`}
-          className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
-            status !== "Active"
-              ? "bg-fire/10 text-fire border-fire/30 hover:bg-fire/20"
-              : "bg-surface text-white border-zinc-700 hover:bg-surface-hover"
-          }`}
-        >
-          Manage Subscription
-        </Link>
+        {!isAcademyPlayer && (
+          <Link
+            href={`/players/${playerId}/subscription`}
+            className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
+              status !== "Active"
+                ? "bg-fire/10 text-fire border-fire/30 hover:bg-fire/20"
+                : "bg-surface text-white border-zinc-700 hover:bg-surface-hover"
+            }`}
+          >
+            Manage Subscription
+          </Link>
+        )}
         <Link
           href={`/players/${playerId}/new-session`}
           className="px-5 py-2.5 bg-pace-green text-black rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
