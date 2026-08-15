@@ -363,7 +363,10 @@ export function CoachesClient() {
             <div>
               <label className={lbl}>Email *</label>
               <input type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-                className={inp} placeholder="coach@email.com" />
+                className={inp} placeholder="coach@email.com" disabled={user?.role === "coach"} />
+              {user?.role === "coach" && (
+                <p className="text-xs text-zinc-500 mt-1">Contact your academy admin to change your email.</p>
+              )}
             </div>
             <div>
               <label className={lbl}>Phone</label>
@@ -406,7 +409,7 @@ export function CoachesClient() {
                 value={draft.academyId}
                 onChange={(e) => setDraft({ ...draft, academyId: e.target.value })}
                 className={sel}
-                disabled={user?.role === "academy_admin"}
+                disabled={user?.role === "academy_admin" || user?.role === "coach"}
               >
                 <option value="">— Select academy —</option>
                 {_coachAcademies.map((a) => (
@@ -513,7 +516,7 @@ export function CoachesClient() {
               className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
               Cancel
             </button>
-            {editingId && !(reassignTarget?.coachId === editingId) && (
+            {editingId && user?.role !== "coach" && !(reassignTarget?.coachId === editingId) && (
               <button type="button" onClick={() => handleDelete(editingId)}
                 className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer">
                 Delete Coach
@@ -618,10 +621,12 @@ export function CoachesClient() {
                       </div>
                     </div>
                   </div>
-                  <button type="button" onClick={() => openEdit(coach)}
-                    className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors cursor-pointer flex-shrink-0">
-                    Edit
-                  </button>
+                  {(user?.role !== "coach" || user.coachId === coach.id) && (
+                    <button type="button" onClick={() => openEdit(coach)}
+                      className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors cursor-pointer flex-shrink-0">
+                      Edit
+                    </button>
+                  )}
                 </div>
 
                 {/* Specialization + location */}
