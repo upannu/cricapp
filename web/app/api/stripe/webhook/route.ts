@@ -108,8 +108,8 @@ export async function POST(request: Request) {
         stripe_subscription_id: subscription.id,
         subscription_status: subscription.status,
         sub_plan: plan,
-        sub_start_date: new Date(subscription.items.data[0].current_period_start * 1000).toISOString(),
-        sub_end_date: new Date(subscription.items.data[0].current_period_end * 1000).toISOString(),
+        sub_start_date: new Date(subscription.items.data[0].current_period_start * 1000).toISOString().split("T")[0],
+        sub_end_date: new Date(subscription.items.data[0].current_period_end * 1000).toISOString().split("T")[0],
         sub_sessions_limit: null,
       }).eq("id", playerId);
       break;
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
 
       await supabase.from("players").update({
         subscription_status: subscription.status,
-        sub_end_date: new Date(subscription.items.data[0].current_period_end * 1000).toISOString(),
+        sub_end_date: new Date(subscription.items.data[0].current_period_end * 1000).toISOString().split("T")[0],
         ...(plan && isActive ? { sub_plan: plan, sub_sessions_limit: null } : {}),
         ...(!isActive ? { sub_plan: "Free", sub_sessions_limit: 4 } : {}),
       }).eq("stripe_subscription_id", subscription.id);
