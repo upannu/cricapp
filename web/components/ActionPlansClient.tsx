@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Player, ActionPlan, ActionPlanPriority, ActionPlanStatus, Report } from "@/lib/types";
 import { fetchActionPlans, upsertActionPlan, deleteActionPlan, fetchReports } from "@/lib/db";
 import { formatDate } from "@/lib/utils";
+import { DateInput } from "@/components/DateInput";
 
 const PRIORITY_STYLES: Record<ActionPlanPriority, string> = {
   High: "bg-fire/20 text-fire",
@@ -463,10 +464,9 @@ function PlanForm({
 
         <div>
           <label className={labelCls}>Target Date</label>
-          <input
-            type="date"
+          <DateInput
             value={draft.dueDate}
-            onChange={(e) => setDraft({ ...draft, dueDate: e.target.value })}
+            onChange={(v) => setDraft({ ...draft, dueDate: v })}
             className={inputCls}
           />
         </div>

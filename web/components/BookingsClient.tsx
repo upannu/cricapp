@@ -6,6 +6,7 @@ import type { Booking, BookingStatus, BookingType, Player, Coach, SessionPack, A
 import { useAuth } from "@/lib/auth";
 import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus } from "@/lib/db";
 import { formatDate, getSessionFee } from "@/lib/utils";
+import { DateInput } from "@/components/DateInput";
 
 const BOOKING_TYPES: BookingType[] = [
   "Net Session", "Individual Coaching", "Video Review",
@@ -372,7 +373,7 @@ export function BookingsClient() {
                   );
                 })}
               </div>
-              <input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} className={inp} />
+              <DateInput value={draft.date} onChange={(v) => setDraft({ ...draft, date: v })} className={inp} />
             </div>
 
             {/* Time */}

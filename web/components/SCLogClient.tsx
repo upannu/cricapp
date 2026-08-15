@@ -6,6 +6,7 @@ import type { Player, SCWorkout, SCWorkoutType } from "@/lib/types";
 import { fetchSCWorkouts, upsertSCWorkout, deleteSCWorkout } from "@/lib/db";
 import { computeSCLoadSummary } from "@/lib/performance-trends";
 import { Sparkline } from "@/components/Sparkline";
+import { DateInput } from "@/components/DateInput";
 
 const WORKOUT_TYPES: SCWorkoutType[] = ["Strength", "Conditioning", "Speed & Agility", "Mobility", "Recovery"];
 
@@ -316,10 +317,9 @@ function WorkoutForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
         <div>
           <label className={labelCls}>Date</label>
-          <input
-            type="date"
+          <DateInput
             value={draft.date}
-            onChange={(e) => setDraft({ ...draft, date: e.target.value })}
+            onChange={(v) => setDraft({ ...draft, date: v })}
             className={inputCls}
           />
         </div>

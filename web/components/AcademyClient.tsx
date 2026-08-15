@@ -6,6 +6,7 @@ import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan
 import { useAuth } from "@/lib/auth";
 import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, fetchActivePlans } from "@/lib/db";
 import type { CertificationLevel } from "@/lib/types";
+import { DateInput } from "@/components/DateInput";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const STAGES: AcademyStage[] = ["Foundation", "Mechanics", "Velocity", "Elite"];
@@ -953,8 +954,8 @@ export function AcademyClient() {
                   </div>
                   <div>
                     <label className={lbl}>Start Date</label>
-                    <input type="date" value={draft.startDate}
-                      onChange={(e) => setDraft({ ...draft, startDate: e.target.value })}
+                    <DateInput value={draft.startDate}
+                      onChange={(v) => setDraft({ ...draft, startDate: v })}
                       className={inp} />
                   </div>
                   <div>

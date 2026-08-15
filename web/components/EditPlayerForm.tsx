@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Player } from "@/lib/types";
 import { updatePlayer } from "@/lib/db";
+import { DateInput } from "@/components/DateInput";
 
 const BOWLING_STYLES = [
   "Right Arm Fast",
@@ -308,10 +309,9 @@ export function EditPlayerForm({ player }: { player: Player }) {
             </Field>
 
             <Field label="Start Date">
-              <input
-                type="date"
+              <DateInput
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={setStartDate}
                 className={inputCls}
                 required
               />
@@ -319,10 +319,9 @@ export function EditPlayerForm({ player }: { player: Player }) {
 
             <Field label="End / Renewal Date">
               <div className="relative">
-                <input
-                  type="date"
+                <DateInput
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={setEndDate}
                   className={`${inputCls} ${
                     weeklySessionsPerWeek && sessionsLimit
                       ? "border-pace-green/50 text-pace-green"
@@ -331,7 +330,7 @@ export function EditPlayerForm({ player }: { player: Player }) {
                   required
                 />
                 {weeklySessionsPerWeek && sessionsLimit && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-pace-green font-semibold pointer-events-none">
+                  <span className="absolute right-9 top-1/2 -translate-y-1/2 text-xs text-pace-green font-semibold pointer-events-none">
                     Auto
                   </span>
                 )}

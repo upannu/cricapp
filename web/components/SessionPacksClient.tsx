@@ -6,6 +6,7 @@ import type { SessionPack, BookingType, Player, Coach, Academy, Booking, Payment
 import { useAuth } from "@/lib/auth";
 import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, upsertSessionPack, updatePackPaymentStatus, updatePackAgreedDays } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
+import { DateInput } from "@/components/DateInput";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
@@ -337,10 +338,9 @@ export function SessionPacksClient() {
 
             <div>
               <label className={lbl}>Purchase Date</label>
-              <input
-                type="date"
+              <DateInput
                 value={draft.purchaseDate}
-                onChange={(e) => setDraft({ ...draft, purchaseDate: e.target.value })}
+                onChange={(v) => setDraft({ ...draft, purchaseDate: v })}
                 className={inp}
               />
             </div>

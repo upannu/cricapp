@@ -7,6 +7,7 @@ import { fetchPlayer, fetchCoaches, fetchAcademies, upsertBooking } from "@/lib/
 import { getSessionFee, getInitials, distanceKm } from "@/lib/utils";
 import { canUseMarketplace } from "@/lib/plan-features";
 import type { Player, Coach, Academy, AgeGroup, BookingType } from "@/lib/types";
+import { DateInput } from "@/components/DateInput";
 
 const BOOKING_TYPES: BookingType[] = [
   "Net Session", "Individual Coaching", "Video Review",
@@ -313,7 +314,7 @@ function RequestBookingModal({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Preferred Date</label>
-                  <input type="date" value={date} min={today} onChange={(e) => setDate(e.target.value)}
+                  <DateInput value={date} min={today} onChange={setDate}
                     className="w-full bg-ink rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" required />
                 </div>
                 <div>

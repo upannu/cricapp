@@ -8,6 +8,7 @@ import {
   fetchTipArchive, upsertDailyTip, deleteDailyTip,
 } from "@/lib/db";
 import { STAGE_ORDER } from "@/lib/academy-content";
+import { DateInput } from "@/components/DateInput";
 import type { Article, DailyTip, AcademyStage, ArticleCategory } from "@/lib/types";
 
 const CATEGORIES: ArticleCategory[] = ["Biomechanical", "Technical", "Physical", "Mental", "Data Insight"];
@@ -334,7 +335,7 @@ export function AcademyContentAdminClient() {
             <div className="space-y-4 mb-6">
               <div>
                 <label className={lbl}>Publish Date</label>
-                <input type="date" value={tipDraft.publishDate} onChange={(e) => setTipDraft({ ...tipDraft, publishDate: e.target.value })} className={inp} />
+                <DateInput value={tipDraft.publishDate} onChange={(v) => setTipDraft({ ...tipDraft, publishDate: v })} className={inp} />
               </div>
               <div>
                 <label className={lbl}>Category</label>

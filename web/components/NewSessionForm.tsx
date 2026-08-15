@@ -8,6 +8,7 @@ import { insertSession, recordSessionCompletion, fetchSessionPacks } from "@/lib
 import { createClient } from "@/lib/supabase";
 import { probeVideoQuality, MIN_LONG_EDGE_PX, MIN_SHORT_EDGE_PX, MIN_FPS, type VideoQualityResult } from "@/lib/video-quality";
 import { transcodeToH264 } from "@/lib/transcode";
+import { DateInput } from "@/components/DateInput";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 
 const SESSION_TYPES = [
@@ -279,10 +280,9 @@ export function NewSessionForm({ player }: { player: Player }) {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Session Date">
-              <input
-                type="date"
+              <DateInput
                 value={sessionDate}
-                onChange={(e) => setSessionDate(e.target.value)}
+                onChange={setSessionDate}
                 className={inputCls}
                 required
               />

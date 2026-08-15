@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, deleteCoach, reassignCoachPlayers } from "@/lib/db";
+import { DateInput } from "@/components/DateInput";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const CERT_LEVELS: CertificationLevel[] = ["Level 1", "Level 2", "Level 3", "Elite"];
@@ -392,7 +393,7 @@ export function CoachesClient() {
             </div>
             <div>
               <label className={lbl}>Joined Date</label>
-              <input type="date" value={draft.joinedDate} onChange={(e) => setDraft({ ...draft, joinedDate: e.target.value })}
+              <DateInput value={draft.joinedDate} onChange={(v) => setDraft({ ...draft, joinedDate: v })}
                 className={inp} />
             </div>
             <div>
