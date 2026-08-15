@@ -131,6 +131,13 @@ export interface Academy {
 
 export type UserRole = 'platform_admin' | 'academy_admin' | 'coach' | 'player' | 'parent';
 
+export interface LinkedIdentity {
+  role: UserRole;
+  academyId?: string;
+  coachId?: string;
+  playerId?: string;
+}
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -140,6 +147,9 @@ export interface AuthUser {
   academyId?: string;
   coachId?: string;
   playerId?: string;
+  /** Other role identities linked to this same account (e.g. also a parent, also a coach) —
+   * includes the currently active one. Only present when there's more than one. */
+  linkedIdentities?: LinkedIdentity[];
 }
 
 export type PaymentStatus = 'Paid' | 'Pending' | 'Overdue';

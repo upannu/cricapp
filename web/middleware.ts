@@ -31,25 +31,33 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isPublicPage =
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/signup") ||
-    pathname.startsWith("/forgot-password") ||
-    pathname.startsWith("/reset-password") ||
+
+  // API routes that must work whether or not the caller has a session — some are hit before any
+  // session exists (signup flow, email confirmation not done yet), others (check-existing-account,
+  // request-additional-role) can legitimately be called by an *already logged-in* user requesting
+  // an additional linked role, so they must never be redirected either way.
+  const isAuthApi =
     pathname.startsWith("/api/lookup-player") ||
-    // Fired from the signup form before the new user has a session (email confirmation is
-    // required, so signUp() doesn't return one yet) — just relays name/email/role into an
-    // admin-notification email, no protected data touched.
     pathname.startsWith("/api/notify-admin-signup") ||
+    pathname.startsWith("/api/check-existing-account") ||
+    pathname.startsWith("/api/request-additional-role") ||
     // Stripe calls this server-to-server with no Supabase session cookie — it authenticates
     // via its own HMAC signature (verified inside the route), not via signed-in user session.
     pathname.startsWith("/api/stripe/webhook");
 
-  if (!user && !isPublicPage) {
+  const isPublicPage =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password");
+
+  if (!user && !isPublicPage && !isAuthApi) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (user && isPublicPage) {
+  // An already-logged-in user can still visit /signup — that's how they request an additional
+  // role be linked to their existing account. Every other public page bounces them to /players.
+  if (user && isPublicPage && pathname !== "/signup") {
     return NextResponse.redirect(new URL("/players", request.url));
   }
 

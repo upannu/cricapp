@@ -29,6 +29,7 @@ export default function SignUpPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [linked, setLinked] = useState(false);
 
   // Only trust playerLookup if it was computed for the email currently in the field
   const lookupForCurrentEmail = playerLookup?.email === playerEmail.trim() ? playerLookup : null;
@@ -61,7 +62,7 @@ export default function SignUpPage() {
     }
     setLoading(true);
     setError("");
-    const { error: err } = await signup(
+    const { error: err, linked: wasLinked } = await signup(
       name.trim(), email.trim(), password, role,
       NEEDS_PLAYER_LOOKUP.includes(role) ? playerEmail.trim() : undefined,
     );
@@ -72,6 +73,7 @@ export default function SignUpPage() {
     }
     // Always show pending screen — even if no email confirmation,
     // the account still needs platform admin approval before accessing the dashboard
+    setLinked(!!wasLinked);
     setDone(true);
   }
 
@@ -100,12 +102,27 @@ export default function SignUpPage() {
               </svg>
             </div>
             <h2 className="text-xl font-bold text-white mb-2">Request submitted</h2>
-            <p className="text-zinc-400 text-sm leading-relaxed mb-2">
-              Your account is <span className="text-amber font-semibold">pending approval</span> from a platform admin.
-            </p>
-            <p className="text-zinc-500 text-xs leading-relaxed mb-6">
-              You&apos;ll be notified once your account is approved. This usually takes less than 24 hours.
-            </p>
+            {linked ? (
+              <>
+                <p className="text-zinc-400 text-sm leading-relaxed mb-2">
+                  This email already has a PACE HQ account — your request to link a{" "}
+                  <span className="text-amber font-semibold">{ROLE_OPTIONS.find((o) => o.value === role)?.label}</span>{" "}
+                  identity to it is <span className="text-amber font-semibold">pending approval</span>.
+                </p>
+                <p className="text-zinc-500 text-xs leading-relaxed mb-6">
+                  Once approved, sign in as usual and use the role switcher to move between your linked identities.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-zinc-400 text-sm leading-relaxed mb-2">
+                  Your account is <span className="text-amber font-semibold">pending approval</span> from a platform admin.
+                </p>
+                <p className="text-zinc-500 text-xs leading-relaxed mb-6">
+                  You&apos;ll be notified once your account is approved. This usually takes less than 24 hours.
+                </p>
+              </>
+            )}
             <Link
               href="/login"
               className="inline-block w-full bg-surface border border-zinc-700 text-zinc-300 font-bold py-3.5 rounded-xl hover:border-zinc-500 transition-colors text-sm uppercase tracking-wider text-center"

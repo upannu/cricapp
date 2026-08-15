@@ -44,11 +44,14 @@ const ROLE_STYLES: Record<UserRole, string> = {
 export function NavBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement>(null);
+  const roleMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user?.role !== "platform_admin") return;
@@ -62,6 +65,7 @@ export function NavBar() {
   useEffect(() => {
     setMobileOpen(false);
     setAdminMenuOpen(false);
+    setRoleMenuOpen(false);
   }, [pathname]);
 
   // Close the admin tools dropdown on outside click.
@@ -75,9 +79,40 @@ export function NavBar() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [adminMenuOpen]);
 
+  // Close the role switcher dropdown on outside click.
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (roleMenuRef.current && !roleMenuRef.current.contains(e.target as Node)) {
+        setRoleMenuOpen(false);
+      }
+    }
+    if (roleMenuOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [roleMenuOpen]);
+
   function handleLogout() {
     logout();
     router.push("/login");
+  }
+
+  async function handleSwitchRole(identity: { role: UserRole; academyId?: string; coachId?: string; playerId?: string }) {
+    setSwitching(true);
+    try {
+      const res = await fetch("/api/switch-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: identity.role, academyId: identity.academyId, coachId: identity.coachId, playerId: identity.playerId,
+        }),
+      });
+      if (res.ok) {
+        await refreshUser();
+        setRoleMenuOpen(false);
+        router.push(identity.role === "player" || identity.role === "parent" ? "/portal" : "/players");
+      }
+    } finally {
+      setSwitching(false);
+    }
   }
 
   const initials = user
@@ -195,15 +230,63 @@ export function NavBar() {
                 )}
               </div>
             )}
-            <div className="text-right min-w-0">
-              <p className="text-sm font-medium text-white leading-tight truncate max-w-[160px]">{user.name}</p>
-              <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${ROLE_STYLES[user.role]}`}>
-                {ROLE_LABELS[user.role]}
-              </span>
-            </div>
-            <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
-              {initials}
-            </div>
+            {user.linkedIdentities && user.linkedIdentities.length > 1 ? (
+              <div className="relative flex-shrink-0" ref={roleMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setRoleMenuOpen((v) => !v)}
+                  className="flex items-center gap-2.5 cursor-pointer rounded-lg px-1.5 py-1 hover:bg-zinc-700/40 transition-colors"
+                  title="Switch role"
+                >
+                  <div className="text-right min-w-0">
+                    <p className="text-sm font-medium text-white leading-tight truncate max-w-[160px]">{user.name}</p>
+                    <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${ROLE_STYLES[user.role]}`}>
+                      {ROLE_LABELS[user.role]}
+                    </span>
+                  </div>
+                  <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
+                    {initials}
+                  </div>
+                </button>
+                {roleMenuOpen && (
+                  <div className="absolute right-0 top-12 z-30 w-56 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
+                    <p className="px-4 pt-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Switch role</p>
+                    {user.linkedIdentities.map((identity, i) => {
+                      const isActive = identity.role === user.role
+                        && (identity.academyId ?? undefined) === user.academyId
+                        && (identity.coachId ?? undefined) === user.coachId
+                        && (identity.playerId ?? undefined) === user.playerId;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          disabled={isActive || switching}
+                          onClick={() => handleSwitchRole(identity)}
+                          className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors cursor-pointer disabled:cursor-default ${
+                            isActive ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                          }`}
+                        >
+                          {ROLE_LABELS[identity.role]}
+                          {isActive && <span className="text-xs">✓ Active</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="text-right min-w-0">
+                  <p className="text-sm font-medium text-white leading-tight truncate max-w-[160px]">{user.name}</p>
+                  <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${ROLE_STYLES[user.role]}`}>
+                    {ROLE_LABELS[user.role]}
+                  </span>
+                </div>
+                <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
+                  {initials}
+                </div>
+              </>
+            )}
             <button
               type="button"
               onClick={handleLogout}
@@ -290,6 +373,32 @@ export function NavBar() {
               Sign out
             </button>
           </div>
+          {user.linkedIdentities && user.linkedIdentities.length > 1 && (
+            <div className="border-t border-zinc-700/60 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Switch role</p>
+              <div className="flex flex-wrap gap-2">
+                {user.linkedIdentities.map((identity, i) => {
+                  const isActive = identity.role === user.role
+                    && (identity.academyId ?? undefined) === user.academyId
+                    && (identity.coachId ?? undefined) === user.coachId
+                    && (identity.playerId ?? undefined) === user.playerId;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      disabled={isActive || switching}
+                      onClick={() => handleSwitchRole(identity)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer disabled:cursor-default ${
+                        isActive ? "border-pace-green bg-pace-green/10 text-pace-green" : "border-zinc-700 text-zinc-300"
+                      }`}
+                    >
+                      {ROLE_LABELS[identity.role]}{isActive ? " ✓" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </header>

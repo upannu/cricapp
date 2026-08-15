@@ -4,7 +4,7 @@ import {
   createContext, useContext, useState, useEffect, useMemo, type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase";
-import type { AuthUser } from "./types";
+import type { AuthUser, LinkedIdentity } from "./types";
 
 type SignupRole = "academy_admin" | "coach" | "player" | "parent";
 
@@ -12,7 +12,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loaded: boolean;
   login: (email: string, password: string) => Promise<string | null>;
-  signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string) => Promise<{ error: string | null; needsConfirmation: boolean }>;
+  signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string) => Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -28,6 +28,7 @@ const AuthContext = createContext<AuthContextValue>({
 
 function supabaseUserToAuthUser(sbUser: { id: string; email?: string; user_metadata: Record<string, unknown> }): AuthUser {
   const meta = sbUser.user_metadata ?? {};
+  const linkedIdentities = meta.linkedIdentities as LinkedIdentity[] | undefined;
   return {
     id: sbUser.id,
     name: (meta.name as string) ?? sbUser.email ?? "",
@@ -38,6 +39,7 @@ function supabaseUserToAuthUser(sbUser: { id: string; email?: string; user_metad
     academyId: meta.academy_id as string | undefined,
     coachId: meta.coach_id as string | undefined,
     playerId: meta.player_id as string | undefined,
+    linkedIdentities: linkedIdentities && linkedIdentities.length > 1 ? linkedIdentities : undefined,
   };
 }
 
@@ -71,7 +73,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     role: SignupRole,
     playerLookupEmail?: string,
-  ): Promise<{ error: string | null; needsConfirmation: boolean }> {
+  ): Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean }> {
+    // An email that already has an account can't go through signUp() again (Supabase returns an
+    // ambiguous "ghost" response for a duplicate email rather than a clean error) — check first
+    // and route into the "link an additional role" request instead of creating a new account.
+    const existsRes = await fetch("/api/check-existing-account", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const existsData = await existsRes.json().catch(() => ({}));
+    if (existsData?.exists) {
+      const linkRes = await fetch("/api/request-additional-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, role, playerLookupEmail: playerLookupEmail || null }),
+      });
+      const linkData = await linkRes.json().catch(() => ({}));
+      if (!linkRes.ok) return { error: linkData?.error ?? "Could not submit request.", needsConfirmation: false };
+      return { error: null, needsConfirmation: false, linked: true };
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,

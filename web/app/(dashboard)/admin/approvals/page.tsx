@@ -15,6 +15,7 @@ interface PendingRequest {
   role: UserRole;
   requested_at: string;
   player_lookup_email: string | null;
+  request_type: "new" | "link";
 }
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -219,8 +220,18 @@ export default function ApprovalsPage() {
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${ROLE_STYLES[req.role]}`}>
                       {ROLE_LABELS[req.role]}
                     </span>
+                    {req.request_type === "link" && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold border bg-amber/10 text-amber border-amber/30">
+                        + Additional role
+                      </span>
+                    )}
                   </div>
                   <div className="text-zinc-400 text-xs">{req.email}</div>
+                  {req.request_type === "link" && (
+                    <div className="text-xs mt-0.5 text-amber">
+                      This account already exists — approving links a {ROLE_LABELS[req.role]} identity to it.
+                    </div>
+                  )}
                   {NEEDS_PLAYER_LINK.includes(req.role) && (
                     <div className="text-xs mt-0.5">
                       {req.player_lookup_email ? (
@@ -375,7 +386,9 @@ export default function ApprovalsPage() {
               <span className="text-white font-semibold">{confirmReject.name}</span> ({confirmReject.email})
             </p>
             <p className="text-zinc-500 text-xs text-center mb-6">
-              Their account will be permanently deleted. They can re-apply using the signup page.
+              {confirmReject.request_type === "link"
+                ? "Only this request is removed — their existing account is untouched."
+                : "Their account will be permanently deleted. They can re-apply using the signup page."}
             </p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setConfirmReject(null)}

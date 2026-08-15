@@ -4,6 +4,13 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
+interface LinkedIdentity {
+  role: string;
+  academyId?: string;
+  coachId?: string;
+  playerId?: string;
+}
+
 export async function POST(request: Request) {
   const { userId, academyId } = await request.json();
   if (!userId) return NextResponse.json({ error: "userId required." }, { status: 400 });
@@ -33,7 +40,7 @@ export async function POST(request: Request) {
   // Get the request details so we can find the real auth user and send an email
   const { data: reqData, error: reqError } = await supabase
     .from("user_requests")
-    .select("email, name, role, player_lookup_email")
+    .select("email, name, role, player_lookup_email, request_type, existing_user_id")
     .eq("id", userId)
     .single();
 
@@ -73,6 +80,47 @@ export async function POST(request: Request) {
       .ilike("email", reqData.email)
       .maybeSingle();
     linkedCoachId = coachMatch?.id;
+  }
+
+  // A "link" request (an already-approved account requesting an additional role) is tied to
+  // existing_user_id directly, set only after the requester proved they own that account by
+  // signing in with its real password (see /api/request-additional-role) — never resolved by
+  // email here, unlike a brand-new request, since the email is already in use by this account.
+  if (reqData.request_type === "link" && reqData.existing_user_id) {
+    const { data: existingUserData, error: getUserError } = await supabase.auth.admin.getUserById(reqData.existing_user_id);
+    if (getUserError || !existingUserData?.user) {
+      await supabase.from("user_requests").delete().eq("id", userId);
+      return NextResponse.json({ error: "The linked account no longer exists. The request has been removed." }, { status: 404 });
+    }
+
+    const meta = existingUserData.user.user_metadata ?? {};
+    const currentIdentities = (meta.linkedIdentities as LinkedIdentity[] | undefined) ?? [];
+    const seeded = currentIdentities.length > 0
+      ? currentIdentities
+      : [{
+          role: meta.role as string,
+          academyId: meta.academy_id as string | undefined,
+          coachId: meta.coach_id as string | undefined,
+          playerId: meta.player_id as string | undefined,
+        }];
+
+    const newIdentity: LinkedIdentity = { role: reqData.role };
+    if (reqData.role === "academy_admin" && academyId) newIdentity.academyId = academyId;
+    if (linkedCoachId) newIdentity.coachId = linkedCoachId;
+    if (linkedPlayerId) newIdentity.playerId = linkedPlayerId;
+
+    const alreadyLinked = seeded.some((li) => li.role === newIdentity.role);
+    const linkedIdentities = alreadyLinked ? seeded : [...seeded, newIdentity];
+
+    // Only linkedIdentities changes here — the account's currently-active role/links are left
+    // untouched, so an approval never silently changes what a logged-in session sees mid-use.
+    const { error: linkUpdateError } = await supabase.auth.admin.updateUserById(reqData.existing_user_id, {
+      user_metadata: { ...meta, linkedIdentities },
+    });
+    if (linkUpdateError) return NextResponse.json({ error: linkUpdateError.message }, { status: 400 });
+
+    await supabase.from("user_requests").delete().eq("id", userId);
+    return NextResponse.json({ success: true });
   }
 
   // Find the auth user by email — the stored ID can be a ghost UUID

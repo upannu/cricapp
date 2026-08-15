@@ -32,11 +32,14 @@ export async function POST(request: Request) {
   // Get email from user_requests so we can find the real auth user
   const { data: reqData } = await supabase
     .from("user_requests")
-    .select("email")
+    .select("email, request_type")
     .eq("id", userId)
     .single();
 
-  if (reqData?.email) {
+  // A "link" request (an already-approved account asking for an additional role) must never
+  // delete the auth account on rejection — that account already exists and works independently
+  // of this request. Only a brand-new signup's account should be removed when rejected.
+  if (reqData?.email && reqData.request_type !== "link") {
     // Find and delete the auth user by email
     const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
     const authUser = listData?.users.find((u) => u.email === reqData.email);
