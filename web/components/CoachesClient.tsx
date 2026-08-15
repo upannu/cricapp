@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, deleteCoach, reassignCoachPlayers, upsertAcademy } from "@/lib/db";
+import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, deleteCoach, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
 import { DateInput } from "@/components/DateInput";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
@@ -292,8 +292,7 @@ export function CoachesClient() {
     setReassigning(true);
     try {
       if (reassignTarget.headCoachAcademy) {
-        await upsertAcademy({
-          id: reassignTarget.headCoachAcademy.id,
+        await updateAcademyFields(reassignTarget.headCoachAcademy.id, {
           head_coach_id: newHeadCoachId,
           coach_ids: reassignTarget.headCoachAcademy.otherCoachIds,
         });

@@ -439,6 +439,15 @@ export async function upsertAcademy(a: Partial<DbAcademy> & { id: string }): Pro
   if (error) throw error;
 }
 
+// .upsert() always validates as if it were a fresh INSERT (even against an existing row), so a
+// partial payload missing a NOT NULL column like `name` fails — use a real UPDATE for partial
+// field changes on an academy that's already known to exist, e.g. reassigning its head coach.
+export async function updateAcademyFields(id: string, fields: Partial<DbAcademy>): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("academies").update(fields).eq("id", id);
+  if (error) throw error;
+}
+
 export async function deleteAcademy(id: string): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("academies").delete().eq("id", id);
