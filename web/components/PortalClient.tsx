@@ -114,42 +114,53 @@ export function PortalClient() {
         </div>
       )}
 
-      {/* GDPR consent card — parent role only */}
-      {user.role === "parent" && (
-        <div className={`rounded-2xl p-5 border ${
-          player.guardianConsentStatus === "Confirmed"
-            ? "bg-pace-green/5 border-pace-green/30"
-            : "bg-amber/5 border-amber/30"
-        }`}>
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Guardian Consent</p>
-          {player.guardianConsentStatus === "Confirmed" ? (
-            <div>
-              <p className="text-pace-green text-sm font-semibold mb-1">✓ Consent confirmed</p>
-              <p className="text-zinc-500 text-xs">
-                By {player.guardianConsentConfirmedBy ?? "guardian"}
-                {player.guardianConsentConfirmedAt && ` on ${formatDate(player.guardianConsentConfirmedAt)}`}
-                {player.guardianConsentConfirmedEmail && ` (${player.guardianConsentConfirmedEmail})`}
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p className="text-zinc-300 text-sm mb-3">
-                As {player.name}&apos;s guardian, please confirm you consent to PACE HQ collecting and analysing
-                their session video and biomechanics data for coaching purposes.
-              </p>
-              <button
-                type="button"
-                onClick={handleConfirmConsent}
-                disabled={confirming}
-                className="px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
-              >
-                {confirming ? "Confirming…" : "Confirm Consent"}
-              </button>
-              {consentError && <p className="text-red-400 text-xs mt-2">{consentError}</p>}
-            </div>
-          )}
-        </div>
-      )}
+      {/* GDPR consent card — under-19 players need a guardian to confirm; 19+ (Senior) players
+          confirm for themselves, so the same account role wouldn't be able to act here. */}
+      {(() => {
+        const isMinor = player.ageGroup !== "Senior";
+        const canConfirmHere = (user.role === "parent" && isMinor) || (user.role === "player" && !isMinor);
+        if (!canConfirmHere && player.guardianConsentStatus !== "Confirmed") return null;
+        if (user.role === "player" && isMinor) return null;
+        const cardLabel = isMinor ? "Guardian Consent" : "Player Consent";
+        return (
+          <div className={`rounded-2xl p-5 border ${
+            player.guardianConsentStatus === "Confirmed"
+              ? "bg-pace-green/5 border-pace-green/30"
+              : "bg-amber/5 border-amber/30"
+          }`}>
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">{cardLabel}</p>
+            {player.guardianConsentStatus === "Confirmed" ? (
+              <div>
+                <p className="text-pace-green text-sm font-semibold mb-1">✓ Consent confirmed</p>
+                <p className="text-zinc-500 text-xs">
+                  By {player.guardianConsentConfirmedBy ?? (isMinor ? "guardian" : "player")}
+                  {player.guardianConsentConfirmedAt && ` on ${formatDate(player.guardianConsentConfirmedAt)}`}
+                  {player.guardianConsentConfirmedEmail && ` (${player.guardianConsentConfirmedEmail})`}
+                </p>
+              </div>
+            ) : canConfirmHere ? (
+              <div>
+                <p className="text-zinc-300 text-sm mb-3">
+                  {isMinor
+                    ? <>As {player.name}&apos;s guardian, please confirm you consent to PACE HQ collecting and analysing their session video and biomechanics data for coaching purposes.</>
+                    : <>Please confirm you consent to PACE HQ collecting and analysing your session video and biomechanics data for coaching purposes.</>}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleConfirmConsent}
+                  disabled={confirming}
+                  className="px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+                >
+                  {confirming ? "Confirming…" : "Confirm Consent"}
+                </button>
+                {consentError && <p className="text-red-400 text-xs mt-2">{consentError}</p>}
+              </div>
+            ) : (
+              <p className="text-zinc-300 text-sm">Awaiting confirmation from {player.name}&apos;s guardian.</p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Biomechanics + Academy progress */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

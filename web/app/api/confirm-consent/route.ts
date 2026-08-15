@@ -16,8 +16,8 @@ export async function POST() {
 
   const role = user.user_metadata?.role;
   const playerId = user.user_metadata?.player_id as string | undefined;
-  if (role !== "parent") {
-    return NextResponse.json({ error: "Only a parent/guardian account can confirm consent." }, { status: 403 });
+  if (role !== "parent" && role !== "player") {
+    return NextResponse.json({ error: "Only a player or parent/guardian account can confirm consent." }, { status: 403 });
   }
   if (!playerId) {
     return NextResponse.json({ error: "This account isn't linked to a player." }, { status: 400 });
@@ -30,6 +30,14 @@ export async function POST() {
     serviceKey,
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
+
+  // A player under 19 can't consent for themselves — only their guardian can, via a parent account.
+  if (role === "player") {
+    const { data: playerRow } = await supabase.from("players").select("age_group").eq("id", playerId).single();
+    if (playerRow?.age_group !== "Senior") {
+      return NextResponse.json({ error: "A guardian must confirm consent for a player under 19." }, { status: 403 });
+    }
+  }
 
   const { error } = await supabase
     .from("players")

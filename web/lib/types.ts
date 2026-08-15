@@ -36,7 +36,7 @@ export type BowlingStyle =
   | 'Right Arm Medium'
   | 'Left Arm Medium';
 export type AgeGroup = 'U10' | 'U11' | 'U12' | 'U13' | 'U14' | 'U16' | 'U19' | 'Senior';
-export type PlayingLevel = 'Beginner' | 'Club' | 'Representative' | 'State' | 'National';
+export type PlayingLevel = 'Beginner' | 'Club' | 'Representative' | 'State' | 'National' | 'International';
 export type BattingHand = 'Right Hand' | 'Left Hand';
 export type ActionType = 'Side-on' | 'Front-on' | 'Mixed';
 export type InjuryRisk = 'Low' | 'Moderate' | 'High';

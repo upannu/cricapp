@@ -18,7 +18,7 @@ const BOWLING_STYLES = [
 const AGE_GROUPS = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"] as const;
 const PLANS = ["Free", "Player Pro", "Coach Pro"] as const;
 const CONSENT_OPTIONS = ["N/A", "Confirmed", "Pending"] as const;
-const PLAYING_LEVELS = ["Beginner", "Club", "Representative", "State", "National"] as const;
+const PLAYING_LEVELS = ["Beginner", "Club", "Representative", "State", "National", "International"] as const;
 const BATTING_HANDS = ["Right Hand", "Left Hand"] as const;
 
 export function EditPlayerForm({ player }: { player: Player }) {

@@ -129,8 +129,12 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
             <h1 className="text-2xl font-bold text-white">{player.name}</h1>
-            <PlanBadge plan={player.subscription.plan} />
-            <StatusBadge status={status} />
+            {!isAcademyPlayer && (
+              <>
+                <PlanBadge plan={player.subscription.plan} />
+                <StatusBadge status={status} />
+              </>
+            )}
             {player.biomechanics.injuryRisk !== "Low" && (
               <span
                 className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
@@ -154,57 +158,59 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
 
       {/* 2×2 info grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        {/* Subscription */}
-        <InfoCard title="Subscription">
-          <InfoRow label="Plan" value={player.subscription.plan} />
-          <InfoRow
-            label="Status"
-            value={
-              <span
-                className={
-                  status === "Active"
-                    ? "text-pace-green font-semibold"
-                    : status === "Expiring"
+        {/* Subscription — irrelevant for academy players, whose access comes from the academy's own plan */}
+        {!isAcademyPlayer && (
+          <InfoCard title="Subscription">
+            <InfoRow label="Plan" value={player.subscription.plan} />
+            <InfoRow
+              label="Status"
+              value={
+                <span
+                  className={
+                    status === "Active"
+                      ? "text-pace-green font-semibold"
+                      : status === "Expiring"
+                        ? "text-amber font-semibold"
+                        : "text-red-400 font-semibold"
+                  }
+                >
+                  {status}
+                </span>
+              }
+            />
+            <InfoRow
+              label="Start date"
+              value={formatDate(player.subscription.startDate)}
+            />
+            <InfoRow
+              label="Renewal date"
+              value={
+                <span
+                  className={
+                    status === "Expiring"
                       ? "text-amber font-semibold"
-                      : "text-red-400 font-semibold"
-                }
-              >
-                {status}
-              </span>
-            }
-          />
-          <InfoRow
-            label="Start date"
-            value={formatDate(player.subscription.startDate)}
-          />
-          <InfoRow
-            label="Renewal date"
-            value={
-              <span
-                className={
-                  status === "Expiring"
-                    ? "text-amber font-semibold"
-                    : status === "Expired"
-                      ? "text-red-400 font-semibold"
-                      : ""
-                }
-              >
-                {formatDate(player.subscription.endDate)}
-                {status === "Expiring" && (
-                  <span className="text-amber"> — Renew now</span>
-                )}
-              </span>
-            }
-          />
-          <InfoRow
-            label="Sessions used"
-            value={
-              player.subscription.sessionsLimit
-                ? `${player.subscription.sessionsUsed} / ${player.subscription.sessionsLimit}`
-                : `${player.subscription.sessionsUsed} (unlimited)`
-            }
-          />
-        </InfoCard>
+                      : status === "Expired"
+                        ? "text-red-400 font-semibold"
+                        : ""
+                  }
+                >
+                  {formatDate(player.subscription.endDate)}
+                  {status === "Expiring" && (
+                    <span className="text-amber"> — Renew now</span>
+                  )}
+                </span>
+              }
+            />
+            <InfoRow
+              label="Sessions used"
+              value={
+                player.subscription.sessionsLimit
+                  ? `${player.subscription.sessionsUsed} / ${player.subscription.sessionsLimit}`
+                  : `${player.subscription.sessionsUsed} (unlimited)`
+              }
+            />
+          </InfoCard>
+        )}
 
         {/* Biomechanics */}
         <InfoCard title="Latest Biomechanics">
@@ -332,7 +338,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           />
           <InfoRow label="Coach" value={getCoachOrAcademyLabel(player, coaches, academies)} />
           <InfoRow
-            label="Guardian consent"
+            label={player.ageGroup === "Senior" ? "Player consent" : "Parent consent"}
             value={
               <span
                 className={
