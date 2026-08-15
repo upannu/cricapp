@@ -416,10 +416,12 @@ export async function setCoachesAcademy(academyId: string, coachIds: string[]): 
 // coach first (the DB trigger blocks the delete otherwise); this only cleans up coach_ids.
 export async function deleteCoach(id: string): Promise<void> {
   const sb = createClient();
+  // coach_ids is jsonb (not a native Postgres array) — .contains() needs the value as a JSON
+  // string here, not a raw JS array, or PostgREST fails with "invalid input syntax for type json".
   const { data: referencingAcademies } = await sb
     .from("academies")
     .select("id, coach_ids")
-    .contains("coach_ids", [id]);
+    .contains("coach_ids", JSON.stringify([id]));
   for (const a of (referencingAcademies ?? []) as { id: string; coach_ids: string[] }[]) {
     const { error: updateError } = await sb
       .from("academies")
