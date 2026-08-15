@@ -35,6 +35,7 @@ type DraftAcademy = {
   sessionFeeAud: number;
   sessionTypeFees: Partial<Record<string, number>>;
   ageFees: Partial<Record<AgeGroup, number>>;
+  payoutModel: "head_coach" | "split_by_coach";
 };
 
 const EMPTY_DRAFT: DraftAcademy = {
@@ -43,6 +44,7 @@ const EMPTY_DRAFT: DraftAcademy = {
   stage: "Foundation",
   startDate: new Date().toISOString().split("T")[0],
   status: "Active", sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
+  payoutModel: "head_coach",
 };
 
 type NewPlayerDraft = {
@@ -196,6 +198,7 @@ export function AcademyClient() {
       sessionFeeAud: academy.sessionFeeAud,
       sessionTypeFees: { ...academy.sessionTypeFees },
       ageFees: { ...academy.ageFees },
+      payoutModel: academy.payoutModel ?? "head_coach",
     });
     setPlayerSearch(""); setPlayerAgeFilter("All"); setShowNewPlayer(false);
     setShowNewCoach(false); setNewCoachDraft(EMPTY_NEW_COACH); setNewCoachError("");
@@ -237,6 +240,7 @@ export function AcademyClient() {
       sessionFeeAud: draft.sessionFeeAud,
       sessionTypeFees: draft.sessionTypeFees,
       ageFees: cleanedAgeFees,
+      payoutModel: draft.payoutModel,
     };
 
     try {
@@ -249,6 +253,7 @@ export function AcademyClient() {
         session_fee_aud: newAcademy.sessionFeeAud,
         session_type_fees: newAcademy.sessionTypeFees as Record<string, number>,
         age_fees: cleanedAgeFees as Record<string, number>,
+        payout_model: newAcademy.payoutModel,
       });
     } catch (err) {
       const msg = (err as { message?: string })?.message ?? String(err);
@@ -1185,6 +1190,41 @@ export function AcademyClient() {
                       ))}
                     </div>
                   </div>
+                </div>
+              </section>
+
+              {/* Payout Model */}
+              <section>
+                <p className={sectionLbl}>Payout Model</p>
+                <div className="bg-ink rounded-xl p-4 space-y-2">
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="payoutModel"
+                      checked={draft.payoutModel === "head_coach"}
+                      onChange={() => setDraft({ ...draft, payoutModel: "head_coach" })}
+                      className="w-4 h-4 mt-0.5 accent-pace-green cursor-pointer"
+                    />
+                    <span>
+                      <span className="text-sm text-white font-medium block">Head Coach Receives All</span>
+                      <span className="text-xs text-zinc-500">
+                        {allCoaches.find((c) => c.id === draft.headCoachId)?.name ?? "The head coach"} receives all booking and pack revenue for this academy.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="payoutModel"
+                      checked={draft.payoutModel === "split_by_coach"}
+                      onChange={() => setDraft({ ...draft, payoutModel: "split_by_coach" })}
+                      className="w-4 h-4 mt-0.5 accent-pace-green cursor-pointer"
+                    />
+                    <span>
+                      <span className="text-sm text-white font-medium block">Split by Servicing Coach</span>
+                      <span className="text-xs text-zinc-500">Each coach receives revenue for the bookings and packs tied to them directly.</span>
+                    </span>
+                  </label>
                 </div>
               </section>
 

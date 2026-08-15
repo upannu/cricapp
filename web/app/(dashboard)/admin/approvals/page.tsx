@@ -142,6 +142,7 @@ export default function ApprovalsPage() {
         id, name: newAcademyName.trim(), description: "", location: newAcademyLocation.trim(),
         playerIds: [], playerCounts: {}, coachIds: [], headCoachId: "", stage: "Foundation",
         coachName: "", startDate: today, status: "Active", sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
+        payoutModel: "head_coach",
       }]);
       setSelectedAcademy(id);
       setCreatingAcademy(false);

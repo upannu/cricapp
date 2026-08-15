@@ -170,7 +170,10 @@ export function SessionPacksClient() {
 
   function handlePlayerChange(playerId: string) {
     const fee = draft.academyId ? feeForAcademyAndType(draft.academyId, draft.sessionType, playerId) : 0;
-    setDraft({ ...draft, playerId, feePerSession: fee || draft.feePerSession });
+    // Default the pack's payout coach to the player's own assigned coach — only meaningful once
+    // the academy is in split-payout mode, but harmless (and useful) to populate regardless.
+    const player = playerById(playerId);
+    setDraft({ ...draft, playerId, feePerSession: fee || draft.feePerSession, coachId: player?.coachId ?? draft.coachId });
   }
 
   function handleSave() {
@@ -183,6 +186,7 @@ export function SessionPacksClient() {
       id: `sp_${Date.now()}`,
       playerId: draft.playerId,
       academyId: draft.academyId,
+      coachId: draft.coachId,
       sessionType: draft.sessionType,
       purchaseDate: draft.purchaseDate,
       totalSessions: draft.totalSessions,
@@ -197,6 +201,7 @@ export function SessionPacksClient() {
 
     upsertSessionPack({
       id: newPack.id, player_id: newPack.playerId, academy_id: newPack.academyId,
+      coach_id: newPack.coachId ?? null,
       session_type: newPack.sessionType, purchase_date: newPack.purchaseDate,
       total_sessions: newPack.totalSessions, sessions_used: 0, session_credits: 0,
       fee_per_session: newPack.feePerSession, status: "Active",
@@ -334,6 +339,21 @@ export function SessionPacksClient() {
                   <option key={a.id} value={a.id}>{a.name}</option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className={lbl}>Coach</label>
+              <select
+                value={draft.coachId ?? ""}
+                onChange={(e) => setDraft({ ...draft, coachId: e.target.value || undefined })}
+                className={sel}
+              >
+                <option value="">— Unassigned —</option>
+                {_packCoaches.filter((c) => !draft.academyId || c.academyId === draft.academyId).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-zinc-500 mt-1">Who this pack's revenue pays out to, if the academy splits payouts by coach.</p>
             </div>
 
             <div>

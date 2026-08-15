@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, deleteCoach, reassignCoachPlayers } from "@/lib/db";
+import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, deleteCoach, reassignCoachPlayers, upsertAcademy } from "@/lib/db";
 import { DateInput } from "@/components/DateInput";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
@@ -63,8 +63,12 @@ export function CoachesClient() {
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [inviteError, setInviteError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [reassignTarget, setReassignTarget] = useState<{ coachId: string; playerCount: number } | null>(null);
+  const [reassignTarget, setReassignTarget] = useState<{
+    coachId: string; playerCount: number;
+    headCoachAcademy?: { id: string; name: string; otherCoachIds: string[] };
+  } | null>(null);
   const [reassignToCoachId, setReassignToCoachId] = useState("");
+  const [newHeadCoachId, setNewHeadCoachId] = useState("");
   const [reassigning, setReassigning] = useState(false);
   const [payoutLoading, setPayoutLoading] = useState<string | null>(null);
   const [payoutError, setPayoutError] = useState<{ coachId: string; message: string } | null>(null);
@@ -253,10 +257,25 @@ export function CoachesClient() {
   }
 
   function handleDelete(id: string) {
+    // A coach who's still an academy's head coach can't be safely deleted — the DB blocks it too
+    // (payouts for that academy would otherwise silently break), but resolve it here first so the
+    // person gets a clear reassignment step instead of a raw error.
+    const headCoachAcademy = _coachAcademies.find((a) => a.headCoachId === id);
+    const otherCoachIds = headCoachAcademy ? headCoachAcademy.coachIds.filter((cid) => cid !== id) : [];
+    if (headCoachAcademy && otherCoachIds.length === 0) {
+      setFormError(`${coaches.find((c) => c.id === id)?.name ?? "This coach"} is the only coach for ${headCoachAcademy.name} — add another coach before removing them.`);
+      return;
+    }
+
     const playerCount = playerCountForCoach(id);
-    if (playerCount > 0) {
-      setReassignTarget({ coachId: id, playerCount });
+    if (headCoachAcademy || playerCount > 0) {
+      setReassignTarget({
+        coachId: id,
+        playerCount,
+        headCoachAcademy: headCoachAcademy ? { id: headCoachAcademy.id, name: headCoachAcademy.name, otherCoachIds } : undefined,
+      });
       setReassignToCoachId("");
+      setNewHeadCoachId("");
       return;
     }
     deleteCoach(id);
@@ -266,8 +285,24 @@ export function CoachesClient() {
 
   async function confirmReassignAndDelete() {
     if (!reassignTarget) return;
+    if (reassignTarget.headCoachAcademy && !newHeadCoachId) {
+      setFormError("Choose a new head coach before deleting.");
+      return;
+    }
     setReassigning(true);
     try {
+      if (reassignTarget.headCoachAcademy) {
+        await upsertAcademy({
+          id: reassignTarget.headCoachAcademy.id,
+          head_coach_id: newHeadCoachId,
+          coach_ids: reassignTarget.headCoachAcademy.otherCoachIds,
+        });
+        _coachAcademies = _coachAcademies.map((a) =>
+          a.id === reassignTarget.headCoachAcademy!.id
+            ? { ...a, headCoachId: newHeadCoachId, coachIds: reassignTarget.headCoachAcademy!.otherCoachIds }
+            : a
+        );
+      }
       await reassignCoachPlayers(reassignTarget.coachId, reassignToCoachId || null);
       await deleteCoach(reassignTarget.coachId);
       _coachPlayers = _coachPlayers.map((p) =>
@@ -276,6 +311,8 @@ export function CoachesClient() {
       setCoaches((prev) => prev.filter((c) => c.id !== reassignTarget.coachId));
       setReassignTarget(null);
       closeForm();
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
     } finally {
       setReassigning(false);
     }
@@ -526,29 +563,54 @@ export function CoachesClient() {
           </div>
 
           {reassignTarget?.coachId === editingId && (
-            <div className="mt-4 pt-4 border-t border-zinc-700/50 bg-red-500/5 border border-red-500/20 rounded-xl p-4">
-              <p className="text-sm text-white font-semibold mb-1">
-                {reassignTarget.playerCount} player{reassignTarget.playerCount !== 1 ? "s are" : " is"} still assigned to this coach
-              </p>
-              <p className="text-xs text-zinc-400 mb-3">
-                Choose where to move them before deleting — this coach can&apos;t be deleted while players still point to it.
-              </p>
+            <div className="mt-4 pt-4 border-t border-zinc-700/50 bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-4">
+              {reassignTarget.headCoachAcademy && (
+                <div>
+                  <p className="text-sm text-white font-semibold mb-1">
+                    This coach is the head coach of {reassignTarget.headCoachAcademy.name}
+                  </p>
+                  <p className="text-xs text-zinc-400 mb-2">
+                    Choose who takes over as head coach — payouts for this academy go to whoever holds this role.
+                  </p>
+                  <select
+                    value={newHeadCoachId}
+                    onChange={(e) => setNewHeadCoachId(e.target.value)}
+                    className="bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+                  >
+                    <option value="">— Select new head coach —</option>
+                    {reassignTarget.headCoachAcademy.otherCoachIds.map((cid) => {
+                      const c = coaches.find((co) => co.id === cid);
+                      return c ? <option key={cid} value={cid}>{c.name}</option> : null;
+                    })}
+                  </select>
+                </div>
+              )}
+              {reassignTarget.playerCount > 0 && (
+                <div>
+                  <p className="text-sm text-white font-semibold mb-1">
+                    {reassignTarget.playerCount} player{reassignTarget.playerCount !== 1 ? "s are" : " is"} still assigned to this coach
+                  </p>
+                  <p className="text-xs text-zinc-400 mb-2">
+                    Choose where to move them before deleting — this coach can&apos;t be deleted while players still point to it.
+                  </p>
+                  <select
+                    value={reassignToCoachId}
+                    onChange={(e) => setReassignToCoachId(e.target.value)}
+                    className="bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+                  >
+                    <option value="">— Leave unassigned —</option>
+                    {coaches.filter((c) => c.id !== reassignTarget.coachId).map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex items-center gap-3">
-                <select
-                  value={reassignToCoachId}
-                  onChange={(e) => setReassignToCoachId(e.target.value)}
-                  className="bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
-                >
-                  <option value="">— Leave unassigned —</option>
-                  {coaches.filter((c) => c.id !== reassignTarget.coachId).map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
                 <button type="button" onClick={confirmReassignAndDelete} disabled={reassigning}
                   className="px-4 py-2.5 text-sm font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer">
-                  {reassigning ? "Moving players…" : "Reassign & Delete Coach"}
+                  {reassigning ? "Saving…" : "Reassign & Delete Coach"}
                 </button>
-                <button type="button" onClick={() => setReassignTarget(null)} disabled={reassigning}
+                <button type="button" onClick={() => { setReassignTarget(null); setFormError(""); }} disabled={reassigning}
                   className="text-xs text-zinc-500 hover:text-white cursor-pointer">
                   Cancel
                 </button>

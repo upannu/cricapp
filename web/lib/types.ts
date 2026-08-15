@@ -127,6 +127,9 @@ export interface Academy {
   planId?: string;
   /** Only meaningful when the active plan has accessDurationMonths set (e.g. the board tier). */
   accessExpiresAt?: string;
+  /** 'head_coach' (default): all booking/pack revenue pays out to headCoachId. 'split_by_coach':
+   * each booking/pack pays out to its own coach directly. */
+  payoutModel: 'head_coach' | 'split_by_coach';
 }
 
 export type UserRole = 'platform_admin' | 'academy_admin' | 'coach' | 'player' | 'parent';
@@ -158,6 +161,10 @@ export interface SessionPack {
   id: string;
   playerId: string;
   academyId: string;
+  /** The coach this pack's revenue belongs to when the academy is in split-payout mode — a pack
+   * has no single naturally-owning coach the way a booking does (it funds group sessions that may
+   * be run by whichever coach), so this is set explicitly at creation rather than inferred. */
+  coachId?: string;
   sessionType: BookingType;
   purchaseDate: string;
   totalSessions: number;

@@ -61,6 +61,7 @@ export interface DbAcademy {
   stripe_customer_id?: string | null; stripe_subscription_id?: string | null;
   subscription_status?: string | null; plan_id?: string | null;
   access_expires_at?: string | null;
+  payout_model?: string;
 }
 
 export interface DbBooking {
@@ -85,7 +86,7 @@ export interface DbSession {
 }
 
 export interface DbSessionPack {
-  id: string; player_id: string; academy_id: string; session_type: string;
+  id: string; player_id: string; academy_id: string; coach_id?: string | null; session_type: string;
   purchase_date: string; total_sessions: number; sessions_used: number;
   session_credits: number; fee_per_session: number; status: string;
   payment_status: string; payment_due_date: string; agreed_days?: string[];
@@ -198,6 +199,7 @@ export function dbToAcademy(r: DbAcademy): Academy {
     subscriptionStatus: r.subscription_status ?? undefined,
     planId: r.plan_id ?? undefined,
     accessExpiresAt: r.access_expires_at ?? undefined,
+    payoutModel: (r.payout_model as Academy["payoutModel"]) ?? "head_coach",
   };
 }
 
@@ -228,6 +230,7 @@ export function dbToSession(r: DbSession): Session {
 export function dbToSessionPack(r: DbSessionPack): SessionPack {
   return {
     id: r.id, playerId: r.player_id, academyId: r.academy_id,
+    coachId: r.coach_id ?? undefined,
     sessionType: r.session_type as BookingType,
     purchaseDate: r.purchase_date, totalSessions: r.total_sessions,
     sessionsUsed: r.sessions_used, sessionCredits: r.session_credits,
@@ -407,8 +410,23 @@ export async function setCoachesAcademy(academyId: string, coachIds: string[]): 
   if (error) throw error;
 }
 
+// Before deleting, strip this coach from every academy's coach_ids array that references them —
+// not just their own academy_id column — so a deleted coach never lingers as a dangling roster
+// entry. The caller is responsible for reassigning any academy's head_coach_id away from this
+// coach first (the DB trigger blocks the delete otherwise); this only cleans up coach_ids.
 export async function deleteCoach(id: string): Promise<void> {
   const sb = createClient();
+  const { data: referencingAcademies } = await sb
+    .from("academies")
+    .select("id, coach_ids")
+    .contains("coach_ids", [id]);
+  for (const a of (referencingAcademies ?? []) as { id: string; coach_ids: string[] }[]) {
+    const { error: updateError } = await sb
+      .from("academies")
+      .update({ coach_ids: (a.coach_ids ?? []).filter((cid) => cid !== id) })
+      .eq("id", a.id);
+    if (updateError) throw updateError;
+  }
   const { error } = await sb.from("coaches").delete().eq("id", id);
   if (error) throw error;
 }

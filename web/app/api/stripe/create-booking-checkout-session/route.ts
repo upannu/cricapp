@@ -5,9 +5,9 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 
 /**
- * Booking revenue belongs to the academy, same as packs (the booking UI already shows "Academy
- * keeps 90%") — so this pays out to the booked coach's academy's head coach, not the booked coach
- * directly. Individual coaches are staff; the academy is the financial party in this product.
+ * Payout destination depends on the academy's payout_model: 'head_coach' (default) routes 100%
+ * (minus the platform fee) to the academy's head coach — individual coaches are staff and the
+ * academy is the financial party. 'split_by_coach' routes it to the booked coach directly instead.
  */
 export async function POST(request: Request) {
   const { bookingId } = (await request.json()) as { bookingId?: string };
@@ -80,20 +80,39 @@ export async function POST(request: Request) {
 
   const { data: academy, error: academyError } = await supabase
     .from("academies")
-    .select("id, name, head_coach_id")
+    .select("id, name, head_coach_id, payout_model")
     .eq("id", coach.academy_id)
     .single();
-  if (academyError || !academy?.head_coach_id) {
-    return NextResponse.json({ error: "This academy has no head coach assigned to receive payouts." }, { status: 400 });
+  if (academyError) {
+    return NextResponse.json({ error: "Academy not found." }, { status: 404 });
   }
 
-  const { data: headCoach, error: headCoachError } = await supabase
-    .from("coaches")
-    .select("id, stripe_connect_account_id, stripe_connect_onboarded")
-    .eq("id", academy.head_coach_id)
-    .single();
-  if (headCoachError || !headCoach?.stripe_connect_account_id || !headCoach.stripe_connect_onboarded) {
-    return NextResponse.json({ error: `${academy.name}'s head coach hasn't finished setting up payouts yet.` }, { status: 400 });
+  // Split mode pays the servicing coach directly — the `coach` record (booking.coach_id) is
+  // already fetched above, so this reuses it rather than resolving a head coach at all.
+  let destinationAccountId: string;
+  if (academy.payout_model === "split_by_coach") {
+    const { data: fullCoach } = await supabase
+      .from("coaches")
+      .select("stripe_connect_account_id, stripe_connect_onboarded")
+      .eq("id", coach.id)
+      .single();
+    if (!fullCoach?.stripe_connect_account_id || !fullCoach.stripe_connect_onboarded) {
+      return NextResponse.json({ error: `${coach.name} hasn't finished setting up payouts yet.` }, { status: 400 });
+    }
+    destinationAccountId = fullCoach.stripe_connect_account_id;
+  } else {
+    if (!academy.head_coach_id) {
+      return NextResponse.json({ error: "This academy has no head coach assigned to receive payouts." }, { status: 400 });
+    }
+    const { data: headCoach, error: headCoachError } = await supabase
+      .from("coaches")
+      .select("id, stripe_connect_account_id, stripe_connect_onboarded")
+      .eq("id", academy.head_coach_id)
+      .single();
+    if (headCoachError || !headCoach?.stripe_connect_account_id || !headCoach.stripe_connect_onboarded) {
+      return NextResponse.json({ error: `${academy.name}'s head coach hasn't finished setting up payouts yet.` }, { status: 400 });
+    }
+    destinationAccountId = headCoach.stripe_connect_account_id;
   }
 
   try {
@@ -127,7 +146,7 @@ export async function POST(request: Request) {
       }],
       payment_intent_data: {
         application_fee_amount: platformFeeCents,
-        transfer_data: { destination: headCoach.stripe_connect_account_id },
+        transfer_data: { destination: destinationAccountId },
       },
       metadata: { type: "booking_payment", booking_id: bookingId },
       success_url: `${origin}/bookings?checkout=success`,

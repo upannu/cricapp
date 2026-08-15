@@ -5,9 +5,12 @@ import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 
 /**
- * Pack revenue belongs to the academy (the pack UI already shows "Academy keeps 90%"), and an
- * Academy has no email/bank-account concept of its own — so the payout destination is the
- * academy's head coach's Connect account, reusing the same onboarding as the booking marketplace.
+ * Payout destination depends on the academy's payout_model: 'head_coach' (default) — an Academy
+ * has no email/bank-account concept of its own, so revenue goes to the academy's head coach's
+ * Connect account. 'split_by_coach' — a pack has no single naturally-owning coach the way a
+ * booking does (it funds group sessions, potentially run by different coaches over time), so the
+ * destination is whichever coach was explicitly assigned to the pack at creation (pack.coach_id);
+ * falls back to the head coach if the pack was never assigned one.
  */
 export async function POST(request: Request) {
   const { packId } = (await request.json()) as { packId?: string };
@@ -38,7 +41,7 @@ export async function POST(request: Request) {
 
   const { data: pack, error: packError } = await supabase
     .from("session_packs")
-    .select("id, player_id, academy_id, session_type, total_sessions, fee_per_session, payment_status")
+    .select("id, player_id, academy_id, coach_id, session_type, total_sessions, fee_per_session, payment_status")
     .eq("id", packId)
     .single();
   if (packError || !pack) {
@@ -65,21 +68,45 @@ export async function POST(request: Request) {
 
   const { data: academy, error: academyError } = await supabase
     .from("academies")
-    .select("id, name, head_coach_id")
+    .select("id, name, head_coach_id, payout_model")
     .eq("id", pack.academy_id)
     .single();
-  if (academyError || !academy?.head_coach_id) {
-    return NextResponse.json({ error: "This academy has no head coach assigned to receive payouts." }, { status: 400 });
+  if (academyError) {
+    return NextResponse.json({ error: "Academy not found." }, { status: 404 });
   }
 
-  const { data: headCoach, error: headCoachError } = await supabase
-    .from("coaches")
-    .select("id, stripe_connect_account_id, stripe_connect_onboarded")
-    .eq("id", academy.head_coach_id)
-    .single();
-  if (headCoachError || !headCoach?.stripe_connect_account_id || !headCoach.stripe_connect_onboarded) {
-    return NextResponse.json({ error: `${academy.name}'s head coach hasn't finished setting up payouts yet.` }, { status: 400 });
+  // Split mode pays whichever coach was explicitly assigned to the pack at creation time (a pack
+  // has no single naturally-owning coach the way a booking does). If no coach was assigned, or
+  // they're not onboarded yet, fall back to the head coach rather than hard-failing the purchase.
+  let destinationAccountId: string | undefined;
+  if (academy.payout_model === "split_by_coach" && pack.coach_id) {
+    const { data: assignedCoach } = await supabase
+      .from("coaches")
+      .select("stripe_connect_account_id, stripe_connect_onboarded")
+      .eq("id", pack.coach_id)
+      .single();
+    if (assignedCoach?.stripe_connect_account_id && assignedCoach.stripe_connect_onboarded) {
+      destinationAccountId = assignedCoach.stripe_connect_account_id;
+    }
   }
+  if (!destinationAccountId) {
+    if (!academy.head_coach_id) {
+      return NextResponse.json({ error: "This academy has no head coach assigned to receive payouts." }, { status: 400 });
+    }
+    const { data: headCoach, error: headCoachError } = await supabase
+      .from("coaches")
+      .select("id, stripe_connect_account_id, stripe_connect_onboarded")
+      .eq("id", academy.head_coach_id)
+      .single();
+    if (headCoachError || !headCoach?.stripe_connect_account_id || !headCoach.stripe_connect_onboarded) {
+      return NextResponse.json({ error: `${academy.name}'s head coach hasn't finished setting up payouts yet.` }, { status: 400 });
+    }
+    destinationAccountId = headCoach.stripe_connect_account_id;
+  }
+  if (!destinationAccountId) {
+    return NextResponse.json({ error: "Could not resolve a payout destination for this pack." }, { status: 400 });
+  }
+  const resolvedDestination: string = destinationAccountId;
 
   try {
     let customerId = player.stripe_customer_id as string | null;
@@ -114,7 +141,7 @@ export async function POST(request: Request) {
       }],
       payment_intent_data: {
         application_fee_amount: platformFeeCents,
-        transfer_data: { destination: headCoach.stripe_connect_account_id },
+        transfer_data: { destination: resolvedDestination },
       },
       metadata: { type: "pack_payment", pack_id: packId },
       success_url: `${origin}/session-packs?checkout=success`,
