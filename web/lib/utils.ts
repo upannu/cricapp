@@ -1,4 +1,4 @@
-import type { Academy, Coach, Player, PlayerStatus, BookingType } from './types';
+import type { Academy, Coach, Player, PlayerStatus, BookingType, Plan } from './types';
 
 /** Great-circle distance in km between two lat/lng points (Haversine formula). */
 export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -51,9 +51,15 @@ export function getCoachOrAcademyLabel(player: Player, coaches: Coach[], academi
   return academy ? academy.name : 'Unassigned';
 }
 
-/** Pricing lives on the Academy, not the Coach — a coach's fee for a session is whatever their academy charges for that session type. */
-export function getSessionFee(coach: Coach | undefined, academies: Academy[], type: BookingType): number {
+/** Pricing lives on the Academy, not the Coach — a coach's fee for a session is whatever their
+ * academy charges for that session type, unless the academy's own plan waives player session
+ * fees entirely (e.g. a cricket board license), in which case it's always free. */
+export function getSessionFee(coach: Coach | undefined, academies: Academy[], type: BookingType, plans: Plan[] = []): number {
   if (!coach) return 0;
   const academy = academies.find((a) => a.id === coach.academyId);
+  if (academy?.planId) {
+    const plan = plans.find((p) => p.id === academy.planId);
+    if (plan?.waivesSessionFees) return 0;
+  }
   return academy?.sessionTypeFees[type] ?? academy?.sessionFeeAud ?? 0;
 }

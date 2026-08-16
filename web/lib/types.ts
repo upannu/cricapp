@@ -24,6 +24,9 @@ export interface Plan {
   seatCap: number | null;
   accessDurationMonths: number | null;
   includedNotes: string | null;
+  /** Players at an academy on this plan never pay a session fee for bookings/packs — the
+   * academy's own subscription covers it (e.g. a cricket board license). */
+  waivesSessionFees: boolean;
   active: boolean;
   sortOrder: number;
 }

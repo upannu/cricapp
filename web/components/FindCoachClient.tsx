@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayer, fetchCoaches, fetchAcademies, upsertBooking } from "@/lib/db";
+import { fetchPlayer, fetchCoaches, fetchAcademies, fetchActivePlans, upsertBooking } from "@/lib/db";
 import { getSessionFee, getInitials, distanceKm } from "@/lib/utils";
 import { canUseMarketplace } from "@/lib/plan-features";
-import type { Player, Coach, Academy, AgeGroup, BookingType } from "@/lib/types";
+import type { Player, Coach, Academy, AgeGroup, BookingType, Plan } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 
 const BOOKING_TYPES: BookingType[] = [
@@ -21,6 +21,7 @@ export function FindCoachClient() {
   const [player, setPlayer] = useState<Player | null>(null);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [academies, setAcademies] = useState<Academy[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [specFilter, setSpecFilter] = useState("");
   const [ageFilter, setAgeFilter] = useState<AgeGroup | "all">("all");
@@ -58,10 +59,12 @@ export function FindCoachClient() {
       fetchPlayer(user.playerId),
       fetchCoaches(),
       fetchAcademies(),
-    ]).then(([p, c, ac]) => {
+      fetchActivePlans(),
+    ]).then(([p, c, ac, pl]) => {
       setPlayer(p);
       setCoaches(c);
       setAcademies(ac);
+      setPlans(pl);
       setLoading(false);
     });
   }, [user]);
@@ -232,6 +235,7 @@ export function FindCoachClient() {
           coach={requestCoach}
           player={player}
           academies={academies}
+          plans={plans}
           onClose={() => setRequestCoach(null)}
         />
       )}
@@ -243,11 +247,13 @@ function RequestBookingModal({
   coach,
   player,
   academies,
+  plans,
   onClose,
 }: {
   coach: Coach;
   player: Player;
   academies: Academy[];
+  plans: Plan[];
   onClose: () => void;
 }) {
   const today = new Date().toISOString().split("T")[0];
@@ -259,7 +265,9 @@ function RequestBookingModal({
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
-  const fee = getSessionFee(coach, academies, type);
+  const fee = getSessionFee(coach, academies, type, plans);
+  const academy = academies.find((a) => a.id === coach.academyId);
+  const feesWaived = !!academy?.planId && !!plans.find((p) => p.id === academy.planId)?.waivesSessionFees;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -331,8 +339,8 @@ function RequestBookingModal({
               </div>
 
               <div className="flex items-center justify-between bg-ink rounded-xl px-4 py-3">
-                <span className="text-xs text-zinc-400">Estimated fee</span>
-                <span className="text-pace-green font-mono font-bold text-sm">${fee}</span>
+                <span className="text-xs text-zinc-400">{feesWaived ? "Session fee" : "Estimated fee"}</span>
+                <span className="text-pace-green font-mono font-bold text-sm">{feesWaived ? "Covered by academy plan" : `$${fee}`}</span>
               </div>
 
               {error && <p className="text-red-400 text-xs">{error}</p>}

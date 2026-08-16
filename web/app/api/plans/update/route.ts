@@ -14,6 +14,7 @@ interface PlanInput {
   seatCap?: number | null;
   accessDurationMonths?: number | null;
   includedNotes?: string | null;
+  waivesSessionFees?: boolean;
   active?: boolean;
   sortOrder?: number;
 }
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
     seat_cap: input.seatCap ?? null,
     access_duration_months: input.accessDurationMonths ?? null,
     included_notes: input.includedNotes?.trim() || null,
+    waives_session_fees: input.waivesSessionFees ?? false,
     active: input.active ?? true,
     sort_order: input.sortOrder ?? 0,
     updated_at: new Date().toISOString(),

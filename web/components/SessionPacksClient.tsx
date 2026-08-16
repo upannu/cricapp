@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus } from "@/lib/types";
+import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, upsertSessionPack, updatePackPaymentStatus, updatePackAgreedDays } from "@/lib/db";
+import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, upsertSessionPack, updatePackPaymentStatus, updatePackAgreedDays } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 
@@ -28,10 +28,18 @@ let _packPlayers: Player[] = [];
 let _packAcademies: Academy[] = [];
 let _packCoaches: Coach[] = [];
 let _packBookings: Booking[] = [];
+let _packPlans: Plan[] = [];
+
+function academyWaivesFees(academyId: string): boolean {
+  const academy = _packAcademies.find((a) => a.id === academyId);
+  const plan = academy?.planId ? _packPlans.find((p) => p.id === academy.planId) : undefined;
+  return !!plan?.waivesSessionFees;
+}
 
 function feeForAcademyAndType(academyId: string, type: BookingType, playerId?: string): number {
   const academy = _packAcademies.find((a) => a.id === academyId);
   if (!academy) return 0;
+  if (academyWaivesFees(academyId)) return 0;
   // Age-group fee → session-type fee → academy default
   const player = playerId ? _packPlayers.find((p) => p.id === playerId) : undefined;
   const ageFee = player ? (academy.ageFees[player.ageGroup] ?? 0) : 0;
@@ -88,8 +96,9 @@ export function SessionPacksClient() {
       fetchPlayers(coachId, academyId),
       fetchAcademies(),
       fetchCoaches(academyId),
-    ]).then(([pl, ac, co]) => {
-      _packPlayers = pl; _packAcademies = ac; _packCoaches = co;
+      fetchActivePlans(),
+    ]).then(([pl, ac, co, plans]) => {
+      _packPlayers = pl; _packAcademies = ac; _packCoaches = co; _packPlans = plans;
       const scopedPlayerIds = (coachId || academyId) ? pl.map((p) => p.id) : undefined;
       return Promise.all([fetchSessionPacks(scopedPlayerIds), fetchBookings(undefined, undefined, scopedPlayerIds)]);
     }).then(([pk, bk]) => {
@@ -179,9 +188,16 @@ export function SessionPacksClient() {
   function handleSave() {
     if (!draft.playerId) { setFormError("Please select a player."); return; }
     if (!draft.academyId) { setFormError("Please select an academy."); return; }
-    if (draft.feePerSession <= 0) { setFormError("Session fee must be greater than $0."); return; }
+    if (draft.feePerSession <= 0 && !academyWaivesFees(draft.academyId)) {
+      setFormError("Session fee must be greater than $0.");
+      return;
+    }
     setFormError("");
 
+    // A fee-waived pack has nothing to pay — mark it settled immediately rather than leaving it
+    // sitting as "Pending" forever, which would otherwise show a misleading payment-due badge.
+    const waived = academyWaivesFees(draft.academyId);
+    const paymentStatus: PaymentStatus = waived ? "Paid" : "Pending";
     const newPack: SessionPack = {
       id: `sp_${Date.now()}`,
       playerId: draft.playerId,
@@ -194,7 +210,7 @@ export function SessionPacksClient() {
       sessionCredits: 0,
       feePerSession: draft.feePerSession,
       status: "Active",
-      paymentStatus: "Pending",
+      paymentStatus,
       paymentDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
       agreedDays: [],
     };
@@ -205,7 +221,7 @@ export function SessionPacksClient() {
       session_type: newPack.sessionType, purchase_date: newPack.purchaseDate,
       total_sessions: newPack.totalSessions, sessions_used: 0, session_credits: 0,
       fee_per_session: newPack.feePerSession, status: "Active",
-      payment_status: "Pending", payment_due_date: newPack.paymentDueDate,
+      payment_status: paymentStatus, payment_due_date: newPack.paymentDueDate,
     });
 
     setPacks((prev) => {
@@ -388,9 +404,12 @@ export function SessionPacksClient() {
                   onChange={(e) => setDraft({ ...draft, feePerSession: parseFloat(e.target.value) || 0 })}
                   className={`${inp} pl-8`}
                   placeholder="0.00"
+                  disabled={!!draft.academyId && academyWaivesFees(draft.academyId)}
                 />
               </div>
-              {(() => {
+              {draft.academyId && academyWaivesFees(draft.academyId) ? (
+                <p className="text-xs text-pace-green mt-1.5">✓ Covered by the academy's plan — no session fee</p>
+              ) : (() => {
                 if (!draft.playerId || !draft.academyId) return null;
                 const player = _packPlayers.find((p) => p.id === draft.playerId);
                 const academy = _packAcademies.find((a) => a.id === draft.academyId);
@@ -685,6 +704,11 @@ export function SessionPacksClient() {
                     </div>
 
                     {/* Pricing */}
+                    {pack.feePerSession === 0 && academyWaivesFees(pack.academyId) ? (
+                      <div className="bg-ink rounded-xl p-4 mb-4">
+                        <p className="text-sm text-pace-green font-semibold">✓ Covered by the academy's plan — no session fee</p>
+                      </div>
+                    ) : (
                     <div className="bg-ink rounded-xl p-4 grid grid-cols-3 gap-3 text-center mb-4">
                       <div>
                         <div className="text-sm font-bold text-white">${pack.feePerSession}/session</div>
@@ -699,6 +723,7 @@ export function SessionPacksClient() {
                         <div className="text-xs text-zinc-500 mt-0.5">Academy receives</div>
                       </div>
                     </div>
+                    )}
 
                     {/* Credit button */}
                     {pack.status === "Active" && (

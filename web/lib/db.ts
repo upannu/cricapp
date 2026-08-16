@@ -1145,6 +1145,7 @@ export interface DbPlan {
   seat_cap: number | null;
   access_duration_months: number | null;
   included_notes: string | null;
+  waives_session_fees?: boolean;
   active: boolean;
   sort_order: number;
 }
@@ -1161,6 +1162,7 @@ export function dbToPlan(r: DbPlan): Plan {
     seatCap: r.seat_cap,
     accessDurationMonths: r.access_duration_months,
     includedNotes: r.included_notes,
+    waivesSessionFees: r.waives_session_fees ?? false,
     active: r.active,
     sortOrder: r.sort_order,
   };

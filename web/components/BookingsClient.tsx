@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import type { Booking, BookingStatus, BookingType, Player, Coach, SessionPack, Academy } from "@/lib/types";
+import type { Booking, BookingStatus, BookingType, Player, Coach, SessionPack, Academy, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus } from "@/lib/db";
+import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchActivePlans, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus } from "@/lib/db";
 import { formatDate, getSessionFee } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 
@@ -56,9 +56,18 @@ const today = new Date().toISOString().split("T")[0];
 // These are populated from DB and used by module-level helpers below
 let _coaches: Coach[] = [];
 let _academies: Academy[] = [];
+let _plans: Plan[] = [];
 
 function feeForCoachAndType(coachId: string, type: BookingType): number {
-  return getSessionFee(_coaches.find((c) => c.id === coachId), _academies, type);
+  return getSessionFee(_coaches.find((c) => c.id === coachId), _academies, type, _plans);
+}
+
+/** True when the coach's academy is on a plan that waives player session fees entirely. */
+function feesWaivedForCoach(coachId: string): boolean {
+  const coach = _coaches.find((c) => c.id === coachId);
+  const academy = coach ? _academies.find((a) => a.id === coach.academyId) : undefined;
+  const plan = academy?.planId ? _plans.find((p) => p.id === academy.planId) : undefined;
+  return !!plan?.waivesSessionFees;
 }
 
 const EMPTY_DRAFT: DraftBooking = {
@@ -116,8 +125,9 @@ export function BookingsClient() {
       fetchPlayers(coachId, academyId),
       fetchCoaches(academyId),
       fetchAcademies(),
-    ]).then(([pl, co, ac]) => {
-      _players = pl; _coaches = co; _academies = ac;
+      fetchActivePlans(),
+    ]).then(([pl, co, ac, plans]) => {
+      _players = pl; _coaches = co; _academies = ac; _plans = plans;
       const scopedPlayerIds = academyId ? pl.map((p) => p.id) : undefined;
       return Promise.all([fetchBookings(coachId, undefined, scopedPlayerIds), fetchSessionPacks(scopedPlayerIds)]);
     }).then(([bk, pk]) => {
@@ -420,9 +430,12 @@ export function BookingsClient() {
                   onChange={(e) => setDraft({ ...draft, feeAud: parseFloat(e.target.value) || 0 })}
                   className={`${inp} pl-8`}
                   placeholder="Auto-filled from session type"
+                  disabled={feesWaivedForCoach(draft.coachId)}
                 />
               </div>
-              {draft.feeAud > 0 && (
+              {feesWaivedForCoach(draft.coachId) ? (
+                <p className="text-xs text-pace-green mt-1.5">✓ Covered by the academy's plan — no session fee</p>
+              ) : draft.feeAud > 0 && (
                 <div className="flex gap-4 mt-1.5 text-[11px]">
                   <span className="text-amber">Platform: ${(draft.feeAud * 0.10).toFixed(0)}</span>
                   <span className="text-pace-green">Academy: ${(draft.feeAud * 0.90).toFixed(0)}</span>
@@ -673,6 +686,9 @@ function BookingCard({
                     <div className="text-[10px] text-zinc-500">Academy (90%)</div>
                   </div>
                 </div>
+              )}
+              {b.feeAud === 0 && feesWaivedForCoach(b.coachId) && (
+                <p className="text-xs text-pace-green mt-3 pt-3 border-t border-zinc-700/50">✓ Covered by the academy's plan — no session fee</p>
               )}
               {b.feeAud > 0 && !b.packId && (
                 <div className="mt-3 pt-3 border-t border-zinc-700/50 flex items-center justify-between gap-3">

@@ -18,13 +18,14 @@ type Draft = {
   seatCap: string;
   accessDurationMonths: string;
   includedNotes: string;
+  waivesSessionFees: boolean;
   active: boolean;
   sortOrder: string;
 };
 
 const EMPTY_DRAFT: Draft = {
   slug: "", name: "", audience: "individual", billingType: "subscription", billingInterval: "month",
-  priceAud: "", seatCap: "", accessDurationMonths: "", includedNotes: "", active: true, sortOrder: "0",
+  priceAud: "", seatCap: "", accessDurationMonths: "", includedNotes: "", waivesSessionFees: false, active: true, sortOrder: "0",
 };
 
 function planToDraft(p: Plan): Draft {
@@ -39,6 +40,7 @@ function planToDraft(p: Plan): Draft {
     seatCap: p.seatCap != null ? String(p.seatCap) : "",
     accessDurationMonths: p.accessDurationMonths != null ? String(p.accessDurationMonths) : "",
     includedNotes: p.includedNotes ?? "",
+    waivesSessionFees: p.waivesSessionFees,
     active: p.active,
     sortOrder: String(p.sortOrder),
   };
@@ -100,6 +102,7 @@ export function PlansAdminClient() {
           seatCap: d.seatCap.trim() ? parseInt(d.seatCap, 10) : null,
           accessDurationMonths: d.accessDurationMonths.trim() ? parseInt(d.accessDurationMonths, 10) : null,
           includedNotes: d.includedNotes.trim() || null,
+          waivesSessionFees: d.waivesSessionFees,
           active: d.active,
           sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
         }),
@@ -112,7 +115,7 @@ export function PlansAdminClient() {
         billingType: d.billingType, billingInterval: d.billingType === "subscription" ? d.billingInterval : null,
         priceAud, seatCap: d.seatCap.trim() ? parseInt(d.seatCap, 10) : null,
         accessDurationMonths: d.accessDurationMonths.trim() ? parseInt(d.accessDurationMonths, 10) : null,
-        includedNotes: d.includedNotes.trim() || null, active: d.active,
+        includedNotes: d.includedNotes.trim() || null, waivesSessionFees: d.waivesSessionFees, active: d.active,
         sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
       };
       setPlans((prev) => {
@@ -176,6 +179,11 @@ export function PlansAdminClient() {
                   {!p.active && (
                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-500/20 text-red-400">
                       Inactive
+                    </span>
+                  )}
+                  {p.waivesSessionFees && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-pace-green/20 text-pace-green">
+                      Fees Waived
                     </span>
                   )}
                 </div>
@@ -301,6 +309,20 @@ export function PlansAdminClient() {
                 value={draft.includedNotes} onChange={(e) => setDraft({ ...draft, includedNotes: e.target.value })}
                 placeholder="e.g. Includes one 10-day in-person coaching visit per year"
               />
+            </div>
+
+            <div>
+              <label className="flex items-start gap-2.5 text-sm text-zinc-300 cursor-pointer select-none">
+                <input
+                  type="checkbox" checked={draft.waivesSessionFees}
+                  onChange={(e) => setDraft({ ...draft, waivesSessionFees: e.target.checked })}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="block text-white font-medium">Waives player session fees</span>
+                  <span className="block text-xs text-zinc-500">Players never pay for bookings or packs — the academy's own subscription covers it. Existing academies on this plan pick this up automatically.</span>
+                </span>
+              </label>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
