@@ -128,7 +128,7 @@ export async function POST(request: Request) {
   const { data: listData, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
   if (listError) return NextResponse.json({ error: listError.message }, { status: 500 });
 
-  const authUser = listData.users.find((u) => u.email === reqData.email);
+  const authUser = listData.users.find((u) => u.email?.toLowerCase() === reqData.email?.toLowerCase());
 
   if (!authUser) {
     await supabase.from("user_requests").delete().eq("id", userId);
