@@ -365,6 +365,14 @@ export async function insertPlayer(p: DbPlayer): Promise<void> {
   if (error) throw error;
 }
 
+/** Batched insert for CSV import — one round trip instead of N. */
+export async function insertPlayers(rows: DbPlayer[]): Promise<void> {
+  if (rows.length === 0) return;
+  const sb = createClient();
+  const { error } = await sb.from("players").insert(rows);
+  if (error) throw error;
+}
+
 export async function fetchCoaches(academyId?: string): Promise<Coach[]> {
   const sb = createClient();
   let q = sb.from("coaches").select("*").order("name");

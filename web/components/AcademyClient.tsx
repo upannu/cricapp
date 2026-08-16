@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Papa from "papaparse";
 import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, fetchActivePlans } from "@/lib/db";
+import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, insertPlayers, updateAcademyFields, fetchActivePlans } from "@/lib/db";
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 
@@ -50,6 +51,33 @@ const EMPTY_DRAFT: DraftAcademy = {
 type NewPlayerDraft = {
   name: string; email: string; ageGroup: AgeGroup; bowlingStyle: BowlingStyle; club: string;
 };
+
+type CsvRowStatus = "ready" | "warning" | "skipped" | "duplicate";
+type ParsedCsvRow = {
+  rowNum: number;
+  name: string;
+  email: string;
+  ageGroup: AgeGroup;
+  bowlingStyle: BowlingStyle;
+  club: string;
+  phone: string;
+  status: CsvRowStatus;
+  issues: string[];
+};
+
+const CSV_TEMPLATE = "name,email,ageGroup,bowlingStyle,club,phone\nJohn Smith,john@example.com,U14,Right Arm Fast,City Cricket Club,0412345678\n";
+
+function normalizeAgeGroup(raw: string | undefined): { value: AgeGroup; matched: boolean } {
+  const trimmed = (raw ?? "").trim();
+  const found = AGE_GROUPS.find((g) => g.toLowerCase() === trimmed.toLowerCase());
+  return found ? { value: found, matched: true } : { value: "U14", matched: false };
+}
+
+function normalizeBowlingStyle(raw: string | undefined): { value: BowlingStyle; matched: boolean } {
+  const trimmed = (raw ?? "").trim();
+  const found = BOWLING_STYLES.find((s) => s.toLowerCase() === trimmed.toLowerCase());
+  return found ? { value: found, matched: true } : { value: "Right Arm Fast", matched: false };
+}
 const EMPTY_NEW_PLAYER: NewPlayerDraft = {
   name: "", email: "", ageGroup: "U14", bowlingStyle: "Right Arm Fast", club: "",
 };
@@ -111,6 +139,14 @@ export function AcademyClient() {
   const [showNewPlayer,   setShowNewPlayer]   = useState(false);
   const [newPlayerDraft,  setNewPlayerDraft]  = useState<NewPlayerDraft>(EMPTY_NEW_PLAYER);
   const [newPlayerError,  setNewPlayerError]  = useState("");
+
+  // CSV import
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [csvRows,       setCsvRows]       = useState<ParsedCsvRow[]>([]);
+  const [csvFileName,   setCsvFileName]   = useState("");
+  const [csvError,      setCsvError]      = useState("");
+  const [csvImporting,  setCsvImporting]  = useState(false);
+  const [csvImportedCount, setCsvImportedCount] = useState<number | null>(null);
 
   // Filters
   const [search,       setSearch]       = useState("");
@@ -357,6 +393,129 @@ export function AcademyClient() {
     setAllPlayers((prev) => [...prev, newPlayer]);
     setDraft((prev) => ({ ...prev, playerIds: [...prev.playerIds, newId] }));
     setNewPlayerDraft(EMPTY_NEW_PLAYER); setNewPlayerError(""); setShowNewPlayer(false);
+  }
+
+  function downloadCsvTemplate() {
+    const blob = new Blob([CSV_TEMPLATE], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "players-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleCsvFileSelected(file: File) {
+    setCsvError(""); setCsvImportedCount(null); setCsvFileName(file.name);
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (results.errors.length > 0) {
+          setCsvError(`Could not parse the file: ${results.errors[0].message}`);
+          setCsvRows([]);
+          return;
+        }
+        const existingEmails = new Set(allPlayers.map((p) => p.email.trim().toLowerCase()).filter(Boolean));
+        const seenInFile = new Set<string>();
+        const rows: ParsedCsvRow[] = results.data.map((raw, i) => {
+          // papaparse's header matching is exact-case; accept common case variants of our columns.
+          const get = (key: string) => raw[key] ?? raw[key.toLowerCase()] ?? raw[key.toUpperCase()] ?? "";
+          const name = get("name").trim();
+          const email = get("email").trim();
+          const { value: ageGroup, matched: ageMatched } = normalizeAgeGroup(get("ageGroup") || get("age_group") || get("age group"));
+          const { value: bowlingStyle, matched: styleMatched } = normalizeBowlingStyle(get("bowlingStyle") || get("bowling_style") || get("bowling style"));
+          const club = get("club").trim();
+          const phone = get("phone").trim();
+
+          const issues: string[] = [];
+          let status: CsvRowStatus = "ready";
+          if (!name) { issues.push("Missing name"); status = "skipped"; }
+          if (!email) { issues.push("Missing email"); status = "skipped"; }
+          if (status !== "skipped") {
+            const emailKey = email.toLowerCase();
+            if (existingEmails.has(emailKey) || seenInFile.has(emailKey)) {
+              issues.push("Email already used by another player");
+              status = "duplicate";
+            }
+            seenInFile.add(emailKey);
+            if (!ageMatched) issues.push(`Unrecognized age group — defaulted to ${ageGroup}`);
+            if (!styleMatched) issues.push(`Unrecognized bowling style — defaulted to ${bowlingStyle}`);
+            if (status === "ready" && (!ageMatched || !styleMatched)) status = "warning";
+          }
+          return { rowNum: i + 2, name, email, ageGroup, bowlingStyle, club, phone, status, issues };
+        });
+        setCsvRows(rows);
+      },
+      error: (err) => {
+        setCsvError(err.message);
+        setCsvRows([]);
+      },
+    });
+  }
+
+  async function handleCsvImport() {
+    const importable = csvRows.filter((r) => r.status !== "skipped");
+    if (importable.length === 0) return;
+    setCsvImporting(true);
+    setCsvError("");
+    try {
+      const now = new Date().toISOString().split("T")[0];
+      const newPlayers: Player[] = importable.map((row, i) => ({
+        id: `p_${Date.now()}_${i}`, name: row.name, email: row.email,
+        phone: row.phone, ageGroup: row.ageGroup, bowlingStyle: row.bowlingStyle,
+        battingHand: "Right Hand", playingLevel: "Club", heightCm: null, weightKg: null,
+        club: row.club, addedDate: now, coachId: "",
+        guardianConsentStatus: "Pending",
+        subscription: {
+          plan: "Free", startDate: now,
+          endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+          sessionsUsed: 0, sessionsLimit: 4,
+        },
+        biomechanics: { ballSpeedKmh: 0, frontKneeAngleDeg: 0, actionType: "Side-on", injuryRisk: "Low", lastSession: now },
+        academy: { stage: "Foundation", completionPercent: 0, totalSessions: 0, xp: 0, articlesRead: 0 },
+        sessionsCount: 0, lastActive: now, xp: 0,
+        tipStreakCount: 0, tipBestStreak: 0,
+        assessmentCredits: 0,
+      }));
+
+      await insertPlayers(newPlayers.map((p) => ({
+        id: p.id, name: p.name, email: p.email, phone: p.phone,
+        bowling_style: p.bowlingStyle, age_group: p.ageGroup,
+        club: p.club, coach_id: null, guardian_consent_status: "Pending",
+        added_date: now, sessions_count: 0, last_active: now, xp: 0,
+        sub_plan: "Free", sub_start_date: now, sub_end_date: p.subscription.endDate,
+        sub_sessions_used: 0, sub_sessions_limit: 4,
+        bio_ball_speed_kmh: 0, bio_front_knee_angle_deg: 0, bio_action_type: "Side-on",
+        bio_injury_risk: "Low", bio_last_session: now,
+        acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
+        acad_xp: 0, acad_articles_read: 0,
+      })));
+
+      // Import happens immediately against the real academy row — unlike the rest of this form,
+      // it doesn't wait for the outer "Save Changes" click, since losing a bulk-imported roster
+      // to an accidentally-closed modal would be a much bigger deal than losing one manual add.
+      const newPlayerIds = newPlayers.map((p) => p.id);
+      const mergedPlayerIds = [...new Set([...draft.playerIds, ...newPlayerIds])];
+      const playerCounts: Partial<Record<AgeGroup, number>> = {};
+      const allForCount = [...allPlayers, ...newPlayers].filter((p) => mergedPlayerIds.includes(p.id));
+      for (const p of allForCount) playerCounts[p.ageGroup] = (playerCounts[p.ageGroup] ?? 0) + 1;
+      if (editingId) {
+        await updateAcademyFields(editingId, {
+          player_ids: mergedPlayerIds,
+          player_counts: playerCounts as Record<string, number>,
+        });
+      }
+
+      setAllPlayers((prev) => [...prev, ...newPlayers]);
+      setDraft((prev) => ({ ...prev, playerIds: mergedPlayerIds }));
+      setCsvImportedCount(newPlayers.length);
+      setCsvRows([]);
+      setCsvFileName("");
+    } catch (err) {
+      setCsvError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setCsvImporting(false);
+    }
   }
 
   async function handleAddNewCoach() {
@@ -1236,10 +1395,18 @@ export function AcademyClient() {
                       <span className="text-pace-green normal-case font-normal">({draft.playerIds.length} assigned)</span>
                     )}
                   </p>
-                  <button type="button" onClick={() => { setShowNewPlayer((v) => !v); setNewPlayerError(""); }}
-                    className="text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer">
-                    {showNewPlayer ? "Cancel" : "+ Add New Player"}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    {editingId && (
+                      <button type="button" onClick={() => { setShowCsvImport((v) => !v); setCsvError(""); setCsvRows([]); setCsvFileName(""); setCsvImportedCount(null); }}
+                        className="text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer">
+                        {showCsvImport ? "Cancel" : "Import CSV"}
+                      </button>
+                    )}
+                    <button type="button" onClick={() => { setShowNewPlayer((v) => !v); setNewPlayerError(""); }}
+                      className="text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer">
+                      {showNewPlayer ? "Cancel" : "+ Add New Player"}
+                    </button>
+                  </div>
                 </div>
 
                 {(() => {
@@ -1298,6 +1465,79 @@ export function AcademyClient() {
                       className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer">
                       Create & Assign
                     </button>
+                  </div>
+                )}
+
+                {showCsvImport && editingId && (
+                  <div className="bg-ink rounded-xl p-4 mb-3 border border-pace-green/30">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-pace-green">Import Players from CSV</p>
+                      <button type="button" onClick={downloadCsvTemplate}
+                        className="text-xs text-zinc-400 hover:text-white cursor-pointer underline">
+                        Download template
+                      </button>
+                    </div>
+                    <p className="text-xs text-zinc-500 mb-3">
+                      Columns: <span className="text-zinc-300">name*, email*, ageGroup, bowlingStyle, club, phone</span>. Name and email are required — other columns fall back to sensible defaults if missing or unrecognized.
+                    </p>
+                    <input
+                      type="file" accept=".csv,text/csv"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvFileSelected(f); }}
+                      className="text-xs text-zinc-300 mb-3 cursor-pointer file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-pace-green file:text-black file:text-xs file:font-bold file:cursor-pointer"
+                    />
+                    {csvError && <p className="text-red-400 text-xs mb-2">{csvError}</p>}
+                    {csvImportedCount !== null && (
+                      <p className="text-pace-green text-xs mb-2">✓ Imported {csvImportedCount} player{csvImportedCount === 1 ? "" : "s"} from {csvFileName}.</p>
+                    )}
+                    {csvRows.length > 0 && (
+                      <>
+                        <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-700 mb-3">
+                          <table className="w-full text-xs">
+                            <thead className="bg-zinc-800 sticky top-0">
+                              <tr className="text-left text-zinc-400">
+                                <th className="px-2 py-1.5">Row</th>
+                                <th className="px-2 py-1.5">Name</th>
+                                <th className="px-2 py-1.5">Email</th>
+                                <th className="px-2 py-1.5">Age</th>
+                                <th className="px-2 py-1.5">Style</th>
+                                <th className="px-2 py-1.5">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {csvRows.map((row) => (
+                                <tr key={row.rowNum} className="border-t border-zinc-800">
+                                  <td className="px-2 py-1.5 text-zinc-500">{row.rowNum}</td>
+                                  <td className="px-2 py-1.5 text-white">{row.name || "—"}</td>
+                                  <td className="px-2 py-1.5 text-zinc-300">{row.email || "—"}</td>
+                                  <td className="px-2 py-1.5 text-zinc-300">{row.ageGroup}</td>
+                                  <td className="px-2 py-1.5 text-zinc-300">{row.bowlingStyle}</td>
+                                  <td className="px-2 py-1.5">
+                                    <span
+                                      title={row.issues.join("; ")}
+                                      className={
+                                        row.status === "ready" ? "text-pace-green"
+                                        : row.status === "warning" ? "text-amber"
+                                        : row.status === "duplicate" ? "text-fire"
+                                        : "text-red-400"
+                                      }
+                                    >
+                                      {row.status === "ready" ? "✓ Ready"
+                                        : row.status === "warning" ? "⚠ Defaulted field"
+                                        : row.status === "duplicate" ? "⚠ Possible duplicate"
+                                        : "✗ Skipped"}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <button type="button" onClick={handleCsvImport} disabled={csvImporting || csvRows.every((r) => r.status === "skipped")}
+                          className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-60">
+                          {csvImporting ? "Importing…" : `Import ${csvRows.filter((r) => r.status !== "skipped").length} Player${csvRows.filter((r) => r.status !== "skipped").length === 1 ? "" : "s"}`}
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
 
