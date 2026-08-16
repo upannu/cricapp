@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchActivePlans } from "@/lib/db";
 import type { Academy, Plan } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
+import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
 
 export function AcademyBillingClient({ academy }: { academy: Academy }) {
   const { user } = useAuth();
@@ -145,6 +146,8 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
         </div>
         {plans.length === 0 && <p className="text-zinc-500 text-sm">No organization plans configured yet.</p>}
       </div>
+
+      <InvoiceHistoryList scope="academy" id={academy.id} />
 
       {error && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">

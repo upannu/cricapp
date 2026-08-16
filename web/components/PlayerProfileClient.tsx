@@ -9,6 +9,7 @@ import { PlayerMessages } from "@/components/PlayerMessages";
 import { computeInjuryRiskTrend, computeRpeSummary, computeSCLoadSummary, type InjuryRiskTrend, type RpeSummary, type SCLoadSummary } from "@/lib/performance-trends";
 import { Sparkline } from "@/components/Sparkline";
 import { BadgeStrip } from "@/components/BadgeStrip";
+import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
 import type { Academy, Coach, Player, PlayerStatus } from "@/lib/types";
 
 const DIRECTION_LABEL: Record<InjuryRiskTrend["direction"], string> = {
@@ -355,6 +356,11 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           />
         </InfoCard>
       </div>
+
+      {/* Academy players never reach the Subscription page (no personal subscription to manage
+          there), but can still independently pay for a one-off booking/pack — this is the only
+          place they'd see a record of those payments. */}
+      {isAcademyPlayer && <InvoiceHistoryList scope="player" id={playerId} />}
 
       {/* Performance trends */}
       {(riskTrend?.history.length || rpeSummary?.history.length || scLoadSummary?.history.length) ? (

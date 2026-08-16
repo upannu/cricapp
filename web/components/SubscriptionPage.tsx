@@ -6,6 +6,7 @@ import type { Player, PlanTier, PlatformSettings, Plan } from "@/lib/types";
 import { formatDate, getPlayerStatus } from "@/lib/utils";
 import { isPaidPlan } from "@/lib/stripe-client";
 import { fetchPlatformSettings, fetchActivePlans } from "@/lib/db";
+import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
 
 function buildPlans(settings: PlatformSettings | null): { tier: PlanTier; price: string; sessions: number | null; features: string[] }[] {
   return [
@@ -340,7 +341,7 @@ export function SubscriptionPage({ player }: { player: Player }) {
 
       {hasActiveSub && (
         <p className="text-zinc-500 text-xs -mt-4 mb-8">
-          To switch plans, update your payment method, view invoices, or cancel, use Manage Billing above — it opens Stripe&apos;s secure billing portal.
+          To switch plans, update your payment method, or cancel, use Manage Billing above — it opens Stripe&apos;s secure billing portal. For a full record of every payment (subscriptions, bookings, packs, assessments), see Invoice History below.
         </p>
       )}
 
@@ -406,6 +407,8 @@ export function SubscriptionPage({ player }: { player: Player }) {
           {addonError && <p className="text-red-400 text-sm mt-4">{addonError}</p>}
         </div>
       )}
+
+      <InvoiceHistoryList scope="player" id={player.id} />
     </div>
   );
 }
