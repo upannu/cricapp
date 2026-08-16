@@ -11,6 +11,7 @@ const ADMIN_TOOLS = [
   { label: "Subscription Pricing", href: "/admin/pricing" },
   { label: "Plan Catalog", href: "/admin/plans" },
   { label: "Approvals", href: "/admin/approvals" },
+  { label: "Platform KPIs", href: "/admin/kpis" },
 ];
 
 const NAV_ALL = [
