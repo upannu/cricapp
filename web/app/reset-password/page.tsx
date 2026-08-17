@@ -53,7 +53,7 @@ export default function ResetPasswordPage() {
               <path d="M3 26 L9 17 L15 19.5 L21 9 L27 13" stroke="#00D4AA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               <circle cx="27" cy="13" r="2.5" fill="#FF6B2B" />
             </svg>
-            <span className="text-3xl font-bold tracking-widest text-white font-mono">PACE HQ</span>
+            <span className="text-3xl font-bold tracking-widest text-white font-mono">CRIC HQ</span>
           </div>
           <p className="text-zinc-400 text-sm tracking-wide">Fast Bowling Performance Platform</p>
         </div>
@@ -81,7 +81,7 @@ export default function ResetPasswordPage() {
           {stage === "ready" && (
             <>
               <h2 className="text-xl font-semibold text-white mb-2 text-center">Set your password</h2>
-              <p className="text-zinc-400 text-sm text-center mb-6">Choose a password to secure your PACE HQ account.</p>
+              <p className="text-zinc-400 text-sm text-center mb-6">Choose a password to secure your CRIC HQ account.</p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>

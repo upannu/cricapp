@@ -169,7 +169,7 @@ export async function POST(request: Request) {
     const text = [
       `Hi ${reqData.name},`,
       ``,
-      `Great news! Your PACE HQ account has been approved.`,
+      `Great news! Your CRIC HQ account has been approved.`,
       ``,
       `You can now log in and get started:`,
       `${appUrl}/login`,
@@ -177,13 +177,13 @@ export async function POST(request: Request) {
       `Your role: ${roleLabel}`,
       ``,
       `Welcome to the team!`,
-      `— PACE HQ`,
+      `— CRIC HQ`,
     ].join("\n");
 
     await transporter.sendMail({
-      from: `"PACE HQ" <${gmailUser}>`,
+      from: `"CRIC HQ" <${gmailUser}>`,
       to: reqData.email,
-      subject: "Your PACE HQ account has been approved",
+      subject: "Your CRIC HQ account has been approved",
       text,
     }).catch(() => {
       // Don't fail the approval if email sending fails

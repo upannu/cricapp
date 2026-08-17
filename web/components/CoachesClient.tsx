@@ -517,7 +517,7 @@ export function CoachesClient() {
                 />
                 <div>
                   <span className="text-sm font-semibold text-white">Send login invite email</span>
-                  <p className="text-xs text-zinc-500 mt-0.5">Coach receives an email with a link to set their password and access PACE HQ</p>
+                  <p className="text-xs text-zinc-500 mt-0.5">Coach receives an email with a link to set their password and access CRIC HQ</p>
                 </div>
               </label>
               {inviteStatus === "sending" && (

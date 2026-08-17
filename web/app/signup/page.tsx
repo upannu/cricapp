@@ -87,7 +87,7 @@ export default function SignUpPage() {
               <path d="M3 26 L9 17 L15 19.5 L21 9 L27 13" stroke="#00D4AA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               <circle cx="27" cy="13" r="2.5" fill="#FF6B2B" />
             </svg>
-            <span className="text-3xl font-bold tracking-widest text-white font-mono">PACE HQ</span>
+            <span className="text-3xl font-bold tracking-widest text-white font-mono">CRIC HQ</span>
           </div>
           <p className="text-zinc-400 text-sm tracking-wide">Fast Bowling Performance Platform</p>
         </div>
@@ -105,7 +105,7 @@ export default function SignUpPage() {
             {linked ? (
               <>
                 <p className="text-zinc-400 text-sm leading-relaxed mb-2">
-                  This email already has a PACE HQ account — your request to link a{" "}
+                  This email already has a CRIC HQ account — your request to link a{" "}
                   <span className="text-amber font-semibold">{ROLE_OPTIONS.find((o) => o.value === role)?.label}</span>{" "}
                   identity to it is <span className="text-amber font-semibold">pending approval</span>.
                 </p>

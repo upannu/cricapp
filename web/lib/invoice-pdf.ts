@@ -38,7 +38,7 @@ export async function buildInvoicePdf(
 
   let y = 780;
 
-  page.drawText("PACE HQ", { x: 50, y, size: 22, font: bold, color: green });
+  page.drawText("CRIC HQ", { x: 50, y, size: 22, font: bold, color: green });
   y -= 20;
   page.drawText("Invoice", { x: 50, y, size: 14, font, color: dark });
   y -= 45;
@@ -77,7 +77,7 @@ export async function buildInvoicePdf(
   page.drawText(amountText, { x: 470, y, size: 12, font: bold, color: dark });
   y -= 60;
 
-  page.drawText("This is a computer-generated invoice from PACE HQ.", { x: 50, y, size: 8, font, color: gray });
+  page.drawText("This is a computer-generated invoice from CRIC HQ.", { x: 50, y, size: 8, font, color: gray });
   if (invoice.kind === "checkout_session") {
     y -= 12;
     page.drawText("For payment method / receipt details, see your email receipt from Stripe at the time of purchase.", { x: 50, y, size: 8, font, color: gray });

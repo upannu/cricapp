@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
   const subject = `New ${roleLabel} registration — ${name}`;
   const text = [
-    `A new account request has been submitted on PACE HQ.`,
+    `A new account request has been submitted on CRIC HQ.`,
     ``,
     `Name:  ${name}`,
     `Email: ${email}`,
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
   try {
     await transporter.sendMail({
-      from: `"PACE HQ" <${gmailUser}>`,
+      from: `"CRIC HQ" <${gmailUser}>`,
       to: adminEmail,
       subject,
       text,
