@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   const gmailUser  = process.env.GMAIL_USER;
   const gmailPass  = process.env.GMAIL_APP_PASSWORD;
-  const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? "https://cricapp-drab.vercel.app";
+  const appUrl     = process.env.NEXT_PUBLIC_APP_URL ?? "https://crichq.com.au";
 
   // Silently succeed if email isn't configured (including the .env.local placeholder
   // value) — don't block publishing or waste a real SMTP round-trip on known-bad creds.

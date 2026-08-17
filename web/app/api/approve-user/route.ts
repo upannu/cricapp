@@ -153,7 +153,7 @@ export async function POST(request: Request) {
   // Send approval email to the user
   const gmailUser = process.env.GMAIL_USER;
   const gmailPass = process.env.GMAIL_APP_PASSWORD;
-  const appUrl    = process.env.NEXT_PUBLIC_APP_URL ?? "https://cricapp-drab.vercel.app";
+  const appUrl    = process.env.NEXT_PUBLIC_APP_URL ?? "https://crichq.com.au";
 
   if (gmailUser && gmailPass) {
     const roleLabel = {
