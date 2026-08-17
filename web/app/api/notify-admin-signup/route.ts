@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   }
 
   const roleLabel = role === "academy_admin" ? "Academy Admin" : "Coach";
-  const appUrl    = process.env.NEXT_PUBLIC_APP_URL ?? "https://cricapp-drab.vercel.app";
+  const appUrl    = process.env.NEXT_PUBLIC_APP_URL ?? "https://crichq.com.au";
 
   const transporter = nodemailer.createTransport({
     service: "gmail",

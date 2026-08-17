@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   });
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://cricapp-drab.vercel.app";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://crichq.com.au";
   fetch(`${appUrl}/api/notify-admin-signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
