@@ -53,7 +53,9 @@ export default function LoginPage() {
   // }
 
   return (
-    <div className="min-h-screen bg-ink flex items-center justify-center p-4">
+    <div className="min-h-screen bg-ink flex items-center justify-center p-4 gap-10 overflow-hidden">
+      <BowlerPanel className="hidden lg:block flex-shrink-0" />
+
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
@@ -62,7 +64,7 @@ export default function LoginPage() {
               <path d="M3 26 L9 17 L15 19.5 L21 9 L27 13" stroke="#00D4AA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
               <circle cx="27" cy="13" r="2.5" fill="#FF6B2B" />
             </svg>
-            <span className="text-3xl font-bold tracking-widest text-white font-mono">PACE HQ</span>
+            <span className="text-3xl font-bold tracking-widest text-white font-mono">CRIC HQ</span>
           </div>
           <p className="text-zinc-400 text-sm tracking-wide">Fast Bowling Performance Platform</p>
         </div>
@@ -146,6 +148,58 @@ export default function LoginPage() {
         */}
 
       </div>
+
+      <StumpsPanel className="hidden lg:block flex-shrink-0" />
+    </div>
+  );
+}
+
+/** Stylized cricket ball with seam detail and a motion trail — abstract line art,
+ * matching the brand icon's speed-line motif and the stumps panel's visual weight. */
+function BowlerPanel({ className }: { className?: string }) {
+  return (
+    <div className={className}>
+      <svg width="200" height="380" viewBox="0 0 200 380" fill="none">
+        {/* Speed lines trailing the ball */}
+        <path d="M10 220 L75 205" stroke="#00D4AA" strokeWidth="2" strokeOpacity="0.25" strokeLinecap="round" />
+        <path d="M20 245 L80 232" stroke="#00D4AA" strokeWidth="2" strokeOpacity="0.4" strokeLinecap="round" />
+        <path d="M15 270 L75 260" stroke="#00D4AA" strokeWidth="2" strokeOpacity="0.25" strokeLinecap="round" />
+
+        {/* Ball */}
+        <circle cx="115" cy="245" r="52" stroke="#00D4AA" strokeWidth="3" />
+        <path d="M115 193 A 52 52 0 0 1 115 297" stroke="#FF6B2B" strokeWidth="2" strokeDasharray="4 5" strokeLinecap="round" />
+        <path d="M115 193 A 52 52 0 0 0 115 297" stroke="#FF6B2B" strokeWidth="2" strokeDasharray="4 5" strokeLinecap="round" />
+
+        {/* Orbiting "analysis" dots, echoing the app's biomechanics-tracking angle */}
+        <circle cx="163" cy="150" r="4" fill="#FF6B2B" />
+        <circle cx="185" cy="245" r="3" fill="#00D4AA" opacity="0.6" />
+        <circle cx="60" cy="330" r="3" fill="#00D4AA" opacity="0.4" />
+      </svg>
+    </div>
+  );
+}
+
+/** Stumps + incoming delivery, with a subtle angle arc referencing the app's
+ * biomechanics-analysis positioning. */
+function StumpsPanel({ className }: { className?: string }) {
+  return (
+    <div className={className}>
+      <svg width="200" height="380" viewBox="0 0 200 380" fill="none">
+        {/* Ball trajectory into the stumps */}
+        <path d="M20 60 Q 80 140 120 260" stroke="#00D4AA" strokeWidth="2" strokeOpacity="0.35" strokeDasharray="1 10" strokeLinecap="round" />
+        <circle cx="30" cy="66" r="6" fill="#FF6B2B" />
+        {/* Angle arc, echoing biomechanics angle measurement */}
+        <path d="M120 260 L120 220 A 40 40 0 0 0 92 236" stroke="#00D4AA" strokeWidth="1.5" strokeOpacity="0.4" fill="none" />
+        {/* Stumps + bails */}
+        <g stroke="#00D4AA" strokeWidth="4" strokeLinecap="round">
+          <path d="M100 150 L100 280" />
+          <path d="M130 150 L130 280" />
+          <path d="M160 150 L160 280" />
+        </g>
+        <path d="M95 150 L135 146" stroke="#FF6B2B" strokeWidth="3" strokeLinecap="round" />
+        <path d="M125 146 L165 150" stroke="#FF6B2B" strokeWidth="3" strokeLinecap="round" />
+        <path d="M85 280 L175 280" stroke="#00D4AA" strokeWidth="3" strokeOpacity="0.5" strokeLinecap="round" />
+      </svg>
     </div>
   );
 }

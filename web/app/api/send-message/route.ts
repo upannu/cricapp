@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   try {
     await transporter.sendMail({
-      from: `"${fromName ?? "PACE HQ"}" <${user}>`,
+      from: `"${fromName ?? "CRIC HQ"}" <${user}>`,
       to,
       subject: subject || "(No subject)",
       text: body,

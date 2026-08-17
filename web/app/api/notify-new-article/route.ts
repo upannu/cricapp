@@ -65,19 +65,19 @@ export async function POST(request: Request) {
   });
 
   const text = [
-    `A new Academy lesson just dropped on PACE HQ:`,
+    `A new Academy lesson just dropped on CRIC HQ:`,
     ``,
     `"${article.title}" (${article.stage} stage)`,
     ``,
     `Read it here:`,
     `${appUrl}/portal/learn/${articleId}`,
     ``,
-    `— PACE HQ`,
+    `— CRIC HQ`,
   ].join("\n");
 
   try {
     await transporter.sendMail({
-      from: `"PACE HQ" <${gmailUser}>`,
+      from: `"CRIC HQ" <${gmailUser}>`,
       to: gmailUser,
       bcc: recipients,
       subject: `New Academy Lesson: ${article.title}`,

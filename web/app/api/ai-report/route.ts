@@ -334,7 +334,7 @@ export async function POST(request: Request) {
       const transporter = nodemailer.createTransport({ service: "gmail", auth: { user: gmailUser, pass: gmailPass } });
       await transporter
         .sendMail({
-          from: `"PACE HQ" <${gmailUser}>`,
+          from: `"CRIC HQ" <${gmailUser}>`,
           to: player.email,
           subject: `AI Bowling Report — ${player.name} — ${today}`,
           text: [
@@ -352,7 +352,7 @@ export async function POST(request: Request) {
             `Injury-risk band: ${biomechanics.injuryRisk}`,
             ballTracking?.bounceLengthZone ? `Pitch map: ${ballTracking.bounceLengthZone}${ballTracking.bounceLineApprox ? `, ${ballTracking.bounceLineApprox}` : ""}` : ``,
             ``,
-            `— PACE HQ`,
+            `— CRIC HQ`,
           ].filter(Boolean).join("\n"),
           attachments: [{ filename: `bowling-report-${today}.pdf`, content: Buffer.from(pdfBytes) }],
         })
@@ -460,7 +460,7 @@ async function buildReportPdf(opts: {
     }
   }
 
-  page.drawText("PACE HQ", { x: 50, y, size: 22, font: bold, color: green });
+  page.drawText("CRIC HQ", { x: 50, y, size: 22, font: bold, color: green });
   y -= 20;
   page.drawText("AI Bowling Biomechanics Report", { x: 50, y, size: 14, font, color: dark });
   y -= 40;

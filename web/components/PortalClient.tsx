@@ -142,8 +142,8 @@ export function PortalClient() {
               <div>
                 <p className="text-zinc-300 text-sm mb-3">
                   {isMinor
-                    ? <>As {player.name}&apos;s guardian, please confirm you consent to PACE HQ collecting and analysing their session video and biomechanics data for coaching purposes.</>
-                    : <>Please confirm you consent to PACE HQ collecting and analysing your session video and biomechanics data for coaching purposes.</>}
+                    ? <>As {player.name}&apos;s guardian, please confirm you consent to CRIC HQ collecting and analysing their session video and biomechanics data for coaching purposes.</>
+                    : <>Please confirm you consent to CRIC HQ collecting and analysing your session video and biomechanics data for coaching purposes.</>}
                 </p>
                 <button
                   type="button"

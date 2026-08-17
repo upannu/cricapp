@@ -38,7 +38,7 @@ export function MessageModal({ playerId, playerName, playerEmail, playerPhone, o
           to: playerEmail,
           subject: subject.trim(),
           body: body.trim(),
-          fromName: user?.name ?? "PACE HQ",
+          fromName: user?.name ?? "CRIC HQ",
         }),
       });
       const data = await res.json();
@@ -54,7 +54,7 @@ export function MessageModal({ playerId, playerName, playerEmail, playerPhone, o
         body: JSON.stringify({
           to: playerPhone,
           body: body.trim(),
-          fromName: user?.name ?? "PACE HQ",
+          fromName: user?.name ?? "CRIC HQ",
         }),
       });
       const data = await res.json();

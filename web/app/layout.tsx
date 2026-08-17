@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PACE HQ — Fast Bowling Performance Platform",
+  title: "CRIC HQ — Fast Bowling Performance Platform",
   description:
     "AI-powered biomechanics analysis, coach workflow tools, and performance tracking for fast bowlers.",
 };

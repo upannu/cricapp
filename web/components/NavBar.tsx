@@ -160,7 +160,7 @@ export function NavBar() {
             <circle cx="27" cy="13" r="2.5" fill="#FF6B2B" />
           </svg>
           <span className="text-lg font-bold tracking-widest text-white font-mono hidden sm:inline">
-            PACE HQ
+            CRIC HQ
           </span>
         </Link>
 

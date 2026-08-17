@@ -75,7 +75,7 @@ export async function POST(request: Request) {
 
   try {
     await transporter.sendMail({
-      from: `"PACE HQ" <${gmailUser}>`,
+      from: `"CRIC HQ" <${gmailUser}>`,
       to: player.email,
       subject: `Bowling Report — ${player.name} — ${report.date}`,
       text: [
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
         report.speed_kmh !== null ? `Estimated speed: ${report.speed_kmh} km/h` : "",
         report.front_knee_angle_deg !== null ? `Front knee angle: ${report.front_knee_angle_deg}°` : "",
         ``,
-        `— PACE HQ`,
+        `— CRIC HQ`,
       ].filter(Boolean).join("\n"),
       attachments: pdfBuffer ? [{ filename: `bowling-report-${report.date}.pdf`, content: pdfBuffer }] : undefined,
     });
