@@ -154,52 +154,35 @@ export default function LoginPage() {
   );
 }
 
-/** Stylized cricket ball with seam detail and a motion trail — abstract line art,
- * matching the brand icon's speed-line motif and the stumps panel's visual weight. */
+/** Real skeleton-overlay frame from one of our own students' AI biomechanics
+ * reports (not stock/licensed photography — our own captured session data). */
 function BowlerPanel({ className }: { className?: string }) {
   return (
     <div className={className}>
-      <svg width="200" height="380" viewBox="0 0 200 380" fill="none">
-        {/* Speed lines trailing the ball */}
-        <path d="M10 220 L75 205" stroke="#00D4AA" strokeWidth="2" strokeOpacity="0.25" strokeLinecap="round" />
-        <path d="M20 245 L80 232" stroke="#00D4AA" strokeWidth="2" strokeOpacity="0.4" strokeLinecap="round" />
-        <path d="M15 270 L75 260" stroke="#00D4AA" strokeWidth="2" strokeOpacity="0.25" strokeLinecap="round" />
-
-        {/* Ball */}
-        <circle cx="115" cy="245" r="52" stroke="#00D4AA" strokeWidth="3" />
-        <path d="M115 193 A 52 52 0 0 1 115 297" stroke="#FF6B2B" strokeWidth="2" strokeDasharray="4 5" strokeLinecap="round" />
-        <path d="M115 193 A 52 52 0 0 0 115 297" stroke="#FF6B2B" strokeWidth="2" strokeDasharray="4 5" strokeLinecap="round" />
-
-        {/* Orbiting "analysis" dots, echoing the app's biomechanics-tracking angle */}
-        <circle cx="163" cy="150" r="4" fill="#FF6B2B" />
-        <circle cx="185" cy="245" r="3" fill="#00D4AA" opacity="0.6" />
-        <circle cx="60" cy="330" r="3" fill="#00D4AA" opacity="0.4" />
-      </svg>
+      {/* eslint-disable-next-line @next/next/no-img-element -- external Supabase Storage URL, not a local/optimizable asset */}
+      <img
+        src="https://itpdrqrawtdnllwbvijl.supabase.co/storage/v1/object/public/session-reports/p_1782610870431/r_1783216113607/skeleton-release.jpg"
+        alt=""
+        width={220}
+        height={380}
+        className="w-[220px] h-[380px] object-cover rounded-2xl border border-zinc-700"
+      />
     </div>
   );
 }
 
-/** Stumps + incoming delivery, with a subtle angle arc referencing the app's
- * biomechanics-analysis positioning. */
+/** Real skeleton-overlay frame (front-foot-contact phase) from the same session. */
 function StumpsPanel({ className }: { className?: string }) {
   return (
     <div className={className}>
-      <svg width="200" height="380" viewBox="0 0 200 380" fill="none">
-        {/* Ball trajectory into the stumps */}
-        <path d="M20 60 Q 80 140 120 260" stroke="#00D4AA" strokeWidth="2" strokeOpacity="0.35" strokeDasharray="1 10" strokeLinecap="round" />
-        <circle cx="30" cy="66" r="6" fill="#FF6B2B" />
-        {/* Angle arc, echoing biomechanics angle measurement */}
-        <path d="M120 260 L120 220 A 40 40 0 0 0 92 236" stroke="#00D4AA" strokeWidth="1.5" strokeOpacity="0.4" fill="none" />
-        {/* Stumps + bails */}
-        <g stroke="#00D4AA" strokeWidth="4" strokeLinecap="round">
-          <path d="M100 150 L100 280" />
-          <path d="M130 150 L130 280" />
-          <path d="M160 150 L160 280" />
-        </g>
-        <path d="M95 150 L135 146" stroke="#FF6B2B" strokeWidth="3" strokeLinecap="round" />
-        <path d="M125 146 L165 150" stroke="#FF6B2B" strokeWidth="3" strokeLinecap="round" />
-        <path d="M85 280 L175 280" stroke="#00D4AA" strokeWidth="3" strokeOpacity="0.5" strokeLinecap="round" />
-      </svg>
+      {/* eslint-disable-next-line @next/next/no-img-element -- external Supabase Storage URL, not a local/optimizable asset */}
+      <img
+        src="https://itpdrqrawtdnllwbvijl.supabase.co/storage/v1/object/public/session-reports/p_1782610870431/r_1783216113607/skeleton-frontFootContact.jpg"
+        alt=""
+        width={220}
+        height={380}
+        className="w-[220px] h-[380px] object-cover rounded-2xl border border-zinc-700"
+      />
     </div>
   );
 }
