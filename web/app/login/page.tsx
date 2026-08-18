@@ -120,12 +120,12 @@ export default function LoginPage() {
         </p>
 
         {/* QR code — quick mobile access to the site */}
-        <div className="flex items-center justify-center gap-3 mt-8">
+        <div className="flex flex-col items-center justify-center gap-2 mt-8">
           {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
           <img src="/crichq_qr_code.png" alt="QR code linking to crichq.com.au" width={64} height={64}
             className="w-16 h-16 rounded-lg bg-white p-1.5 flex-shrink-0" />
-          <p className="text-zinc-500 text-xs leading-relaxed max-w-[140px]">
-            Scan to open<br />crichq.com.au on your phone
+          <p className="text-zinc-500 text-xs leading-relaxed text-center">
+            Scan to open crichq.com.au on your phone
           </p>
         </div>
 
