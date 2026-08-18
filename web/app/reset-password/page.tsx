@@ -49,10 +49,9 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-3 mb-3">
-            <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
-              <path d="M3 26 L9 17 L15 19.5 L21 9 L27 13" stroke="#00D4AA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="27" cy="13" r="2.5" fill="#FF6B2B" />
-            </svg>
+            {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
+            <img src="/crichq_logo.jpeg" alt="CRIC HQ" width={48} height={48}
+              className="w-12 h-12 rounded-full bg-white p-1 object-contain flex-shrink-0" />
             <span className="text-3xl font-bold tracking-widest text-white font-mono">CRIC HQ</span>
           </div>
           <p className="text-zinc-400 text-sm tracking-wide">Fast Bowling Performance Platform</p>

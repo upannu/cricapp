@@ -60,10 +60,9 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-3 mb-3">
-            <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
-              <path d="M3 26 L9 17 L15 19.5 L21 9 L27 13" stroke="#00D4AA" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-              <circle cx="27" cy="13" r="2.5" fill="#FF6B2B" />
-            </svg>
+            {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
+            <img src="/crichq_logo.jpeg" alt="CRIC HQ" width={48} height={48}
+              className="w-12 h-12 rounded-full bg-white p-1 object-contain flex-shrink-0" />
             <span className="text-3xl font-bold tracking-widest text-white font-mono">CRIC HQ</span>
           </div>
           <p className="text-zinc-400 text-sm tracking-wide">Fast Bowling Performance Platform</p>
@@ -119,6 +118,16 @@ export default function LoginPage() {
             Create one
           </Link>
         </p>
+
+        {/* QR code — quick mobile access to the site */}
+        <div className="flex items-center justify-center gap-3 mt-8">
+          {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
+          <img src="/crichq_qr_code.png" alt="QR code linking to crichq.com.au" width={64} height={64}
+            className="w-16 h-16 rounded-lg bg-white p-1.5 flex-shrink-0" />
+          <p className="text-zinc-500 text-xs leading-relaxed max-w-[140px]">
+            Scan to open<br />crichq.com.au on your phone
+          </p>
+        </div>
 
         {/* DEMO ACCOUNTS — uncomment for local testing only
         <div>
