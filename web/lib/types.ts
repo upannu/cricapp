@@ -27,6 +27,10 @@ export interface Plan {
   /** Players at an academy on this plan never pay a session fee for bookings/packs — the
    * academy's own subscription covers it (e.g. a cricket board license). */
   waivesSessionFees: boolean;
+  /** Hidden from the academy/player-facing plan pickers — only platform_admin sees it there.
+   * For internal/test tiers (e.g. a $1 plan for verifying a flow) that shouldn't be offered
+   * to real customers but still need to exist in the catalog. */
+  platformAdminOnly: boolean;
   active: boolean;
   sortOrder: number;
 }

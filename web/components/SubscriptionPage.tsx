@@ -37,7 +37,7 @@ function buildPlans(settings: PlatformSettings | null): { tier: PlanTier; price:
   ];
 }
 
-export function SubscriptionPage({ player }: { player: Player }) {
+export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: Player; isAcademyPlayer?: boolean }) {
   const status = getPlayerStatus(player.subscription.endDate);
   const [selectedPlan, setSelectedPlan] = useState<PlanTier>(player.subscription.plan);
   const [redirecting, setRedirecting] = useState(false);
@@ -155,8 +155,18 @@ export function SubscriptionPage({ player }: { player: Player }) {
         </div>
       </div>
 
+      {isAcademyPlayer && (
+        <div className="rounded-2xl p-5 mb-6 border bg-blue-500/10 border-blue-500/30">
+          <p className="text-sm text-zinc-300">
+            Your access to CRIC HQ comes through your academy&apos;s own plan — there&apos;s no personal
+            subscription to manage here. You can still buy optional extras below, like Library
+            Access or a one-off AI biomechanics report.
+          </p>
+        </div>
+      )}
+
       {/* Current subscription status card */}
-      <div
+      {!isAcademyPlayer && <div
         className={`rounded-2xl p-6 mb-6 border ${
           status === "Expired"
             ? "bg-red-500/10 border-red-500/30"
@@ -248,10 +258,10 @@ export function SubscriptionPage({ player }: { player: Player }) {
               : "⛔ Subscription has expired. Renew to restore access."}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Plan selection */}
-      <div className="bg-surface rounded-2xl p-6 mb-6">
+      {!isAcademyPlayer && <div className="bg-surface rounded-2xl p-6 mb-6">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">
           Choose Plan
         </h2>
@@ -292,7 +302,7 @@ export function SubscriptionPage({ player }: { player: Player }) {
             );
           })}
         </div>
-      </div>
+      </div>}
 
       {error && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
@@ -301,7 +311,7 @@ export function SubscriptionPage({ player }: { player: Player }) {
       )}
 
       {/* Billing actions */}
-      <div className="flex flex-wrap items-center gap-3 mb-8">
+      {!isAcademyPlayer && <div className="flex flex-wrap items-center gap-3 mb-8">
         {hasActiveSub ? (
           <button
             type="button"
@@ -337,9 +347,9 @@ export function SubscriptionPage({ player }: { player: Player }) {
         >
           Cancel
         </Link>
-      </div>
+      </div>}
 
-      {hasActiveSub && (
+      {!isAcademyPlayer && hasActiveSub && (
         <p className="text-zinc-500 text-xs -mt-4 mb-8">
           To switch plans, update your payment method, or cancel, use Manage Billing above — it opens Stripe&apos;s secure billing portal. For a full record of every payment (subscriptions, bookings, packs, assessments), see Invoice History below.
         </p>

@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { fetchPlayerServer, canAccessPlayerServer, isAcademyPlayerServer } from "@/lib/supabase-server";
 import { SubscriptionPage } from "@/components/SubscriptionPage";
 
@@ -10,8 +10,10 @@ export default async function ManageSubscriptionPage({
   const { id } = await params;
   const player = await fetchPlayerServer(id);
   if (!player || !(await canAccessPlayerServer(id))) notFound();
-  // Academy players' access comes from the academy's own plan — no personal subscription to manage.
-  if (await isAcademyPlayerServer(id)) redirect(`/players/${id}`);
+  // Academy players' access comes from the academy's own plan — no main plan to choose or manage
+  // billing for here, but they can still buy optional add-ons (Library, Assessment credits), so
+  // unlike before they're no longer redirected away from this page entirely.
+  const isAcademyPlayer = await isAcademyPlayerServer(id);
 
-  return <SubscriptionPage player={player} />;
+  return <SubscriptionPage player={player} isAcademyPlayer={isAcademyPlayer} />;
 }

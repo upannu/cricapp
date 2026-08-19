@@ -1154,6 +1154,7 @@ export interface DbPlan {
   access_duration_months: number | null;
   included_notes: string | null;
   waives_session_fees?: boolean;
+  platform_admin_only?: boolean;
   active: boolean;
   sort_order: number;
 }
@@ -1171,6 +1172,7 @@ export function dbToPlan(r: DbPlan): Plan {
     accessDurationMonths: r.access_duration_months,
     includedNotes: r.included_notes,
     waivesSessionFees: r.waives_session_fees ?? false,
+    platformAdminOnly: r.platform_admin_only ?? false,
     active: r.active,
     sortOrder: r.sort_order,
   };

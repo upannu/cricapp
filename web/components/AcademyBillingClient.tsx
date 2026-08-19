@@ -19,6 +19,11 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
     fetchActivePlans().then((p) => setPlans(p.filter((x) => x.audience === "organization"))).catch(() => {});
   }, []);
 
+  // Hidden from the picker grid unless viewing as platform_admin — but the academy's *current*
+  // plan (looked up from the unfiltered `plans` above) still needs to resolve correctly even if
+  // it happens to be a platform-admin-only tier, so this filter is applied at render time only.
+  const selectablePlans = plans.filter((p) => !p.platformAdminOnly || user?.role === "platform_admin");
+
   const canManage = user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === academy.id);
 
   const currentPlan = useMemo(() => plans.find((p) => p.id === academy.planId) ?? null, [plans, academy.planId]);
@@ -117,7 +122,7 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
       <div className="bg-surface rounded-2xl p-6 mb-6">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">Available Licenses</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {plans.map((p) => {
+          {selectablePlans.map((p) => {
             const isActive = selectedPlanId === p.id;
             return (
               <button
@@ -144,7 +149,7 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
             );
           })}
         </div>
-        {plans.length === 0 && <p className="text-zinc-500 text-sm">No organization plans configured yet.</p>}
+        {selectablePlans.length === 0 && <p className="text-zinc-500 text-sm">No organization plans configured yet.</p>}
       </div>
 
       <InvoiceHistoryList scope="academy" id={academy.id} />
