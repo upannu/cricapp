@@ -15,6 +15,8 @@ interface PendingRequest {
   role: UserRole;
   requested_at: string;
   player_lookup_email: string | null;
+  academy_name: string | null;
+  academy_location: string | null;
   request_type: "new" | "link";
 }
 
@@ -105,8 +107,8 @@ export default function ApprovalsPage() {
       // to one that already has an admin) and was twice mistaken for the only option missing.
       setSelectedAcademy("");
       setCreatingAcademy(true);
-      setNewAcademyName("");
-      setNewAcademyLocation("");
+      setNewAcademyName(req.academy_name ?? "");
+      setNewAcademyLocation(req.academy_location ?? "");
       setAssignDialog(req);
     } else {
       // Coaches don't need academy assignment here

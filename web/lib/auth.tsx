@@ -12,7 +12,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loaded: boolean;
   login: (email: string, password: string) => Promise<string | null>;
-  signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string) => Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean }>;
+  signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string, academyName?: string, academyLocation?: string) => Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -73,6 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     role: SignupRole,
     playerLookupEmail?: string,
+    academyName?: string,
+    academyLocation?: string,
   ): Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean }> {
     // An email that already has an account can't go through signUp() again (Supabase returns an
     // ambiguous "ghost" response for a duplicate email rather than a clean error) — check first
@@ -87,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const linkRes = await fetch("/api/request-additional-role", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, role, playerLookupEmail: playerLookupEmail || null }),
+        body: JSON.stringify({ name, email, password, role, playerLookupEmail: playerLookupEmail || null, academyName: academyName || null, academyLocation: academyLocation || null }),
       });
       const linkData = await linkRes.json().catch(() => ({}));
       if (!linkRes.ok) return { error: linkData?.error ?? "Could not submit request.", needsConfirmation: false };
@@ -109,6 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role,
         requested_at: new Date().toISOString(),
         player_lookup_email: playerLookupEmail || null,
+        academy_name: academyName || null,
+        academy_location: academyLocation || null,
       });
       // Fire-and-forget — don't block signup on email failure
       fetch("/api/notify-admin-signup", {

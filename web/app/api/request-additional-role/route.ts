@@ -9,7 +9,7 @@ interface LinkedIdentity {
 }
 
 export async function POST(request: Request) {
-  const { name, email, password, role, playerLookupEmail } = await request.json();
+  const { name, email, password, role, playerLookupEmail, academyName, academyLocation } = await request.json();
   if (!name || !email || !password || !role) {
     return NextResponse.json({ error: "name, email, password, and role are required." }, { status: 400 });
   }
@@ -54,6 +54,8 @@ export async function POST(request: Request) {
     role,
     requested_at: new Date().toISOString(),
     player_lookup_email: playerLookupEmail || null,
+    academy_name: academyName || null,
+    academy_location: academyLocation || null,
     request_type: "link",
     existing_user_id: existingUser.id,
   });

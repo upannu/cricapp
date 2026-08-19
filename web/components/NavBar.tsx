@@ -149,16 +149,9 @@ export function NavBar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center h-16 gap-4 xl:gap-5">
         {/* Logo */}
         <Link href={isPlayerOrParent ? "/portal" : "/players"} className="flex items-center gap-2 flex-shrink-0">
-          <svg width="22" height="22" viewBox="0 0 32 32" fill="none" className="flex-shrink-0">
-            <path
-              d="M3 26 L9 17 L15 19.5 L21 9 L27 13"
-              stroke="#00D4AA"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="27" cy="13" r="2.5" fill="#FF6B2B" />
-          </svg>
+          {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
+          <img src="/crichq_logo.jpeg" alt="CRIC HQ" width={32} height={32}
+            className="w-8 h-8 rounded-full bg-white p-0.5 object-contain flex-shrink-0" />
           <span className="text-lg font-bold tracking-widest text-white font-mono hidden sm:inline">
             CRIC HQ
           </span>
