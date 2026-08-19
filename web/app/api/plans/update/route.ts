@@ -16,6 +16,7 @@ interface PlanInput {
   includedNotes?: string | null;
   waivesSessionFees?: boolean;
   platformAdminOnly?: boolean;
+  platformFeePercent?: number;
   active?: boolean;
   sortOrder?: number;
 }
@@ -37,6 +38,9 @@ export async function POST(request: Request) {
   }
   if (input.billingType === "one_time" && input.billingInterval) {
     return NextResponse.json({ error: "One-time plans can't have a billing interval." }, { status: 400 });
+  }
+  if (input.platformFeePercent !== undefined && (typeof input.platformFeePercent !== "number" || input.platformFeePercent < 0 || input.platformFeePercent > 100)) {
+    return NextResponse.json({ error: "Platform fee must be a percentage between 0 and 100." }, { status: 400 });
   }
 
   const cookieStore = await cookies();
@@ -70,6 +74,7 @@ export async function POST(request: Request) {
     included_notes: input.includedNotes?.trim() || null,
     waives_session_fees: input.waivesSessionFees ?? false,
     platform_admin_only: input.platformAdminOnly ?? false,
+    platform_fee_percent: input.platformFeePercent ?? 10,
     active: input.active ?? true,
     sort_order: input.sortOrder ?? 0,
     updated_at: new Date().toISOString(),

@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, upsertSessionPack, updatePackPaymentStatus, updatePackAgreedDays } from "@/lib/db";
-import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
+import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -449,22 +449,25 @@ export function SessionPacksClient() {
           </div>
 
           {/* Fee breakdown */}
-          {draft.feePerSession > 0 && draft.totalSessions > 0 && (
-            <div className="mb-5 bg-ink rounded-xl p-4 grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-lg font-bold text-white">${(draft.feePerSession * draft.totalSessions).toLocaleString()}</div>
-                <div className="text-xs text-zinc-500 mt-0.5">Total collected</div>
+          {draft.feePerSession > 0 && draft.totalSessions > 0 && (() => {
+            const feePct = getPlatformFeePercent(draft.academyId, _packAcademies, _packPlans);
+            return (
+              <div className="mb-5 bg-ink rounded-xl p-4 grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-lg font-bold text-white">${(draft.feePerSession * draft.totalSessions).toLocaleString()}</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">Total collected</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-amber">${(draft.feePerSession * draft.totalSessions * (feePct / 100)).toFixed(0)}</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">Platform fee ({feePct}%)</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-pace-green">${(draft.feePerSession * draft.totalSessions * (1 - feePct / 100)).toFixed(0)}</div>
+                  <div className="text-xs text-zinc-500 mt-0.5">Academy receives ({100 - feePct}%)</div>
+                </div>
               </div>
-              <div>
-                <div className="text-lg font-bold text-amber">${(draft.feePerSession * draft.totalSessions * 0.10).toFixed(0)}</div>
-                <div className="text-xs text-zinc-500 mt-0.5">Platform fee (10%)</div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-pace-green">${(draft.feePerSession * draft.totalSessions * 0.90).toFixed(0)}</div>
-                <div className="text-xs text-zinc-500 mt-0.5">Academy receives (90%)</div>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {formError && <p className="text-red-400 text-sm mb-3">{formError}</p>}
 
@@ -583,12 +586,12 @@ export function SessionPacksClient() {
                                 <div className="text-[10px] text-zinc-500 mt-0.5">Collect from player</div>
                               </div>
                               <div>
-                                <div className="text-sm font-bold text-amber">${(total * 0.10).toFixed(0)}</div>
-                                <div className="text-[10px] text-zinc-500 mt-0.5">Platform (10%)</div>
+                                <div className="text-sm font-bold text-amber">${(total * (getPlatformFeePercent(pk.academyId, _packAcademies, _packPlans) / 100)).toFixed(0)}</div>
+                                <div className="text-[10px] text-zinc-500 mt-0.5">Platform ({getPlatformFeePercent(pk.academyId, _packAcademies, _packPlans)}%)</div>
                               </div>
                               <div>
-                                <div className="text-sm font-bold text-pace-green">${(total * 0.90).toFixed(0)}</div>
-                                <div className="text-[10px] text-zinc-500 mt-0.5">Academy keeps (90%)</div>
+                                <div className="text-sm font-bold text-pace-green">${(total * (1 - getPlatformFeePercent(pk.academyId, _packAcademies, _packPlans) / 100)).toFixed(0)}</div>
+                                <div className="text-[10px] text-zinc-500 mt-0.5">Academy keeps ({100 - getPlatformFeePercent(pk.academyId, _packAcademies, _packPlans)}%)</div>
                               </div>
                             </div>
                           </div>
@@ -754,11 +757,11 @@ export function SessionPacksClient() {
                         <div className="text-xs text-zinc-500 mt-0.5">Session rate</div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-amber">${(pack.feePerSession * 0.10).toFixed(0)}/session</div>
-                        <div className="text-xs text-zinc-500 mt-0.5">Platform (10%)</div>
+                        <div className="text-sm font-bold text-amber">${(pack.feePerSession * (getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100)).toFixed(0)}/session</div>
+                        <div className="text-xs text-zinc-500 mt-0.5">Platform ({getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans)}%)</div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-pace-green">${(pack.feePerSession * pack.totalSessions * 0.90).toFixed(0)} total</div>
+                        <div className="text-sm font-bold text-pace-green">${(pack.feePerSession * pack.totalSessions * (1 - getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100)).toFixed(0)} total</div>
                         <div className="text-xs text-zinc-500 mt-0.5">Academy receives</div>
                       </div>
                     </div>

@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, insertPlayers, updateAcademyFields, fetchActivePlans } from "@/lib/db";
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
+import { getPlatformFeePercent } from "@/lib/utils";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const STAGES: AcademyStage[] = ["Foundation", "Mechanics", "Velocity", "Elite"];
@@ -958,12 +959,15 @@ export function AcademyClient() {
                             </span>
                             {academy.sessionFeeAud > 0 && <span className="text-zinc-400 text-sm">AUD per session</span>}
                           </div>
-                          {academy.sessionFeeAud > 0 && (
-                            <div className="flex gap-6 mt-1.5 text-xs text-zinc-400">
-                              <span>Platform fee: <span className="text-amber font-semibold">${(academy.sessionFeeAud * 0.10).toFixed(2)}</span></span>
-                              <span>Academy receives: <span className="text-pace-green font-semibold">${(academy.sessionFeeAud * 0.90).toFixed(2)}</span></span>
-                            </div>
-                          )}
+                          {academy.sessionFeeAud > 0 && (() => {
+                            const feePct = getPlatformFeePercent(academy.id, academies, orgPlans);
+                            return (
+                              <div className="flex gap-6 mt-1.5 text-xs text-zinc-400">
+                                <span>Platform fee ({feePct}%): <span className="text-amber font-semibold">${(academy.sessionFeeAud * (feePct / 100)).toFixed(2)}</span></span>
+                                <span>Academy receives: <span className="text-pace-green font-semibold">${(academy.sessionFeeAud * (1 - feePct / 100)).toFixed(2)}</span></span>
+                              </div>
+                            );
+                          })()}
                         </div>
                         {Object.entries(academy.sessionTypeFees).some(([, v]) => (v ?? 0) > 0) && (
                           <div className="bg-ink rounded-xl p-4">
@@ -1308,12 +1312,15 @@ export function AcademyClient() {
                           onChange={(e) => setDraft({ ...draft, sessionFeeAud: parseFloat(e.target.value) || 0 })}
                           className={`${inp} pl-8`} placeholder="0.00" />
                       </div>
-                      {draft.sessionFeeAud > 0 && (
-                        <div className="text-xs text-zinc-400 space-y-0.5">
-                          <div>Platform: <span className="text-amber font-semibold">${(draft.sessionFeeAud * 0.10).toFixed(2)}</span></div>
-                          <div>Academy: <span className="text-pace-green font-semibold">${(draft.sessionFeeAud * 0.90).toFixed(2)}</span></div>
-                        </div>
-                      )}
+                      {draft.sessionFeeAud > 0 && (() => {
+                        const feePct = editingId ? getPlatformFeePercent(editingId, academies, orgPlans) : 10;
+                        return (
+                          <div className="text-xs text-zinc-400 space-y-0.5">
+                            <div>Platform ({feePct}%): <span className="text-amber font-semibold">${(draft.sessionFeeAud * (feePct / 100)).toFixed(2)}</span></div>
+                            <div>Academy: <span className="text-pace-green font-semibold">${(draft.sessionFeeAud * (1 - feePct / 100)).toFixed(2)}</span></div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                   <div>

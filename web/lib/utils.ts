@@ -63,3 +63,14 @@ export function getSessionFee(coach: Coach | undefined, academies: Academy[], ty
   }
   return academy?.sessionTypeFees[type] ?? academy?.sessionFeeAud ?? 0;
 }
+
+/** Share of session-pack/booking revenue the platform takes for this academy — 10% unless its
+ * assigned plan overrides it (e.g. an academy paying well upfront gets a reduced rate). */
+export function getPlatformFeePercent(academyId: string, academies: Academy[], plans: Plan[] = []): number {
+  const academy = academies.find((a) => a.id === academyId);
+  if (academy?.planId) {
+    const plan = plans.find((p) => p.id === academy.planId);
+    if (plan?.platformFeePercent != null) return plan.platformFeePercent;
+  }
+  return 10;
+}
