@@ -168,9 +168,9 @@ export default function LoginPage() {
 function BowlerPanel({ className }: { className?: string }) {
   return (
     <div className={className}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- external Supabase Storage URL, not a local/optimizable asset */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- fixed display size, next/image is overkill here */}
       <img
-        src="https://itpdrqrawtdnllwbvijl.supabase.co/storage/v1/object/public/session-reports/p_1782610870431/r_1783216113607/skeleton-release.jpg"
+        src="/login-photo-1.jpg"
         alt=""
         width={220}
         height={380}
@@ -184,9 +184,9 @@ function BowlerPanel({ className }: { className?: string }) {
 function StumpsPanel({ className }: { className?: string }) {
   return (
     <div className={className}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- external Supabase Storage URL, not a local/optimizable asset */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- fixed display size, next/image is overkill here */}
       <img
-        src="https://itpdrqrawtdnllwbvijl.supabase.co/storage/v1/object/public/session-reports/p_1782610870431/r_1783216113607/skeleton-frontFootContact.jpg"
+        src="/login-photo-2.jpg"
         alt=""
         width={220}
         height={380}
