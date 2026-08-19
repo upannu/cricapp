@@ -31,6 +31,9 @@ export interface Plan {
    * For internal/test tiers (e.g. a $1 plan for verifying a flow) that shouldn't be offered
    * to real customers but still need to exist in the catalog. */
   platformAdminOnly: boolean;
+  /** Percentage (e.g. 10, or 5 for a discounted academy) of session-pack/booking revenue the
+   * platform takes via Stripe Connect — defaults to 10 for every plan that doesn't override it. */
+  platformFeePercent: number;
   active: boolean;
   sortOrder: number;
 }

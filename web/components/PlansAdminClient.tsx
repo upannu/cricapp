@@ -20,13 +20,14 @@ type Draft = {
   includedNotes: string;
   waivesSessionFees: boolean;
   platformAdminOnly: boolean;
+  platformFeePercent: string;
   active: boolean;
   sortOrder: string;
 };
 
 const EMPTY_DRAFT: Draft = {
   slug: "", name: "", audience: "individual", billingType: "subscription", billingInterval: "month",
-  priceAud: "", seatCap: "", accessDurationMonths: "", includedNotes: "", waivesSessionFees: false, platformAdminOnly: false, active: true, sortOrder: "0",
+  priceAud: "", seatCap: "", accessDurationMonths: "", includedNotes: "", waivesSessionFees: false, platformAdminOnly: false, platformFeePercent: "10", active: true, sortOrder: "0",
 };
 
 function planToDraft(p: Plan): Draft {
@@ -43,6 +44,7 @@ function planToDraft(p: Plan): Draft {
     includedNotes: p.includedNotes ?? "",
     waivesSessionFees: p.waivesSessionFees,
     platformAdminOnly: p.platformAdminOnly,
+    platformFeePercent: String(p.platformFeePercent),
     active: p.active,
     sortOrder: String(p.sortOrder),
   };
@@ -106,6 +108,7 @@ export function PlansAdminClient() {
           includedNotes: d.includedNotes.trim() || null,
           waivesSessionFees: d.waivesSessionFees,
           platformAdminOnly: d.platformAdminOnly,
+          platformFeePercent: d.platformFeePercent.trim() ? parseFloat(d.platformFeePercent) : 10,
           active: d.active,
           sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
         }),
@@ -118,7 +121,8 @@ export function PlansAdminClient() {
         billingType: d.billingType, billingInterval: d.billingType === "subscription" ? d.billingInterval : null,
         priceAud, seatCap: d.seatCap.trim() ? parseInt(d.seatCap, 10) : null,
         accessDurationMonths: d.accessDurationMonths.trim() ? parseInt(d.accessDurationMonths, 10) : null,
-        includedNotes: d.includedNotes.trim() || null, waivesSessionFees: d.waivesSessionFees, platformAdminOnly: d.platformAdminOnly, active: d.active,
+        includedNotes: d.includedNotes.trim() || null, waivesSessionFees: d.waivesSessionFees, platformAdminOnly: d.platformAdminOnly,
+        platformFeePercent: d.platformFeePercent.trim() ? parseFloat(d.platformFeePercent) : 10, active: d.active,
         sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
       };
       setPlans((prev) => {
@@ -192,6 +196,11 @@ export function PlansAdminClient() {
                   {p.platformAdminOnly && (
                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber/20 text-amber">
                       Platform Admin Only
+                    </span>
+                  )}
+                  {p.platformFeePercent !== 10 && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400">
+                      {p.platformFeePercent}% Platform Fee
                     </span>
                   )}
                 </div>
@@ -345,6 +354,18 @@ export function PlansAdminClient() {
                   <span className="block text-xs text-zinc-500">Hidden from the academy/player-facing plan pickers — only you see and can assign it. For internal or test tiers, not something to offer real customers.</span>
                 </span>
               </label>
+            </div>
+
+            <div>
+              <label className={lbl}>Platform Fee (%)</label>
+              <input
+                type="number" min={0} max={100} step={0.5}
+                className={inp}
+                value={draft.platformFeePercent}
+                onChange={(e) => setDraft({ ...draft, platformFeePercent: e.target.value })}
+                placeholder="10"
+              />
+              <p className="text-xs text-zinc-500 mt-1">Share of session-pack/booking revenue the platform takes via Stripe for academies on this plan. Defaults to 10% — lower it for an academy paying well upfront.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

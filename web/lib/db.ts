@@ -641,11 +641,13 @@ export async function fetchPastOccurrences(groupSessionId: string): Promise<{ id
 }
 
 /**
- * Records attendance for one occurrence date of a recurring group session. Each newly-Present
- * player draws down one session from their own active SessionPack (matching session_type +
- * academy) if they have one; reverting a previously-present, pack-consuming record back to
- * Absent refunds that session. Re-saving an unchanged status is a no-op — mirrors
- * recordSessionCompletion's pack drawdown, just applied across a roster in one save.
+ * Records attendance for one occurrence date of a recurring group session. The player's pack pays
+ * for the agreed weekly slot whether they show up or not, so the FIRST time an occurrence is
+ * recorded for a player — Present or Absent — it draws down one session from their own active
+ * SessionPack (matching session_type + academy) if they have one. Toggling between Present and
+ * Absent on an already-recorded occurrence doesn't re-consume or refund a session; a coach who
+ * wants to excuse an absence uses the separate "Credit a Session" action instead (see
+ * SessionPacksClient's CreditButton), which is subject to its own expiry window.
  */
 export async function saveAttendance(
   groupSessionId: string,
@@ -675,18 +677,18 @@ export async function saveAttendance(
     const existing = existingByPlayer[rec.playerId];
     let packId: string | null = existing?.pack_id ?? null;
 
-    if (rec.status === "Present" && existing?.status !== "Present") {
+    if (!existing) {
+      // First time this occurrence is recorded for this player — the agreed slot is booked
+      // either way, so it draws down a session regardless of Present vs. Absent.
       const { data: pack } = await sb.from("session_packs")
         .select("id, sessions_used, total_sessions")
         .eq("player_id", rec.playerId).eq("session_type", sessionType).eq("academy_id", academyId)
         .eq("status", "Active").maybeSingle();
       packId = pack && pack.sessions_used < pack.total_sessions ? pack.id : null;
       if (packId) await sb.from("session_packs").update({ sessions_used: pack!.sessions_used + 1 }).eq("id", packId);
-    } else if (rec.status === "Absent" && existing?.status === "Present" && existing.pack_id) {
-      const { data: pack } = await sb.from("session_packs").select("sessions_used").eq("id", existing.pack_id).single();
-      if (pack) await sb.from("session_packs").update({ sessions_used: Math.max(0, pack.sessions_used - 1) }).eq("id", existing.pack_id);
-      packId = null;
     }
+    // Toggling Present <-> Absent on an already-recorded occurrence leaves packId (and the
+    // consumed session) untouched — both statuses consume the same slot now.
 
     const id = existing?.id ?? `att_${occurrenceId}_${rec.playerId}`;
     const { error } = await sb.from("attendance_records").upsert({
@@ -1164,6 +1166,7 @@ export interface DbPlan {
   included_notes: string | null;
   waives_session_fees?: boolean;
   platform_admin_only?: boolean;
+  platform_fee_percent?: number;
   active: boolean;
   sort_order: number;
 }
@@ -1182,6 +1185,7 @@ export function dbToPlan(r: DbPlan): Plan {
     includedNotes: r.included_notes,
     waivesSessionFees: r.waives_session_fees ?? false,
     platformAdminOnly: r.platform_admin_only ?? false,
+    platformFeePercent: r.platform_fee_percent ?? 10,
     active: r.active,
     sortOrder: r.sort_order,
   };

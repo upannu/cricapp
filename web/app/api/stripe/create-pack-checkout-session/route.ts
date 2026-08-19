@@ -68,11 +68,23 @@ export async function POST(request: Request) {
 
   const { data: academy, error: academyError } = await supabase
     .from("academies")
-    .select("id, name, head_coach_id, payout_model")
+    .select("id, name, head_coach_id, payout_model, plan_id")
     .eq("id", pack.academy_id)
     .single();
   if (academyError) {
     return NextResponse.json({ error: "Academy not found." }, { status: 404 });
+  }
+
+  // Platform fee defaults to 10% unless the academy's assigned plan overrides it (e.g. an
+  // academy paying well upfront gets a reduced rate) — must match the UI's display exactly.
+  let platformFeePercent = 10;
+  if (academy.plan_id) {
+    const { data: academyPlan } = await supabase
+      .from("plans")
+      .select("platform_fee_percent")
+      .eq("id", academy.plan_id)
+      .single();
+    if (academyPlan?.platform_fee_percent != null) platformFeePercent = academyPlan.platform_fee_percent;
   }
 
   // Split mode pays whichever coach was explicitly assigned to the pack at creation time (a pack
@@ -122,7 +134,7 @@ export async function POST(request: Request) {
 
     const totalAud = pack.total_sessions * pack.fee_per_session;
     const totalCents = Math.round(totalAud * 100);
-    const platformFeeCents = Math.round(totalCents * 0.10);
+    const platformFeeCents = Math.round(totalCents * (platformFeePercent / 100));
 
     const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
     const session = await stripe.checkout.sessions.create({

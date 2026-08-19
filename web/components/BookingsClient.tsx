@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { Booking, BookingStatus, BookingType, Player, Coach, SessionPack, Academy, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchActivePlans, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus } from "@/lib/db";
-import { formatDate, getSessionFee } from "@/lib/utils";
+import { formatDate, getSessionFee, getPlatformFeePercent } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 
 const BOOKING_TYPES: BookingType[] = [
@@ -68,6 +68,12 @@ function feesWaivedForCoach(coachId: string): boolean {
   const academy = coach ? _academies.find((a) => a.id === coach.academyId) : undefined;
   const plan = academy?.planId ? _plans.find((p) => p.id === academy.planId) : undefined;
   return !!plan?.waivesSessionFees;
+}
+
+function platformFeePercentForCoach(coachId: string): number {
+  const coach = _coaches.find((c) => c.id === coachId);
+  if (!coach) return 10;
+  return getPlatformFeePercent(coach.academyId, _academies, _plans);
 }
 
 const EMPTY_DRAFT: DraftBooking = {
@@ -437,8 +443,8 @@ export function BookingsClient() {
                 <p className="text-xs text-pace-green mt-1.5">✓ Covered by the academy's plan — no session fee</p>
               ) : draft.feeAud > 0 && (
                 <div className="flex gap-4 mt-1.5 text-[11px]">
-                  <span className="text-amber">Platform: ${(draft.feeAud * 0.10).toFixed(0)}</span>
-                  <span className="text-pace-green">Academy: ${(draft.feeAud * 0.90).toFixed(0)}</span>
+                  <span className="text-amber">Platform: ${(draft.feeAud * (platformFeePercentForCoach(draft.coachId) / 100)).toFixed(0)}</span>
+                  <span className="text-pace-green">Academy: ${(draft.feeAud * (1 - platformFeePercentForCoach(draft.coachId) / 100)).toFixed(0)}</span>
                 </div>
               )}
             </div>
@@ -678,12 +684,12 @@ function BookingCard({
                     <div className="text-[10px] text-zinc-500">Session fee</div>
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-amber">${(b.feeAud * 0.10).toFixed(0)}</div>
-                    <div className="text-[10px] text-zinc-500">Platform (10%)</div>
+                    <div className="text-sm font-bold text-amber">${(b.feeAud * (platformFeePercentForCoach(b.coachId) / 100)).toFixed(0)}</div>
+                    <div className="text-[10px] text-zinc-500">Platform ({platformFeePercentForCoach(b.coachId)}%)</div>
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-pace-green">${(b.feeAud * 0.90).toFixed(0)}</div>
-                    <div className="text-[10px] text-zinc-500">Academy (90%)</div>
+                    <div className="text-sm font-bold text-pace-green">${(b.feeAud * (1 - platformFeePercentForCoach(b.coachId) / 100)).toFixed(0)}</div>
+                    <div className="text-[10px] text-zinc-500">Academy ({100 - platformFeePercentForCoach(b.coachId)}%)</div>
                   </div>
                 </div>
               )}
