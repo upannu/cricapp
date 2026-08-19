@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import type { Session, BookingType, Player, Coach, Academy, CameraCalibration, VideoAnnotation, VoiceNote, Assessment } from "@/lib/types";
+import type { Session, BookingType, Player, Coach, Academy, Plan, CameraCalibration, VideoAnnotation, VoiceNote, Assessment } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchCameraCalibration, fetchVideoAnnotations, fetchVoiceNotes, fetchAssessments, updateSessionRpe } from "@/lib/db";
+import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchActivePlans, fetchCameraCalibration, fetchVideoAnnotations, fetchVoiceNotes, fetchAssessments, updateSessionRpe } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
 import { extractPoseSequence, type PoseFrame } from "@/lib/pose";
 import { computeBiomechanics } from "@/lib/biomechanics";
@@ -38,7 +38,18 @@ const TYPE_STYLES: Record<BookingType, string> = {
 let _sessPlayers: Player[] = [];
 let _sessCoaches: Coach[] = [];
 let _sessAcademies: Academy[] = [];
+let _sessPlans: Plan[] = [];
 function playerById(id: string) { return _sessPlayers.find((p) => p.id === id); }
+/** AI reports are normally gated by the player's own subscription tier — but an academy
+ * player on a fees-waived academy plan (e.g. a cricket board license) gets them included too,
+ * same as they already get booking/pack session fees waived. */
+function aiReportsIncludedForPlayer(player: Player): boolean {
+  if (canGenerateAiReports(player.subscription.plan)) return true;
+  const academy = _sessAcademies.find((a) => a.playerIds.includes(player.id));
+  if (!academy?.planId) return false;
+  const plan = _sessPlans.find((p) => p.id === academy.planId);
+  return !!plan?.waivesSessionFees;
+}
 
 function thisWeekCount(sessions: Session[]): number {
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -140,8 +151,9 @@ export function SessionsClient() {
       fetchPlayers(coachId, academyId),
       fetchCoaches(academyId),
       fetchAcademies(),
-    ]).then(([p, c, ac]) => {
-      _sessPlayers = p; _sessCoaches = c; _sessAcademies = ac;
+      fetchActivePlans(),
+    ]).then(([p, c, ac, pl]) => {
+      _sessPlayers = p; _sessCoaches = c; _sessAcademies = ac; _sessPlans = pl;
       const scopedPlayerIds = (coachId || academyId) ? p.map((pl) => pl.id) : undefined;
       return Promise.all([fetchSessions(undefined, scopedPlayerIds), fetchReports(undefined, scopedPlayerIds)]);
     }).then(([s, r]) => {
@@ -694,7 +706,7 @@ export function SessionsClient() {
                               {generatingId === session.id ? (generatingStage || "Analyzing…") : "🔄 Regenerate"}
                             </button>
                           </>
-                        ) : player && !canGenerateAiReports(player.subscription.plan) && player.assessmentCredits > 0 ? (
+                        ) : player && !aiReportsIncludedForPlayer(player) && player.assessmentCredits > 0 ? (
                           <button
                             type="button"
                             onClick={() => handleGenerateReport(session, true)}
@@ -704,7 +716,7 @@ export function SessionsClient() {
                           >
                             {generatingId === session.id ? (generatingStage || "Analyzing…") : `🎫 Use Assessment Credit (${player.assessmentCredits} left)`}
                           </button>
-                        ) : player && !canGenerateAiReports(player.subscription.plan) ? (
+                        ) : player && !aiReportsIncludedForPlayer(player) ? (
                           <Link
                             href={`/players/${player.id}/subscription`}
                             className="px-4 py-2 text-xs font-semibold bg-zinc-700/50 text-zinc-400 border border-zinc-600 rounded-lg hover:text-white hover:border-zinc-500 transition-colors"
