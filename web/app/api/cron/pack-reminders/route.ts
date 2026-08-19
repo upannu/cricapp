@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { sendSms } from "@/lib/sms";
 
 /** Days past the payment due date before login is disabled. A single constant rather than a
  * settings-UI field — cheap to change here later if it needs to become configurable. */
@@ -41,10 +42,24 @@ export async function POST(request: Request) {
 
   const { data: packs, error: packsError } = await supabase
     .from("session_packs")
-    .select("id, player_id, payment_status, payment_due_date, reminder_7d_sent_at, reminder_2d_sent_at, reminder_due_sent_at")
+    .select("id, player_id, academy_id, payment_status, payment_due_date, reminder_7d_sent_at, reminder_2d_sent_at, reminder_due_sent_at")
     .eq("status", "Active")
     .neq("payment_status", "Paid");
   if (packsError) return NextResponse.json({ error: packsError.message }, { status: 500 });
+
+  // Coach to loop in on the urgent (due-today / lock) notices — the player's own assigned coach,
+  // falling back to the academy's head coach if they have none. Not the Stripe payout-destination
+  // coach (a different concept — revenue routing, not who actually coaches this player).
+  async function resolveCoach(coachId: string | null, academyId: string) {
+    if (coachId) {
+      const { data } = await supabase.from("coaches").select("id, name, email, phone").eq("id", coachId).maybeSingle();
+      if (data) return data;
+    }
+    const { data: academy } = await supabase.from("academies").select("head_coach_id").eq("id", academyId).maybeSingle();
+    if (!academy?.head_coach_id) return null;
+    const { data: headCoach } = await supabase.from("coaches").select("id, name, email, phone").eq("id", academy.head_coach_id).maybeSingle();
+    return headCoach ?? null;
+  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -54,7 +69,7 @@ export async function POST(request: Request) {
   for (const pk of packs ?? []) {
     const { data: player } = await supabase
       .from("players")
-      .select("id, name, email, login_disabled")
+      .select("id, name, email, phone, coach_id, login_disabled")
       .eq("id", pk.player_id)
       .single();
     if (!player?.email) continue;
@@ -87,9 +102,11 @@ export async function POST(request: Request) {
         // best-effort — will retry on the next cron run
       }
     } else if (daysToDue === 0 && !pk.reminder_due_sent_at) {
+      const coach = await resolveCoach(player.coach_id, pk.academy_id);
       try {
         await transporter.sendMail({
           from: `"CRIC HQ" <${gmailUser}>`, to: player.email,
+          cc: coach?.email || undefined,
           subject: "Your session pack payment is due today",
           text: `Hi ${player.name},\n\nYour session pack payment is due today (${pk.payment_due_date}). Please pay today to avoid losing access.\n\n— CRIC HQ`,
         });
@@ -97,6 +114,18 @@ export async function POST(request: Request) {
         results.push({ packId: pk.id, action: "reminder_due_sent" });
       } catch {
         // best-effort — will retry on the next cron run
+      }
+      try {
+        await sendSms(player.phone, `Hi ${player.name}, your session pack payment is due today. Please pay today to avoid losing access. — CRIC HQ`);
+      } catch {
+        // best-effort — SMS failure never blocks the rest of the loop
+      }
+      if (coach) {
+        try {
+          await sendSms(coach.phone, `Hi ${coach.name}, ${player.name}'s session pack payment is due today. — CRIC HQ`);
+        } catch {
+          // best-effort
+        }
       }
     } else if (daysToDue < 0 && pk.payment_status === "Pending") {
       await supabase.from("session_packs").update({ payment_status: "Overdue" }).eq("id", pk.id);
@@ -110,16 +139,30 @@ export async function POST(request: Request) {
         disabled_reason: "Overdue session pack payment",
       }).eq("id", player.id);
 
-      const notifyList = [player.email, process.env.PLATFORM_ADMIN_EMAIL].filter(Boolean) as string[];
+      const lockCoach = await resolveCoach(player.coach_id, pk.academy_id);
+      const notifyList = [player.email, lockCoach?.email, process.env.PLATFORM_ADMIN_EMAIL].filter(Boolean) as string[];
+      const lockText = `${player.name}'s login has been locked after ${PACK_PAYMENT_GRACE_DAYS} days of non-payment on their session pack (due ${pk.payment_due_date}). A staff member must reactivate the account from Session Packs → Fees Due once payment is received.\n\n— CRIC HQ`;
       for (const to of notifyList) {
         try {
           await transporter.sendMail({
             from: `"CRIC HQ" <${gmailUser}>`, to,
             subject: `Account locked — overdue session pack payment (${player.name})`,
-            text: `${player.name}'s login has been locked after ${PACK_PAYMENT_GRACE_DAYS} days of non-payment on their session pack (due ${pk.payment_due_date}). A staff member must reactivate the account from Session Packs → Fees Due once payment is received.\n\n— CRIC HQ`,
+            text: lockText,
           });
         } catch {
           // best-effort notification
+        }
+      }
+      try {
+        await sendSms(player.phone, `Your CRIC HQ login has been locked after ${PACK_PAYMENT_GRACE_DAYS} days of non-payment on your session pack. Contact your academy to resolve this. — CRIC HQ`);
+      } catch {
+        // best-effort
+      }
+      if (lockCoach) {
+        try {
+          await sendSms(lockCoach.phone, `${player.name}'s CRIC HQ login has been locked for overdue session pack payment. — CRIC HQ`);
+        } catch {
+          // best-effort
         }
       }
       results.push({ packId: pk.id, action: "login_disabled" });
