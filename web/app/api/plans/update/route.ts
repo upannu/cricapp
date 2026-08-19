@@ -15,6 +15,7 @@ interface PlanInput {
   accessDurationMonths?: number | null;
   includedNotes?: string | null;
   waivesSessionFees?: boolean;
+  platformAdminOnly?: boolean;
   active?: boolean;
   sortOrder?: number;
 }
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
     access_duration_months: input.accessDurationMonths ?? null,
     included_notes: input.includedNotes?.trim() || null,
     waives_session_fees: input.waivesSessionFees ?? false,
+    platform_admin_only: input.platformAdminOnly ?? false,
     active: input.active ?? true,
     sort_order: input.sortOrder ?? 0,
     updated_at: new Date().toISOString(),

@@ -19,13 +19,14 @@ type Draft = {
   accessDurationMonths: string;
   includedNotes: string;
   waivesSessionFees: boolean;
+  platformAdminOnly: boolean;
   active: boolean;
   sortOrder: string;
 };
 
 const EMPTY_DRAFT: Draft = {
   slug: "", name: "", audience: "individual", billingType: "subscription", billingInterval: "month",
-  priceAud: "", seatCap: "", accessDurationMonths: "", includedNotes: "", waivesSessionFees: false, active: true, sortOrder: "0",
+  priceAud: "", seatCap: "", accessDurationMonths: "", includedNotes: "", waivesSessionFees: false, platformAdminOnly: false, active: true, sortOrder: "0",
 };
 
 function planToDraft(p: Plan): Draft {
@@ -41,6 +42,7 @@ function planToDraft(p: Plan): Draft {
     accessDurationMonths: p.accessDurationMonths != null ? String(p.accessDurationMonths) : "",
     includedNotes: p.includedNotes ?? "",
     waivesSessionFees: p.waivesSessionFees,
+    platformAdminOnly: p.platformAdminOnly,
     active: p.active,
     sortOrder: String(p.sortOrder),
   };
@@ -103,6 +105,7 @@ export function PlansAdminClient() {
           accessDurationMonths: d.accessDurationMonths.trim() ? parseInt(d.accessDurationMonths, 10) : null,
           includedNotes: d.includedNotes.trim() || null,
           waivesSessionFees: d.waivesSessionFees,
+          platformAdminOnly: d.platformAdminOnly,
           active: d.active,
           sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
         }),
@@ -115,7 +118,7 @@ export function PlansAdminClient() {
         billingType: d.billingType, billingInterval: d.billingType === "subscription" ? d.billingInterval : null,
         priceAud, seatCap: d.seatCap.trim() ? parseInt(d.seatCap, 10) : null,
         accessDurationMonths: d.accessDurationMonths.trim() ? parseInt(d.accessDurationMonths, 10) : null,
-        includedNotes: d.includedNotes.trim() || null, waivesSessionFees: d.waivesSessionFees, active: d.active,
+        includedNotes: d.includedNotes.trim() || null, waivesSessionFees: d.waivesSessionFees, platformAdminOnly: d.platformAdminOnly, active: d.active,
         sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
       };
       setPlans((prev) => {
@@ -184,6 +187,11 @@ export function PlansAdminClient() {
                   {p.waivesSessionFees && (
                     <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-pace-green/20 text-pace-green">
                       Fees Waived
+                    </span>
+                  )}
+                  {p.platformAdminOnly && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber/20 text-amber">
+                      Platform Admin Only
                     </span>
                   )}
                 </div>
@@ -321,6 +329,20 @@ export function PlansAdminClient() {
                 <span>
                   <span className="block text-white font-medium">Waives player session fees</span>
                   <span className="block text-xs text-zinc-500">Players never pay for bookings or packs — the academy's own subscription covers it. Existing academies on this plan pick this up automatically.</span>
+                </span>
+              </label>
+            </div>
+
+            <div>
+              <label className="flex items-start gap-2.5 text-sm text-zinc-300 cursor-pointer select-none">
+                <input
+                  type="checkbox" checked={draft.platformAdminOnly}
+                  onChange={(e) => setDraft({ ...draft, platformAdminOnly: e.target.checked })}
+                  className="mt-0.5"
+                />
+                <span>
+                  <span className="block text-white font-medium">Platform admin only</span>
+                  <span className="block text-xs text-zinc-500">Hidden from the academy/player-facing plan pickers — only you see and can assign it. For internal or test tiers, not something to offer real customers.</span>
                 </span>
               </label>
             </div>
