@@ -10,11 +10,6 @@ import { DateInput } from "@/components/DateInput";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
-const SESSION_TYPES: BookingType[] = [
-  "Net Session", "Individual Coaching", "Video Review",
-  "Fitness Assessment", "Match Practice", "Warm-up / Conditioning",
-];
-
 const TYPE_STYLES: Record<BookingType, string> = {
   "Net Session":            "bg-pace-green/15 text-pace-green",
   "Individual Coaching":    "bg-blue-500/15 text-blue-400",
@@ -62,7 +57,7 @@ function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("");
 }
 
-type DraftPack = Omit<SessionPack, "id" | "status" | "sessionsUsed" | "sessionCredits" | "agreedDays">;
+type DraftPack = Omit<SessionPack, "id" | "status" | "sessionsUsed" | "sessionCredits">;
 
 const EMPTY_DRAFT: DraftPack = {
   playerId: "",
@@ -73,6 +68,7 @@ const EMPTY_DRAFT: DraftPack = {
   feePerSession: 0,
   paymentStatus: "Pending",
   paymentDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+  agreedDays: [],
 };
 
 type FilterType = "All" | "Active" | "Exhausted" | "No Pack";
@@ -113,6 +109,13 @@ export function SessionPacksClient() {
   function handleMarkPaid(packId: string) {
     updatePackPaymentStatus(packId, "Paid");
     setPacks((prev) => prev.map((pk) => pk.id === packId ? { ...pk, paymentStatus: "Paid" } : pk));
+  }
+
+  function handleReactivate(playerId: string) {
+    // _packPlayers is a module-level cache, not React state — mutate it in place, then force a
+    // re-render by touching `packs` so the scopedPlayers memo (keyed on [packs]) re-reads it.
+    _packPlayers = _packPlayers.map((p) => p.id === playerId ? { ...p, loginDisabled: false, disabledAt: null, disabledReason: null } : p);
+    setPacks((prev) => [...prev]);
   }
 
   function handleToggleDay(pack: SessionPack, day: string) {
@@ -172,9 +175,11 @@ export function SessionPacksClient() {
     setDraft({ ...draft, academyId, feePerSession: fee });
   }
 
-  function handleSessionTypeChange(sessionType: BookingType) {
-    const fee = feeForAcademyAndType(draft.academyId, sessionType, draft.playerId);
-    setDraft({ ...draft, sessionType, feePerSession: fee });
+  function handleToggleDraftDay(day: string) {
+    const agreedDays = draft.agreedDays.includes(day)
+      ? draft.agreedDays.filter((d) => d !== day)
+      : [...draft.agreedDays, day];
+    setDraft({ ...draft, agreedDays });
   }
 
   function handlePlayerChange(playerId: string) {
@@ -190,6 +195,10 @@ export function SessionPacksClient() {
     if (!draft.academyId) { setFormError("Please select an academy."); return; }
     if (draft.feePerSession <= 0 && !academyWaivesFees(draft.academyId)) {
       setFormError("Session fee must be greater than $0.");
+      return;
+    }
+    if (draft.agreedDays.length === 0) {
+      setFormError("Please select at least one session day.");
       return;
     }
     setFormError("");
@@ -212,7 +221,7 @@ export function SessionPacksClient() {
       status: "Active",
       paymentStatus,
       paymentDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
-      agreedDays: [],
+      agreedDays: draft.agreedDays,
     };
 
     upsertSessionPack({
@@ -222,6 +231,7 @@ export function SessionPacksClient() {
       total_sessions: newPack.totalSessions, sessions_used: 0, session_credits: 0,
       fee_per_session: newPack.feePerSession, status: "Active",
       payment_status: paymentStatus, payment_due_date: newPack.paymentDueDate,
+      agreed_days: newPack.agreedDays,
     });
 
     setPacks((prev) => {
@@ -323,23 +333,10 @@ export function SessionPacksClient() {
             </div>
 
             <div className="sm:col-span-2">
-              <label className={lbl}>Session Type *</label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {SESSION_TYPES.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => handleSessionTypeChange(t)}
-                    className={`px-3 py-2.5 rounded-xl text-xs font-semibold text-left border transition-colors cursor-pointer ${
-                      draft.sessionType === t
-                        ? "border-pace-green bg-pace-green/10 text-pace-green"
-                        : "border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-300"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
+              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES["Net Session"]}`}>
+                Net Session
+              </span>
+              <p className="text-xs text-zinc-500 mt-1.5">Packs are only used for group net sessions — individual bookings are paid per session.</p>
             </div>
 
             <div>
@@ -390,6 +387,34 @@ export function SessionPacksClient() {
               >
                 {[5, 10, 15, 20].map((n) => <option key={n} value={n}>{n} sessions</option>)}
               </select>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className={lbl}>Session Days *</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {DAYS.map((day) => {
+                  const checked = draft.agreedDays.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => handleToggleDraftDay(day)}
+                      className={`w-11 py-2 rounded-lg text-[11px] font-bold transition-colors cursor-pointer border ${
+                        checked
+                          ? "bg-pace-green text-black border-pace-green"
+                          : "bg-ink text-zinc-500 border-zinc-700 hover:border-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+              {draft.agreedDays.length > 0 && (
+                <p className="text-xs text-zinc-500 mt-1.5">
+                  ≈{Math.ceil(draft.totalSessions / draft.agreedDays.length)} weeks at {draft.agreedDays.length} day{draft.agreedDays.length > 1 ? "s" : ""}/week
+                </p>
+              )}
             </div>
 
             <div>
@@ -522,6 +547,11 @@ export function SessionPacksClient() {
                                   }`}>
                                     {status}
                                   </span>
+                                  {player.loginDisabled && (
+                                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/40">
+                                      🔒 Login locked
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
                                   <span>{academy?.name}</span>
@@ -541,6 +571,9 @@ export function SessionPacksClient() {
                                 </div>
                                 <PayOnlineButton packId={pk.id} />
                                 <MarkPaidButton packId={pk.id} onPaid={() => handleMarkPaid(pk.id)} />
+                                {player.loginDisabled && canAddPack && (
+                                  <ReactivateButton playerId={player.id} onReactivated={() => handleReactivate(player.id)} />
+                                )}
                               </div>
                             </div>
                             {/* Fee split */}
@@ -659,9 +692,10 @@ export function SessionPacksClient() {
                   )}
                   {pack?.status === "Exhausted" && canAddPack && (
                     <button type="button" onClick={() => {
-                      setDraft({ playerId: player.id, academyId: pack.academyId, sessionType: pack.sessionType, purchaseDate: today,
+                      setDraft({ playerId: player.id, academyId: pack.academyId, sessionType: "Net Session", purchaseDate: today,
                         totalSessions: 10, feePerSession: pack.feePerSession, paymentStatus: "Pending",
                         paymentDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+                        agreedDays: pack.agreedDays,
                       });
                       setFormError(""); setShowForm(true);
                       setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
@@ -694,6 +728,11 @@ export function SessionPacksClient() {
                           style={{ width: `${pct}%` }}
                         />
                       </div>
+                      {pack.agreedDays.length > 0 && (
+                        <p className="text-xs text-zinc-500 mt-1.5">
+                          ≈{Math.ceil(pack.totalSessions / pack.agreedDays.length)} weeks at {pack.agreedDays.length} day{pack.agreedDays.length > 1 ? "s" : ""}/week
+                        </p>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-4 gap-3 mb-4">
@@ -873,6 +912,46 @@ function MarkPaidButton({ packId, onPaid }: { packId: string; onPaid: () => void
       className="px-4 py-2 text-xs font-bold bg-pace-green text-black rounded-xl hover:opacity-90 cursor-pointer transition-opacity">
       Mark Paid
     </button>
+  );
+}
+
+function ReactivateButton({ playerId, onReactivated }: { playerId: string; onReactivated: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState(false);
+
+  async function handleClick() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/reactivate-player", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not reactivate account.");
+      setDone(true);
+      onReactivated();
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (done) {
+    return <span className="text-xs font-semibold text-pace-green flex items-center gap-1">✓ Reactivated</span>;
+  }
+
+  return (
+    <div className="text-right">
+      <button type="button" onClick={handleClick} disabled={loading}
+        className="px-4 py-2 text-xs font-bold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 cursor-pointer transition-colors disabled:opacity-60">
+        {loading ? "Loading…" : "Reactivate"}
+      </button>
+      {error && <p className="text-[10px] text-red-400 mt-1 max-w-32">{error}</p>}
+    </div>
   );
 }
 

@@ -422,6 +422,11 @@ export interface Player {
   librarySubscriptionStatus?: string | null;
   /** One-time-purchased AI report credits, consumed outside the subscription session cap. */
   assessmentCredits: number;
+  /** Login is rejected while true — set by the pack-payment-reminder cron after the grace period,
+   * cleared only by a staff member via the "Reactivate" action, never automatically on payment. */
+  loginDisabled: boolean;
+  disabledAt: string | null;
+  disabledReason: string | null;
 }
 
 // ─── Coach workflow: action plans, video annotation, voice notes, assessments ──

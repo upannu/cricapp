@@ -37,7 +37,7 @@ export default function LoginPage() {
     setError("");
     const err = await login(email.trim(), password);
     if (err) {
-      setError("Invalid email or password.");
+      setError(err.startsWith("ACCOUNT_DISABLED::") ? err.slice("ACCOUNT_DISABLED::".length) : "Invalid email or password.");
       setLoading(false);
     } else {
       router.push("/players");

@@ -36,6 +36,7 @@ export interface DbPlayer {
   acad_stage: string; acad_completion_percent: number;
   acad_total_sessions: number; acad_xp: number; acad_articles_read: number;
   tip_streak_count?: number; tip_best_streak?: number; tip_last_viewed_date?: string | null;
+  login_disabled?: boolean; disabled_at?: string | null; disabled_reason?: string | null;
 }
 
 export interface DbCoach {
@@ -90,6 +91,11 @@ export interface DbSessionPack {
   purchase_date: string; total_sessions: number; sessions_used: number;
   session_credits: number; fee_per_session: number; status: string;
   payment_status: string; payment_due_date: string; agreed_days?: string[];
+  /** Idempotency flags for the pack-reminders cron — each fires at most once per pack. Internal
+   * bookkeeping only, not surfaced through dbToSessionPack/the client-facing SessionPack type. */
+  reminder_7d_sent_at?: string | null;
+  reminder_2d_sent_at?: string | null;
+  reminder_due_sent_at?: string | null;
 }
 
 export interface DbReport {
@@ -138,6 +144,9 @@ export function dbToPlayer(r: DbPlayer): Player {
     libraryStripeSubscriptionId: r.library_stripe_subscription_id ?? undefined,
     librarySubscriptionStatus: r.library_subscription_status ?? null,
     assessmentCredits: r.assessment_credits ?? 0,
+    loginDisabled: r.login_disabled ?? false,
+    disabledAt: r.disabled_at ?? null,
+    disabledReason: r.disabled_reason ?? null,
     subscription: {
       plan: r.sub_plan as PlanTier,
       startDate: r.sub_start_date, endDate: r.sub_end_date,
