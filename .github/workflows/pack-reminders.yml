@@ -1,0 +1,20 @@
+name: Pack payment reminders
+
+# Runs daily against production only — this drives real payment reminders and
+# eventual login lockouts for real academies, not something to run against
+# dev's cloned data on a schedule. workflow_dispatch is available for manual
+# testing/backfill runs.
+on:
+  schedule:
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger pack reminders
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://crichq.com.au/api/cron/pack-reminders
