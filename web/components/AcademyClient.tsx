@@ -377,6 +377,7 @@ export function AcademyClient() {
       sessionsCount: 0, lastActive: now, xp: 0,
       tipStreakCount: 0, tipBestStreak: 0,
       assessmentCredits: 0,
+      loginDisabled: false, disabledAt: null, disabledReason: null,
     };
     await insertPlayer({
       id: newId, name: newPlayer.name, email: newPlayer.email, phone: "",
@@ -476,6 +477,7 @@ export function AcademyClient() {
         sessionsCount: 0, lastActive: now, xp: 0,
         tipStreakCount: 0, tipBestStreak: 0,
         assessmentCredits: 0,
+        loginDisabled: false, disabledAt: null, disabledReason: null,
       }));
 
       await insertPlayers(newPlayers.map((p) => ({

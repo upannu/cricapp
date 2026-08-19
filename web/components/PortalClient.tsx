@@ -3,10 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayer, fetchSessions, fetchReports, fetchTodaysTip, recordTipView } from "@/lib/db";
+import { fetchPlayer, fetchSessions, fetchReports, fetchTodaysTip, recordTipView, fetchSessionPacks } from "@/lib/db";
 import { formatDate, getReportPdfUrl, getInitials } from "@/lib/utils";
 import { BadgeStrip } from "@/components/BadgeStrip";
-import type { Player, Session, Report, DailyTip } from "@/lib/types";
+import type { Player, Session, Report, DailyTip, SessionPack } from "@/lib/types";
 
 const CATEGORY_STYLES: Record<string, string> = {
   Biomechanical: "bg-pace-green/10 text-pace-green border-pace-green/30",
@@ -22,6 +22,7 @@ export function PortalClient() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [tip, setTip] = useState<DailyTip | null>(null);
+  const [packs, setPacks] = useState<SessionPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [consentError, setConsentError] = useState("");
@@ -33,11 +34,13 @@ export function PortalClient() {
       fetchSessions(undefined, [user.playerId]),
       fetchReports(user.playerId),
       fetchTodaysTip(),
-    ]).then(([p, s, r, t]) => {
+      fetchSessionPacks([user.playerId]),
+    ]).then(([p, s, r, t, pk]) => {
       setPlayer(p);
       setSessions(s);
       setReports(r);
       setTip(t);
+      setPacks(pk);
       setLoading(false);
       recordTipView(user.playerId!);
     });
@@ -76,9 +79,15 @@ export function PortalClient() {
   }
 
   const initials = getInitials(player.name);
+  const overduePack = packs.find((pk) => pk.status === "Active" && pk.paymentStatus === "Overdue");
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+      {/* Overdue session pack payment warning — not yet locked, just a nudge */}
+      {overduePack && !player.loginDisabled && (
+        <OverduePackBanner packId={overduePack.id} />
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-4">
         <div className="w-16 h-16 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-2xl flex-shrink-0">
@@ -249,6 +258,45 @@ export function PortalClient() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function OverduePackBanner({ packId }: { packId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handlePay() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/stripe/create-pack-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Could not start checkout.");
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap">
+      <div>
+        <p className="text-red-400 text-sm font-semibold">
+          Your session pack payment is overdue — pay now to avoid losing access to your account.
+        </p>
+        {error && <p className="text-red-300 text-xs mt-1">{error}</p>}
+      </div>
+      <button type="button" onClick={handlePay} disabled={loading}
+        className="px-4 py-2 text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/30 rounded-xl hover:bg-red-500/30 transition-colors flex-shrink-0 disabled:opacity-60 cursor-pointer">
+        {loading ? "Loading…" : "Pay Online"}
+      </button>
     </div>
   );
 }

@@ -63,8 +63,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function login(email: string, password: string): Promise<string | null> {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return error ? error.message : null;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return error.message;
+
+    // A player whose session pack payment went unpaid past the grace period gets locked out here
+    // — checked post-auth (self-read of their own player row) rather than pre-auth, since only an
+    // authenticated request can read it under RLS. Reactivation is staff-only, never automatic.
+    const playerId = data.user?.user_metadata?.player_id as string | undefined;
+    if (playerId) {
+      const { data: player } = await supabase
+        .from("players")
+        .select("login_disabled, disabled_reason")
+        .eq("id", playerId)
+        .maybeSingle();
+      if (player?.login_disabled) {
+        await supabase.auth.signOut();
+        // Prefixed so the login page can show this specific, actionable message instead of its
+        // generic "Invalid email or password." (which is deliberately vague for real credential
+        // errors, but this case is reached only after a correct password, so there's nothing to
+        // avoid revealing here).
+        return `ACCOUNT_DISABLED::${player.disabled_reason || "Your account has been locked — contact your academy."}`;
+      }
+    }
+
+    return null;
   }
 
   async function signup(
