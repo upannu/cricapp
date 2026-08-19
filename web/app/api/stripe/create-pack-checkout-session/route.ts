@@ -124,7 +124,7 @@ export async function POST(request: Request) {
     const totalCents = Math.round(totalAud * 100);
     const platformFeeCents = Math.round(totalCents * 0.10);
 
-    const origin = new URL(request.url).origin;
+    const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer: customerId,

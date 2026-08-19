@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No billing account yet — subscribe to a plan first." }, { status: 400 });
   }
 
-  const origin = new URL(request.url).origin;
+  const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
   const portalSession = await stripe.billingPortal.sessions.create({
     customer: academy.stripe_customer_id,
     return_url: `${origin}/academies/${academyId}/billing`,
