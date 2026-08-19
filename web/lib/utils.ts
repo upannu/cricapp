@@ -1,4 +1,4 @@
-import type { Academy, Coach, Player, PlayerStatus, BookingType, Plan } from './types';
+import type { Academy, Coach, Player, PlayerStatus, BookingType, Plan, SessionPack } from './types';
 
 /** Great-circle distance in km between two lat/lng points (Haversine formula). */
 export function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -73,4 +73,26 @@ export function getPlatformFeePercent(academyId: string, academies: Academy[], p
     if (plan?.platformFeePercent != null) return plan.platformFeePercent;
   }
   return 10;
+}
+
+/** Weeks a pack is expected to run at its agreed pace — e.g. 10 sessions at 1 day/week ≈ 10 weeks.
+ * Falls back to one session per week if no days were agreed (shouldn't happen for a new pack, but
+ * older/grandfathered packs may have an empty agreedDays). */
+export function packPaceWeeks(pack: Pick<SessionPack, "totalSessions" | "agreedDays">): number {
+  const daysPerWeek = pack.agreedDays.length || 1;
+  return Math.ceil(pack.totalSessions / daysPerWeek);
+}
+
+/** The date after which a coach-issued credit on this pack can no longer be used — the player's
+ * own agreed weekly schedule, not an arbitrary grace period, is what "within those N weeks" means. */
+export function packCreditExpiryDate(pack: Pick<SessionPack, "purchaseDate" | "totalSessions" | "agreedDays">): Date {
+  const end = new Date(pack.purchaseDate);
+  end.setDate(end.getDate() + packPaceWeeks(pack) * 7);
+  return end;
+}
+
+/** True once a pack's agreed-pace window has passed — any sessionCredits still sitting unused at
+ * that point expire rather than carrying forward indefinitely. */
+export function isPackCreditExpired(pack: Pick<SessionPack, "purchaseDate" | "totalSessions" | "agreedDays">): boolean {
+  return new Date() > packCreditExpiryDate(pack);
 }
