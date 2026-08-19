@@ -24,6 +24,8 @@ export default function SignUpPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [academyName, setAcademyName] = useState("");
+  const [academyLocation, setAcademyLocation] = useState("");
   const [playerEmail, setPlayerEmail] = useState("");
   const [playerLookup, setPlayerLookup] = useState<{ email: string; status: "checking" | "found" | "not-found"; name?: string } | null>(null);
   const [error, setError] = useState("");
@@ -60,11 +62,17 @@ export default function SignUpPage() {
       setError("Enter the player's registered email so we can link your account — ask your coach if you're not sure.");
       return;
     }
+    if (role === "academy_admin" && !academyName.trim()) {
+      setError("Enter your academy's name.");
+      return;
+    }
     setLoading(true);
     setError("");
     const { error: err, linked: wasLinked } = await signup(
       name.trim(), email.trim(), password, role,
       NEEDS_PLAYER_LOOKUP.includes(role) ? playerEmail.trim() : undefined,
+      role === "academy_admin" ? academyName.trim() : undefined,
+      role === "academy_admin" ? academyLocation.trim() : undefined,
     );
     if (err) {
       setError(err);
@@ -178,6 +186,32 @@ export default function SignUpPage() {
                     <p className="text-red-400 text-xs mt-1.5">No player found with this email — ask your coach to add the player first.</p>
                   )}
                 </div>
+              )}
+
+              {role === "academy_admin" && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Academy Name</label>
+                    <input
+                      type="text"
+                      value={academyName}
+                      onChange={(e) => { setAcademyName(e.target.value); setError(""); }}
+                      className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                      placeholder="e.g. Bella Vista Fast Bowling"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Academy Location (optional)</label>
+                    <input
+                      type="text"
+                      value={academyLocation}
+                      onChange={(e) => setAcademyLocation(e.target.value)}
+                      className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                      placeholder="e.g. Sydney, NSW"
+                    />
+                  </div>
+                </>
               )}
 
               <div>
