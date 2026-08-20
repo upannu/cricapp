@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, upsertSessionPack, updatePackPaymentStatus, updatePackAgreedDays } from "@/lib/db";
+import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, upsertSessionPack, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 
@@ -57,7 +57,7 @@ function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("");
 }
 
-type DraftPack = Omit<SessionPack, "id" | "status" | "sessionsUsed" | "sessionCredits">;
+type DraftPack = Omit<SessionPack, "id" | "status" | "sessionsUsed" | "sessionCredits" | "paidDate">;
 
 const EMPTY_DRAFT: DraftPack = {
   playerId: "",
@@ -106,9 +106,9 @@ export function SessionPacksClient() {
     return pk.paymentStatus;
   }
 
-  function handleMarkPaid(packId: string) {
-    updatePackPaymentStatus(packId, "Paid");
-    setPacks((prev) => prev.map((pk) => pk.id === packId ? { ...pk, paymentStatus: "Paid" } : pk));
+  function handleMarkPaid(packId: string, paidDate: string) {
+    markPackPaid(packId, paidDate);
+    setPacks((prev) => prev.map((pk) => pk.id === packId ? { ...pk, paymentStatus: "Paid", paidDate } : pk));
   }
 
   function handleReactivate(playerId: string) {
@@ -222,6 +222,7 @@ export function SessionPacksClient() {
       status: "Active",
       paymentStatus,
       paymentDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+      paidDate: null,
       agreedDays: draft.agreedDays,
     };
 
@@ -574,7 +575,7 @@ export function SessionPacksClient() {
                                   <div className="text-[10px] text-zinc-500">total due</div>
                                 </div>
                                 <PayOnlineButton packId={pk.id} />
-                                <MarkPaidButton packId={pk.id} onPaid={() => handleMarkPaid(pk.id)} />
+                                <MarkPaidButton onPaid={(paidDate) => handleMarkPaid(pk.id, paidDate)} />
                                 {player.loginDisabled && canAddPack && (
                                   <ReactivateButton playerId={player.id} onReactivated={() => handleReactivate(player.id)} />
                                 )}
@@ -674,6 +675,9 @@ export function SessionPacksClient() {
                           );
                         })()}
                         <span className="text-zinc-500 text-xs">Purchased {formatDate(pack.purchaseDate)}</span>
+                        {pack.paidDate && (
+                          <span className="text-pace-green text-xs">· Paid {formatDate(pack.paidDate)}</span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-zinc-600 text-xs">No pack purchased</span>
@@ -906,13 +910,33 @@ function PayOnlineButton({ packId }: { packId: string }) {
   );
 }
 
-function MarkPaidButton({ packId, onPaid }: { packId: string; onPaid: () => void }) {
+function MarkPaidButton({ onPaid }: { onPaid: (paidDate: string) => void }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [paidDate, setPaidDate] = useState(today);
   const [done, setDone] = useState(false);
+
   if (done) {
     return <span className="text-xs font-semibold text-pace-green flex items-center gap-1">✓ Marked paid</span>;
   }
+
+  if (showConfirm) {
+    return (
+      <div className="flex items-center gap-2">
+        <DateInput value={paidDate} onChange={setPaidDate} className="w-32 bg-ink rounded-lg px-3 py-1.5 text-xs border border-zinc-700 focus:border-pace-green focus:outline-none" />
+        <button type="button" onClick={() => { onPaid(paidDate); setDone(true); }}
+          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 cursor-pointer transition-opacity">
+          Confirm
+        </button>
+        <button type="button" onClick={() => setShowConfirm(false)}
+          className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <button type="button" onClick={() => { onPaid(); setDone(true); }}
+    <button type="button" onClick={() => setShowConfirm(true)}
       className="px-4 py-2 text-xs font-bold bg-pace-green text-black rounded-xl hover:opacity-90 cursor-pointer transition-opacity">
       Mark Paid
     </button>
