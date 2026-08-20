@@ -53,7 +53,7 @@ export interface DbCoach {
 }
 
 export interface DbAcademy {
-  id: string; name: string; description: string; location: string;
+  id: string; name: string; description: string; location: string; phone?: string | null;
   player_ids: string[]; player_counts: Record<string, number>;
   coach_ids: string[]; head_coach_id: string;
   stage: string; coach_name: string; start_date: string; status: string;
@@ -90,7 +90,7 @@ export interface DbSessionPack {
   id: string; player_id: string; academy_id: string; coach_id?: string | null; session_type: string;
   purchase_date: string; total_sessions: number; sessions_used: number;
   session_credits: number; fee_per_session: number; status: string;
-  payment_status: string; payment_due_date: string; agreed_days?: string[];
+  payment_status: string; payment_due_date: string; paid_date?: string | null; agreed_days?: string[];
   /** Idempotency flags for the pack-reminders cron — each fires at most once per pack. Internal
    * bookkeeping only, not surfaced through dbToSessionPack/the client-facing SessionPack type. */
   reminder_7d_sent_at?: string | null;
@@ -193,6 +193,7 @@ export function dbToCoach(r: DbCoach): Coach {
 export function dbToAcademy(r: DbAcademy): Academy {
   return {
     id: r.id, name: r.name, description: r.description, location: r.location,
+    phone: r.phone ?? undefined,
     playerIds: r.player_ids ?? [],
     playerCounts: r.player_counts as Academy["playerCounts"],
     coachIds: (r.coach_ids ?? []) as string[],
@@ -247,6 +248,7 @@ export function dbToSessionPack(r: DbSessionPack): SessionPack {
     status: r.status as "Active" | "Exhausted",
     paymentStatus: r.payment_status as SessionPack["paymentStatus"],
     paymentDueDate: r.payment_due_date,
+    paidDate: r.paid_date ?? null,
     agreedDays: r.agreed_days ?? [],
   };
 }
@@ -550,6 +552,12 @@ export async function updatePackPaymentStatus(id: string, paymentStatus: string)
 export async function updatePackAgreedDays(id: string, agreedDays: string[]): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("session_packs").update({ agreed_days: agreedDays }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function markPackPaid(id: string, paidDate: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("session_packs").update({ payment_status: "Paid", paid_date: paidDate }).eq("id", id);
   if (error) throw error;
 }
 

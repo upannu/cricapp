@@ -119,6 +119,9 @@ export interface Academy {
   name: string;
   description: string;
   location: string;
+  /** Fallback SMS recipient for the pack-payment reminder cron when a player has no assigned
+   * coach and the academy has no head coach to notify instead. */
+  phone?: string;
   playerCounts: Partial<Record<AgeGroup, number>>;
   playerIds: string[];
   coachIds: string[];
@@ -184,6 +187,9 @@ export interface SessionPack {
   status: 'Active' | 'Exhausted';
   paymentStatus: PaymentStatus;
   paymentDueDate: string;
+  /** The date the coach actually confirmed payment was received — set when marking a pack Paid,
+   * may be earlier than today (e.g. a cash payment noticed a few days late). Null until then. */
+  paidDate: string | null;
   agreedDays: string[];
 }
 

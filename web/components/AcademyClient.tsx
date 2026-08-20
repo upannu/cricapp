@@ -30,7 +30,7 @@ const SESSION_TYPES = [
 ] as const;
 
 type DraftAcademy = {
-  name: string; description: string; location: string;
+  name: string; description: string; location: string; phone: string;
   playerIds: string[]; coachIds: string[]; headCoachId: string;
   stage: AcademyStage; startDate: string;
   status: "Active" | "Inactive";
@@ -41,7 +41,7 @@ type DraftAcademy = {
 };
 
 const EMPTY_DRAFT: DraftAcademy = {
-  name: "", description: "", location: "",
+  name: "", description: "", location: "", phone: "",
   playerIds: [], coachIds: [], headCoachId: "",
   stage: "Foundation",
   startDate: new Date().toISOString().split("T")[0],
@@ -229,6 +229,7 @@ export function AcademyClient() {
     const suggested   = !academy.headCoachId && coachIds.length > 0;
     setDraft({
       name: academy.name, description: academy.description, location: academy.location,
+      phone: academy.phone ?? "",
       playerIds: [...academy.playerIds], coachIds: [...coachIds],
       headCoachId,
       stage: academy.stage, startDate: academy.startDate, status: academy.status,
@@ -270,6 +271,7 @@ export function AcademyClient() {
     const id = editingId ?? `ac${Date.now()}`;
     const newAcademy: Academy = {
       id, name: draft.name.trim(), description: draft.description, location: draft.location,
+      phone: draft.phone.trim() || undefined,
       playerIds: draft.playerIds, playerCounts, coachIds: draft.coachIds,
       headCoachId: draft.headCoachId,
       stage: draft.stage, coachName: headCoach?.name ?? "",
@@ -283,6 +285,7 @@ export function AcademyClient() {
     try {
       await upsertAcademy({
         id, name: newAcademy.name, description: newAcademy.description, location: newAcademy.location,
+        phone: newAcademy.phone || null,
         player_ids: newAcademy.playerIds, player_counts: playerCounts as Record<string, number>,
         coach_ids: newAcademy.coachIds, head_coach_id: newAcademy.headCoachId,
         coach_name: newAcademy.coachName,
@@ -1121,6 +1124,13 @@ export function AcademyClient() {
                     <input type="text" value={draft.location}
                       onChange={(e) => setDraft({ ...draft, location: e.target.value })}
                       className={inp} placeholder="e.g. Brisbane, QLD" />
+                  </div>
+                  <div>
+                    <label className={lbl}>Phone</label>
+                    <input type="tel" value={draft.phone}
+                      onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
+                      className={inp} placeholder="e.g. 0412 345 678" />
+                    <p className="text-xs text-zinc-500 mt-1">Used as a fallback SMS contact for payment reminders when a player has no coach assigned.</p>
                   </div>
                   <div>
                     <label className={lbl}>Start Date</label>
