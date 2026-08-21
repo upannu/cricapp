@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "seed": "tsx tests/seed/seed.ts",
     "seed:reset": "tsx tests/seed/reset.ts",
+    "db:introspect": "tsx tests/seed/introspect-schema.ts",
     "postinstall": "node scripts/copy-ffmpeg-core.js && node scripts/setup-pose-assets.js"
   },
   "dependencies": {
@@ -44,6 +45,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.0",
+    "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "jsdom": "^30.0.1",
