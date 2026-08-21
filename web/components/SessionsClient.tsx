@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import type { Session, BookingType, Player, Coach, Academy, Plan, CameraCalibration, VideoAnnotation, VoiceNote, Assessment } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchActivePlans, fetchCameraCalibration, fetchVideoAnnotations, fetchVoiceNotes, fetchAssessments, updateSessionRpe } from "@/lib/db";
+import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchActivePlans, fetchCameraCalibration, fetchVideoAnnotations, fetchVoiceNotes, deleteVoiceNote, fetchAssessments, updateSessionRpe } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
 import { extractPoseSequence, type PoseFrame } from "@/lib/pose";
 import { computeBiomechanics } from "@/lib/biomechanics";
@@ -111,6 +111,8 @@ export function SessionsClient() {
   const [sessionExtras, setSessionExtras] = useState<Record<string, { annotations: VideoAnnotation[]; voiceNotes: VoiceNote[]; assessments: Assessment[] }>>({});
   const [annotatingVideo, setAnnotatingVideo] = useState<{ session: Session; angle: "front" | "side" | "back"; url: string } | null>(null);
   const [voiceNoteSession, setVoiceNoteSession] = useState<Session | null>(null);
+  const [confirmDeleteVoiceNoteId, setConfirmDeleteVoiceNoteId] = useState<string | null>(null);
+  const [deletingVoiceNoteId, setDeletingVoiceNoteId] = useState<string | null>(null);
   const [assessmentSession, setAssessmentSession] = useState<Session | null>(null);
   const [editingRpeId, setEditingRpeId] = useState<string | null>(null);
 
@@ -313,6 +315,23 @@ export function SessionsClient() {
       setDeleteErrors((prev) => ({ ...prev, [session.id]: msg }));
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleDeleteVoiceNote(sessionId: string, noteId: string) {
+    setDeletingVoiceNoteId(noteId);
+    try {
+      await deleteVoiceNote(noteId);
+      setSessionExtras((prev) => {
+        const extras = prev[sessionId];
+        if (!extras) return prev;
+        return { ...prev, [sessionId]: { ...extras, voiceNotes: extras.voiceNotes.filter((n) => n.id !== noteId) } };
+      });
+      setConfirmDeleteVoiceNoteId(null);
+    } catch {
+      // best-effort — leave the confirm state so the user can retry
+    } finally {
+      setDeletingVoiceNoteId(null);
     }
   }
 
@@ -639,7 +658,38 @@ export function SessionsClient() {
                               <div className="space-y-3">
                                 {extras.voiceNotes.map((n) => (
                                   <div key={n.id}>
-                                    <audio src={n.audioUrl} controls className="w-full h-8 mb-1.5" />
+                                    <div className="flex items-center gap-2">
+                                      <audio src={n.audioUrl} controls className="w-full h-8 mb-1.5" />
+                                      {confirmDeleteVoiceNoteId === n.id ? (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteVoiceNote(session.id, n.id)}
+                                            disabled={deletingVoiceNoteId === n.id}
+                                            className="shrink-0 px-2 py-1 text-[10px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-md hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer"
+                                          >
+                                            {deletingVoiceNoteId === n.id ? "Deleting…" : "Confirm"}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setConfirmDeleteVoiceNoteId(null)}
+                                            disabled={deletingVoiceNoteId === n.id}
+                                            className="shrink-0 px-2 py-1 text-[10px] font-semibold text-zinc-400 border border-zinc-700 rounded-md hover:text-white transition-colors cursor-pointer"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => setConfirmDeleteVoiceNoteId(n.id)}
+                                          title="Delete this voice note"
+                                          className="shrink-0 px-2 py-1 text-[10px] font-semibold text-zinc-500 border border-zinc-700 rounded-md hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
+                                        >
+                                          Delete
+                                        </button>
+                                      )}
+                                    </div>
                                     {n.transcript && <p className="text-xs text-zinc-400 leading-relaxed">{n.transcript}</p>}
                                   </div>
                                 ))}
