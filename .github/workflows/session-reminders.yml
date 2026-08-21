@@ -1,0 +1,20 @@
+name: Session reminders
+
+# Runs every 30 minutes against production only. The reminder condition inside the route is a
+# range (fires 0-3 hours before a session starts), and an idempotency table prevents duplicate
+# sends, so re-checking frequently is safe even if GitHub delays a scheduled run under load.
+# workflow_dispatch is available for manual testing.
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger session reminders
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://crichq.com.au/api/cron/session-reminders

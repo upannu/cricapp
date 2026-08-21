@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>CRIC HQ — Database ER Diagram</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --ink: #050F1F;
+    --surface: #1A2E45;
+    --green: #00D4AA;
+    --fire: #FF6B2B;
+    --white: #FFFFFF;
+    --grey: #9AA5B5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--white);
+    font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  }
+  header {
+    padding: 28px 32px 16px;
+    border-bottom: 1px solid var(--surface);
+  }
+  header h1 {
+    margin: 0 0 6px;
+    font-size: 24px;
+    letter-spacing: 0.02em;
+  }
+  header p {
+    margin: 0;
+    color: var(--grey);
+    font-size: 14px;
+    max-width: 900px;
+    line-height: 1.5;
+  }
+  .legend {
+    margin: 16px 32px 0;
+    padding: 14px 18px;
+    background: var(--surface);
+    border-left: 3px solid var(--green);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--grey);
+    line-height: 1.6;
+    max-width: 900px;
+  }
+  .legend strong { color: var(--white); }
+  .legend code {
+    background: rgba(255,255,255,0.08);
+    color: var(--green);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+  #diagram-wrap {
+    padding: 24px 16px 60px;
+    overflow-x: scroll;
+    overflow-y: auto;
+    width: 100%;
+  }
+  .mermaid {
+    background: var(--ink);
+    display: inline-block;
+    width: max-content;
+  }
+  .mermaid svg {
+    max-width: none !important;
+    width: auto !important;
+    height: auto !important;
+  }
+  .zoom-controls {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--ink);
+    border-bottom: 1px solid var(--surface);
+  }
+  .zoom-controls button {
+    background: var(--surface);
+    color: var(--white);
+    border: 1px solid var(--green);
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .zoom-controls button:hover { background: var(--green); color: var(--ink); }
+  .zoom-controls span { color: var(--grey); font-size: 12px; align-self: center; }
+  #zoom-target {
+    display: inline-block;
+    transform-origin: top left;
+  }
+  footer {
+    padding: 14px 32px 30px;
+    color: var(--grey);
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CRIC HQ — Database ER Diagram</h1>
+  <p>All 24 Postgres tables (via Supabase) backing the platform, grouped by domain: roster &amp; org,
+     payments, coaching sessions, group sessions &amp; attendance, coach workflow, and academy
+     learning content. Generated directly from <code>web/lib/db.ts</code>'s <code>Db*</code> interfaces
+     and <code>.from("...")</code> calls — reflects the real, current schema.</p>
+</header>
+
+<div class="legend">
+  <strong>Note on players ↔ academies:</strong> there is no direct <code>academy_id</code> column on
+  <code>players</code>. An academy's roster instead lives as a <code>player_ids</code> array on the
+  <code>academies</code> row itself, and a player's academy is otherwise inferred via their assigned
+  coach's <code>academy_id</code>. This diagram shows the real foreign-key path (academies → coaches →
+  players) rather than a FK that doesn't actually exist in the schema.
+</div>
+
+<div class="zoom-controls">
+  <button id="zoom-out">− Zoom out</button>
+  <button id="zoom-reset">Reset</button>
+  <button id="zoom-in">+ Zoom in</button>
+  <span>Or scroll horizontally / pinch-zoom — the diagram is wide (22 tables)</span>
+</div>
+
+<div id="diagram-wrap">
+  <div id="zoom-target">
+  <pre class="mermaid">
+erDiagram
+    ACADEMIES ||--o{ COACHES : employs
+    ACADEMIES }o--|| PLANS : "subscribes to"
+    ACADEMIES ||--o{ SESSION_PACKS : sells
+    ACADEMIES ||--o{ GROUP_SESSIONS : runs
+    ACADEMIES ||--o{ CAMERA_CALIBRATIONS : configures
+    COACHES ||--o{ PLAYERS : coaches
+    COACHES ||--o{ BOOKINGS : delivers
+    COACHES ||--o{ GROUP_SESSIONS : leads
+    COACHES ||--o{ ASSESSMENTS : writes
+    PLAYERS ||--o{ SESSIONS : has
+    PLAYERS ||--o{ REPORTS : receives
+    PLAYERS ||--o{ SESSION_PACKS : owns
+    PLAYERS ||--o{ BOOKINGS : books
+    PLAYERS ||--o{ ACTION_PLANS : has
+    PLAYERS ||--o{ SC_WORKOUTS : logs
+    PLAYERS ||--o{ MESSAGES : receives
+    PLAYERS ||--o{ ARTICLE_READS : reads
+    PLAYERS ||--o{ ATTENDANCE_RECORDS : attends
+    PLAYERS }o--o{ GROUP_SESSIONS : "rosters via GROUP_SESSION_PLAYERS"
+    SESSION_PACKS ||--o{ BOOKINGS : funds
+    SESSION_PACKS ||--o{ ATTENDANCE_RECORDS : "draws down"
+    GROUP_SESSIONS ||--o{ GROUP_SESSION_OCCURRENCES : recurs
+    GROUP_SESSIONS ||--o{ GROUP_SESSION_PLAYERS : rosters
+    GROUP_SESSION_OCCURRENCES ||--o{ ATTENDANCE_RECORDS : records
+    SESSIONS ||--o{ VIDEO_ANNOTATIONS : "annotated by"
+    SESSIONS ||--o{ VOICE_NOTES : has
+    SESSIONS ||--o{ ASSESSMENTS : "assessed by"
+    SESSIONS ||--o{ REPORTS : generates
+    BOOKINGS ||--o{ SESSIONS : completes
+    ARTICLES ||--o{ DAILY_TIPS : "referenced by"
+    ARTICLES ||--o{ ARTICLE_READS : "tracked by"
+
+    ACADEMIES {
+        string id PK
+        string name
+        string phone "SMS fallback for reminders"
+        string_array player_ids "roster (not a FK)"
+        string head_coach_id "payout destination"
+        string plan_id FK
+        string payout_model "head_coach | split_by_coach"
+    }
+    COACHES {
+        string id PK
+        string name
+        string email
+        string phone
+        string academy_id FK
+        string stripe_connect_account_id
+        boolean marketplace_visible
+    }
+    PLAYERS {
+        string id PK
+        string name
+        string email
+        string phone
+        string coach_id FK
+        string sub_plan "Free | Player Pro | ..."
+        number xp
+        boolean login_disabled
+        string disabled_reason
+    }
+    PLANS {
+        string id PK
+        string slug
+        string audience "individual | organization"
+        number price_aud
+        boolean waives_session_fees
+        number platform_fee_percent
+        boolean platform_admin_only
+    }
+    SESSION_PACKS {
+        string id PK
+        string player_id FK
+        string academy_id FK
+        string coach_id FK "payout coach"
+        number total_sessions
+        number sessions_used
+        number session_credits
+        string payment_status "Pending | Overdue | Paid"
+        date payment_due_date
+        date paid_date
+        string_array agreed_days
+    }
+    BOOKINGS {
+        string id PK
+        string player_id FK
+        string coach_id FK
+        string pack_id FK "nullable"
+        date date
+        string status
+        number fee_aud
+    }
+    GROUP_SESSIONS {
+        string id PK
+        string academy_id FK
+        string coach_id FK
+        number day_of_week
+        string session_type
+        boolean active
+    }
+    GROUP_SESSION_PLAYERS {
+        string id PK
+        string group_session_id FK
+        string player_id FK
+    }
+    GROUP_SESSION_OCCURRENCES {
+        string id PK
+        string group_session_id FK
+        date date
+    }
+    ATTENDANCE_RECORDS {
+        string id PK
+        string occurrence_id FK
+        string player_id FK
+        string pack_id FK "nullable"
+        string status "Present | Absent"
+    }
+    SESSIONS {
+        string id PK
+        string player_id FK
+        string booking_id FK "nullable"
+        date date
+        string type
+        number ball_speed_kmh
+        jsonb videos "3 camera angles"
+    }
+    REPORTS {
+        string id PK
+        string player_id FK
+        string session_id FK "nullable"
+        string type
+        string injury_risk
+        jsonb metrics
+        jsonb drills
+    }
+    CAMERA_CALIBRATIONS {
+        string id PK
+        string academy_id FK
+        string angle
+        number reference_distance_m
+    }
+    VIDEO_ANNOTATIONS {
+        string id PK
+        string session_id FK
+        string player_id FK
+        number timestamp_sec
+    }
+    VOICE_NOTES {
+        string id PK
+        string session_id FK "nullable"
+        string player_id FK
+        string transcript
+    }
+    ASSESSMENTS {
+        string id PK
+        string session_id FK "nullable"
+        string player_id FK
+        string coach_id FK "nullable"
+        jsonb ratings
+    }
+    ACTION_PLANS {
+        string id PK
+        string player_id FK
+        string title
+        string priority
+        string_array drills
+    }
+    SC_WORKOUTS {
+        string id PK
+        string player_id FK
+        string workout_type
+        number rpe
+    }
+    MESSAGES {
+        string id PK
+        string player_id FK
+        string channel
+        string subject
+    }
+    ARTICLES {
+        string id PK
+        string stage "Foundation..Elite"
+        number order_in_stage
+        boolean published
+    }
+    DAILY_TIPS {
+        string id PK
+        date publish_date
+        string category
+        string related_article_id FK "nullable"
+    }
+    ARTICLE_READS {
+        string id PK
+        string player_id FK
+        string article_id FK
+        timestamp read_at
+    }
+  </pre>
+  </div>
+</div>
+
+<footer>
+  Generated for CRIC HQ · Tables and columns sourced directly from <code style="color:var(--green)">web/lib/db.ts</code>.
+  Not shown: <code style="color:var(--grey)">platform_settings</code> (single-row global config) and
+  <code style="color:var(--grey)">user_requests</code> (signup approval queue, references Supabase Auth users rather than an app table).
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: "dark",
+    themeVariables: {
+      background: "#050F1F",
+      primaryColor: "#1A2E45",
+      primaryTextColor: "#FFFFFF",
+      primaryBorderColor: "#00D4AA",
+      lineColor: "#9AA5B5",
+      secondaryColor: "#1A2E45",
+      tertiaryColor: "#0F1F33",
+      fontFamily: "Arial, sans-serif",
+    },
+    er: { useMaxWidth: false },
+  });
+
+  let scale = 1;
+  const target = document.getElementById("zoom-target");
+  function applyZoom() {
+    target.style.transform = "scale(" + scale + ")";
+  }
+  document.getElementById("zoom-in").addEventListener("click", () => {
+    scale = Math.min(scale + 0.15, 3);
+    applyZoom();
+  });
+  document.getElementById("zoom-out").addEventListener("click", () => {
+    scale = Math.max(scale - 0.15, 0.2);
+    applyZoom();
+  });
+  document.getElementById("zoom-reset").addEventListener("click", () => {
+    scale = 1;
+    applyZoom();
+  });
+  // Start zoomed out a bit so the full 22-table diagram is visible on load without scrolling.
+  window.addEventListener("load", () => {
+    setTimeout(() => { scale = 0.45; applyZoom(); }, 300);
+  });
+</script>
+
+</body>
+</html>
