@@ -44,9 +44,9 @@ export async function middleware(request: NextRequest) {
     // Stripe calls this server-to-server with no Supabase session cookie — it authenticates
     // via its own HMAC signature (verified inside the route), not via signed-in user session.
     pathname.startsWith("/api/stripe/webhook") ||
-    // Same story for the daily reminder cron — triggered by GitHub Actions with no session
-    // cookie, authenticated via its own CRON_SECRET bearer token (verified inside the route).
-    pathname.startsWith("/api/cron/pack-reminders");
+    // Same story for every scheduled cron route — triggered by GitHub Actions with no session
+    // cookie, each authenticated via its own CRON_SECRET bearer token (verified inside the route).
+    pathname.startsWith("/api/cron/");
 
   const isPublicPage =
     pathname.startsWith("/login") ||
