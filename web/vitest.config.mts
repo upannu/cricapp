@@ -9,9 +9,18 @@ export default defineConfig({
       {
         extends: true,
         test: {
-          name: "node",
+          name: "unit",
           environment: "node",
-          include: ["tests/unit/**/*.test.ts", "tests/api/**/*.test.ts"],
+          include: ["tests/unit/**/*.test.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "api",
+          environment: "node",
+          include: ["tests/api/**/*.test.ts"],
+          setupFiles: ["./tests/setup/api.ts"],
         },
       },
       {
