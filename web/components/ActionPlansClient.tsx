@@ -369,9 +369,6 @@ export function ActionPlansClient({ player }: { player: Player }) {
                 Builds a plan from the {formatDate(latestUsableReport.date)} biomechanics report's flagged
                 issues and matched drills.
               </p>
-              <p className="text-xs text-amber/80 mt-1.5">
-                ⚠ AI-generated — it can make mistakes. Discuss the details with a coach before acting on it.
-              </p>
             </div>
             <button
               type="button"
