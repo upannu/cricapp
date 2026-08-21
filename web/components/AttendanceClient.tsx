@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Papa from "papaparse";
 import { useAuth } from "@/lib/auth";
 import {
   fetchGroupSessions, upsertGroupSession, setGroupSessionRoster,
   fetchPlayers, fetchCoaches, fetchSessionPacks, fetchPastOccurrences,
   fetchAttendanceForDate, saveAttendance,
 } from "@/lib/db";
+import { matchPlayerByNameOrEmail } from "@/lib/utils";
 import type { GroupSession, Player, Coach, SessionPack, BookingType, AttendanceStatus, AttendanceRecord } from "@/lib/types";
 
 const SESSION_TYPES: BookingType[] = [
@@ -16,6 +18,31 @@ const SESSION_TYPES: BookingType[] = [
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const WEEKS_AHEAD = 8;
+
+const ROSTER_CSV_TEMPLATE = "name,email\nJohn Smith,john@example.com\n";
+const ATTENDANCE_CSV_TEMPLATE = "date,player,status\n2026-08-04,John Smith,Present\n2026-08-04,jane@example.com,Absent\n";
+
+type RosterCsvRow = { rowNum: number; input: string; player: Player | undefined };
+
+type AttendanceCsvStatus = "ready" | "duplicate" | "skipped";
+type AttendanceCsvRow = {
+  rowNum: number; dateInput: string; date: string; playerInput: string;
+  player: Player | undefined; statusInput: string; status: AttendanceStatus | null;
+  csvStatus: AttendanceCsvStatus; issue: string;
+};
+
+/** Accepts the app's own YYYY-MM-DD as well as DD/MM/YYYY, since that's what a coach's spreadsheet
+ * is more likely to contain. Returns null if neither pattern matches. */
+function normalizeCsvDate(raw: string): string | null {
+  const v = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    const [, d, mo, y] = m;
+    return `${y}-${mo.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  return null;
+}
 
 type DraftGroup = {
   id?: string;
@@ -74,6 +101,19 @@ export function AttendanceClient() {
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [savedDate, setSavedDate] = useState<string | null>(null);
 
+  // Roster CSV import — inside the create/edit group modal
+  const [showRosterCsv, setShowRosterCsv] = useState(false);
+  const [rosterCsvRows, setRosterCsvRows] = useState<RosterCsvRow[]>([]);
+  const [rosterCsvError, setRosterCsvError] = useState("");
+
+  // Attendance history CSV import — one group at a time, from the expanded panel
+  const [attendanceCsvFor, setAttendanceCsvFor] = useState<GroupSession | null>(null);
+  const [attendanceCsvRows, setAttendanceCsvRows] = useState<AttendanceCsvRow[]>([]);
+  const [attendanceCsvFileName, setAttendanceCsvFileName] = useState("");
+  const [attendanceCsvError, setAttendanceCsvError] = useState("");
+  const [attendanceCsvImporting, setAttendanceCsvImporting] = useState(false);
+  const [attendanceCsvImportedCount, setAttendanceCsvImportedCount] = useState<number | null>(null);
+
   const coachId = user?.role === "coach" ? user.coachId : undefined;
   const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
 
@@ -98,6 +138,9 @@ export function AttendanceClient() {
     setDraft({ ...EMPTY_DRAFT, coachId: coachId ?? coaches[0]?.id ?? "" });
     setFormError("");
     setShowForm(true);
+    setShowRosterCsv(false);
+    setRosterCsvRows([]);
+    setRosterCsvError("");
   }
 
   function openEdit(g: GroupSession) {
@@ -108,6 +151,9 @@ export function AttendanceClient() {
     });
     setFormError("");
     setShowForm(true);
+    setShowRosterCsv(false);
+    setRosterCsvRows([]);
+    setRosterCsvError("");
   }
 
   function toggleDraftPlayer(playerId: string) {
@@ -117,6 +163,51 @@ export function AttendanceClient() {
         ? prev.playerIds.filter((id) => id !== playerId)
         : [...prev.playerIds, playerId],
     }));
+  }
+
+  function downloadRosterCsvTemplate() {
+    const blob = new Blob([ROSTER_CSV_TEMPLATE], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "group-roster-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleRosterCsvFile(file: File) {
+    setRosterCsvError("");
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (results.errors.length > 0) {
+          setRosterCsvError(`Could not parse the file: ${results.errors[0].message}`);
+          setRosterCsvRows([]);
+          return;
+        }
+        const rows: RosterCsvRow[] = results.data.map((raw, i) => {
+          const get = (key: string) => raw[key] ?? raw[key.toLowerCase()] ?? raw[key.toUpperCase()] ?? "";
+          const email = get("email").trim();
+          const name = get("name").trim();
+          const player = (email && matchPlayerByNameOrEmail(players, email))
+            || (name && matchPlayerByNameOrEmail(players, name))
+            || undefined;
+          return { rowNum: i + 2, input: email || name || "(blank row)", player };
+        });
+        setRosterCsvRows(rows);
+      },
+      error: (err) => {
+        setRosterCsvError(err.message);
+        setRosterCsvRows([]);
+      },
+    });
+  }
+
+  function handleRosterCsvMerge() {
+    const matchedIds = rosterCsvRows.filter((r) => r.player).map((r) => r.player!.id);
+    setDraft((prev) => ({ ...prev, playerIds: [...new Set([...prev.playerIds, ...matchedIds])] }));
+    setRosterCsvRows([]);
+    setShowRosterCsv(false);
   }
 
   async function handleSaveGroup() {
@@ -164,6 +255,109 @@ export function AttendanceClient() {
     if (!pastDates[group.id]) {
       const occ = await fetchPastOccurrences(group.id);
       setPastDates((prev) => ({ ...prev, [group.id]: occ }));
+    }
+  }
+
+  function openAttendanceCsv(group: GroupSession) {
+    setAttendanceCsvFor(group);
+    setAttendanceCsvRows([]);
+    setAttendanceCsvFileName("");
+    setAttendanceCsvError("");
+    setAttendanceCsvImportedCount(null);
+  }
+
+  function downloadAttendanceCsvTemplate() {
+    const blob = new Blob([ATTENDANCE_CSV_TEMPLATE], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "attendance-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleAttendanceCsvFile(file: File) {
+    if (!attendanceCsvFor) return;
+    setAttendanceCsvError(""); setAttendanceCsvImportedCount(null); setAttendanceCsvFileName(file.name);
+    const rosterPlayers = players.filter((p) => attendanceCsvFor.playerIds.includes(p.id));
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (results.errors.length > 0) {
+          setAttendanceCsvError(`Could not parse the file: ${results.errors[0].message}`);
+          setAttendanceCsvRows([]);
+          return;
+        }
+        const seenKeys = new Set<string>();
+        const rows: AttendanceCsvRow[] = results.data.map((raw, i) => {
+          const get = (key: string) => raw[key] ?? raw[key.toLowerCase()] ?? raw[key.toUpperCase()] ?? "";
+          const dateInput = get("date").trim();
+          const playerInput = get("player").trim() || get("name").trim() || get("email").trim();
+          const statusInput = get("status").trim();
+
+          let csvStatus: AttendanceCsvStatus = "ready";
+          let issue = "";
+          const date = normalizeCsvDate(dateInput);
+          if (!date) { issue = "Invalid date — use YYYY-MM-DD or DD/MM/YYYY"; csvStatus = "skipped"; }
+
+          let player: Player | undefined;
+          if (csvStatus !== "skipped") {
+            player = matchPlayerByNameOrEmail(rosterPlayers, playerInput);
+            if (!player) { issue = "Player not found in this group's roster"; csvStatus = "skipped"; }
+          }
+
+          let status: AttendanceStatus | null = null;
+          if (csvStatus !== "skipped") {
+            const s = statusInput.toLowerCase();
+            if (s === "present") status = "Present";
+            else if (s === "absent") status = "Absent";
+            else { issue = `Unrecognized status "${statusInput}" — expected Present or Absent`; csvStatus = "skipped"; }
+          }
+
+          if (csvStatus === "ready" && player && date) {
+            const key = `${player.id}__${date}`;
+            if (seenKeys.has(key)) { issue = "Duplicate player + date in this file — first occurrence used"; csvStatus = "duplicate"; }
+            else seenKeys.add(key);
+          }
+
+          return { rowNum: i + 2, dateInput, date: date ?? "", playerInput, player, statusInput, status, csvStatus, issue };
+        });
+        setAttendanceCsvRows(rows);
+      },
+      error: (err) => {
+        setAttendanceCsvError(err.message);
+        setAttendanceCsvRows([]);
+      },
+    });
+  }
+
+  async function handleAttendanceCsvImport() {
+    if (!attendanceCsvFor) return;
+    const ready = attendanceCsvRows.filter((r) => r.csvStatus === "ready" && r.player && r.status && r.date);
+    if (ready.length === 0) return;
+    setAttendanceCsvImporting(true);
+    setAttendanceCsvError("");
+    try {
+      const byDate = new Map<string, { playerId: string; status: AttendanceStatus }[]>();
+      for (const row of ready) {
+        const list = byDate.get(row.date) ?? [];
+        list.push({ playerId: row.player!.id, status: row.status! });
+        byDate.set(row.date, list);
+      }
+      // Sequential, not Promise.all — concurrent saveAttendance calls for the same player would
+      // race on session_packs.sessions_used (read-then-write, no row lock).
+      for (const [date, records] of byDate) {
+        await saveAttendance(attendanceCsvFor.id, date, attendanceCsvFor.sessionType, attendanceCsvFor.academyId, records);
+      }
+      const occ = await fetchPastOccurrences(attendanceCsvFor.id);
+      setPastDates((prev) => ({ ...prev, [attendanceCsvFor.id]: occ }));
+      setAttendanceCsvImportedCount(ready.length);
+      setAttendanceCsvRows([]);
+      setAttendanceCsvFileName("");
+    } catch (err) {
+      setAttendanceCsvError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setAttendanceCsvImporting(false);
     }
   }
 
@@ -263,6 +457,12 @@ export function AttendanceClient() {
 
               {isExpanded && (
                 <div className="px-5 pb-5 border-t border-zinc-700/40 pt-4 space-y-4">
+                  <div className="flex justify-end">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); openAttendanceCsv(g); }}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-pace-green border border-pace-green/30 hover:bg-pace-green/10 transition-colors cursor-pointer flex-shrink-0">
+                      Import Attendance CSV
+                    </button>
+                  </div>
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Upcoming — tap a date to take attendance</p>
                     <div className="flex flex-wrap gap-2">
@@ -352,7 +552,46 @@ export function AttendanceClient() {
                 <input type="text" value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })} className={inp} placeholder="Optional" />
               </div>
               <div>
-                <label className={lbl}>Roster ({draft.playerIds.length} selected)</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className={lbl}>Roster ({draft.playerIds.length} selected)</label>
+                  <button type="button" onClick={() => { setShowRosterCsv((v) => !v); setRosterCsvError(""); setRosterCsvRows([]); }}
+                    className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer">
+                    {showRosterCsv ? "Cancel Import" : "Import CSV"}
+                  </button>
+                </div>
+                {showRosterCsv && (
+                  <div className="bg-ink rounded-xl p-3 mb-3 border border-zinc-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-zinc-500">CSV with name and/or email columns — matched players are added to the roster below.</p>
+                      <button type="button" onClick={downloadRosterCsvTemplate}
+                        className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer flex-shrink-0 ml-2">
+                        Template
+                      </button>
+                    </div>
+                    <input type="file" accept=".csv,text/csv"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRosterCsvFile(f); }}
+                      className="text-xs text-zinc-400 mb-2 w-full" />
+                    {rosterCsvError && <p className="text-red-400 text-xs mb-2">{rosterCsvError}</p>}
+                    {rosterCsvRows.length > 0 && (
+                      <>
+                        <div className="max-h-32 overflow-y-auto space-y-1 mb-2">
+                          {rosterCsvRows.map((r) => (
+                            <div key={r.rowNum} className="flex items-center justify-between gap-2 text-xs px-2 py-1 rounded-lg bg-surface">
+                              <span className="text-zinc-300 truncate">{r.input}</span>
+                              {r.player
+                                ? <span className="text-pace-green flex-shrink-0">✓ {r.player.name}</span>
+                                : <span className="text-red-400 flex-shrink-0">Not found</span>}
+                            </div>
+                          ))}
+                        </div>
+                        <button type="button" onClick={handleRosterCsvMerge} disabled={rosterCsvRows.every((r) => !r.player)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50">
+                          Add {rosterCsvRows.filter((r) => r.player).length} matched player{rosterCsvRows.filter((r) => r.player).length === 1 ? "" : "s"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                   {players.map((p) => {
                     const selected = draft.playerIds.includes(p.id);
@@ -441,6 +680,77 @@ export function AttendanceClient() {
                 {savingAttendance ? "Saving…" : savedDate === attendanceFor.date ? "✓ Saved" : "Save Attendance"}
               </button>
               <button type="button" onClick={() => setAttendanceFor(null)}
+                className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import attendance CSV modal */}
+      {attendanceCsvFor && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto" onClick={() => setAttendanceCsvFor(null)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="relative bg-surface rounded-2xl w-full max-w-2xl shadow-2xl border border-zinc-700/60 my-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-700/50">
+              <div>
+                <h2 className="text-white font-bold">Import Attendance — {attendanceCsvFor.name}</h2>
+                <p className="text-zinc-400 text-xs">Only the player + date rows in your file are recorded — other roster members are left untouched for those dates.</p>
+              </div>
+              <button type="button" onClick={() => setAttendanceCsvFor(null)} className="text-zinc-400 hover:text-white transition-colors cursor-pointer text-xl leading-none p-1 flex-shrink-0">✕</button>
+            </div>
+            <div className="px-6 py-5 space-y-3 max-h-[65vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-zinc-500">Columns: date (YYYY-MM-DD or DD/MM/YYYY), player (name or email), status (Present/Absent).</p>
+                <button type="button" onClick={downloadAttendanceCsvTemplate}
+                  className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer flex-shrink-0 ml-2">
+                  Template
+                </button>
+              </div>
+              <input type="file" accept=".csv,text/csv"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAttendanceCsvFile(f); }}
+                className="text-sm text-zinc-300 w-full" />
+              {attendanceCsvError && <p className="text-red-400 text-xs">{attendanceCsvError}</p>}
+              {attendanceCsvImportedCount !== null && (
+                <p className="text-pace-green text-xs">✓ Imported {attendanceCsvImportedCount} attendance record{attendanceCsvImportedCount === 1 ? "" : "s"} from {attendanceCsvFileName}.</p>
+              )}
+              {attendanceCsvRows.length > 0 && (
+                <div className="border border-zinc-700 rounded-xl overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-ink text-zinc-500">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-semibold">Date</th>
+                        <th className="text-left px-3 py-2 font-semibold">Player</th>
+                        <th className="text-left px-3 py-2 font-semibold">Status</th>
+                        <th className="text-left px-3 py-2 font-semibold">Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attendanceCsvRows.map((r) => (
+                        <tr key={r.rowNum} className="border-t border-zinc-800">
+                          <td className="px-3 py-2 text-zinc-300">{r.dateInput}</td>
+                          <td className="px-3 py-2 text-zinc-300 truncate max-w-[140px]">{r.player?.name ?? r.playerInput}</td>
+                          <td className="px-3 py-2 text-zinc-300">{r.status ?? r.statusInput}</td>
+                          <td className="px-3 py-2">
+                            {r.csvStatus === "ready" && <span className="text-pace-green">Ready</span>}
+                            {r.csvStatus === "duplicate" && <span className="text-amber" title={r.issue}>Duplicate</span>}
+                            {r.csvStatus === "skipped" && <span className="text-red-400" title={r.issue}>{r.issue}</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3 px-6 pb-6 pt-2">
+              <button type="button" onClick={handleAttendanceCsvImport}
+                disabled={attendanceCsvImporting || attendanceCsvRows.filter((r) => r.csvStatus === "ready").length === 0}
+                className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+                {attendanceCsvImporting ? "Importing…" : `Import ${attendanceCsvRows.filter((r) => r.csvStatus === "ready").length} Record${attendanceCsvRows.filter((r) => r.csvStatus === "ready").length === 1 ? "" : "s"}`}
+              </button>
+              <button type="button" onClick={() => setAttendanceCsvFor(null)}
                 className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
                 Close
               </button>

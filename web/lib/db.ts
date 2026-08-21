@@ -543,6 +543,13 @@ export async function upsertSessionPack(pk: Partial<DbSessionPack> & { id: strin
   if (error) throw error;
 }
 
+export async function insertSessionPacks(rows: DbSessionPack[]): Promise<void> {
+  if (rows.length === 0) return;
+  const sb = createClient();
+  const { error } = await sb.from("session_packs").insert(rows);
+  if (error) throw error;
+}
+
 export async function updatePackPaymentStatus(id: string, paymentStatus: string): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("session_packs").update({ payment_status: paymentStatus }).eq("id", id);

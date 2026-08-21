@@ -96,3 +96,13 @@ export function packCreditExpiryDate(pack: Pick<SessionPack, "purchaseDate" | "t
 export function isPackCreditExpired(pack: Pick<SessionPack, "purchaseDate" | "totalSessions" | "agreedDays">): boolean {
   return new Date() > packCreditExpiryDate(pack);
 }
+
+/** Resolves a CSV row's free-text player column (name or email) to a real player — shared by every
+ * bulk-CSV importer so a spreadsheet exported with either column still matches. Email is checked
+ * first since it's unique; name is a same-academy convenience fallback. */
+export function matchPlayerByNameOrEmail(players: Player[], value: string): Player | undefined {
+  const v = value.trim().toLowerCase();
+  if (!v) return undefined;
+  return players.find((p) => p.email.trim().toLowerCase() === v)
+      ?? players.find((p) => p.name.trim().toLowerCase() === v);
+}
