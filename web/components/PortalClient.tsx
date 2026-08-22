@@ -38,7 +38,8 @@ export function PortalClient() {
     ]).then(([p, s, r, t, pk]) => {
       setPlayer(p);
       setSessions(s);
-      setReports(r);
+      // A report only becomes visible to the player/parent once a coach has completed reviewing it.
+      setReports(r.filter((rep) => rep.reviewStatus === "completed"));
       setTip(t);
       setPacks(pk);
       setLoading(false);

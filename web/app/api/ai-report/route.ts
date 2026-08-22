@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
-import nodemailer from "nodemailer";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { drillsForMetricIds, type Drill } from "@/lib/drills";
 import { getCaller, callerCanAccessPlayer } from "@/lib/server-auth";
@@ -276,6 +275,7 @@ export async function POST(request: Request) {
     skeleton_images: skeletonImages,
     drills,
     ball_tracking: ballTrackingRecord,
+    review_status: "not_reviewed",
   });
   if (insertError) {
     return NextResponse.json({ error: `Failed to save report: ${insertError.message}` }, { status: 500 });
@@ -299,7 +299,7 @@ export async function POST(request: Request) {
     }).eq("id", sessionId);
   }
 
-  // 5. Generate PDF — the report row above is already saved, so a PDF/email
+  // 5. Generate PDF — the report row above is already saved, so a PDF
   // hiccup here must not turn into a 500 that discards an otherwise-successful report.
   let pdfUrl: string | null = null;
   try {
@@ -327,43 +327,13 @@ export async function POST(request: Request) {
       pdfUrl = data.publicUrl;
     }
 
-    // 7. Email the PDF to the player
-    const gmailUser = process.env.GMAIL_USER;
-    const gmailPass = process.env.GMAIL_APP_PASSWORD;
-    if (gmailUser && gmailPass && player.email) {
-      const transporter = nodemailer.createTransport({ service: "gmail", auth: { user: gmailUser, pass: gmailPass } });
-      await transporter
-        .sendMail({
-          from: `"CRIC HQ" <${gmailUser}>`,
-          to: player.email,
-          subject: `AI Bowling Report — ${player.name} — ${today}`,
-          text: [
-            `Hi ${player.name},`,
-            ``,
-            `Your AI-generated bowling biomechanics report is ready.`,
-            sessionDate ? `Session: ${formatSessionDateTime(sessionDate)}` : ``,
-            ``,
-            narrative.summary,
-            ``,
-            `Overall score: ${biomechanics.overallScore ?? "n/a"}/100`,
-            `${ballTracking?.measured ? "Measured" : "Estimated"} speed: ${finalSpeedKmh} km/h`,
-            frontKneeAngleDeg !== null ? `Front knee angle at front-foot contact: ${frontKneeAngleDeg}°` : ``,
-            `Action type: ${biomechanics.actionType}`,
-            `Injury-risk band: ${biomechanics.injuryRisk}`,
-            ballTracking?.bounceLengthZone ? `Pitch map: ${ballTracking.bounceLengthZone}${ballTracking.bounceLineApprox ? `, ${ballTracking.bounceLineApprox}` : ""}` : ``,
-            ``,
-            `— CRIC HQ`,
-          ].filter(Boolean).join("\n"),
-          attachments: [{ filename: `bowling-report-${today}.pdf`, content: Buffer.from(pdfBytes) }],
-        })
-        .catch(() => {
-          // Don't fail the request if email sending fails
-        });
-    }
+    // Reports now require a coach review before the player/parent ever sees them — the PDF is
+    // generated here so a coach can preview it while reviewing, but it's no longer auto-emailed.
+    // Sending happens explicitly via the "Email Report" action once a coach marks it Completed.
   } catch (err) {
-    // PDF/email are a bonus on top of an already-saved report — log and move on
-    // rather than returning a 500 that implies the whole report generation failed.
-    console.error("PDF/email step failed after report was already saved:", err);
+    // The PDF is a bonus on top of an already-saved report — log and move on rather than
+    // returning a 500 that implies the whole report generation failed.
+    console.error("PDF generation step failed after report was already saved:", err);
   }
 
   return NextResponse.json({

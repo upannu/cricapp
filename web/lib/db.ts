@@ -109,6 +109,9 @@ export interface DbReport {
   skeleton_images?: SkeletonImage[] | null;
   drills?: ReportDrill[] | null;
   ball_tracking?: BallTrackingResult | null;
+  review_status?: string;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
 }
 
 export interface DbCameraCalibration {
@@ -269,6 +272,9 @@ export function dbToReport(r: DbReport): Report {
     skeletonImages: r.skeleton_images ?? undefined,
     drills: r.drills ?? undefined,
     ballTracking: r.ball_tracking ?? undefined,
+    reviewStatus: (r.review_status as Report["reviewStatus"]) ?? "not_reviewed",
+    reviewedAt: r.reviewed_at ?? undefined,
+    reviewedBy: r.reviewed_by ?? undefined,
   };
 }
 
@@ -540,6 +546,13 @@ export async function fetchSessionPacks(playerIds?: string[]): Promise<SessionPa
 export async function upsertSessionPack(pk: Partial<DbSessionPack> & { id: string }): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("session_packs").upsert(pk);
+  if (error) throw error;
+}
+
+export async function insertSessionPacks(rows: DbSessionPack[]): Promise<void> {
+  if (rows.length === 0) return;
+  const sb = createClient();
+  const { error } = await sb.from("session_packs").insert(rows);
   if (error) throw error;
 }
 
