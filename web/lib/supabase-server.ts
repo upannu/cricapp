@@ -70,6 +70,15 @@ export async function isAcademyPlayerServer(playerId: string): Promise<boolean> 
   return !!count && count > 0;
 }
 
+/** The logged-in viewer's role, for pages that need to decide what to show without a specific
+ * player to check ownership against (e.g. filtering a reports list to completed-only for player/
+ * parent viewers, while coaches/admins see everything). */
+export async function getViewerRoleServer(): Promise<string | undefined> {
+  const sb = await createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  return user?.user_metadata?.role as string | undefined;
+}
+
 export async function fetchReportsServer(playerId?: string): Promise<Report[]> {
   const sb = await createClient();
   let q = sb.from("reports").select("*").order("date", { ascending: false });

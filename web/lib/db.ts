@@ -109,6 +109,9 @@ export interface DbReport {
   skeleton_images?: SkeletonImage[] | null;
   drills?: ReportDrill[] | null;
   ball_tracking?: BallTrackingResult | null;
+  review_status?: string;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
 }
 
 export interface DbCameraCalibration {
@@ -269,6 +272,9 @@ export function dbToReport(r: DbReport): Report {
     skeletonImages: r.skeleton_images ?? undefined,
     drills: r.drills ?? undefined,
     ballTracking: r.ball_tracking ?? undefined,
+    reviewStatus: (r.review_status as Report["reviewStatus"]) ?? "not_reviewed",
+    reviewedAt: r.reviewed_at ?? undefined,
+    reviewedBy: r.reviewed_by ?? undefined,
   };
 }
 

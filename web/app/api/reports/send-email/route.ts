@@ -42,11 +42,14 @@ export async function POST(request: Request) {
 
   const { data: report, error: reportError } = await supabase
     .from("reports")
-    .select("id, summary, speed_kmh, front_knee_angle_deg, tags, highlight, date, session_date")
+    .select("id, summary, speed_kmh, front_knee_angle_deg, tags, highlight, date, session_date, review_status")
     .eq("id", reportId)
     .single();
   if (reportError || !report) {
     return NextResponse.json({ error: "Report not found." }, { status: 404 });
+  }
+  if (report.review_status !== "completed") {
+    return NextResponse.json({ error: "This report hasn't completed coach review yet." }, { status: 400 });
   }
 
   const { data: player, error: playerError } = await supabase

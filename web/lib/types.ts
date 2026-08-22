@@ -318,7 +318,12 @@ export interface Report {
   skeletonImages?: SkeletonImage[];
   drills?: ReportDrill[];
   ballTracking?: BallTrackingResult;
+  reviewStatus: ReportReviewStatus;
+  reviewedAt?: string;
+  reviewedBy?: string;
 }
+
+export type ReportReviewStatus = 'not_reviewed' | 'under_review' | 'completed';
 
 export type CoachStatus = 'Active' | 'Inactive';
 export type CertificationLevel = 'Level 1' | 'Level 2' | 'Level 3' | 'Elite';
