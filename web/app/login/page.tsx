@@ -69,7 +69,7 @@ export default function LoginPage() {
             className="w-8 h-8 rounded-full bg-white p-0.5 object-contain flex-shrink-0" />
           <span className="text-lg font-bold tracking-widest text-white font-mono">CRIC HQ</span>
         </div>
-        <Link href="/signup" className="text-sm text-zinc-400 hover:text-white transition-colors">
+        <Link href="/signup" className="text-sm text-zinc-400 hover:text-white transition-colors font-mono">
           Create account
         </Link>
       </div>
