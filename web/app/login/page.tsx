@@ -62,7 +62,7 @@ export default function LoginPage() {
       />
 
       {/* Top bar */}
-      <div className="relative flex items-center justify-between px-6 sm:px-10 py-6 max-w-6xl mx-auto">
+      <div className="relative flex items-center justify-between px-6 sm:px-10 py-4 max-w-6xl mx-auto">
         <div className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
           <img src="/crichq_logo.jpeg" alt="CRIC HQ" width={32} height={32}
@@ -77,17 +77,17 @@ export default function LoginPage() {
       <div className="relative px-4 pb-16 flex flex-col items-center">
         <DemoCard />
 
-        <h1 className="mt-10 text-3xl sm:text-4xl font-bold text-white text-center max-w-xl leading-tight font-mono">
+        <h1 className="mt-4 text-xl sm:text-2xl font-bold text-white text-center max-w-xl leading-tight font-mono">
           Every degree of the action, measured.
         </h1>
-        <p className="mt-3 text-zinc-400 text-center max-w-md text-sm sm:text-base font-mono">
+        <p className="mt-2 text-zinc-400 text-center max-w-md text-xs sm:text-sm font-mono">
           AI biomechanics from any phone video — no lab, no lasers.
         </p>
 
-        <div className="w-full max-w-md mt-10">
+        <div className="w-full max-w-2xl mt-4">
           {/* Login card */}
-          <div className="bg-surface rounded-2xl p-8 shadow-2xl mb-6">
-            <h2 className="text-xl font-semibold text-white mb-6 text-center">Sign in</h2>
+          <div className="bg-surface rounded-2xl p-6 shadow-2xl mb-6">
+            <h2 className="text-lg font-semibold text-white mb-4 text-center">Sign in</h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
