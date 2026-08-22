@@ -77,10 +77,10 @@ export default function LoginPage() {
       <div className="relative px-4 pb-16 flex flex-col items-center">
         <DemoCard />
 
-        <h1 className="mt-10 text-3xl sm:text-4xl font-bold text-white text-center max-w-xl leading-tight">
+        <h1 className="mt-10 text-3xl sm:text-4xl font-bold text-white text-center max-w-xl leading-tight font-mono">
           Every degree of the action, measured.
         </h1>
-        <p className="mt-3 text-zinc-400 text-center max-w-md text-sm sm:text-base">
+        <p className="mt-3 text-zinc-400 text-center max-w-md text-sm sm:text-base font-mono">
           AI biomechanics from any phone video — no lab, no lasers.
         </p>
 
