@@ -178,11 +178,13 @@ export default function LoginPage() {
   );
 }
 
-/** A branded mockup of the app's own AI biomechanics analysis — a real skeleton-overlay frame
- * from one of our own students' sessions (not stock photography), styled as a "video analysis"
+/** A branded mockup of the app's own AI biomechanics analysis — a real skeleton-overlay video
+ * generated from an actual uploaded session clip (pose detection + drawing reuse lib/pose.ts's
+ * and lib/skeleton-overlay.ts's exact approach), not stock footage, styled as a "video analysis"
  * demo card so a first-time visitor sees the actual product before they even sign in. The phase
  * labels (Run-up / BFC / FFC / Release) match lib/biomechanics.ts's real delivery-phase
- * detection, not invented copy. */
+ * detection, not invented copy. login-photo-2.jpg is kept as the poster frame while the video
+ * loads/loops. */
 function DemoCard() {
   const phases = ["Run-up", "BFC", "FFC", "Release"];
   return (
@@ -200,10 +202,14 @@ function DemoCard() {
       </div>
 
       <div className="relative">
-        {/* eslint-disable-next-line @next/next/no-img-element -- fixed display area, next/image is overkill here */}
-        <img
-          src="/login-photo-2.jpg"
-          alt="Skeleton-tracked bowling delivery from a real CRIC HQ AI biomechanics report"
+        <video
+          src="/hero-demo.webm"
+          poster="/login-photo-2.jpg"
+          autoPlay
+          loop
+          muted
+          playsInline
+          aria-label="Skeleton-tracked bowling delivery from a real CRIC HQ AI biomechanics report"
           className="w-full h-[300px] sm:h-[380px] object-cover"
           style={{ objectPosition: "50% 40%" }}
         />
