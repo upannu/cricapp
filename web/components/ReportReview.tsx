@@ -91,8 +91,8 @@ export function ReportReview({
           <textarea
             value={summaryDraft}
             onChange={(e) => setSummaryDraft(e.target.value)}
-            rows={4}
-            className="w-full bg-ink rounded-xl px-3 py-2 text-sm text-zinc-200 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors resize-y"
+            rows={10}
+            className="w-full bg-ink rounded-xl px-3 py-2.5 text-sm leading-relaxed text-zinc-200 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors resize-y"
           />
           <input
             type="text"

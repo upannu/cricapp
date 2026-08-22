@@ -37,10 +37,14 @@ export function getReportPdfUrl(playerId: string, reportId: string): string {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/session-reports/${playerId}/${reportId}.pdf`;
 }
 
+/** Every academy on this platform is Australian, so a session's date/time is always shown in
+ * Australia/Sydney regardless of where this renders — a server component renders on a UTC
+ * process, and a viewer's own device could be set to any timezone, neither of which is the
+ * timezone the session actually happened in. Pinning it explicitly avoids both. */
 export function formatDateTime(iso: string): string {
   const d = new Date(iso);
-  const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  const timePart = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  const datePart = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Australia/Sydney' });
+  const timePart = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Australia/Sydney' });
   return `${datePart} at ${timePart}`;
 }
 
