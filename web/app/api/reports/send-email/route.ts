@@ -2,15 +2,9 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { getCaller, callerCanAccessPlayer } from "@/lib/server-auth";
+import { formatDateTime as formatSessionDateTime } from "@/lib/utils";
 
 const PDF_BUCKET = "session-reports";
-
-function formatSessionDateTime(iso: string): string {
-  const d = new Date(iso);
-  const datePart = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  const timePart = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  return `${datePart} at ${timePart}`;
-}
 
 export async function POST(request: Request) {
   const { reportId, playerId } = (await request.json()) as { reportId?: string; playerId?: string };

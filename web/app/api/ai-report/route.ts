@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { drillsForMetricIds, type Drill } from "@/lib/drills";
 import { getCaller, callerCanAccessPlayer } from "@/lib/server-auth";
+import { formatDateTime as formatSessionDateTime } from "@/lib/utils";
 
 const PDF_BUCKET = "session-reports";
 
@@ -346,13 +347,6 @@ export async function POST(request: Request) {
     },
     pdfUrl,
   });
-}
-
-function formatSessionDateTime(iso: string): string {
-  const d = new Date(iso);
-  const datePart = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  const timePart = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  return `${datePart} at ${timePart}`;
 }
 
 const PHASE_LABELS: Record<Phase, string> = {
