@@ -27,12 +27,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "You don't have access to upload for this player." }, { status: 403 });
   }
 
-  // Create the bucket on first call — safe to call repeatedly, ignores "already exists"
-  await supabase.storage.createBucket(BUCKET, {
+  // Create the bucket on first call — safe to call repeatedly, ignores "already exists" (409).
+  // No fileSizeLimit override: the project's own global storage cap (52428800 bytes / 50MB on
+  // the Free plan) is lower than video files often need, and requesting a bucket-level limit
+  // higher than that global cap makes bucket creation itself fail (previously silent — the
+  // bucket was then never created, and every upload failed downstream with an opaque
+  // "related resource does not exist" instead of a clear error here).
+  const { error: bucketError } = await supabase.storage.createBucket(BUCKET, {
     public: true,
-    fileSizeLimit: 524288000, // 500 MB
     allowedMimeTypes: ["video/mp4", "video/quicktime", "video/webm", "video/x-msvideo"],
   });
+  if (bucketError && bucketError.statusCode !== "409") {
+    return NextResponse.json({ error: `Could not prepare storage: ${bucketError.message}` }, { status: 500 });
+  }
 
   const { data, error } = await supabase.storage
     .from(BUCKET)

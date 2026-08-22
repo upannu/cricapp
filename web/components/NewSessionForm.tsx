@@ -11,6 +11,12 @@ import { transcodeToH264 } from "@/lib/transcode";
 import { DateInput } from "@/components/DateInput";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 
+// The session-videos storage bucket has no bucket-level override, so it inherits the Supabase
+// project's global upload cap — 50MB on the Free plan this project is currently on. Checked
+// client-side (after transcoding, which can shrink the file significantly) so a too-large clip
+// fails with a clear message instead of the opaque storage-API error a raw oversized upload gets.
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
 const SESSION_TYPES = [
   "Net Session",
   "Individual Coaching",
@@ -167,6 +173,12 @@ export function NewSessionForm({ player }: { player: Player }) {
           transcoded = true;
         } catch (transcodeErr) {
           console.warn(`Transcode failed for ${angle}, uploading original file instead`, transcodeErr);
+        }
+
+        if (uploadFile.size > MAX_UPLOAD_BYTES) {
+          throw new Error(
+            `${(uploadFile.size / (1024 * 1024)).toFixed(1)}MB exceeds the 50MB upload limit — trim the clip or record a shorter delivery.`
+          );
         }
 
         // 2. Upload directly to Supabase Storage via signed URL — bypasses Vercel size limits
