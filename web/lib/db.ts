@@ -10,6 +10,7 @@ import type {
   Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
   PlatformSettings, Plan,
   GroupSession, AttendanceStatus, AttendanceRecord,
+  Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, ReferralStatus, ReferralPayoutStatus,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 
@@ -1232,4 +1233,66 @@ export async function fetchPlanBySlug(slug: string): Promise<Plan | null> {
   const sb = createClient();
   const { data } = await sb.from("plans").select("*").eq("slug", slug).maybeSingle();
   return data ? dbToPlan(data as DbPlan) : null;
+}
+
+// ─── Referrals ──────────────────────────────────────────────────────────────
+
+export interface DbReferral {
+  id: string; referrer_name: string; referrer_email?: string | null; referrer_phone?: string | null;
+  referred_type: string;
+  referred_academy_id?: string | null; referred_coach_id?: string | null; referred_player_id?: string | null;
+  referred_name: string;
+  commission_type: string;
+  one_off_amount_aud?: number | null;
+  ongoing_rate_percent?: number | null;
+  ongoing_revenue_source?: string | null;
+  ongoing_end_date?: string | null;
+  status: string;
+  notes?: string | null;
+  created_at?: string;
+  created_by: string;
+}
+
+export interface DbReferralPayout {
+  id: string; referral_id: string; period_label?: string | null;
+  amount_aud: number; status: string; paid_date?: string | null; paid_by?: string | null;
+  created_at?: string;
+}
+
+export function dbToReferral(r: DbReferral): Referral {
+  return {
+    id: r.id, referrerName: r.referrer_name, referrerEmail: r.referrer_email ?? undefined,
+    referrerPhone: r.referrer_phone ?? undefined, referredType: r.referred_type as ReferredType,
+    referredAcademyId: r.referred_academy_id ?? undefined, referredCoachId: r.referred_coach_id ?? undefined,
+    referredPlayerId: r.referred_player_id ?? undefined, referredName: r.referred_name,
+    commissionType: r.commission_type as ReferralCommissionType,
+    oneOffAmountAud: r.one_off_amount_aud ?? undefined, ongoingRatePercent: r.ongoing_rate_percent ?? undefined,
+    ongoingRevenueSource: (r.ongoing_revenue_source as ReferralRevenueSource) ?? undefined,
+    ongoingEndDate: r.ongoing_end_date ?? undefined, status: r.status as ReferralStatus,
+    notes: r.notes ?? undefined, createdAt: r.created_at, createdBy: r.created_by,
+  };
+}
+
+export function dbToReferralPayout(r: DbReferralPayout): ReferralPayout {
+  return {
+    id: r.id, referralId: r.referral_id, periodLabel: r.period_label ?? undefined,
+    amountAud: r.amount_aud, status: r.status as ReferralPayoutStatus,
+    paidDate: r.paid_date ?? undefined, paidBy: r.paid_by ?? undefined, createdAt: r.created_at,
+  };
+}
+
+export async function fetchReferrals(): Promise<Referral[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("referrals").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as DbReferral[]).map(dbToReferral);
+}
+
+export async function fetchReferralPayouts(referralId?: string): Promise<ReferralPayout[]> {
+  const sb = createClient();
+  let q = sb.from("referral_payouts").select("*").order("created_at", { ascending: false });
+  if (referralId) q = q.eq("referral_id", referralId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as DbReferralPayout[]).map(dbToReferralPayout);
 }
