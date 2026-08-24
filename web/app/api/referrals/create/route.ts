@@ -8,7 +8,7 @@ const REVENUE_SOURCES = ["session_packs", "bookings", "both"];
 
 export async function POST(request: Request) {
   const body = (await request.json()) as {
-    referrerName?: string; referrerEmail?: string; referrerPhone?: string;
+    referrerName?: string; referrerEmail?: string; referrerPhone?: string; referrerPaymentDetails?: string;
     referredType?: string; referredAcademyId?: string; referredCoachId?: string; referredPlayerId?: string;
     referredName?: string;
     commissionType?: string; oneOffAmountAud?: number;
@@ -61,6 +61,7 @@ export async function POST(request: Request) {
     referrer_name: body.referrerName.trim(),
     referrer_email: body.referrerEmail?.trim() || null,
     referrer_phone: body.referrerPhone?.trim() || null,
+    referrer_payment_details: body.referrerPaymentDetails?.trim() || null,
     referred_type: body.referredType,
     referred_academy_id: body.referredAcademyId || null,
     referred_coach_id: body.referredCoachId || null,

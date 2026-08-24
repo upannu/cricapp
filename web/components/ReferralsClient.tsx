@@ -16,7 +16,7 @@ const REFERRED_TYPE_LABELS: Record<ReferredType, string> = {
 const today = new Date().toISOString().split("T")[0];
 
 type Draft = {
-  referrerName: string; referrerEmail: string; referrerPhone: string;
+  referrerName: string; referrerEmail: string; referrerPhone: string; referrerPaymentDetails: string;
   referredType: ReferredType; referredId: string; referredName: string;
   commissionType: ReferralCommissionType;
   oneOffAmountAud: string;
@@ -27,7 +27,7 @@ type Draft = {
 };
 
 const EMPTY_DRAFT: Draft = {
-  referrerName: "", referrerEmail: "", referrerPhone: "",
+  referrerName: "", referrerEmail: "", referrerPhone: "", referrerPaymentDetails: "",
   referredType: "academy", referredId: "", referredName: "",
   commissionType: "one_off",
   oneOffAmountAud: "", ongoingRatePercent: "", ongoingRevenueSource: "both", ongoingEndDate: "",
@@ -120,6 +120,7 @@ export function ReferralsClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           referrerName: draft.referrerName, referrerEmail: draft.referrerEmail, referrerPhone: draft.referrerPhone,
+          referrerPaymentDetails: draft.referrerPaymentDetails,
           referredType: draft.referredType,
           referredAcademyId: draft.referredType === "academy" ? draft.referredId : undefined,
           referredCoachId: draft.referredType === "coach" ? draft.referredId : undefined,
@@ -235,6 +236,11 @@ function ReferralForm({
           <label className={lbl}>Referrer Phone</label>
           <input value={draft.referrerPhone} onChange={(e) => setDraft({ ...draft, referrerPhone: e.target.value })} className={inp} placeholder="Optional" />
         </div>
+      </div>
+
+      <div>
+        <label className={lbl}>Payment Details (bank account, PayID, etc.)</label>
+        <input value={draft.referrerPaymentDetails} onChange={(e) => setDraft({ ...draft, referrerPaymentDetails: e.target.value })} className={inp} placeholder="Optional — how you'll actually pay them" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -370,6 +376,12 @@ function ReferralRow({
       {isOpen && (
         <div className="px-5 pb-5 border-t border-zinc-700/40 pt-4 space-y-3">
           {r.notes && <p className="text-xs text-zinc-400">{r.notes}</p>}
+          {r.referrerPaymentDetails && (
+            <p className="text-xs text-zinc-400">
+              <span className="text-zinc-500 uppercase tracking-wider font-semibold">Payment details: </span>
+              {r.referrerPaymentDetails}
+            </p>
+          )}
           {payoutList.length === 0 ? (
             <p className="text-xs text-zinc-500">No payouts yet.</p>
           ) : (

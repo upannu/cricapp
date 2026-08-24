@@ -528,6 +528,7 @@ export interface Referral {
   referrerName: string;
   referrerEmail?: string;
   referrerPhone?: string;
+  referrerPaymentDetails?: string;
   referredType: ReferredType;
   referredAcademyId?: string;
   referredCoachId?: string;
@@ -552,5 +553,19 @@ export interface ReferralPayout {
   status: ReferralPayoutStatus;
   paidDate?: string;
   paidBy?: string;
+  createdAt?: string;
+}
+
+export type PackFeeDueStatus = 'pending' | 'collected';
+
+export interface PackFeeDue {
+  id: string;
+  packId: string;
+  academyId: string;
+  amountAud: number;
+  feePercent: number;
+  status: PackFeeDueStatus;
+  collectedDate?: string;
+  collectedBy?: string;
   createdAt?: string;
 }

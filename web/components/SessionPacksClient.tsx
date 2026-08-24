@@ -3,9 +3,9 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import Papa from "papaparse";
-import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan } from "@/lib/types";
+import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan, PackFeeDue } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid } from "@/lib/db";
+import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired, matchPlayerByNameOrEmail } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 
@@ -81,13 +81,14 @@ const EMPTY_DRAFT: DraftPack = {
 };
 
 type FilterType = "All" | "Active" | "Exhausted" | "No Pack";
-type PageTab = "Packs" | "Fees Due";
+type PageTab = "Packs" | "Fees Due" | "Platform Fees";
 
 export function SessionPacksClient() {
   const { user } = useAuth();
   const formRef = useRef<HTMLDivElement>(null);
 
   const [packs, setPacks] = useState<SessionPack[]>([]);
+  const [feeDues, setFeeDues] = useState<PackFeeDue[]>([]);
   const [pageTab, setPageTab] = useState<PageTab>("Packs");
   const [filter, setFilter] = useState<FilterType>("All");
   const [showForm, setShowForm] = useState(false);
@@ -118,15 +119,34 @@ export function SessionPacksClient() {
     }).then(([pk, bk]) => {
       setPacks(pk); _packBookings = bk;
     });
+    fetchPackFeeDues().then(setFeeDues).catch(() => {
+      // RLS naturally scopes this to what the caller can see (platform_admin sees all, an
+      // academy/coach sees only their own) — swallow rather than surface a loud error to a
+      // player/parent role who has no rows to see anyway.
+    });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function resolvedPaymentStatus(pk: SessionPack): PaymentStatus {
     return pk.paymentStatus;
   }
 
-  function handleMarkPaid(packId: string, paidDate: string) {
+  async function handleMarkPaid(packId: string, paidDate: string) {
     markPackPaid(packId, paidDate);
     setPacks((prev) => prev.map((pk) => pk.id === packId ? { ...pk, paymentStatus: "Paid", paidDate } : pk));
+    // Paid outside Stripe (cash/bank transfer) means the platform's own fee cut was never
+    // collected the way a real Checkout payment collects it automatically — record what's owed.
+    try {
+      const res = await fetch("/api/packs/record-fee-due", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ packId }),
+      });
+      const data = await res.json();
+      if (res.ok && !data.error) {
+        const fresh = await fetchPackFeeDues();
+        setFeeDues(fresh);
+      }
+    } catch {
+      // Best-effort — a coach's own "mark paid" flow shouldn't fail on this bookkeeping step.
+    }
   }
 
   function handleReactivate(playerId: string) {
@@ -443,9 +463,12 @@ export function SessionPacksClient() {
 
       {/* Page tabs */}
       <div className="flex gap-2 mb-6">
-        {(["Packs", "Fees Due"] as PageTab[]).map((t) => {
+        {(["Packs", "Fees Due", "Platform Fees"] as PageTab[]).map((t) => {
           const isActive = pageTab === t;
-          const badge = t === "Fees Due" && feesDuePacks.length > 0 ? feesDuePacks.length : null;
+          const pendingFeeDues = feeDues.filter((d) => d.status === "pending").length;
+          const badge = t === "Fees Due" ? (feesDuePacks.length > 0 ? feesDuePacks.length : null)
+            : t === "Platform Fees" ? (pendingFeeDues > 0 ? pendingFeeDues : null)
+            : null;
           return (
             <button key={t} type="button" onClick={() => setPageTab(t)}
               className={`px-5 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center gap-2 ${
@@ -879,6 +902,68 @@ export function SessionPacksClient() {
         </div>
       )}
 
+      {/* ── PLATFORM FEES TAB — cash/bank-transfer packs where Stripe never collected the
+           platform's own cut, so it's tracked here as a ledger instead ──────────────────── */}
+      {pageTab === "Platform Fees" && (
+        <div className="space-y-4">
+          {feeDues.length === 0 ? (
+            <div className="bg-surface rounded-2xl p-16 text-center">
+              <p className="text-zinc-400 text-sm">No cash/bank-transfer packs owe a platform fee.</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4 mb-2">
+                <div className="bg-surface rounded-2xl p-5 text-center">
+                  <div className="text-2xl font-bold text-amber mb-1">
+                    ${feeDues.filter((d) => d.status === "pending").reduce((s, d) => s + d.amountAud, 0).toFixed(2)}
+                  </div>
+                  <div className="text-xs text-zinc-400">Pending</div>
+                </div>
+                <div className="bg-surface rounded-2xl p-5 text-center">
+                  <div className="text-2xl font-bold text-pace-green mb-1">
+                    ${feeDues.filter((d) => d.status === "collected").reduce((s, d) => s + d.amountAud, 0).toFixed(2)}
+                  </div>
+                  <div className="text-xs text-zinc-400">Collected</div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {feeDues.map((due) => {
+                  const pack = packs.find((pk) => pk.id === due.packId);
+                  const player = pack ? playerById(pack.playerId) : undefined;
+                  const academy = academyById(due.academyId);
+                  return (
+                    <div key={due.id} className="bg-surface rounded-2xl p-5 flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-white font-semibold text-sm">{academy?.name ?? "Unknown academy"}</div>
+                        <div className="text-xs text-zinc-400">
+                          {player?.name ?? "Unknown player"} · {due.feePercent}% platform fee
+                          {due.status === "collected" && due.collectedDate && ` · collected ${formatDate(due.collectedDate)}`}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 flex-shrink-0">
+                        <div className="text-lg font-bold text-amber">${due.amountAud.toFixed(2)}</div>
+                        {due.status === "collected" ? (
+                          <span className="text-xs font-semibold text-pace-green">✓ Collected</span>
+                        ) : user?.role === "platform_admin" ? (
+                          <MarkFeeCollectedButton
+                            dueId={due.id}
+                            onCollected={(collectedDate) =>
+                              setFeeDues((prev) => prev.map((d) => (d.id === due.id ? { ...d, status: "collected", collectedDate } : d)))
+                            }
+                          />
+                        ) : (
+                          <span className="text-xs font-semibold text-amber">Pending</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── PACKS TAB ───────────────────────────────────────────────────────── */}
       {pageTab === "Packs" && <>
       {/* Filter tabs */}
@@ -1210,6 +1295,47 @@ function MarkPaidButton({ onPaid }: { onPaid: (paidDate: string) => void }) {
     <button type="button" onClick={() => setShowConfirm(true)}
       className="px-4 py-2 text-xs font-bold bg-pace-green text-black rounded-xl hover:opacity-90 cursor-pointer transition-opacity">
       Mark Paid
+    </button>
+  );
+}
+
+function MarkFeeCollectedButton({ dueId, onCollected }: { dueId: string; onCollected: (collectedDate: string) => void }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [collectedDate, setCollectedDate] = useState(today);
+  const [saving, setSaving] = useState(false);
+
+  async function handleConfirm() {
+    setSaving(true);
+    try {
+      await fetch("/api/packs/mark-fee-collected", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueId, collectedDate }),
+      });
+      onCollected(collectedDate);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (showConfirm) {
+    return (
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <DateInput value={collectedDate} onChange={setCollectedDate} className="w-32 bg-ink rounded-lg px-3 py-1.5 text-xs border border-zinc-700 focus:border-pace-green focus:outline-none" />
+        <button type="button" onClick={handleConfirm} disabled={saving}
+          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-60">
+          {saving ? "…" : "Confirm"}
+        </button>
+        <button type="button" onClick={() => setShowConfirm(false)} className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button type="button" onClick={() => setShowConfirm(true)}
+      className="px-3 py-1.5 text-xs font-bold text-amber border border-amber/30 rounded-lg hover:bg-amber/10 cursor-pointer transition-colors flex-shrink-0">
+      Mark Collected
     </button>
   );
 }
