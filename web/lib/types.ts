@@ -516,3 +516,41 @@ export interface Assessment {
   overallRecommendation: string;
   createdAt?: string;
 }
+
+export type ReferredType = 'academy' | 'coach' | 'player' | 'other';
+export type ReferralCommissionType = 'one_off' | 'ongoing';
+export type ReferralRevenueSource = 'session_packs' | 'bookings' | 'both';
+export type ReferralStatus = 'active' | 'ended';
+export type ReferralPayoutStatus = 'pending' | 'paid';
+
+export interface Referral {
+  id: string;
+  referrerName: string;
+  referrerEmail?: string;
+  referrerPhone?: string;
+  referredType: ReferredType;
+  referredAcademyId?: string;
+  referredCoachId?: string;
+  referredPlayerId?: string;
+  referredName: string;
+  commissionType: ReferralCommissionType;
+  oneOffAmountAud?: number;
+  ongoingRatePercent?: number;
+  ongoingRevenueSource?: ReferralRevenueSource;
+  ongoingEndDate?: string;
+  status: ReferralStatus;
+  notes?: string;
+  createdAt?: string;
+  createdBy: string;
+}
+
+export interface ReferralPayout {
+  id: string;
+  referralId: string;
+  periodLabel?: string;
+  amountAud: number;
+  status: ReferralPayoutStatus;
+  paidDate?: string;
+  paidBy?: string;
+  createdAt?: string;
+}
