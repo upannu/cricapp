@@ -3,6 +3,9 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { buildWelcomeEmailHtml } from "@/lib/email-templates";
+import { canGenerateAiReports, canUseMarketplace, sessionsLimitForPlan, chatMessagesLimitForPlan } from "@/lib/plan-features";
+import type { PlanTier } from "@/lib/types";
 
 interface LinkedIdentity {
   role: string;
@@ -162,6 +165,47 @@ export async function POST(request: Request) {
       player: "Player",
       parent: "Parent / Guardian",
     }[reqData.role as string] ?? reqData.role;
+
+    // "What's included" varies by which of the two parallel plan systems this account is on —
+    // an academy/coach's org-level plan (plans catalog, free-text includedNotes) vs a player's
+    // individual freemium tier (lib/plan-features.ts, structured gates). Pulled fresh here rather
+    // than duplicated as copy, so this line can never drift from what the account actually gets.
+    let planName: string | undefined;
+    let planLines: string[] = [];
+
+    if (reqData.role === "academy_admin" || reqData.role === "coach") {
+      let orgAcademyId = academyId as string | undefined;
+      if (!orgAcademyId && linkedCoachId) {
+        const { data: coachRow } = await supabase.from("coaches").select("academy_id").eq("id", linkedCoachId).maybeSingle();
+        orgAcademyId = coachRow?.academy_id ?? undefined;
+      }
+      if (orgAcademyId) {
+        const { data: academyRow } = await supabase.from("academies").select("plan_id").eq("id", orgAcademyId).maybeSingle();
+        if (academyRow?.plan_id) {
+          const { data: planRow } = await supabase.from("plans").select("name, price_aud, billing_interval, included_notes").eq("id", academyRow.plan_id).maybeSingle();
+          if (planRow) {
+            planName = planRow.name;
+            if (planRow.price_aud != null) {
+              planLines.push(`$${planRow.price_aud} AUD${planRow.billing_interval ? ` / ${planRow.billing_interval}` : ""}`);
+            }
+            if (planRow.included_notes) planLines.push(planRow.included_notes);
+          }
+        }
+      }
+    } else if ((reqData.role === "player" || reqData.role === "parent") && linkedPlayerId) {
+      const { data: playerRow } = await supabase.from("players").select("sub_plan").eq("id", linkedPlayerId).maybeSingle();
+      const tier = (playerRow?.sub_plan as PlanTier | undefined) ?? "Free";
+      planName = tier;
+      const sessionsLimit = sessionsLimitForPlan(tier);
+      const chatLimit = chatMessagesLimitForPlan(tier);
+      planLines = [
+        sessionsLimit === null ? "Unlimited sessions logged" : `${sessionsLimit} sessions logged per month`,
+        canGenerateAiReports(tier) ? "AI biomechanics reports" : "AI biomechanics reports — upgrade to unlock",
+        canUseMarketplace(tier) ? "Coach marketplace access" : "Coach marketplace — upgrade to unlock",
+        chatLimit === null ? "Unlimited Coach AI chat" : `${chatLimit} Coach AI messages per day`,
+      ];
+    }
+
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: { user: gmailUser, pass: gmailPass },
@@ -175,16 +219,19 @@ export async function POST(request: Request) {
       `${appUrl}/login`,
       ``,
       `Your role: ${roleLabel}`,
+      planName ? `Your plan: ${planName}` : ``,
+      ...planLines.map((l) => `- ${l}`),
       ``,
       `Welcome to the team!`,
       `— CRIC HQ`,
-    ].join("\n");
+    ].filter((l, i, arr) => !(l === `` && arr[i - 1] === ``)).join("\n");
 
     await transporter.sendMail({
       from: `"CRIC HQ" <${gmailUser}>`,
       to: reqData.email,
       subject: "Your CRIC HQ account has been approved",
       text,
+      html: buildWelcomeEmailHtml({ name: reqData.name, roleLabel, appUrl, planName, planLines }),
     }).catch(() => {
       // Don't fail the approval if email sending fails
     });

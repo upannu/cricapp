@@ -11,6 +11,7 @@ import type {
   PlatformSettings, Plan,
   GroupSession, AttendanceStatus, AttendanceRecord,
   Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, ReferralStatus, ReferralPayoutStatus,
+  PackFeeDue, PackFeeDueStatus,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 
@@ -1239,6 +1240,7 @@ export async function fetchPlanBySlug(slug: string): Promise<Plan | null> {
 
 export interface DbReferral {
   id: string; referrer_name: string; referrer_email?: string | null; referrer_phone?: string | null;
+  referrer_payment_details?: string | null;
   referred_type: string;
   referred_academy_id?: string | null; referred_coach_id?: string | null; referred_player_id?: string | null;
   referred_name: string;
@@ -1262,7 +1264,8 @@ export interface DbReferralPayout {
 export function dbToReferral(r: DbReferral): Referral {
   return {
     id: r.id, referrerName: r.referrer_name, referrerEmail: r.referrer_email ?? undefined,
-    referrerPhone: r.referrer_phone ?? undefined, referredType: r.referred_type as ReferredType,
+    referrerPhone: r.referrer_phone ?? undefined, referrerPaymentDetails: r.referrer_payment_details ?? undefined,
+    referredType: r.referred_type as ReferredType,
     referredAcademyId: r.referred_academy_id ?? undefined, referredCoachId: r.referred_coach_id ?? undefined,
     referredPlayerId: r.referred_player_id ?? undefined, referredName: r.referred_name,
     commissionType: r.commission_type as ReferralCommissionType,
@@ -1295,4 +1298,26 @@ export async function fetchReferralPayouts(referralId?: string): Promise<Referra
   const { data, error } = await q;
   if (error) throw error;
   return (data as DbReferralPayout[]).map(dbToReferralPayout);
+}
+
+// ─── Platform fee dues (cash/bank-transfer packs) ──────────────────────────
+
+export interface DbPackFeeDue {
+  id: string; pack_id: string; academy_id: string; amount_aud: number; fee_percent: number;
+  status: string; collected_date?: string | null; collected_by?: string | null; created_at?: string;
+}
+
+export function dbToPackFeeDue(r: DbPackFeeDue): PackFeeDue {
+  return {
+    id: r.id, packId: r.pack_id, academyId: r.academy_id, amountAud: r.amount_aud, feePercent: r.fee_percent,
+    status: r.status as PackFeeDueStatus, collectedDate: r.collected_date ?? undefined,
+    collectedBy: r.collected_by ?? undefined, createdAt: r.created_at,
+  };
+}
+
+export async function fetchPackFeeDues(): Promise<PackFeeDue[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("pack_fee_dues").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as DbPackFeeDue[]).map(dbToPackFeeDue);
 }

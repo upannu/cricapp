@@ -320,7 +320,7 @@ export function PlansAdminClient() {
             </div>
 
             <div>
-              <label className={lbl}>Included Notes (shown on the pricing card, optional)</label>
+              <label className={lbl}>Inclusions (shown on the pricing card and in the welcome email, optional)</label>
               <textarea
                 className={`${inp} min-h-[70px]`}
                 value={draft.includedNotes} onChange={(e) => setDraft({ ...draft, includedNotes: e.target.value })}
