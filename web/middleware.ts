@@ -46,7 +46,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/stripe/webhook") ||
     // Same story for every scheduled cron route — triggered by GitHub Actions with no session
     // cookie, each authenticated via its own CRON_SECRET bearer token (verified inside the route).
-    pathname.startsWith("/api/cron/");
+    pathname.startsWith("/api/cron/") ||
+    // Contact form can be submitted by a signed-out visitor.
+    pathname.startsWith("/api/contact");
 
   const isPublicPage =
     pathname.startsWith("/login") ||
@@ -54,7 +56,14 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password");
 
-  if (!user && !isPublicPage && !isAuthApi) {
+  // Legal/info pages are public but, unlike /login etc., stay visible to a signed-in user too —
+  // no reason to bounce someone reading the Terms just because they're logged in.
+  const isAlwaysPublicPage =
+    pathname.startsWith("/contact") ||
+    pathname.startsWith("/terms") ||
+    pathname.startsWith("/privacy");
+
+  if (!user && !isPublicPage && !isAlwaysPublicPage && !isAuthApi) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

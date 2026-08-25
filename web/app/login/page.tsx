@@ -80,7 +80,7 @@ export default function LoginPage() {
         <h1 className="mt-4 text-xl sm:text-2xl font-bold text-white text-center max-w-xl leading-tight font-mono">
           Every degree of the action, measured.
         </h1>
-        <p className="mt-2 text-zinc-400 text-center max-w-md text-xs sm:text-sm font-mono">
+        <p className="mt-2 text-zinc-400 text-center max-w-xs sm:max-w-2xl text-xs sm:text-sm font-mono sm:whitespace-nowrap">
           AI biomechanics from any phone video — no lab, no lasers.
         </p>
 
@@ -144,6 +144,12 @@ export default function LoginPage() {
             <p className="text-zinc-500 text-xs leading-relaxed text-center">
               Scan to open crichq.com.au on your phone
             </p>
+          </div>
+
+          <div className="flex justify-center gap-5 text-xs text-zinc-500 font-mono">
+            <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
           </div>
 
           {/* DEMO ACCOUNTS — uncomment for local testing only
