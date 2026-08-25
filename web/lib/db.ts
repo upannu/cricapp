@@ -11,7 +11,7 @@ import type {
   PlatformSettings, Plan,
   GroupSession, AttendanceStatus, AttendanceRecord,
   Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, ReferralStatus, ReferralPayoutStatus,
-  PackFeeDue, PackFeeDueStatus,
+  PackFeeDue, PackFeeDueStatus, BookingFeeDue,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 
@@ -73,6 +73,7 @@ export interface DbBooking {
   location: string; notes: string; fee_aud: number; pack_id?: string | null;
   source?: string | null;
   payment_status?: string;
+  paid_date?: string | null;
 }
 
 export interface DbSession {
@@ -227,6 +228,7 @@ export function dbToBooking(r: DbBooking): Booking {
     packId: r.pack_id ?? undefined,
     source: (r.source as Booking["source"]) ?? undefined,
     paymentStatus: (r.payment_status as PaymentStatus) ?? "Pending",
+    paidDate: r.paid_date ?? undefined,
   };
 }
 
@@ -496,6 +498,12 @@ export async function fetchBookings(coachId?: string, playerId?: string, playerI
 export async function upsertBooking(b: Partial<DbBooking> & { id: string }): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("bookings").upsert(b);
+  if (error) throw error;
+}
+
+export async function markBookingPaid(id: string, paidDate: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("bookings").update({ payment_status: "Paid", paid_date: paidDate }).eq("id", id);
   if (error) throw error;
 }
 
@@ -1320,4 +1328,24 @@ export async function fetchPackFeeDues(): Promise<PackFeeDue[]> {
   const { data, error } = await sb.from("pack_fee_dues").select("*").order("created_at", { ascending: false });
   if (error) throw error;
   return (data as DbPackFeeDue[]).map(dbToPackFeeDue);
+}
+
+export interface DbBookingFeeDue {
+  id: string; booking_id: string; academy_id: string; amount_aud: number; fee_percent: number;
+  status: string; collected_date?: string | null; collected_by?: string | null; created_at?: string;
+}
+
+export function dbToBookingFeeDue(r: DbBookingFeeDue): BookingFeeDue {
+  return {
+    id: r.id, bookingId: r.booking_id, academyId: r.academy_id, amountAud: r.amount_aud, feePercent: r.fee_percent,
+    status: r.status as PackFeeDueStatus, collectedDate: r.collected_date ?? undefined,
+    collectedBy: r.collected_by ?? undefined, createdAt: r.created_at,
+  };
+}
+
+export async function fetchBookingFeeDues(): Promise<BookingFeeDue[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("booking_fee_dues").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as DbBookingFeeDue[]).map(dbToBookingFeeDue);
 }

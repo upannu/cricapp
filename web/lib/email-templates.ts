@@ -12,22 +12,11 @@ function shell(opts: {
   appUrl: string;
   heading: string;
   intro: string;
-  planName?: string;
-  planHeading: string;
-  planLines: string[];
+  contentHtml?: string;
   ctaLabel: string;
+  ctaHref?: string;
 }): string {
-  const { appUrl, heading, intro, planName, planHeading, planLines, ctaLabel } = opts;
-  const planBlock = planLines.length > 0 ? `
-    <div style="margin:24px 0 4px;padding:20px 22px;background:#F4FBF9;border:1px solid ${BRAND_GREEN};border-radius:12px;">
-      <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${BRAND_GREEN};">
-        ${planName ? `${planHeading} — ${planName}` : planHeading}
-      </p>
-      <ul style="margin:0;padding-left:18px;color:#1A2E45;font-size:14px;line-height:1.8;">
-        ${planLines.map((line) => `<li style="margin-bottom:2px;">${line}</li>`).join("\n        ")}
-      </ul>
-    </div>` : "";
-
+  const { appUrl, heading, intro, contentHtml, ctaLabel, ctaHref } = opts;
   return `
 <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:540px;margin:0 auto;background:#F6F8FA;padding:36px 20px;">
   <div style="text-align:center;margin-bottom:28px;">
@@ -39,8 +28,8 @@ function shell(opts: {
     <div style="padding:32px 28px;">
       <h1 style="margin:0 0 8px;font-size:21px;line-height:1.3;color:${INK};">${heading}</h1>
       <p style="margin:0;font-size:14px;line-height:1.6;color:${MUTED};">${intro}</p>
-      ${planBlock}
-      <a href="${appUrl}/login" style="display:inline-block;margin-top:26px;padding:13px 30px;background:${BRAND_GREEN};color:#00110C;font-weight:700;text-decoration:none;border-radius:10px;font-size:14px;">
+      ${contentHtml ?? ""}
+      <a href="${ctaHref ?? `${appUrl}/login`}" style="display:inline-block;margin-top:26px;padding:13px 30px;background:${BRAND_GREEN};color:#00110C;font-weight:700;text-decoration:none;border-radius:10px;font-size:14px;">
         ${ctaLabel}
       </a>
     </div>
@@ -50,6 +39,30 @@ function shell(opts: {
     <a href="${appUrl}" style="color:#9AA5B1;">${appUrl.replace(/^https?:\/\//, "")}</a>
   </p>
 </div>`;
+}
+
+/** The light-green bordered box used for "your plan" / "booking details" style call-outs —
+ * shared chrome, different body content per email. */
+function infoBox(heading: string, bodyHtml: string): string {
+  return `
+    <div style="margin:24px 0 4px;padding:20px 22px;background:#F4FBF9;border:1px solid ${BRAND_GREEN};border-radius:12px;">
+      <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${BRAND_GREEN};">
+        ${heading}
+      </p>
+      ${bodyHtml}
+    </div>`;
+}
+
+function planListHtml(planLines: string[]): string {
+  return `<ul style="margin:0;padding-left:18px;color:#1A2E45;font-size:14px;line-height:1.8;">
+        ${planLines.map((line) => `<li style="margin-bottom:2px;">${line}</li>`).join("\n        ")}
+      </ul>`;
+}
+
+function detailRowsHtml(rows: Array<{ label: string; value: string }>): string {
+  return `<table style="width:100%;border-collapse:collapse;font-size:14px;color:#1A2E45;">
+        ${rows.map((r) => `<tr><td style="padding:4px 0;color:${MUTED};width:110px;">${r.label}</td><td style="padding:4px 0;font-weight:600;">${r.value}</td></tr>`).join("\n        ")}
+      </table>`;
 }
 
 export function buildWelcomeEmailHtml(opts: {
@@ -63,9 +76,9 @@ export function buildWelcomeEmailHtml(opts: {
     appUrl: opts.appUrl,
     heading: `Welcome, ${opts.name}! 🏏`,
     intro: `Your CRIC HQ account has been approved as a <strong>${opts.roleLabel}</strong>.`,
-    planName: opts.planName,
-    planHeading: "Your plan",
-    planLines: opts.planLines,
+    contentHtml: opts.planLines.length > 0
+      ? infoBox(opts.planName ? `Your plan — ${opts.planName}` : "Your plan", planListHtml(opts.planLines))
+      : "",
     ctaLabel: "Sign in to get started",
   });
 }
@@ -83,9 +96,28 @@ export function buildPlanDetailsEmailHtml(opts: {
     appUrl: opts.appUrl,
     heading: `Your plan details`,
     intro: `Hi ${opts.name}, here's a summary of ${opts.academyName}'s current CRIC HQ plan.`,
-    planName: opts.planName,
-    planHeading: "What's included",
-    planLines: opts.planLines,
+    contentHtml: opts.planLines.length > 0
+      ? infoBox(opts.planName ? `What's included — ${opts.planName}` : "What's included", planListHtml(opts.planLines))
+      : "",
     ctaLabel: "View in CRIC HQ",
+  });
+}
+
+/** Shared by the booking-creation confirmation (to the player and, separately, to the coach) and
+ * the pre-session reminder — same details box, different heading/intro/CTA supplied by the
+ * caller (see api/bookings/notify-created and api/cron/booking-reminders). */
+export function buildBookingEmailHtml(opts: {
+  appUrl: string;
+  heading: string;
+  intro: string;
+  rows: Array<{ label: string; value: string }>;
+}): string {
+  return shell({
+    appUrl: opts.appUrl,
+    heading: opts.heading,
+    intro: opts.intro,
+    contentHtml: infoBox("Booking details", detailRowsHtml(opts.rows)),
+    ctaLabel: "View in CRIC HQ",
+    ctaHref: `${opts.appUrl}/bookings`,
   });
 }

@@ -377,6 +377,8 @@ export interface Booking {
   source?: 'marketplace';
   /** Only meaningful when there's no `packId` — a pack-drawn booking is already paid for via the pack. */
   paymentStatus: PaymentStatus;
+  /** Set when staff marked this booking paid manually (cash/bank transfer) rather than via Stripe. */
+  paidDate?: string;
 }
 
 export interface SessionVideo {
@@ -561,6 +563,18 @@ export type PackFeeDueStatus = 'pending' | 'collected';
 export interface PackFeeDue {
   id: string;
   packId: string;
+  academyId: string;
+  amountAud: number;
+  feePercent: number;
+  status: PackFeeDueStatus;
+  collectedDate?: string;
+  collectedBy?: string;
+  createdAt?: string;
+}
+
+export interface BookingFeeDue {
+  id: string;
+  bookingId: string;
   academyId: string;
   amountAud: number;
   feePercent: number;
