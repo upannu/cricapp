@@ -1,5 +1,12 @@
 import { vi, beforeEach } from "vitest";
+import { config } from "dotenv";
+import path from "node:path";
 import { createSupabaseMock, type SupabaseMock } from "../mocks/supabase";
+
+// Loads real values (e.g. a Stripe test-mode secret key) for local runs where
+// they exist — CI supplies its own via the workflow's `env:` block, and
+// dotenv never overrides an already-set var, so this is a no-op there.
+config({ path: path.resolve(__dirname, "../../.env.local") });
 
 /**
  * Shared mutable state for every tests/api/**.test.ts route-handler test.
