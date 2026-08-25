@@ -73,6 +73,16 @@ process.env.SUPABASE_SERVICE_ROLE_KEY ||= "test-service-role-key";
 process.env.ANTHROPIC_API_KEY ||= "test-anthropic-key";
 process.env.GMAIL_USER ||= "test@example.com";
 process.env.GMAIL_APP_PASSWORD ||= "test-app-password";
+process.env.GOOGLE_MAPS_API_KEY ||= "test-maps-key";
+process.env.CLICKSEND_USERNAME ||= "test-clicksend-user";
+process.env.CLICKSEND_API_KEY ||= "test-clicksend-key";
+
+// MSW is deliberately NOT wired up globally here: starting its Node interceptor
+// for the whole "api" project caused the Stripe SDK's real HTTP calls to hang
+// (a real, reproduced conflict between msw/node's request interception and
+// Stripe's Node client, not just a config mistake). Routes that need MSW
+// (geocode, send-sms — see tests/mocks/msw-handlers.ts) start/stop their own
+// scoped server instance in their own test file instead.
 
 beforeEach(() => {
   routeMockState.cookieUser = null;
