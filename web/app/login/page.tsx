@@ -136,17 +136,17 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          {/* QR code — quick mobile access to the site */}
+          {/* QR code — quick mobile access to the site. Hidden for now, not removed.
           <div className="flex flex-col items-center justify-center gap-2 mt-8">
-            {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
             <img src="/crichq_qr_code.png" alt="QR code linking to crichq.com.au" width={64} height={64}
               className="w-16 h-16 rounded-lg bg-white p-1.5 flex-shrink-0" />
             <p className="text-zinc-500 text-xs leading-relaxed text-center">
               Scan to open crichq.com.au on your phone
             </p>
           </div>
+          */}
 
-          <div className="flex justify-center gap-5 text-xs text-zinc-500 font-mono">
+          <div className="flex justify-center gap-5 mt-8 text-sm text-zinc-500 font-mono">
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
