@@ -65,6 +65,17 @@ function detailRowsHtml(rows: Array<{ label: string; value: string }>): string {
       </table>`;
 }
 
+/** Escapes text pulled straight from a public form (contact message, name) before it's dropped
+ * into an HTML email body — this content is untrusted user input, not our own copy. */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export function buildWelcomeEmailHtml(opts: {
   name: string;
   roleLabel: string;
@@ -119,5 +130,23 @@ export function buildBookingEmailHtml(opts: {
     contentHtml: infoBox("Booking details", detailRowsHtml(opts.rows)),
     ctaLabel: "View in CRIC HQ",
     ctaHref: `${opts.appUrl}/bookings`,
+  });
+}
+
+/** The public /contact form notification sent to PLATFORM_ADMIN_EMAIL — see api/contact/route.ts. */
+export function buildContactFormEmailHtml(opts: {
+  appUrl: string;
+  name: string;
+  email: string;
+  message: string;
+}): string {
+  const messageHtml = `<p style="margin:0;color:#1A2E45;font-size:14px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(opts.message)}</p>`;
+  return shell({
+    appUrl: opts.appUrl,
+    heading: "New contact form submission",
+    intro: `${escapeHtml(opts.name)} (${escapeHtml(opts.email)}) sent a message via the Contact page.`,
+    contentHtml: infoBox("Message", messageHtml),
+    ctaLabel: "Reply by email",
+    ctaHref: `mailto:${opts.email}`,
   });
 }
