@@ -16,7 +16,11 @@ export default defineConfig({
     // Unauthenticated/public-page specs (e.g. login, signup, smoke tests).
     { name: "public", testMatch: /tests\/e2e\/[^/]+\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
     // Logs in as each of the 5 seeded roles once and saves storageState — see auth.setup.ts.
-    { name: "setup", testMatch: /auth\.setup\.ts/ },
+    // fullyParallel: false — 5 concurrent real sign-ins against Supabase Auth
+    // can trip its rate limiting (observed as spurious "Invalid email or
+    // password" failures under the default 4-worker parallelism), so these
+    // run one after another instead.
+    { name: "setup", testMatch: /auth\.setup\.ts/, fullyParallel: false },
     // Role-scoped specs live under tests/e2e/roles/<role>/*.spec.ts and reuse that role's
     // saved session — no per-test login. Empty until a batch adds specs there.
     ...(["platform_admin", "academy_admin", "coach", "player", "parent"] as const).map((role) => ({
