@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { NextResponse } from "next/server";
+import { buildContactFormEmailHtml } from "@/lib/email-templates";
 
 /** Public contact form on /contact — no auth required. Delivers to PLATFORM_ADMIN_EMAIL (the same
  * internal-notification address every other admin email in the app already uses), with the
@@ -18,6 +19,7 @@ export async function POST(request: Request) {
   }
 
   const transporter = nodemailer.createTransport({ service: "gmail", auth: { user: gmailUser, pass: gmailPass } });
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://crichq.com.au";
 
   try {
     await transporter.sendMail({
@@ -26,6 +28,7 @@ export async function POST(request: Request) {
       replyTo: email,
       subject: `Contact form — ${name}`,
       text: [`From: ${name} <${email}>`, ``, message].join("\n"),
+      html: buildContactFormEmailHtml({ appUrl, name, email, message }),
     });
     return NextResponse.json({ success: true });
   } catch (err) {
