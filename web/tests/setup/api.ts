@@ -21,7 +21,14 @@ const routeMockState = vi.hoisted(() => ({
   cookieUser: null as null | { id: string; user_metadata: Record<string, unknown> },
   tableResponses: {} as Record<string, { data?: unknown; error?: unknown }>,
   storageResponses: {} as Record<string, Record<string, unknown>>,
+  authAdminResponses: {} as Record<string, unknown>,
+  authResponses: {} as Record<string, unknown>,
   lastServiceClient: null as SupabaseMock | null,
+  /** Every client createClient() has produced this test, in call order — some
+   * routes build more than one (e.g. a service client + a separate anon
+   * client for signInWithPassword), so `lastServiceClient` alone isn't
+   * always the one a test needs to assert against. */
+  allServiceClients: [] as SupabaseMock[],
 }));
 export { routeMockState };
 
@@ -43,8 +50,14 @@ vi.mock("@supabase/ssr", () => ({
 // it to return our chainable fake, configured per-test via tableResponses/storageResponses.
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => {
-    const client = createSupabaseMock(routeMockState.tableResponses, routeMockState.storageResponses);
+    const client = createSupabaseMock(
+      routeMockState.tableResponses,
+      routeMockState.storageResponses,
+      routeMockState.authAdminResponses,
+      routeMockState.authResponses,
+    );
     routeMockState.lastServiceClient = client;
+    routeMockState.allServiceClients.push(client);
     return client;
   }),
 }));
@@ -65,5 +78,8 @@ beforeEach(() => {
   routeMockState.cookieUser = null;
   routeMockState.tableResponses = {};
   routeMockState.storageResponses = {};
+  routeMockState.authAdminResponses = {};
+  routeMockState.authResponses = {};
   routeMockState.lastServiceClient = null;
+  routeMockState.allServiceClients = [];
 });

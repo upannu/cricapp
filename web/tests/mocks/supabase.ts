@@ -10,6 +10,8 @@ export interface TableBuilder extends PromiseLike<TableResponse> {
   delete: ReturnType<typeof vi.fn>;
   eq: ReturnType<typeof vi.fn>;
   neq: ReturnType<typeof vi.fn>;
+  ilike: ReturnType<typeof vi.fn>;
+  in: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
   limit: ReturnType<typeof vi.fn>;
   single: ReturnType<typeof vi.fn>;
@@ -26,6 +28,18 @@ export interface StorageBucketMock {
 }
 
 type StorageResponses = Record<string, Partial<Record<keyof StorageBucketMock, unknown>>>;
+
+export interface AuthAdminMock {
+  createUser: ReturnType<typeof vi.fn>;
+  listUsers: ReturnType<typeof vi.fn>;
+  getUserById: ReturnType<typeof vi.fn>;
+  updateUserById: ReturnType<typeof vi.fn>;
+  deleteUser: ReturnType<typeof vi.fn>;
+  inviteUserByEmail: ReturnType<typeof vi.fn>;
+}
+
+type AuthAdminResponses = Partial<Record<keyof AuthAdminMock, unknown>>;
+type AuthResponses = { signInWithPassword?: unknown };
 
 /**
  * Minimal chainable fake for @supabase/supabase-js's PostgrestQueryBuilder +
@@ -45,6 +59,8 @@ type StorageResponses = Record<string, Partial<Record<keyof StorageBucketMock, u
 export function createSupabaseMock(
   tableResponses: Record<string, TableResponse> = {},
   storageResponses: StorageResponses = {},
+  authAdminResponses: AuthAdminResponses = {},
+  authResponses: AuthResponses = {},
 ) {
   const tables: Record<string, TableBuilder> = {};
   const buckets: Record<string, StorageBucketMock> = {};
@@ -60,6 +76,8 @@ export function createSupabaseMock(
       delete: vi.fn(() => builder),
       eq: vi.fn(() => builder),
       neq: vi.fn(() => builder),
+      ilike: vi.fn(() => builder),
+      in: vi.fn(() => builder),
       order: vi.fn(() => builder),
       limit: vi.fn(() => builder),
       single: vi.fn(() => Promise.resolve(response)),
@@ -91,11 +109,15 @@ export function createSupabaseMock(
     from: vi.fn((table: string) => builderFor(table)),
     auth: {
       getUser: vi.fn(() => Promise.resolve({ data: { user: null }, error: null })),
+      signInWithPassword: vi.fn(async () => authResponses.signInWithPassword ?? { data: {}, error: null }),
       admin: {
-        createUser: vi.fn(),
-        listUsers: vi.fn(),
-        updateUserById: vi.fn(),
-      },
+        createUser: vi.fn(async () => authAdminResponses.createUser ?? { data: { user: null }, error: null }),
+        listUsers: vi.fn(async () => authAdminResponses.listUsers ?? { data: { users: [] }, error: null }),
+        getUserById: vi.fn(async () => authAdminResponses.getUserById ?? { data: { user: null }, error: null }),
+        updateUserById: vi.fn(async () => authAdminResponses.updateUserById ?? { data: { user: null }, error: null }),
+        deleteUser: vi.fn(async () => authAdminResponses.deleteUser ?? { data: null, error: null }),
+        inviteUserByEmail: vi.fn(async () => authAdminResponses.inviteUserByEmail ?? { data: {}, error: null }),
+      } satisfies AuthAdminMock,
     },
     storage: {
       from: vi.fn((bucket: string) => bucketFor(bucket)),
