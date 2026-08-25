@@ -97,6 +97,12 @@ function playerById(id: string) { return _players.find((p) => p.id === id); }
 function coachById(id: string) { return _coaches.find((c) => c.id === id); }
 function academyById(id: string) { return _academies.find((a) => a.id === id); }
 function packForPlayer(playerId: string) { return _packs.find((pk) => pk.playerId === playerId && pk.status === "Active"); }
+// A pack is purchased for one specific session type (e.g. group Net Sessions) at a cheaper
+// per-session rate — it should only ever be offered/drawn from for a booking of that same type,
+// never used to cover a different (typically pricier, 1-on-1) session type at the pack's rate.
+function packForPlayerAndType(playerId: string, type: BookingType) {
+  return _packs.find((pk) => pk.playerId === playerId && pk.status === "Active" && pk.sessionType === type);
+}
 
 function isUpcoming(b: Booking) { return b.date >= today && b.status !== "Cancelled"; }
 function isPast(b: Booking)     { return b.date < today && b.status !== "Cancelled"; }
@@ -368,7 +374,7 @@ export function BookingsClient() {
                 value={draft.playerId}
                 onChange={(e) => {
                   const playerId = e.target.value;
-                  const activePack = packForPlayer(playerId);
+                  const activePack = packForPlayerAndType(playerId, draft.type);
                   setDraft({ ...draft, playerId, packId: activePack?.id });
                 }}
                 className={sel}
@@ -379,7 +385,7 @@ export function BookingsClient() {
                 ))}
               </select>
               {(() => {
-                const activePack = draft.playerId ? packForPlayer(draft.playerId) : undefined;
+                const activePack = draft.playerId ? packForPlayerAndType(draft.playerId, draft.type) : undefined;
                 if (!activePack) return null;
                 const remaining = activePack.totalSessions - activePack.sessionsUsed + activePack.sessionCredits;
                 return (
@@ -446,7 +452,8 @@ export function BookingsClient() {
                 value={draft.type}
                 onChange={(e) => {
                   const type = e.target.value as BookingType;
-                  setDraft({ ...draft, type, feeAud: feeForCoachAndType(draft.coachId, type) });
+                  const activePack = draft.playerId ? packForPlayerAndType(draft.playerId, type) : undefined;
+                  setDraft({ ...draft, type, feeAud: feeForCoachAndType(draft.coachId, type), packId: activePack?.id });
                 }}
                 className={sel}
               >
