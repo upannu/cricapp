@@ -2,9 +2,10 @@ import nodemailer from "nodemailer";
 import { NextResponse } from "next/server";
 import { buildContactFormEmailHtml } from "@/lib/email-templates";
 
-/** Public contact form on /contact — no auth required. Delivers to PLATFORM_ADMIN_EMAIL (the same
- * internal-notification address every other admin email in the app already uses), with the
- * visitor's own address set as reply-to so a reply goes straight back to them. */
+/** Public contact form on /contact — no auth required. Delivers to support@crichq.com.au, CC'd to
+ * PLATFORM_ADMIN_EMAIL (the same internal-notification address every other admin email in the app
+ * already uses), with the visitor's own address set as reply-to so a reply goes straight back to
+ * them. */
 export async function POST(request: Request) {
   const { name, email, message } = (await request.json()) as { name?: string; email?: string; message?: string };
   if (!name || !email || !message) {
@@ -24,7 +25,8 @@ export async function POST(request: Request) {
   try {
     await transporter.sendMail({
       from: `"CRIC HQ" <${gmailUser}>`,
-      to: adminEmail,
+      to: "support@crichq.com.au",
+      cc: adminEmail,
       replyTo: email,
       subject: `Contact form — ${name}`,
       text: [`From: ${name} <${email}>`, ``, message].join("\n"),

@@ -34,7 +34,7 @@ export function LegalPageShell({ title, children }: { title: string; children: R
           <span>© {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved.</span>
           <div className="flex gap-5 text-base">
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
-            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
           </div>
         </div>
