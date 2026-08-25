@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import type { Booking, BookingStatus, BookingType, Player, Coach, SessionPack, Academy, Plan } from "@/lib/types";
+import type { Booking, BookingStatus, BookingType, Player, Coach, SessionPack, Academy, Plan, BookingFeeDue } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchActivePlans, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus } from "@/lib/db";
+import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchActivePlans, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus, markBookingPaid, fetchBookingFeeDues } from "@/lib/db";
 import { formatDate, getSessionFee, getPlatformFeePercent } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 
@@ -47,7 +47,7 @@ const TYPE_STYLES: Record<BookingType, string> = {
   "Warm-up / Conditioning":  "bg-zinc-700 text-zinc-300",
 };
 
-type FilterTab = "Upcoming" | "Pending" | "Past" | "Cancelled" | "All";
+type FilterTab = "Upcoming" | "Pending" | "Past" | "Cancelled" | "All" | "Platform Fees";
 
 type DraftBooking = Omit<Booking, "id">;
 
@@ -95,6 +95,10 @@ let _packs: SessionPack[] = [];
 
 function playerById(id: string) { return _players.find((p) => p.id === id); }
 function coachById(id: string) { return _coaches.find((c) => c.id === id); }
+function academyById(id: string) { return _academies.find((a) => a.id === id); }
+// Only used for the Cancelled-booking "credit back to pack" flow below — Bookings are always
+// 1-on-1 sessions charged at the coach's full rate; packs are exclusively for group sessions and
+// are never offered/drawn from when creating or editing a booking.
 function packForPlayer(playerId: string) { return _packs.find((pk) => pk.playerId === playerId && pk.status === "Active"); }
 
 function isUpcoming(b: Booking) { return b.date >= today && b.status !== "Cancelled"; }
@@ -123,6 +127,7 @@ export function BookingsClient() {
   const { user } = useAuth();
   const formRef = useRef<HTMLDivElement>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [feeDues, setFeeDues] = useState<BookingFeeDue[]>([]);
 
   useEffect(() => {
     const coachId = user?.role === "coach" ? (user.coachId ?? undefined) : undefined;
@@ -140,6 +145,10 @@ export function BookingsClient() {
       setBookings(bk);
       _packs = pk;
     });
+    // Fee dues are visible/actionable for staff only — RLS already scopes what comes back
+    // (platform_admin sees all, academy_admin their own academy, coach their own bookings), and a
+    // player/parent role has no rows to see anyway.
+    fetchBookingFeeDues().then(setFeeDues).catch(() => {});
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   const [tab, setTab] = useState<FilterTab>("Upcoming");
   const [showForm, setShowForm] = useState(false);
@@ -224,6 +233,12 @@ export function BookingsClient() {
         ? prev.map((b) => (b.id === editingId ? booking : b))
         : [booking, ...prev]
     );
+    if (!editingId) {
+      // Best-effort — a failed confirmation email/SMS should never undo or error the save itself.
+      fetch("/api/bookings/notify-created", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bookingId: newId }),
+      }).catch(() => {});
+    }
     setSaved(newId);
     closeForm();
     // Switch to the right tab to see the saved booking
@@ -253,6 +268,25 @@ export function BookingsClient() {
       setTimeout(() => setSaved(null), 2000);
     } catch (err) {
       setActionError((err as { message?: string })?.message ?? String(err));
+    }
+  }
+
+  async function handleMarkPaid(bookingId: string, paidDate: string) {
+    await markBookingPaid(bookingId, paidDate);
+    setBookings((prev) => prev.map((b) => (b.id === bookingId ? { ...b, paymentStatus: "Paid", paidDate } : b)));
+    // Paid outside Stripe (cash/bank transfer) means the platform's own fee cut was never
+    // collected the way a real Checkout payment collects it automatically — record what's owed.
+    try {
+      const res = await fetch("/api/bookings/record-fee-due", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bookingId }),
+      });
+      const data = await res.json();
+      if (res.ok && !data.error) {
+        const fresh = await fetchBookingFeeDues();
+        setFeeDues(fresh);
+      }
+    } catch {
+      // Best-effort — a staff "mark paid" flow shouldn't fail on this bookkeeping step.
     }
   }
 
@@ -335,11 +369,7 @@ export function BookingsClient() {
               <label className={lbl}>Player</label>
               <select
                 value={draft.playerId}
-                onChange={(e) => {
-                  const playerId = e.target.value;
-                  const activePack = packForPlayer(playerId);
-                  setDraft({ ...draft, playerId, packId: activePack?.id });
-                }}
+                onChange={(e) => setDraft({ ...draft, playerId: e.target.value })}
                 className={sel}
               >
                 <option value="">— Select player —</option>
@@ -347,24 +377,6 @@ export function BookingsClient() {
                   <option key={p.id} value={p.id}>{p.name} · {p.ageGroup}</option>
                 ))}
               </select>
-              {(() => {
-                const activePack = draft.playerId ? packForPlayer(draft.playerId) : undefined;
-                if (!activePack) return null;
-                const remaining = activePack.totalSessions - activePack.sessionsUsed + activePack.sessionCredits;
-                return (
-                  <label className="mt-2 flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={draft.packId === activePack.id}
-                      onChange={(e) => setDraft({ ...draft, packId: e.target.checked ? activePack.id : undefined })}
-                      className="accent-pace-green cursor-pointer"
-                    />
-                    Draw from active pack ({remaining}{" "}
-                    {remaining === 1 ? "session" : "sessions"}{" "}
-                    remaining)
-                  </label>
-                );
-              })()}
             </div>
 
             {/* Date + weekday quick-select */}
@@ -503,23 +515,93 @@ export function BookingsClient() {
 
       {/* Filter tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
-        {(["Upcoming", "Pending", "Past", "Cancelled", "All"] as FilterTab[]).map((t) => (
-          <button key={t} type="button" onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              tab === t ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
-            }`}>
-            {t}
-            {t === "Pending" && pendingAll.length > 0 && (
-              <span className="ml-1.5 bg-amber text-black text-xs font-bold px-1.5 py-0.5 rounded-full">
-                {pendingAll.length}
-              </span>
-            )}
-          </button>
-        ))}
+        {(
+          user?.role && ["platform_admin", "academy_admin", "coach"].includes(user.role)
+            ? (["Upcoming", "Pending", "Past", "Cancelled", "All", "Platform Fees"] as FilterTab[])
+            : (["Upcoming", "Pending", "Past", "Cancelled", "All"] as FilterTab[])
+        ).map((t) => {
+          const pendingFeeDues = feeDues.filter((d) => d.status === "pending").length;
+          const badge = t === "Pending" ? pendingAll.length : t === "Platform Fees" ? pendingFeeDues : 0;
+          return (
+            <button key={t} type="button" onClick={() => setTab(t)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                tab === t ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
+              }`}>
+              {t}
+              {badge > 0 && (
+                <span className="ml-1.5 bg-amber text-black text-xs font-bold px-1.5 py-0.5 rounded-full">
+                  {badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
+      {/* ── PLATFORM FEES TAB — cash/bank-transfer bookings where Stripe never collected the
+           platform's own cut, so it's tracked here as a ledger instead ──────────────────── */}
+      {tab === "Platform Fees" && (
+        <div className="space-y-4">
+          {feeDues.length === 0 ? (
+            <div className="bg-surface rounded-2xl p-16 text-center">
+              <p className="text-zinc-400 text-sm">No cash/bank-transfer bookings owe a platform fee.</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4 mb-2">
+                <div className="bg-surface rounded-2xl p-5 text-center">
+                  <div className="text-2xl font-bold text-amber mb-1">
+                    ${feeDues.filter((d) => d.status === "pending").reduce((s, d) => s + d.amountAud, 0).toFixed(2)}
+                  </div>
+                  <div className="text-xs text-zinc-400">Pending</div>
+                </div>
+                <div className="bg-surface rounded-2xl p-5 text-center">
+                  <div className="text-2xl font-bold text-pace-green mb-1">
+                    ${feeDues.filter((d) => d.status === "collected").reduce((s, d) => s + d.amountAud, 0).toFixed(2)}
+                  </div>
+                  <div className="text-xs text-zinc-400">Collected</div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {feeDues.map((due) => {
+                  const booking = bookings.find((b) => b.id === due.bookingId);
+                  const player = booking ? playerById(booking.playerId) : undefined;
+                  const academy = academyById(due.academyId);
+                  return (
+                    <div key={due.id} className="bg-surface rounded-2xl p-5 flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-white font-semibold text-sm">{academy?.name ?? "Unknown academy"}</div>
+                        <div className="text-xs text-zinc-400">
+                          {player?.name ?? "Unknown player"} · {due.feePercent}% platform fee
+                          {due.status === "collected" && due.collectedDate && ` · collected ${formatDate(due.collectedDate)}`}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 flex-shrink-0">
+                        <div className="text-lg font-bold text-amber">${due.amountAud.toFixed(2)}</div>
+                        {due.status === "collected" ? (
+                          <span className="text-xs font-semibold text-pace-green">✓ Collected</span>
+                        ) : user?.role === "platform_admin" ? (
+                          <BookingMarkFeeCollectedButton
+                            dueId={due.id}
+                            onCollected={(collectedDate) =>
+                              setFeeDues((prev) => prev.map((d) => (d.id === due.id ? { ...d, status: "collected", collectedDate } : d)))
+                            }
+                          />
+                        ) : (
+                          <span className="text-xs font-semibold text-amber">Pending</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Booking list */}
-      {filtered.length === 0 ? (
+      {tab === "Platform Fees" ? null : filtered.length === 0 ? (
         <div className="bg-surface rounded-2xl p-16 text-center">
           <p className="text-zinc-400 text-sm mb-4">No {tab.toLowerCase()} bookings.</p>
           <button type="button" onClick={openAdd}
@@ -549,6 +631,7 @@ export function BookingsClient() {
                       onEdit={() => openEdit(b)}
                       onStatusChange={(s) => changeStatus(b.id, s)}
                       onComplete={(notes) => handleCompleteBooking(b, notes)}
+                      onMarkPaid={(paidDate) => handleMarkPaid(b.id, paidDate)}
                     />
                   ))}
               </div>
@@ -566,6 +649,7 @@ export function BookingsClient() {
               onEdit={() => openEdit(b)}
               onStatusChange={(s) => changeStatus(b.id, s)}
               onComplete={(notes) => handleCompleteBooking(b, notes)}
+              onMarkPaid={(paidDate) => handleMarkPaid(b.id, paidDate)}
             />
           ))}
         </div>
@@ -582,13 +666,16 @@ function BookingCard({
   onEdit,
   onStatusChange,
   onComplete,
+  onMarkPaid,
 }: {
   booking: Booking;
   highlight: boolean;
   onEdit: () => void;
   onStatusChange: (s: BookingStatus) => void;
   onComplete: (notes: string) => Promise<void>;
+  onMarkPaid: (paidDate: string) => Promise<void>;
 }) {
+  const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [credited, setCredited] = useState(false);
   const [creditError, setCreditError] = useState("");
@@ -701,7 +788,14 @@ function BookingCard({
                   <span className={`text-xs font-semibold ${b.paymentStatus === "Paid" ? "text-pace-green" : "text-amber"}`}>
                     {b.paymentStatus === "Paid" ? "✓ Paid" : "Payment pending"}
                   </span>
-                  {b.paymentStatus !== "Paid" && <BookingPayOnlineButton bookingId={b.id} />}
+                  {b.paymentStatus !== "Paid" && (
+                    <div className="flex items-center gap-2">
+                      <BookingPayOnlineButton bookingId={b.id} />
+                      {user?.role && ["platform_admin", "academy_admin", "coach"].includes(user.role) && (
+                        <BookingMarkPaidButton onPaid={onMarkPaid} />
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -862,6 +956,80 @@ function BookingPayOnlineButton({ bookingId }: { bookingId: string }) {
       </button>
       {error && <p className="text-[10px] text-red-400 mt-1 max-w-40">{error}</p>}
     </div>
+  );
+}
+
+function BookingMarkPaidButton({ onPaid }: { onPaid: (paidDate: string) => void }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [paidDate, setPaidDate] = useState(today);
+  const [done, setDone] = useState(false);
+
+  if (done) {
+    return <span className="text-xs font-semibold text-pace-green flex items-center gap-1">✓ Marked paid</span>;
+  }
+
+  if (showConfirm) {
+    return (
+      <div className="flex items-center gap-2">
+        <DateInput value={paidDate} onChange={setPaidDate} className="w-32 bg-ink rounded-lg px-3 py-1.5 text-xs border border-zinc-700 focus:border-pace-green focus:outline-none" />
+        <button type="button" onClick={() => { onPaid(paidDate); setDone(true); }}
+          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 cursor-pointer transition-opacity">
+          Confirm
+        </button>
+        <button type="button" onClick={() => setShowConfirm(false)}
+          className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button type="button" onClick={() => setShowConfirm(true)}
+      className="px-3 py-1.5 text-xs font-bold text-zinc-300 border border-zinc-600 rounded-xl hover:border-zinc-400 cursor-pointer transition-colors">
+      Mark Paid (Cash)
+    </button>
+  );
+}
+
+function BookingMarkFeeCollectedButton({ dueId, onCollected }: { dueId: string; onCollected: (collectedDate: string) => void }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [collectedDate, setCollectedDate] = useState(today);
+  const [saving, setSaving] = useState(false);
+
+  async function handleConfirm() {
+    setSaving(true);
+    try {
+      await fetch("/api/bookings/mark-fee-collected", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueId, collectedDate }),
+      });
+      onCollected(collectedDate);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (showConfirm) {
+    return (
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <DateInput value={collectedDate} onChange={setCollectedDate} className="w-32 bg-ink rounded-lg px-3 py-1.5 text-xs border border-zinc-700 focus:border-pace-green focus:outline-none" />
+        <button type="button" onClick={handleConfirm} disabled={saving}
+          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-60">
+          {saving ? "…" : "Confirm"}
+        </button>
+        <button type="button" onClick={() => setShowConfirm(false)} className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button type="button" onClick={() => setShowConfirm(true)}
+      className="px-3 py-1.5 text-xs font-bold text-amber border border-amber/30 rounded-lg hover:bg-amber/10 cursor-pointer transition-colors flex-shrink-0">
+      Mark Collected
+    </button>
   );
 }
 

@@ -112,6 +112,9 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
               </div>
             )}
             {currentPlan.includedNotes && <p className="text-xs text-zinc-500 mt-2">{currentPlan.includedNotes}</p>}
+            <div className="mt-3">
+              <EmailPlanDetailsButton academyId={academy.id} />
+            </div>
           </>
         ) : (
           <p className="text-zinc-400 text-sm">No active license — choose a plan below.</p>
@@ -181,6 +184,53 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function EmailPlanDetailsButton({ academyId }: { academyId: string }) {
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<"sent" | "error" | null>(null);
+  const [error, setError] = useState("");
+
+  async function handleClick() {
+    setSending(true);
+    setResult(null);
+    setError("");
+    try {
+      const res = await fetch("/api/send-plan-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ academyId }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to send.");
+      setResult("sent");
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? String(err));
+      setResult("error");
+    } finally {
+      setSending(false);
+      setTimeout(() => setResult(null), 4000);
+    }
+  }
+
+  if (result === "sent") {
+    return <span className="text-xs font-semibold text-pace-green">✓ Plan details emailed</span>;
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={sending}
+        className="px-3 py-1.5 text-xs font-semibold text-pace-green border border-pace-green/30 rounded-lg hover:bg-pace-green/10 transition-colors cursor-pointer disabled:opacity-60"
+        title="Send an email summarising this plan's inclusions — useful if someone asks again after signup"
+      >
+        {sending ? "Sending…" : "📧 Email Plan Details"}
+      </button>
+      {result === "error" && <p className="text-[10px] text-red-400 mt-1">{error}</p>}
     </div>
   );
 }

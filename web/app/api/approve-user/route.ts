@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { buildWelcomeEmailHtml } from "@/lib/email-templates";
+import { fetchAcademyPlanInfo } from "@/lib/plan-email";
 import { canGenerateAiReports, canUseMarketplace, sessionsLimitForPlan, chatMessagesLimitForPlan } from "@/lib/plan-features";
 import type { PlanTier } from "@/lib/types";
 
@@ -180,17 +181,9 @@ export async function POST(request: Request) {
         orgAcademyId = coachRow?.academy_id ?? undefined;
       }
       if (orgAcademyId) {
-        const { data: academyRow } = await supabase.from("academies").select("plan_id").eq("id", orgAcademyId).maybeSingle();
-        if (academyRow?.plan_id) {
-          const { data: planRow } = await supabase.from("plans").select("name, price_aud, billing_interval, included_notes").eq("id", academyRow.plan_id).maybeSingle();
-          if (planRow) {
-            planName = planRow.name;
-            if (planRow.price_aud != null) {
-              planLines.push(`$${planRow.price_aud} AUD${planRow.billing_interval ? ` / ${planRow.billing_interval}` : ""}`);
-            }
-            if (planRow.included_notes) planLines.push(planRow.included_notes);
-          }
-        }
+        const info = await fetchAcademyPlanInfo(supabase, orgAcademyId);
+        planName = info.planName;
+        planLines = info.planLines;
       }
     } else if ((reqData.role === "player" || reqData.role === "parent") && linkedPlayerId) {
       const { data: playerRow } = await supabase.from("players").select("sub_plan").eq("id", linkedPlayerId).maybeSingle();
