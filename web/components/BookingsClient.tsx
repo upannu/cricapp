@@ -96,13 +96,10 @@ let _packs: SessionPack[] = [];
 function playerById(id: string) { return _players.find((p) => p.id === id); }
 function coachById(id: string) { return _coaches.find((c) => c.id === id); }
 function academyById(id: string) { return _academies.find((a) => a.id === id); }
+// Only used for the Cancelled-booking "credit back to pack" flow below — Bookings are always
+// 1-on-1 sessions charged at the coach's full rate; packs are exclusively for group sessions and
+// are never offered/drawn from when creating or editing a booking.
 function packForPlayer(playerId: string) { return _packs.find((pk) => pk.playerId === playerId && pk.status === "Active"); }
-// A pack is purchased for one specific session type (e.g. group Net Sessions) at a cheaper
-// per-session rate — it should only ever be offered/drawn from for a booking of that same type,
-// never used to cover a different (typically pricier, 1-on-1) session type at the pack's rate.
-function packForPlayerAndType(playerId: string, type: BookingType) {
-  return _packs.find((pk) => pk.playerId === playerId && pk.status === "Active" && pk.sessionType === type);
-}
 
 function isUpcoming(b: Booking) { return b.date >= today && b.status !== "Cancelled"; }
 function isPast(b: Booking)     { return b.date < today && b.status !== "Cancelled"; }
@@ -372,11 +369,7 @@ export function BookingsClient() {
               <label className={lbl}>Player</label>
               <select
                 value={draft.playerId}
-                onChange={(e) => {
-                  const playerId = e.target.value;
-                  const activePack = packForPlayerAndType(playerId, draft.type);
-                  setDraft({ ...draft, playerId, packId: activePack?.id });
-                }}
+                onChange={(e) => setDraft({ ...draft, playerId: e.target.value })}
                 className={sel}
               >
                 <option value="">— Select player —</option>
@@ -384,24 +377,6 @@ export function BookingsClient() {
                   <option key={p.id} value={p.id}>{p.name} · {p.ageGroup}</option>
                 ))}
               </select>
-              {(() => {
-                const activePack = draft.playerId ? packForPlayerAndType(draft.playerId, draft.type) : undefined;
-                if (!activePack) return null;
-                const remaining = activePack.totalSessions - activePack.sessionsUsed + activePack.sessionCredits;
-                return (
-                  <label className="mt-2 flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={draft.packId === activePack.id}
-                      onChange={(e) => setDraft({ ...draft, packId: e.target.checked ? activePack.id : undefined })}
-                      className="accent-pace-green cursor-pointer"
-                    />
-                    Draw from active pack ({remaining}{" "}
-                    {remaining === 1 ? "session" : "sessions"}{" "}
-                    remaining)
-                  </label>
-                );
-              })()}
             </div>
 
             {/* Date + weekday quick-select */}
@@ -452,8 +427,7 @@ export function BookingsClient() {
                 value={draft.type}
                 onChange={(e) => {
                   const type = e.target.value as BookingType;
-                  const activePack = draft.playerId ? packForPlayerAndType(draft.playerId, type) : undefined;
-                  setDraft({ ...draft, type, feeAud: feeForCoachAndType(draft.coachId, type), packId: activePack?.id });
+                  setDraft({ ...draft, type, feeAud: feeForCoachAndType(draft.coachId, type) });
                 }}
                 className={sel}
               >
