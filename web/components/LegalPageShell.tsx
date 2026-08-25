@@ -2,11 +2,7 @@ import Link from "next/link";
 
 /** Shared chrome for the public Contact/Terms/Privacy pages — same dark theme and logo header as
  * /login, plus a footer that cross-links the three so a visitor on any one can reach the others. */
-export function LegalPageShell({
-  title, children, topRightLabel = "← Back",
-}: {
-  title: string; children: React.ReactNode; topRightLabel?: string;
-}) {
+export function LegalPageShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-ink">
       <div className="flex items-center justify-between px-6 sm:px-10 py-4 max-w-3xl mx-auto">
@@ -16,9 +12,14 @@ export function LegalPageShell({
             className="w-8 h-8 rounded-full bg-white p-0.5 object-contain flex-shrink-0" />
           <span className="text-lg font-bold tracking-widest text-white font-mono">CRIC HQ</span>
         </Link>
-        <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors font-mono">
-          {topRightLabel}
-        </Link>
+        <div className="flex items-center gap-5">
+          <Link href="/login#signin" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+            Login
+          </Link>
+          <Link href="/contact" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+            Contact
+          </Link>
+        </div>
       </div>
 
       <div className="max-w-3xl mx-auto px-6 sm:px-10 pb-20">
@@ -29,9 +30,9 @@ export function LegalPageShell({
       </div>
 
       <div className="border-t border-zinc-800">
-        <div className="max-w-3xl mx-auto px-6 sm:px-10 py-6 flex flex-wrap items-center justify-between gap-4 text-xs text-zinc-500">
+        <div className="max-w-3xl mx-auto px-6 sm:px-10 py-6 flex flex-wrap items-center justify-between gap-4 text-sm text-zinc-500">
           <span>© {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved.</span>
-          <div className="flex gap-5">
+          <div className="flex gap-5 text-base">
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>

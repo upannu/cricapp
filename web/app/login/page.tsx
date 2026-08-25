@@ -62,29 +62,34 @@ export default function LoginPage() {
       />
 
       {/* Top bar */}
-      <div className="relative flex items-center justify-between px-6 sm:px-10 py-4 max-w-6xl mx-auto">
+      <div className="relative flex items-center justify-between px-6 sm:px-10 py-2 max-w-6xl mx-auto">
         <div className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
           <img src="/crichq_logo.jpeg" alt="CRIC HQ" width={32} height={32}
             className="w-8 h-8 rounded-full bg-white p-0.5 object-contain flex-shrink-0" />
           <span className="text-lg font-bold tracking-widest text-white font-mono">CRIC HQ</span>
         </div>
-        <Link href="/signup" className="text-sm text-zinc-400 hover:text-white transition-colors font-mono">
-          Create account
-        </Link>
+        <div className="flex items-center gap-5">
+          <Link href="#signin" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+            Login
+          </Link>
+          <Link href="/contact" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+            Contact
+          </Link>
+        </div>
       </div>
 
       <div className="relative px-4 pb-16 flex flex-col items-center">
         <DemoCard />
 
-        <h1 className="mt-4 text-xl sm:text-2xl font-bold text-white text-center max-w-xl leading-tight font-mono">
+        <h1 className="mt-4 text-lg sm:text-xl font-bold text-white text-center max-w-xl leading-tight font-mono">
           Every degree of the action, measured.
         </h1>
         <p className="mt-2 text-zinc-400 text-center max-w-xs sm:max-w-2xl text-xs sm:text-sm font-mono sm:whitespace-nowrap">
           AI biomechanics from any phone video — no lab, no lasers.
         </p>
 
-        <div className="w-full max-w-2xl mt-4">
+        <div id="signin" className="w-full max-w-2xl mt-4 scroll-mt-6">
           {/* Login card */}
           <div className="bg-surface rounded-2xl p-6 shadow-2xl mb-6">
             <h2 className="text-lg font-semibold text-white mb-4 text-center">Sign in</h2>
@@ -114,7 +119,7 @@ export default function LoginPage() {
               </div>
               {error && <p className="text-red-400 text-sm">{error}</p>}
               <div className="flex justify-end">
-                <Link href="/forgot-password" className="text-xs text-zinc-500 hover:text-pace-green transition-colors">
+                <Link href="/forgot-password" className="text-xs font-bold text-zinc-500 hover:text-pace-green transition-colors">
                   Forgot password?
                 </Link>
               </div>
@@ -146,7 +151,7 @@ export default function LoginPage() {
           </div>
           */}
 
-          <div className="flex justify-center gap-5 mt-8 text-sm text-zinc-500 font-mono">
+          <div className="flex justify-center gap-5 mt-8 text-base text-zinc-500 font-mono">
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>

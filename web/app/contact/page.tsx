@@ -32,7 +32,7 @@ export default function ContactPage() {
   }
 
   return (
-    <LegalPageShell title="Contact Us" topRightLabel="Login">
+    <LegalPageShell title="Contact Us">
       <p>
         Questions about your account, an academy, or anything else — reach out any time at{" "}
         <a href="mailto:support@crichq.com.au" className="text-pace-green hover:underline">support@crichq.com.au</a>{" "}
