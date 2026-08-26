@@ -134,7 +134,7 @@ export function EmailTemplatesAdminClient() {
                     rows={8}
                     value={draft.body}
                     onChange={(e) => setDraft({ body: e.target.value })}
-                    className={`${inputCls} resize-none`}
+                    className={`${inputCls} resize-none text-base leading-relaxed`}
                   />
                 </div>
 
