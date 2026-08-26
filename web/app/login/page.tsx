@@ -25,23 +25,43 @@ import { useAuth /*, DEMO_ACCOUNTS */ } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, resendConfirmation } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailUnconfirmed, setEmailUnconfirmed] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
+  const [resendError, setResendError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setEmailUnconfirmed(false);
+    setResent(false);
     const err = await login(email.trim(), password);
     if (err) {
-      setError(err.startsWith("ACCOUNT_DISABLED::") ? err.slice("ACCOUNT_DISABLED::".length) : "Invalid email or password.");
+      if (err === "EMAIL_NOT_CONFIRMED") {
+        setEmailUnconfirmed(true);
+        setError("Please confirm your email address before signing in — check your inbox for the link.");
+      } else {
+        setError(err.startsWith("ACCOUNT_DISABLED::") ? err.slice("ACCOUNT_DISABLED::".length) : "Invalid email or password.");
+      }
       setLoading(false);
     } else {
       router.push("/players");
     }
+  }
+
+  async function handleResend() {
+    setResending(true);
+    setResendError("");
+    const err = await resendConfirmation(email.trim());
+    setResending(false);
+    if (err) setResendError(err);
+    else setResent(true);
   }
 
   // async function quickLogin(email: string) {
@@ -103,7 +123,7 @@ export default function LoginPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => { setEmail(e.target.value); setError(""); }}
+                  onChange={(e) => { setEmail(e.target.value); setError(""); setEmailUnconfirmed(false); setResent(false); }}
                   className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
                   placeholder="your@email.com"
                   required
@@ -114,13 +134,24 @@ export default function LoginPage() {
                 <input
                   type="password"
                   value={password}
-                  onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                  onChange={(e) => { setPassword(e.target.value); setError(""); setEmailUnconfirmed(false); setResent(false); }}
                   className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
                   placeholder="••••••••"
                   required
                 />
               </div>
               {error && <p className="text-red-400 text-sm">{error}</p>}
+              {emailUnconfirmed && (
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resending || resent}
+                  className="text-xs font-bold text-pace-green hover:underline transition-colors cursor-pointer disabled:opacity-70 disabled:no-underline disabled:cursor-default"
+                >
+                  {resending ? "Sending…" : resent ? "✓ Confirmation email sent" : "Resend confirmation email"}
+                </button>
+              )}
+              {resendError && <p className="text-red-400 text-xs">{resendError}</p>}
               <div className="flex justify-end">
                 <Link href="/forgot-password" className="text-xs font-bold text-zinc-500 hover:text-pace-green transition-colors">
                   Forgot password?
