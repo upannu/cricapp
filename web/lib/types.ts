@@ -1,11 +1,5 @@
 export type PlanTier = 'Coach Pro' | 'Player Pro' | 'Free';
 
-/** Platform-wide subscription prices, editable by a platform admin — see /admin/pricing. */
-export interface PlatformSettings {
-  playerProPriceAud: number;
-  coachProPriceAud: number;
-}
-
 /** The four roles a signup approval can be for — also the fixed set of editable welcome-email
  * templates at /admin/email-templates (one row per role, never user-created/deleted). */
 export type WelcomeEmailRole = 'player' | 'coach' | 'academy_admin' | 'parent';
@@ -49,6 +43,15 @@ export interface Plan {
   platformFeePercent: number;
   active: boolean;
   sortOrder: number;
+  /** Individual-player/coach session & Coach AI chat caps — null means unlimited. Only meaningful
+   * on the three fixed tier plans (slug `free`/`player-pro`/`coach-pro`); see [[PlanTier]]. */
+  sessionsPerMonthLimit: number | null;
+  chatMessagesPerDayLimit: number | null;
+  aiReportsEnabled: boolean;
+  marketplaceEnabled: boolean;
+  /** True only for the three seeded tier plans — their slug/audience/billing type can't be
+   * changed via /admin/plans since code looks them up by slug (see lib/plan-features.ts). */
+  locked: boolean;
 }
 export type PlayerStatus = 'Active' | 'Expiring' | 'Expired';
 export type BowlingStyle =

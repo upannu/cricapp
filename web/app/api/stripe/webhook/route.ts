@@ -12,6 +12,13 @@ function serviceClient() {
   );
 }
 
+/** The Free plan's monthly session cap (admin-editable at /admin/plans) — looked up fresh here
+ * rather than hardcoded, so a downgraded/cancelled subscriber gets whatever cap is currently set. */
+async function freeSessionsLimit(supabase: ReturnType<typeof serviceClient>): Promise<number | null> {
+  const { data } = await supabase.from("plans").select("sessions_per_month_limit").eq("slug", "free").maybeSingle();
+  return data ? (data.sessions_per_month_limit as number | null) : 4;
+}
+
 export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get("stripe-signature");
@@ -138,7 +145,7 @@ export async function POST(request: Request) {
         subscription_status: subscription.status,
         sub_end_date: new Date(subscription.items.data[0].current_period_end * 1000).toISOString().split("T")[0],
         ...(plan && isActive ? { sub_plan: plan, sub_sessions_limit: null } : {}),
-        ...(!isActive ? { sub_plan: "Free", sub_sessions_limit: 4 } : {}),
+        ...(!isActive ? { sub_plan: "Free", sub_sessions_limit: await freeSessionsLimit(supabase) } : {}),
       }).eq("stripe_subscription_id", subscription.id);
       break;
     }
@@ -162,7 +169,7 @@ export async function POST(request: Request) {
       await supabase.from("players").update({
         sub_plan: "Free",
         subscription_status: "canceled",
-        sub_sessions_limit: 4,
+        sub_sessions_limit: await freeSessionsLimit(supabase),
         stripe_subscription_id: null,
       }).eq("stripe_subscription_id", subscription.id);
       break;

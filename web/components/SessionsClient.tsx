@@ -44,7 +44,7 @@ function playerById(id: string) { return _sessPlayers.find((p) => p.id === id); 
  * player on a fees-waived academy plan (e.g. a cricket board license) gets them included too,
  * same as they already get booking/pack session fees waived. */
 function aiReportsIncludedForPlayer(player: Player): boolean {
-  if (canGenerateAiReports(player.subscription.plan)) return true;
+  if (canGenerateAiReports(player.subscription.plan, _sessPlans)) return true;
   const academy = _sessAcademies.find((a) => a.playerIds.includes(player.id));
   if (!academy?.planId) return false;
   const plan = _sessPlans.find((p) => p.id === academy.planId);

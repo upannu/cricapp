@@ -43,17 +43,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Player not found." }, { status: 404 });
   }
 
-  // Priced from the database (editable at /admin/pricing) rather than a pre-created Stripe
+  // Priced from the Plan Catalog (editable at /admin/plans) rather than a pre-created Stripe
   // Price object — avoids needing to visit the Stripe dashboard to change a subscription price.
-  const { data: settings, error: settingsError } = await supabase
-    .from("platform_settings")
-    .select("player_pro_price_aud, coach_pro_price_aud")
-    .eq("id", "default")
+  const slug = plan === "Player Pro" ? "player-pro" : "coach-pro";
+  const { data: planRow, error: planError } = await supabase
+    .from("plans")
+    .select("price_aud, billing_interval")
+    .eq("slug", slug)
     .single();
-  if (settingsError || !settings) {
+  if (planError || !planRow) {
     return NextResponse.json({ error: "Pricing is not configured." }, { status: 500 });
   }
-  const priceAud = plan === "Player Pro" ? settings.player_pro_price_aud : settings.coach_pro_price_aud;
+  const priceAud = planRow.price_aud;
+  const interval = (planRow.billing_interval as "month" | "year" | null) ?? "month";
 
   try {
     let customerId = player.stripe_customer_id as string | null;
@@ -75,7 +77,7 @@ export async function POST(request: Request) {
         price_data: {
           currency: "aud",
           unit_amount: Math.round(priceAud * 100),
-          recurring: { interval: "month" },
+          recurring: { interval },
           product_data: { name: plan },
         },
         quantity: 1,

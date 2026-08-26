@@ -8,7 +8,7 @@ import type {
   SCWorkout, SCWorkoutType,
   VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
   Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
-  PlatformSettings, Plan, EmailTemplate,
+  Plan, EmailTemplate,
   GroupSession, AttendanceStatus, AttendanceRecord, Net,
   Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, ReferralStatus, ReferralPayoutStatus,
   PackFeeDue, PackFeeDueStatus, BookingFeeDue,
@@ -1194,25 +1194,6 @@ export async function recordTipView(playerId: string): Promise<{ streak: number;
   return { streak: newStreak, bonusAwarded };
 }
 
-// ─── Platform settings (subscription pricing) ───────────────────────────────
-
-export interface DbPlatformSettings {
-  id: string;
-  player_pro_price_aud: number;
-  coach_pro_price_aud: number;
-}
-
-export function dbToPlatformSettings(r: DbPlatformSettings): PlatformSettings {
-  return { playerProPriceAud: r.player_pro_price_aud, coachProPriceAud: r.coach_pro_price_aud };
-}
-
-export async function fetchPlatformSettings(): Promise<PlatformSettings> {
-  const sb = createClient();
-  const { data, error } = await sb.from("platform_settings").select("*").eq("id", "default").single();
-  if (error) throw error;
-  return dbToPlatformSettings(data as DbPlatformSettings);
-}
-
 // ─── Welcome-email templates (one per role, edited at /admin/email-templates) ──────────────
 
 export interface DbEmailTemplate {
@@ -1248,6 +1229,11 @@ export interface DbPlan {
   platform_fee_percent?: number;
   active: boolean;
   sort_order: number;
+  sessions_per_month_limit?: number | null;
+  chat_messages_per_day_limit?: number | null;
+  ai_reports_enabled?: boolean;
+  marketplace_enabled?: boolean;
+  locked?: boolean;
 }
 
 export function dbToPlan(r: DbPlan): Plan {
@@ -1267,6 +1253,11 @@ export function dbToPlan(r: DbPlan): Plan {
     platformFeePercent: r.platform_fee_percent ?? 10,
     active: r.active,
     sortOrder: r.sort_order,
+    sessionsPerMonthLimit: r.sessions_per_month_limit ?? null,
+    chatMessagesPerDayLimit: r.chat_messages_per_day_limit ?? null,
+    aiReportsEnabled: r.ai_reports_enabled ?? true,
+    marketplaceEnabled: r.marketplace_enabled ?? true,
+    locked: r.locked ?? false,
   };
 }
 

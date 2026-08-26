@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Player, Session, SessionVideo, SessionPack } from "@/lib/types";
-import { insertSession, recordSessionCompletion, fetchSessionPacks } from "@/lib/db";
+import type { Player, Session, SessionVideo, SessionPack, Plan } from "@/lib/types";
+import { insertSession, recordSessionCompletion, fetchSessionPacks, fetchActivePlans } from "@/lib/db";
 import { createClient } from "@/lib/supabase";
 import { probeVideoQuality, MIN_LONG_EDGE_PX, MIN_SHORT_EDGE_PX, MIN_FPS, type VideoQualityResult } from "@/lib/video-quality";
 import { transcodeToH264 } from "@/lib/transcode";
@@ -77,18 +77,20 @@ export function NewSessionForm({ player }: { player: Player }) {
   const [submitError, setSubmitError] = useState("");
   const [activePack, setActivePack] = useState<SessionPack | null>(null);
   const [drawFromPack, setDrawFromPack] = useState(true);
+  const [plans, setPlans] = useState<Plan[]>([]);
 
   useEffect(() => {
     fetchSessionPacks([player.id]).then((packs) => {
       setActivePack(packs.find((pk) => pk.status === "Active") ?? null);
     });
+    fetchActivePlans().then(setPlans);
   }, [player.id]);
 
   // Remaining credits = what was purchased plus any comp/bonus credits, minus what's been drawn down.
   const packRemaining = activePack ? activePack.totalSessions - activePack.sessionsUsed + activePack.sessionCredits : 0;
   const canUsePack = !!activePack && packRemaining > 0;
 
-  const sessionsLimit = sessionsLimitForPlan(player.subscription.plan);
+  const sessionsLimit = sessionsLimitForPlan(player.subscription.plan, plans);
   // A player drawing from a prepaid pack already paid for this session through the academy —
   // the Free-plan monthly cap shouldn't also block them from logging it.
   const limitReached =

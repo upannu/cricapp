@@ -86,7 +86,7 @@ export function FindCoachClient() {
     );
   }
 
-  if (!canUseMarketplace(player.subscription.plan)) {
+  if (!canUseMarketplace(player.subscription.plan, plans)) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
         <div className="w-14 h-14 rounded-full bg-pace-green/10 border border-pace-green/30 flex items-center justify-center mx-auto mb-5 text-2xl">🔒</div>
