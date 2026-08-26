@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import type { Booking, BookingStatus, BookingType, Player, Coach, SessionPack, Academy, Plan, BookingFeeDue } from "@/lib/types";
+import type { Booking, BookingStatus, BookingType, Player, Coach, SessionPack, Academy, Plan, BookingFeeDue, Net } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchActivePlans, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus, markBookingPaid, fetchBookingFeeDues } from "@/lib/db";
+import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchActivePlans, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus, markBookingPaid, fetchBookingFeeDues, fetchNets } from "@/lib/db";
 import { formatDate, getSessionFee, getPlatformFeePercent } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 
@@ -57,6 +57,35 @@ const today = new Date().toISOString().split("T")[0];
 let _coaches: Coach[] = [];
 let _academies: Academy[] = [];
 let _plans: Plan[] = [];
+let _nets: Net[] = [];
+
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** Nets belonging to the same academy as `coachId`, each flagged `busy` if some other
+ * non-cancelled booking already occupies it during the given date/time/duration window. */
+function netsForCoachAtSlot(
+  coachId: string, date: string, time: string, durationMins: number,
+  bookings: Booking[], excludeBookingId?: string
+): Array<{ net: Net; busy: boolean }> {
+  const academyId = coachById(coachId)?.academyId;
+  if (!academyId) return [];
+  const academyNets = _nets.filter((n) => n.academyId === academyId);
+  if (academyNets.length === 0) return [];
+  const start = timeToMinutes(time);
+  const end = start + durationMins;
+  return academyNets.map((net) => {
+    const busy = bookings.some((b) => {
+      if (b.id === excludeBookingId || b.netId !== net.id || b.date !== date || b.status === "Cancelled") return false;
+      const bStart = timeToMinutes(b.time);
+      const bEnd = bStart + b.durationMins;
+      return start < bEnd && bStart < end;
+    });
+    return { net, busy };
+  });
+}
 
 function feeForCoachAndType(coachId: string, type: BookingType): number {
   return getSessionFee(_coaches.find((c) => c.id === coachId), _academies, type, _plans);
@@ -137,8 +166,9 @@ export function BookingsClient() {
       fetchCoaches(academyId),
       fetchAcademies(),
       fetchActivePlans(),
-    ]).then(([pl, co, ac, plans]) => {
-      _players = pl; _coaches = co; _academies = ac; _plans = plans;
+      fetchNets(),
+    ]).then(([pl, co, ac, plans, nt]) => {
+      _players = pl; _coaches = co; _academies = ac; _plans = plans; _nets = nt;
       const scopedPlayerIds = academyId ? pl.map((p) => p.id) : undefined;
       return Promise.all([fetchBookings(coachId, undefined, scopedPlayerIds), fetchSessionPacks(scopedPlayerIds)]);
     }).then(([bk, pk]) => {
@@ -198,7 +228,7 @@ export function BookingsClient() {
 
   function openEdit(b: Booking) {
     setEditingId(b.id);
-    setDraft({ playerId: b.playerId, coachId: b.coachId, date: b.date, time: b.time, durationMins: b.durationMins, type: b.type, status: b.status, location: b.location, notes: b.notes, feeAud: b.feeAud, packId: b.packId, paymentStatus: b.paymentStatus });
+    setDraft({ playerId: b.playerId, coachId: b.coachId, date: b.date, time: b.time, durationMins: b.durationMins, type: b.type, status: b.status, location: b.location, notes: b.notes, feeAud: b.feeAud, packId: b.packId, netId: b.netId, paymentStatus: b.paymentStatus });
     setFormError("");
     setShowForm(true);
     scrollToForm();
@@ -214,6 +244,13 @@ export function BookingsClient() {
     if (!draft.coachId)  { setFormError("Please select a coach."); return; }
     if (!draft.playerId) { setFormError("Please select a player."); return; }
     if (!draft.date)     { setFormError("Please choose a date."); return; }
+    if (draft.netId) {
+      const slot = netsForCoachAtSlot(draft.coachId, draft.date, draft.time, draft.durationMins, bookings, editingId ?? undefined);
+      if (slot.find((s) => s.net.id === draft.netId)?.busy) {
+        setFormError("That net is already booked at this time — pick another net.");
+        return;
+      }
+    }
     setFormError("");
 
     const newId = editingId ?? `b_${Date.now()}`;
@@ -222,7 +259,7 @@ export function BookingsClient() {
     const booking: Booking = { id: newId, ...draft, paymentStatus };
 
     try {
-      await upsertBooking({ id: booking.id, player_id: booking.playerId, coach_id: booking.coachId, date: booking.date, time: booking.time, duration_mins: booking.durationMins, type: booking.type, status: booking.status, location: booking.location, notes: booking.notes, fee_aud: booking.feeAud, pack_id: booking.packId ?? null, payment_status: booking.paymentStatus });
+      await upsertBooking({ id: booking.id, player_id: booking.playerId, coach_id: booking.coachId, date: booking.date, time: booking.time, duration_mins: booking.durationMins, type: booking.type, status: booking.status, location: booking.location, notes: booking.notes, fee_aud: booking.feeAud, pack_id: booking.packId ?? null, net_id: booking.netId ?? null, payment_status: booking.paymentStatus });
     } catch (err) {
       setFormError((err as { message?: string })?.message ?? String(err));
       return;
@@ -477,6 +514,25 @@ export function BookingsClient() {
               <label className={lbl}>Location</label>
               <input type="text" value={draft.location} onChange={(e) => setDraft({ ...draft, location: e.target.value })} className={inp} placeholder="e.g. Brisbane Cricket Centre – Net 3" />
             </div>
+
+            {/* Net — only shown once the coach's academy has nets configured */}
+            {(() => {
+              const netSlots = netsForCoachAtSlot(draft.coachId, draft.date, draft.time, draft.durationMins, bookings, editingId ?? undefined);
+              if (netSlots.length === 0) return null;
+              return (
+                <div>
+                  <label className={lbl}>Net</label>
+                  <select value={draft.netId ?? ""} onChange={(e) => setDraft({ ...draft, netId: e.target.value || undefined })} className={sel}>
+                    <option value="">— No specific net —</option>
+                    {netSlots.map(({ net, busy }) => (
+                      <option key={net.id} value={net.id} disabled={busy}>
+                        {net.name}{net.dimensions ? ` (${net.dimensions})` : ""}{busy ? " — booked at this time" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })()}
 
             {/* Notes */}
             <div className="sm:col-span-2">
@@ -764,6 +820,7 @@ function BookingCard({
               <Detail label="Time" value={`${b.time} – ${endTime}`} />
               <Detail label="Duration" value={`${b.durationMins} minutes`} />
               <Detail label="Location" value={b.location || "—"} />
+              {b.netId && <Detail label="Net" value={_nets.find((n) => n.id === b.netId)?.name ?? "—"} />}
               {b.feeAud > 0 && (
                 <div className="mt-3 pt-3 border-t border-zinc-700/50 grid grid-cols-3 gap-2 text-center">
                   <div>
