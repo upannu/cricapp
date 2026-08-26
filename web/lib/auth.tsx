@@ -12,6 +12,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loaded: boolean;
   login: (email: string, password: string) => Promise<string | null>;
+  resendConfirmation: (email: string) => Promise<string | null>;
   signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string, academyName?: string, academyLocation?: string) => Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   loaded: false,
   login: async () => null,
+  resendConfirmation: async () => null,
   signup: async () => ({ error: null, needsConfirmation: false }),
   logout: async () => {},
   refreshUser: async () => {},
@@ -64,7 +66,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string): Promise<string | null> {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return error.message;
+    if (error) {
+      // Surfaced as its own case rather than the generic "Invalid email or password." — a
+      // just-signed-up user who hasn't confirmed yet (or whose confirmation link was consumed by
+      // an email-scanning bot before they clicked it) needs a way to get a fresh link, not a
+      // message that reads like their password is wrong.
+      if (error.message.toLowerCase().includes("email not confirmed")) return "EMAIL_NOT_CONFIRMED";
+      return error.message;
+    }
 
     // A player whose session pack payment went unpaid past the grace period gets locked out here
     // — checked post-auth (self-read of their own player row) rather than pre-auth, since only an
@@ -147,6 +156,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null, needsConfirmation };
   }
 
+  async function resendConfirmation(email: string): Promise<string | null> {
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    return error ? error.message : null;
+  }
+
   async function logout() {
     await supabase.auth.signOut();
     setUser(null);
@@ -166,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loaded, login, signup, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loaded, login, signup, logout, refreshUser, resendConfirmation }}>
       {children}
     </AuthContext.Provider>
   );
