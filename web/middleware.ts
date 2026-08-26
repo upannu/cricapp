@@ -59,6 +59,7 @@ export async function middleware(request: NextRequest) {
   // Legal/info pages are public but, unlike /login etc., stay visible to a signed-in user too —
   // no reason to bounce someone reading the Terms just because they're logged in.
   const isAlwaysPublicPage =
+    pathname.startsWith("/about") ||
     pathname.startsWith("/contact") ||
     pathname.startsWith("/terms") ||
     pathname.startsWith("/privacy");

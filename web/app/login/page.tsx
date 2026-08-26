@@ -152,6 +152,7 @@ export default function LoginPage() {
           */}
 
           <div className="flex justify-center gap-5 mt-8 text-base text-zinc-500 font-mono">
+            <Link href="/about" className="hover:text-white transition-colors">About</Link>
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
