@@ -6,6 +6,19 @@ export interface PlatformSettings {
   coachProPriceAud: number;
 }
 
+/** The four roles a signup approval can be for — also the fixed set of editable welcome-email
+ * templates at /admin/email-templates (one row per role, never user-created/deleted). */
+export type WelcomeEmailRole = 'player' | 'coach' | 'academy_admin' | 'parent';
+
+/** Admin-editable welcome-email copy sent by /api/approve-user. `subject` and `heading` support a
+ * `{{name}}` placeholder; `body` supports `{{name}}` too and may use blank lines for paragraphs. */
+export interface EmailTemplate {
+  id: WelcomeEmailRole;
+  subject: string;
+  heading: string;
+  body: string;
+}
+
 /**
  * A row in the configurable plan catalog (Library, Individual Assessment, Academy/Club/Board
  * licenses) — editable by a platform admin at /admin/plans, separate from the fixed Player Pro /

@@ -76,20 +76,35 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/** Substitutes `{{key}}` tokens in an admin-editable template string. Unknown keys are left blank
+ * rather than passed through — a typo'd token should disappear, not leak `{{typo}}` into an email. */
+export function renderTemplate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] ?? "");
+}
+
+/** `heading`/`bodyText` come from an admin-editable EmailTemplate (see /admin/email-templates),
+ * already run through `renderTemplate` — escaped here since a `{{name}}` substitution can carry an
+ * end user's own signup name. `bodyText` may contain blank lines to separate paragraphs. */
 export function buildWelcomeEmailHtml(opts: {
-  name: string;
-  roleLabel: string;
+  heading: string;
+  bodyText: string;
   appUrl: string;
   planName?: string;
   planLines: string[];
 }): string {
+  const bodyHtml = escapeHtml(opts.bodyText)
+    .split(/\n{2,}/)
+    .filter((p) => p.trim().length > 0)
+    .map((p) => `<p style="margin:0 0 12px;font-size:14px;line-height:1.6;color:${MUTED};">${p.replace(/\n/g, "<br/>")}</p>`)
+    .join("");
+  const planHtml = opts.planLines.length > 0
+    ? infoBox(opts.planName ? `Your plan — ${opts.planName}` : "Your plan", planListHtml(opts.planLines))
+    : "";
   return shell({
     appUrl: opts.appUrl,
-    heading: `Welcome, ${opts.name}! 🏏`,
-    intro: `Your CRIC HQ account has been approved as a <strong>${opts.roleLabel}</strong>.`,
-    contentHtml: opts.planLines.length > 0
-      ? infoBox(opts.planName ? `Your plan — ${opts.planName}` : "Your plan", planListHtml(opts.planLines))
-      : "",
+    heading: escapeHtml(opts.heading),
+    intro: "",
+    contentHtml: bodyHtml + planHtml,
     ctaLabel: "Sign in to get started",
   });
 }
