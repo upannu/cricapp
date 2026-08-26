@@ -2,39 +2,26 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import type { Player, PlanTier, PlatformSettings, Plan } from "@/lib/types";
+import type { Player, PlanTier, Plan } from "@/lib/types";
 import { formatDate, getPlayerStatus } from "@/lib/utils";
 import { isPaidPlan } from "@/lib/stripe-client";
-import { fetchPlatformSettings, fetchActivePlans } from "@/lib/db";
+import { sessionsLimitForPlan, planFeatureLines } from "@/lib/plan-features";
+import { fetchActivePlans } from "@/lib/db";
 import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
 
-function buildPlans(settings: PlatformSettings | null): { tier: PlanTier; price: string; sessions: number | null; features: string[] }[] {
-  return [
-    {
-      tier: "Free",
-      price: "Free",
-      sessions: 4,
-      features: ["4 sessions total", "Basic video upload", "Manual analysis"],
-    },
-    {
-      tier: "Player Pro",
-      price: settings ? `$${settings.playerProPriceAud.toFixed(2)} / month` : "…",
-      sessions: null,
-      features: ["Unlimited sessions", "AI biomechanics", "Progress reports", "Video library"],
-    },
-    {
-      tier: "Coach Pro",
-      price: settings ? `$${settings.coachProPriceAud.toFixed(2)} / month` : "…",
-      sessions: null,
-      features: [
-        "Everything in Player Pro",
-        "Unlimited players",
-        "Academy management",
-        "Bulk reports",
-        "Priority support",
-      ],
-    },
-  ];
+const TIER_SLUGS: Record<PlanTier, string> = { Free: "free", "Player Pro": "player-pro", "Coach Pro": "coach-pro" };
+
+/** Free/Player Pro/Coach Pro cards — priced and featured from their Plan Catalog rows
+ * (editable at /admin/plans) rather than hardcoded copy. */
+function buildPlanCards(plans: Plan[]): { tier: PlanTier; price: string; features: string[] }[] {
+  return (["Free", "Player Pro", "Coach Pro"] as const).map((tier) => {
+    const row = plans.find((p) => p.slug === TIER_SLUGS[tier]);
+    return {
+      tier,
+      price: !row ? "…" : row.priceAud === 0 ? "Free" : `$${row.priceAud.toFixed(2)} / ${row.billingInterval ?? "month"}`,
+      features: planFeatureLines(tier, plans),
+    };
+  });
 }
 
 export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: Player; isAcademyPlayer?: boolean }) {
@@ -42,21 +29,22 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
   const [selectedPlan, setSelectedPlan] = useState<PlanTier>(player.subscription.plan);
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState("");
-  const [settings, setSettings] = useState<PlatformSettings | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [libraryPlan, setLibraryPlan] = useState<Plan | null>(null);
   const [assessmentPlan, setAssessmentPlan] = useState<Plan | null>(null);
   const [addonRedirecting, setAddonRedirecting] = useState<"library" | "assessment" | null>(null);
   const [addonError, setAddonError] = useState("");
 
   useEffect(() => {
-    fetchPlatformSettings().then(setSettings).catch(() => {});
-    fetchActivePlans().then((plans) => {
-      setLibraryPlan(plans.find((p) => p.slug === "library") ?? null);
-      setAssessmentPlan(plans.find((p) => p.slug === "individual-assessment") ?? null);
+    fetchActivePlans().then((pl) => {
+      setPlans(pl);
+      setLibraryPlan(pl.find((p) => p.slug === "library") ?? null);
+      setAssessmentPlan(pl.find((p) => p.slug === "individual-assessment") ?? null);
     }).catch(() => {});
   }, []);
 
-  const PLANS = useMemo(() => buildPlans(settings), [settings]);
+  const PLANS = useMemo(() => buildPlanCards(plans), [plans]);
+  const currentSessionsLimit = sessionsLimitForPlan(player.subscription.plan, plans);
 
   const hasLibraryAccess =
     player.librarySubscriptionStatus === "active" || player.librarySubscriptionStatus === "trialing";
@@ -197,8 +185,8 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
               <Stat
                 label="Sessions used"
                 value={
-                  player.subscription.sessionsLimit
-                    ? `${player.subscription.sessionsUsed} / ${player.subscription.sessionsLimit}`
+                  currentSessionsLimit
+                    ? `${player.subscription.sessionsUsed} / ${currentSessionsLimit}`
                     : `${player.subscription.sessionsUsed} (unlimited)`
                 }
               />
@@ -221,24 +209,24 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
         </div>
 
         {/* Sessions progress bar */}
-        {player.subscription.sessionsLimit && (
+        {currentSessionsLimit && (
           <div className="mt-5">
             <div className="flex justify-between text-xs text-zinc-400 mb-1.5">
               <span>Sessions used</span>
               <span>
-                {player.subscription.sessionsUsed} / {player.subscription.sessionsLimit}
+                {player.subscription.sessionsUsed} / {currentSessionsLimit}
               </span>
             </div>
             <div className="h-2 bg-ink rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
-                  player.subscription.sessionsUsed / player.subscription.sessionsLimit > 0.85
+                  player.subscription.sessionsUsed / currentSessionsLimit > 0.85
                     ? "bg-fire"
                     : "bg-pace-green"
                 }`}
                 style={{
                   width: `${Math.min(
-                    (player.subscription.sessionsUsed / player.subscription.sessionsLimit) * 100,
+                    (player.subscription.sessionsUsed / currentSessionsLimit) * 100,
                     100
                   )}%`,
                 }}

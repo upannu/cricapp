@@ -5,7 +5,8 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { buildWelcomeEmailHtml, renderTemplate } from "@/lib/email-templates";
 import { fetchAcademyPlanInfo } from "@/lib/plan-email";
-import { canGenerateAiReports, canUseMarketplace, sessionsLimitForPlan, chatMessagesLimitForPlan } from "@/lib/plan-features";
+import { planFeatureLines } from "@/lib/plan-features";
+import { dbToPlan, type DbPlan } from "@/lib/db";
 import type { PlanTier } from "@/lib/types";
 
 interface LinkedIdentity {
@@ -189,14 +190,9 @@ export async function POST(request: Request) {
       const { data: playerRow } = await supabase.from("players").select("sub_plan").eq("id", linkedPlayerId).maybeSingle();
       const tier = (playerRow?.sub_plan as PlanTier | undefined) ?? "Free";
       planName = tier;
-      const sessionsLimit = sessionsLimitForPlan(tier);
-      const chatLimit = chatMessagesLimitForPlan(tier);
-      planLines = [
-        sessionsLimit === null ? "Unlimited sessions logged" : `${sessionsLimit} sessions logged per month`,
-        canGenerateAiReports(tier) ? "AI biomechanics reports" : "AI biomechanics reports — upgrade to unlock",
-        canUseMarketplace(tier) ? "Coach marketplace access" : "Coach marketplace — upgrade to unlock",
-        chatLimit === null ? "Unlimited Coach AI chat" : `${chatLimit} Coach AI messages per day`,
-      ];
+      const { data: planRows } = await supabase.from("plans").select("*").eq("active", true);
+      const plans = ((planRows as DbPlan[] | null) ?? []).map(dbToPlan);
+      planLines = planFeatureLines(tier, plans);
     }
 
     // Admin-editable copy per role (see /admin/email-templates) — falls back to a generic

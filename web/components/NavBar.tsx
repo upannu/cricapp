@@ -8,7 +8,6 @@ import type { UserRole } from "@/lib/types";
 
 const ADMIN_TOOLS = [
   { label: "Manage Content", href: "/admin/academy" },
-  { label: "Subscription Pricing", href: "/admin/pricing" },
   { label: "Plan Catalog", href: "/admin/plans" },
   { label: "Email Templates", href: "/admin/email-templates" },
   { label: "Approvals", href: "/admin/approvals" },

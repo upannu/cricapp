@@ -23,11 +23,17 @@ type Draft = {
   platformFeePercent: string;
   active: boolean;
   sortOrder: string;
+  sessionsPerMonthLimit: string;
+  chatMessagesPerDayLimit: string;
+  aiReportsEnabled: boolean;
+  marketplaceEnabled: boolean;
+  locked: boolean;
 };
 
 const EMPTY_DRAFT: Draft = {
   slug: "", name: "", audience: "individual", billingType: "subscription", billingInterval: "month",
   priceAud: "", seatCap: "", accessDurationMonths: "", includedNotes: "", waivesSessionFees: false, platformAdminOnly: false, platformFeePercent: "10", active: true, sortOrder: "0",
+  sessionsPerMonthLimit: "", chatMessagesPerDayLimit: "", aiReportsEnabled: true, marketplaceEnabled: true, locked: false,
 };
 
 function planToDraft(p: Plan): Draft {
@@ -47,6 +53,11 @@ function planToDraft(p: Plan): Draft {
     platformFeePercent: String(p.platformFeePercent),
     active: p.active,
     sortOrder: String(p.sortOrder),
+    sessionsPerMonthLimit: p.sessionsPerMonthLimit != null ? String(p.sessionsPerMonthLimit) : "",
+    chatMessagesPerDayLimit: p.chatMessagesPerDayLimit != null ? String(p.chatMessagesPerDayLimit) : "",
+    aiReportsEnabled: p.aiReportsEnabled,
+    marketplaceEnabled: p.marketplaceEnabled,
+    locked: p.locked,
   };
 }
 
@@ -86,8 +97,8 @@ export function PlansAdminClient() {
     const d = { ...draft, ...overrides };
     setFormError("");
     const priceAud = parseFloat(d.priceAud);
-    if (!d.slug.trim() || !d.name.trim() || !(priceAud > 0)) {
-      setFormError("Slug, name, and a positive price are required.");
+    if (!d.slug.trim() || !d.name.trim() || !(priceAud >= 0)) {
+      setFormError("Slug, name, and a non-negative price are required.");
       return;
     }
     setSaving(true);
@@ -111,6 +122,10 @@ export function PlansAdminClient() {
           platformFeePercent: d.platformFeePercent.trim() ? parseFloat(d.platformFeePercent) : 10,
           active: d.active,
           sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
+          sessionsPerMonthLimit: d.sessionsPerMonthLimit.trim() ? parseInt(d.sessionsPerMonthLimit, 10) : null,
+          chatMessagesPerDayLimit: d.chatMessagesPerDayLimit.trim() ? parseInt(d.chatMessagesPerDayLimit, 10) : null,
+          aiReportsEnabled: d.aiReportsEnabled,
+          marketplaceEnabled: d.marketplaceEnabled,
         }),
       });
       const data = await res.json();
@@ -124,6 +139,11 @@ export function PlansAdminClient() {
         includedNotes: d.includedNotes.trim() || null, waivesSessionFees: d.waivesSessionFees, platformAdminOnly: d.platformAdminOnly,
         platformFeePercent: d.platformFeePercent.trim() ? parseFloat(d.platformFeePercent) : 10, active: d.active,
         sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
+        sessionsPerMonthLimit: d.sessionsPerMonthLimit.trim() ? parseInt(d.sessionsPerMonthLimit, 10) : null,
+        chatMessagesPerDayLimit: d.chatMessagesPerDayLimit.trim() ? parseInt(d.chatMessagesPerDayLimit, 10) : null,
+        aiReportsEnabled: d.aiReportsEnabled,
+        marketplaceEnabled: d.marketplaceEnabled,
+        locked: d.locked,
       };
       setPlans((prev) => {
         const exists = prev.some((p) => p.id === saved.id);
@@ -203,6 +223,11 @@ export function PlansAdminClient() {
                       {p.platformFeePercent}% Platform Fee
                     </span>
                   )}
+                  {p.locked && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">
+                      System Plan
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-zinc-400">
                   ${p.priceAud.toFixed(2)} AUD
@@ -241,6 +266,12 @@ export function PlansAdminClient() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-bold text-white">{draft.id ? "Edit Plan" : "New Plan"}</h2>
+            {draft.locked && (
+              <p className="text-xs text-amber bg-amber/10 border border-amber/30 rounded-lg px-3 py-2">
+                This is a system plan (Free / Player Pro / Coach Pro) — its slug, audience, and billing type are
+                locked because code looks it up by slug. Price, limits, and everything else are still editable.
+              </p>
+            )}
 
             <div>
               <label className={lbl}>Name</label>
@@ -249,7 +280,7 @@ export function PlansAdminClient() {
 
             <div>
               <label className={lbl}>Slug (stable identifier, used in code)</label>
-              <input className={inp} value={draft.slug} onChange={(e) => setDraft({ ...draft, slug: e.target.value })} />
+              <input className={inp} value={draft.slug} disabled={draft.locked} onChange={(e) => setDraft({ ...draft, slug: e.target.value })} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -258,6 +289,7 @@ export function PlansAdminClient() {
                 <select
                   className={sel}
                   value={draft.audience}
+                  disabled={draft.locked}
                   onChange={(e) => setDraft({ ...draft, audience: e.target.value as Draft["audience"] })}
                 >
                   <option value="individual">Individual</option>
@@ -269,6 +301,7 @@ export function PlansAdminClient() {
                 <select
                   className={sel}
                   value={draft.billingType}
+                  disabled={draft.locked}
                   onChange={(e) => setDraft({ ...draft, billingType: e.target.value as Draft["billingType"] })}
                 >
                   <option value="subscription">Subscription</option>
@@ -366,6 +399,42 @@ export function PlansAdminClient() {
                 placeholder="10"
               />
               <p className="text-xs text-zinc-500 mt-1">Share of session-pack/booking revenue the platform takes via Stripe for academies on this plan. Defaults to 10% — lower it for an academy paying well upfront.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={lbl}>Sessions / month limit (individual tiers only)</label>
+                <input
+                  type="number" min={0} className={inp}
+                  value={draft.sessionsPerMonthLimit} onChange={(e) => setDraft({ ...draft, sessionsPerMonthLimit: e.target.value })}
+                  placeholder="Unlimited"
+                />
+              </div>
+              <div>
+                <label className={lbl}>Coach AI messages / day limit</label>
+                <input
+                  type="number" min={0} className={inp}
+                  value={draft.chatMessagesPerDayLimit} onChange={(e) => setDraft({ ...draft, chatMessagesPerDayLimit: e.target.value })}
+                  placeholder="Unlimited"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+                <input
+                  type="checkbox" checked={draft.aiReportsEnabled}
+                  onChange={(e) => setDraft({ ...draft, aiReportsEnabled: e.target.checked })}
+                />
+                AI biomechanics reports
+              </label>
+              <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+                <input
+                  type="checkbox" checked={draft.marketplaceEnabled}
+                  onChange={(e) => setDraft({ ...draft, marketplaceEnabled: e.target.checked })}
+                />
+                Coach marketplace access
+              </label>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

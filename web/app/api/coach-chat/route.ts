@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import Anthropic from "@anthropic-ai/sdk";
 import { chatMessagesLimitForPlan } from "@/lib/plan-features";
+import { dbToPlan, type DbPlan } from "@/lib/db";
 import type { PlanTier } from "@/lib/types";
 
 const SYSTEM_PROMPT = `You are Coach AI, CRIC HQ's in-app assistant for fast bowling coaching and biomechanics analysis.
@@ -71,7 +72,9 @@ export async function POST(request: Request) {
       return Response.json({ error: "Player not found." }, { status: 404 });
     }
 
-    const limit = chatMessagesLimitForPlan(player.sub_plan as PlanTier);
+    const { data: planRows } = await sb.from("plans").select("*").eq("active", true);
+    const plans = ((planRows as DbPlan[] | null) ?? []).map(dbToPlan);
+    const limit = chatMessagesLimitForPlan(player.sub_plan as PlanTier, plans);
     if (limit !== null) {
       const today = new Date().toISOString().slice(0, 10);
       const usedToday = player.chat_last_message_date === today ? player.chat_messages_used_today : 0;
