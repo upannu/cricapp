@@ -13,6 +13,9 @@ export function LegalPageShell({ title, children }: { title: string; children: R
           <span className="text-lg font-bold tracking-widest text-white font-mono">CRIC HQ</span>
         </Link>
         <div className="flex items-center gap-5">
+          <Link href="/about" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+            About
+          </Link>
           <Link href="/login#signin" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
             Login
           </Link>
@@ -33,6 +36,7 @@ export function LegalPageShell({ title, children }: { title: string; children: R
         <div className="max-w-3xl mx-auto px-6 sm:px-10 py-6 flex flex-wrap items-center justify-between gap-4 text-sm text-zinc-500">
           <span>© {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved.</span>
           <div className="flex gap-5 text-base">
+            <Link href="/about" className="hover:text-white transition-colors">About</Link>
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>

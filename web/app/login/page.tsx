@@ -70,6 +70,9 @@ export default function LoginPage() {
           <span className="text-lg font-bold tracking-widest text-white font-mono">CRIC HQ</span>
         </div>
         <div className="flex items-center gap-5">
+          <Link href="/about" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+            About
+          </Link>
           <Link href="#signin" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
             Login
           </Link>
@@ -152,6 +155,7 @@ export default function LoginPage() {
           */}
 
           <div className="flex justify-center gap-5 mt-8 text-base text-zinc-500 font-mono">
+            <Link href="/about" className="hover:text-white transition-colors">About</Link>
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
