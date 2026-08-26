@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
-import { buildWelcomeEmailHtml } from "@/lib/email-templates";
+import { buildWelcomeEmailHtml, renderTemplate } from "@/lib/email-templates";
 import { fetchAcademyPlanInfo } from "@/lib/plan-email";
 import { canGenerateAiReports, canUseMarketplace, sessionsLimitForPlan, chatMessagesLimitForPlan } from "@/lib/plan-features";
 import type { PlanTier } from "@/lib/types";
@@ -199,6 +199,18 @@ export async function POST(request: Request) {
       ];
     }
 
+    // Admin-editable copy per role (see /admin/email-templates) — falls back to a generic
+    // default if the row is ever missing so approval emails never silently go unsent.
+    const { data: templateRow } = await supabase
+      .from("email_templates")
+      .select("subject, heading, body")
+      .eq("id", reqData.role)
+      .maybeSingle();
+    const vars = { name: reqData.name };
+    const subject = templateRow ? renderTemplate(templateRow.subject, vars) : "Your CRIC HQ account has been approved";
+    const heading = templateRow ? renderTemplate(templateRow.heading, vars) : `Welcome, ${reqData.name}! 🏏`;
+    const bodyText = templateRow ? renderTemplate(templateRow.body, vars) : `Your CRIC HQ account has been approved as a ${roleLabel}.`;
+
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: { user: gmailUser, pass: gmailPass },
@@ -206,7 +218,7 @@ export async function POST(request: Request) {
     const text = [
       `Hi ${reqData.name},`,
       ``,
-      `Great news! Your CRIC HQ account has been approved.`,
+      bodyText,
       ``,
       `You can now log in and get started:`,
       `${appUrl}/login`,
@@ -215,16 +227,15 @@ export async function POST(request: Request) {
       planName ? `Your plan: ${planName}` : ``,
       ...planLines.map((l) => `- ${l}`),
       ``,
-      `Welcome to the team!`,
       `— CRIC HQ`,
     ].filter((l, i, arr) => !(l === `` && arr[i - 1] === ``)).join("\n");
 
     await transporter.sendMail({
       from: `"CRIC HQ" <${gmailUser}>`,
       to: reqData.email,
-      subject: "Your CRIC HQ account has been approved",
+      subject,
       text,
-      html: buildWelcomeEmailHtml({ name: reqData.name, roleLabel, appUrl, planName, planLines }),
+      html: buildWelcomeEmailHtml({ heading, bodyText, appUrl, planName, planLines }),
     }).catch(() => {
       // Don't fail the approval if email sending fails
     });

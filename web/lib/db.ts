@@ -8,7 +8,7 @@ import type {
   SCWorkout, SCWorkoutType,
   VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
   Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
-  PlatformSettings, Plan,
+  PlatformSettings, Plan, EmailTemplate,
   GroupSession, AttendanceStatus, AttendanceRecord, Net,
   Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, ReferralStatus, ReferralPayoutStatus,
   PackFeeDue, PackFeeDueStatus, BookingFeeDue,
@@ -1211,6 +1211,23 @@ export async function fetchPlatformSettings(): Promise<PlatformSettings> {
   const { data, error } = await sb.from("platform_settings").select("*").eq("id", "default").single();
   if (error) throw error;
   return dbToPlatformSettings(data as DbPlatformSettings);
+}
+
+// ─── Welcome-email templates (one per role, edited at /admin/email-templates) ──────────────
+
+export interface DbEmailTemplate {
+  id: string; subject: string; heading: string; body: string;
+}
+
+export function dbToEmailTemplate(r: DbEmailTemplate): EmailTemplate {
+  return { id: r.id as EmailTemplate["id"], subject: r.subject, heading: r.heading, body: r.body };
+}
+
+export async function fetchEmailTemplates(): Promise<EmailTemplate[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("email_templates").select("*").order("id");
+  if (error) throw error;
+  return (data as DbEmailTemplate[]).map(dbToEmailTemplate);
 }
 
 // ─── Plan catalog (Library, Individual Assessment, Academy/Club/Board licenses) ────────────
