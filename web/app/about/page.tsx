@@ -4,7 +4,7 @@ export default function AboutPage() {
   return (
     <LegalPageShell title="About CRIC HQ">
       <p>
-        CRIC HQ PTY LTD (ABN 34 701 245 641) builds AI-powered tools for cricket fast bowling
+        CRIC HQ builds AI-powered tools for cricket fast bowling
         coaching — from grassroots academies to elite performance programs. Our mission is simple:
         every degree of the bowling action, measured, so coaches can spend less time guessing and
         more time coaching.
