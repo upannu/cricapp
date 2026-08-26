@@ -3,9 +3,9 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Papa from "papaparse";
-import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan } from "@/lib/types";
+import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan, Net } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, insertPlayers, updateAcademyFields, fetchActivePlans } from "@/lib/db";
+import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, insertPlayers, updateAcademyFields, fetchActivePlans, fetchNets, upsertNet, deleteNet } from "@/lib/db";
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 import { getPlatformFeePercent } from "@/lib/utils";
@@ -96,6 +96,9 @@ const EMPTY_NEW_COACH: NewCoachDraft = {
 type SortOption = "name" | "players" | "newest" | "stage";
 type ConfirmToggle = { id: string; name: string; newStatus: "Active" | "Inactive" };
 
+type NetDraft = { name: string; dimensions: string };
+const EMPTY_NET_DRAFT: NetDraft = { name: "", dimensions: "" };
+
 export function AcademyClient() {
   const { user } = useAuth();
 
@@ -104,11 +107,18 @@ export function AcademyClient() {
   const [allPlayers,  setAllPlayers]  = useState<Player[]>([]);
   const [allCoaches,  setAllCoaches]  = useState<Coach[]>([]);
   const [orgPlans,    setOrgPlans]    = useState<Plan[]>([]);
+  const [nets,        setNets]        = useState<Net[]>([]);
 
   // Accordion
   const [expandedId,      setExpandedId]      = useState<string | null>(null);
-  const [tabMap,          setTabMap]          = useState<Record<string, "players" | "coaches" | "pricing">>({});
+  const [tabMap,          setTabMap]          = useState<Record<string, "players" | "coaches" | "pricing" | "nets">>({});
   const [activeGroupView, setActiveGroupView] = useState<{ academyId: string; ageGroup: AgeGroup } | null>(null);
+
+  // Nets inline add/edit form
+  const [showNetForm,  setShowNetForm]  = useState<string | null>(null); // holds academyId while open
+  const [editingNetId, setEditingNetId] = useState<string | null>(null);
+  const [netDraft,     setNetDraft]     = useState<NetDraft>(EMPTY_NET_DRAFT);
+  const [netError,     setNetError]     = useState("");
 
   // 3-dot menu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -158,9 +168,10 @@ export function AcademyClient() {
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
-    Promise.all([fetchAcademies(), fetchPlayers(coachId, academyId), fetchCoaches(academyId), fetchActivePlans()]).then(([a, p, c, plans]) => {
+    Promise.all([fetchAcademies(), fetchPlayers(coachId, academyId), fetchCoaches(academyId), fetchActivePlans(), fetchNets()]).then(([a, p, c, plans, n]) => {
       setAcademies(a); setAllPlayers(p); setAllCoaches(c);
       setOrgPlans(plans.filter((x) => x.audience === "organization"));
+      setNets(n);
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -177,8 +188,49 @@ export function AcademyClient() {
 
   // ── Accordion ──────────────────────────────────────────────────────────────
   function getTab(id: string) { return tabMap[id] ?? "players"; }
-  function setTab(id: string, tab: "players" | "coaches" | "pricing") {
+  function setTab(id: string, tab: "players" | "coaches" | "pricing" | "nets") {
     setTabMap((prev) => ({ ...prev, [id]: tab }));
+  }
+
+  // ── Nets ────────────────────────────────────────────────────────────────
+  function openAddNet(academyId: string) {
+    setEditingNetId(null);
+    setNetDraft(EMPTY_NET_DRAFT);
+    setNetError("");
+    setShowNetForm(academyId);
+  }
+  function openEditNet(net: Net) {
+    setEditingNetId(net.id);
+    setNetDraft({ name: net.name, dimensions: net.dimensions });
+    setNetError("");
+    setShowNetForm(net.academyId);
+  }
+  function closeNetForm() {
+    setShowNetForm(null);
+    setEditingNetId(null);
+    setNetError("");
+  }
+  async function handleSaveNet(academyId: string) {
+    if (!netDraft.name.trim()) { setNetError("Please give this net a name."); return; }
+    setNetError("");
+    const id = editingNetId ?? `net${Date.now()}`;
+    const net: Net = { id, academyId, name: netDraft.name.trim(), dimensions: netDraft.dimensions.trim() };
+    try {
+      await upsertNet({ id: net.id, academy_id: academyId, name: net.name, dimensions: net.dimensions });
+    } catch (err) {
+      setNetError((err as { message?: string })?.message ?? String(err));
+      return;
+    }
+    setNets((prev) => (editingNetId ? prev.map((n) => (n.id === editingNetId ? net : n)) : [...prev, net]));
+    closeNetForm();
+  }
+  async function handleDeleteNet(id: string) {
+    try {
+      await deleteNet(id);
+      setNets((prev) => prev.filter((n) => n.id !== id));
+    } catch (err) {
+      setNetError((err as { message?: string })?.message ?? String(err));
+    }
   }
   function toggleExpand(id: string) {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -836,14 +888,15 @@ export function AcademyClient() {
                 {isExpanded && (
                   <div className="border-t border-zinc-700/60 px-5 pb-5">
                     <div className="flex gap-1 pt-4 mb-4">
-                      {(["players", "coaches", "pricing"] as const).map((t) => (
+                      {(["players", "coaches", "pricing", "nets"] as const).map((t) => (
                         <button key={t} type="button" onClick={() => setTab(academy.id, t)}
                           className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors cursor-pointer ${
                             tab === t ? "bg-pace-green text-black" : "bg-ink text-zinc-400 hover:text-white"
                           }`}>
                           {t === "players" ? `Players (${assignedPlayers.length})`
                             : t === "coaches" ? `Coaches (${assignedCoaches.length})`
-                            : "Pricing"}
+                            : t === "pricing" ? "Pricing"
+                            : `Nets (${nets.filter((n) => n.academyId === academy.id).length})`}
                         </button>
                       ))}
                     </div>
@@ -1002,6 +1055,65 @@ export function AcademyClient() {
                         )}
                       </div>
                     )}
+
+                    {/* Nets tab */}
+                    {tab === "nets" && (() => {
+                      const academyNets = nets.filter((n) => n.academyId === academy.id);
+                      return (
+                        <div className="space-y-3">
+                          {academyNets.length === 0 && showNetForm !== academy.id && (
+                            <p className="text-zinc-500 text-sm py-4 text-center">No nets configured yet. Bookings for this academy will use free-text location until you add one.</p>
+                          )}
+                          {academyNets.map((net) => (
+                            <div key={net.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-ink rounded-xl">
+                              <div className="min-w-0">
+                                <div className="text-sm font-semibold text-white truncate">{net.name}</div>
+                                {net.dimensions && <div className="text-xs text-zinc-400">{net.dimensions}</div>}
+                              </div>
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <button type="button" onClick={() => openEditNet(net)} className="text-xs text-pace-green hover:underline cursor-pointer">Edit</button>
+                                <button type="button" onClick={() => handleDeleteNet(net.id)} className="text-xs text-red-400 hover:underline cursor-pointer">Delete</button>
+                              </div>
+                            </div>
+                          ))}
+
+                          {showNetForm === academy.id ? (
+                            <div className="bg-ink rounded-xl p-4 space-y-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Name *</label>
+                                  <input type="text" value={netDraft.name} onChange={(e) => setNetDraft({ ...netDraft, name: e.target.value })}
+                                    className="w-full bg-surface rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
+                                    placeholder="e.g. Net 1" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Dimensions</label>
+                                  <input type="text" value={netDraft.dimensions} onChange={(e) => setNetDraft({ ...netDraft, dimensions: e.target.value })}
+                                    className="w-full bg-surface rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
+                                    placeholder="e.g. 30m x 3.5m" />
+                                </div>
+                              </div>
+                              {netError && <p className="text-red-400 text-xs">{netError}</p>}
+                              <div className="flex items-center gap-3">
+                                <button type="button" onClick={() => handleSaveNet(academy.id)}
+                                  className="px-4 py-2 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+                                  {editingNetId ? "Save Changes" : "Add Net"}
+                                </button>
+                                <button type="button" onClick={closeNetForm}
+                                  className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer">
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => openAddNet(academy.id)}
+                              className="px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/30 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer">
+                              + Add Net
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

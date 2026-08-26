@@ -9,7 +9,7 @@ import type {
   VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
   Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
   PlatformSettings, Plan,
-  GroupSession, AttendanceStatus, AttendanceRecord,
+  GroupSession, AttendanceStatus, AttendanceRecord, Net,
   Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, ReferralStatus, ReferralPayoutStatus,
   PackFeeDue, PackFeeDueStatus, BookingFeeDue,
 } from "@/lib/types";
@@ -71,9 +71,14 @@ export interface DbBooking {
   id: string; player_id: string; coach_id: string; date: string;
   time: string; duration_mins: number; type: string; status: string;
   location: string; notes: string; fee_aud: number; pack_id?: string | null;
+  net_id?: string | null;
   source?: string | null;
   payment_status?: string;
   paid_date?: string | null;
+}
+
+export interface DbNet {
+  id: string; academy_id: string; name: string; dimensions: string;
 }
 
 export interface DbSession {
@@ -226,10 +231,15 @@ export function dbToBooking(r: DbBooking): Booking {
     type: r.type as BookingType, status: r.status as BookingStatus,
     location: r.location, notes: r.notes, feeAud: r.fee_aud,
     packId: r.pack_id ?? undefined,
+    netId: r.net_id ?? undefined,
     source: (r.source as Booking["source"]) ?? undefined,
     paymentStatus: (r.payment_status as PaymentStatus) ?? "Pending",
     paidDate: r.paid_date ?? undefined,
   };
+}
+
+export function dbToNet(r: DbNet): Net {
+  return { id: r.id, academyId: r.academy_id, name: r.name, dimensions: r.dimensions };
 }
 
 export function dbToSession(r: DbSession): Session {
@@ -480,6 +490,27 @@ export async function updateAcademyFields(id: string, fields: Partial<DbAcademy>
 export async function deleteAcademy(id: string): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("academies").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function fetchNets(academyId?: string): Promise<Net[]> {
+  const sb = createClient();
+  let q = sb.from("nets").select("*").order("name");
+  if (academyId) q = q.eq("academy_id", academyId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as DbNet[]).map(dbToNet);
+}
+
+export async function upsertNet(n: Partial<DbNet> & { id: string }): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("nets").upsert(n);
+  if (error) throw error;
+}
+
+export async function deleteNet(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("nets").delete().eq("id", id);
   if (error) throw error;
 }
 

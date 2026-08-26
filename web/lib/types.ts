@@ -145,6 +145,15 @@ export interface Academy {
   payoutModel: 'head_coach' | 'split_by_coach';
 }
 
+/** A physical practice net belonging to an academy — e.g. "Net 1", "Turf Net". Used at booking
+ * time to assign a specific net when an academy has more than one. */
+export interface Net {
+  id: string;
+  academyId: string;
+  name: string;
+  dimensions: string;
+}
+
 export type UserRole = 'platform_admin' | 'academy_admin' | 'coach' | 'player' | 'parent';
 
 export interface LinkedIdentity {
@@ -373,6 +382,9 @@ export interface Booking {
   notes: string;
   feeAud: number;
   packId?: string;
+  /** Which of the academy's nets this booking is assigned to — only meaningful when the coach's
+   * academy has nets configured. Unset for academies with no nets or off-site sessions. */
+  netId?: string;
   /** Set when a player submitted this via the coach marketplace, rather than staff creating it directly. */
   source?: 'marketplace';
   /** Only meaningful when there's no `packId` — a pack-drawn booking is already paid for via the pack. */
