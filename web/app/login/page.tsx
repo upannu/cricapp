@@ -70,6 +70,9 @@ export default function LoginPage() {
           <span className="text-lg font-bold tracking-widest text-white font-mono">CRIC HQ</span>
         </div>
         <div className="flex items-center gap-5">
+          <Link href="/about" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+            About
+          </Link>
           <Link href="#signin" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
             Login
           </Link>

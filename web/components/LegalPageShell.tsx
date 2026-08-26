@@ -13,6 +13,9 @@ export function LegalPageShell({ title, children }: { title: string; children: R
           <span className="text-lg font-bold tracking-widest text-white font-mono">CRIC HQ</span>
         </Link>
         <div className="flex items-center gap-5">
+          <Link href="/about" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+            About
+          </Link>
           <Link href="/login#signin" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
             Login
           </Link>
