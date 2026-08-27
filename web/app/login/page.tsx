@@ -185,13 +185,6 @@ export default function LoginPage() {
           </div>
           */}
 
-          <div className="flex justify-center gap-5 mt-8 text-base text-zinc-500 font-mono">
-            <Link href="/about" className="hover:text-white transition-colors">About</Link>
-            <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
-            <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
-            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
-          </div>
-
           {/* DEMO ACCOUNTS — uncomment for local testing only
           <div>
             <p className="text-xs text-zinc-500 text-center uppercase tracking-wider mb-4">Demo accounts — click to sign in</p>
@@ -218,6 +211,18 @@ export default function LoginPage() {
             </div>
           </div>
           */}
+        </div>
+
+        <div className="w-full max-w-3xl mt-8 flex flex-wrap items-center justify-between gap-4 text-base text-zinc-500 font-mono">
+          <div className="flex flex-wrap gap-5">
+            <Link href="/about" className="hover:text-white transition-colors">About</Link>
+            <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
+            <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+          </div>
+          <p className="text-xs text-zinc-600">
+            Design &amp; Developed by Kaus Milestone Pty Ltd
+          </p>
         </div>
       </div>
     </div>
