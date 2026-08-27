@@ -5,7 +5,7 @@ export function Footer() {
         ⚠ AI-generated content can make mistakes. Discuss the details with a coach before acting on it.
       </p>
       <p className="text-[10px] text-zinc-600 mt-1">
-        © {new Date().getFullYear()} CRIC HQ. All rights reserved.
+        © {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved.
       </p>
       <p className="text-[10px] text-zinc-700 mt-0.5">
         Design &amp; Developed by Kaus Milestone Pty Ltd
