@@ -97,7 +97,7 @@ export default function LoginPage() {
             Login
           </Link>
           <Link href="/contact" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
-            Contact
+            Contact Us
           </Link>
         </div>
       </div>
@@ -213,14 +213,12 @@ export default function LoginPage() {
           */}
         </div>
 
-        <div className="w-full max-w-4xl mx-auto mt-8 flex flex-wrap items-center justify-between gap-4 text-base text-zinc-500 font-mono">
-          <div className="flex flex-wrap gap-5">
-            <Link href="/about" className="hover:text-white transition-colors">About</Link>
-            <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
+        <div className="w-full max-w-4xl mx-auto mt-8 flex flex-col items-center gap-2 text-base text-zinc-500 font-mono">
+          <div className="flex flex-wrap justify-center gap-5">
             <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
-            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
           </div>
-          <p className="text-right text-xs text-zinc-600">
+          <p className="text-center text-xs text-zinc-600">
             Copyright © {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved. Design &amp; Developed by Kaus Milestone Pty Ltd
           </p>
         </div>
