@@ -213,17 +213,16 @@ export default function LoginPage() {
           */}
         </div>
 
-        <div className="w-full max-w-4xl mt-8 flex flex-wrap items-center justify-between gap-4 text-base text-zinc-500 font-mono">
+        <div className="w-full max-w-4xl mx-auto mt-8 flex flex-wrap items-center justify-between gap-4 text-base text-zinc-500 font-mono">
           <div className="flex flex-wrap gap-5">
             <Link href="/about" className="hover:text-white transition-colors">About</Link>
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
           </div>
-          <div className="text-right">
-            <div className="text-sm">© {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved.</div>
-            <div className="text-xs text-zinc-600 mt-0.5">Design &amp; Developed by Kaus Milestone Pty Ltd</div>
-          </div>
+          <p className="text-right text-xs text-zinc-600">
+            Copyright © {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved. Design &amp; Developed by Kaus Milestone Pty Ltd
+          </p>
         </div>
       </div>
     </div>

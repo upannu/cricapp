@@ -4,11 +4,8 @@ export function Footer() {
       <p className="text-[10px] text-amber/80">
         ⚠ AI-generated content can make mistakes. Discuss the details with a coach before acting on it.
       </p>
-      <p className="text-[10px] text-zinc-600 mt-1">
-        © {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved.
-      </p>
-      <p className="text-[10px] text-zinc-700 mt-0.5">
-        Design &amp; Developed by Kaus Milestone Pty Ltd
+      <p className="text-[10px] text-zinc-600 mt-1 text-right">
+        Copyright © {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved. Design &amp; Developed by Kaus Milestone Pty Ltd
       </p>
     </footer>
   );

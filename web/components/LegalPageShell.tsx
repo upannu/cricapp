@@ -40,10 +40,9 @@ export function LegalPageShell({ title, children }: { title: string; children: R
             <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
           </div>
-          <div className="text-right">
-            <div>© {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved.</div>
-            <div className="text-xs text-zinc-600 mt-0.5">Design &amp; Developed by Kaus Milestone Pty Ltd</div>
-          </div>
+          <p className="text-right text-xs text-zinc-600">
+            Copyright © {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved. Design &amp; Developed by Kaus Milestone Pty Ltd
+          </p>
         </div>
       </div>
     </div>
