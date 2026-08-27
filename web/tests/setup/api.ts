@@ -76,6 +76,8 @@ process.env.GMAIL_APP_PASSWORD ||= "test-app-password";
 process.env.GOOGLE_MAPS_API_KEY ||= "test-maps-key";
 process.env.CLICKSEND_USERNAME ||= "test-clicksend-user";
 process.env.CLICKSEND_API_KEY ||= "test-clicksend-key";
+process.env.CRON_SECRET ||= "test-cron-secret";
+process.env.PLATFORM_ADMIN_EMAIL ||= "test-admin@example.com";
 
 // MSW is deliberately NOT wired up globally here: starting its Node interceptor
 // for the whole "api" project caused the Stripe SDK's real HTTP calls to hang
