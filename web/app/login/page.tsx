@@ -102,17 +102,17 @@ export default function LoginPage() {
         </div>
       </div>
 
-      <div className="relative px-4 pb-16 flex flex-col items-center">
+      <div className="relative w-full px-4 pb-16 flex flex-col items-center">
         <DemoCard />
 
-        <h1 className="mt-4 text-lg sm:text-xl font-bold text-white text-center max-w-xl leading-tight font-mono">
+        <h1 className="mt-4 mx-auto text-lg sm:text-xl font-bold text-white text-center max-w-xl leading-tight font-mono">
           Every degree of the action, measured.
         </h1>
-        <p className="mt-2 text-zinc-400 text-center max-w-xs sm:max-w-2xl text-xs sm:text-sm font-mono sm:whitespace-nowrap">
+        <p className="mt-2 mx-auto text-zinc-400 text-center max-w-xs sm:max-w-2xl text-xs sm:text-sm font-mono sm:whitespace-nowrap">
           AI biomechanics from any phone video — no lab, no lasers.
         </p>
 
-        <div id="signin" className="w-full max-w-2xl mt-4 scroll-mt-6">
+        <div id="signin" className="w-full max-w-2xl mx-auto mt-4 scroll-mt-6">
           {/* Login card */}
           <div className="bg-surface rounded-2xl p-6 shadow-2xl mb-6">
             <h2 className="text-lg font-semibold text-white mb-4 text-center">Sign in</h2>
@@ -239,7 +239,7 @@ export default function LoginPage() {
 function DemoCard() {
   const phases = ["Run-up", "BFC", "FFC", "Release"];
   return (
-    <div className="relative w-full max-w-2xl rounded-2xl overflow-hidden border border-pace-green/30 shadow-[0_0_70px_-20px_rgba(0,212,170,0.45)]">
+    <div className="relative w-full max-w-2xl mx-auto rounded-2xl overflow-hidden border border-pace-green/30 shadow-[0_0_70px_-20px_rgba(0,212,170,0.45)]">
       <div className="flex items-center justify-between bg-ink/95 px-4 py-2.5 border-b border-zinc-800">
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
