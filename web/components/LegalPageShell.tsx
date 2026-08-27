@@ -33,14 +33,16 @@ export function LegalPageShell({ title, children }: { title: string; children: R
       </div>
 
       <div className="border-t border-zinc-800">
-        <div className="max-w-3xl mx-auto px-6 sm:px-10 py-6 flex flex-wrap items-center justify-between gap-4 text-sm text-zinc-500">
-          <span>© {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved.</span>
-          <div className="flex gap-5 text-base">
+        <div className="max-w-3xl mx-auto px-6 sm:px-10 py-6 flex flex-col items-end gap-2 text-sm text-zinc-500">
+          <div className="flex flex-wrap justify-end gap-5 text-base">
             <Link href="/about" className="hover:text-white transition-colors">About</Link>
             <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
             <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
           </div>
+          <p className="text-right text-xs text-zinc-600">
+            Copyright © {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved. Design &amp; Developed by Kaus Milestone Pty Ltd
+          </p>
         </div>
       </div>
     </div>
