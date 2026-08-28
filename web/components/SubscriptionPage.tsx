@@ -8,17 +8,23 @@ import { isPaidPlan } from "@/lib/stripe-client";
 import { sessionsLimitForPlan, planFeatureLines } from "@/lib/plan-features";
 import { fetchActivePlans } from "@/lib/db";
 import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
+import { SUPPORTED_CURRENCIES, CURRENCY_LABELS, DEFAULT_CURRENCY, resolvePlanPrice, formatMoney, type Currency } from "@/lib/currency";
 
 const TIER_SLUGS: Record<PlanTier, string> = { Free: "free", "Player Pro": "player-pro", "Coach Pro": "coach-pro" };
 
-/** Free/Player Pro/Coach Pro cards — priced and featured from their Plan Catalog rows
- * (editable at /admin/plans) rather than hardcoded copy. */
-function buildPlanCards(plans: Plan[]): { tier: PlanTier; price: string; features: string[] }[] {
+/** Free/Player Pro/Coach Pro cards — priced and featured from their Plan Catalog rows (editable
+ * at /admin/plans) rather than hardcoded copy. Price resolves through the same
+ * currency-override logic the actual checkout route uses, so what's shown here is always what
+ * Stripe will actually charge for the selected currency. */
+function buildPlanCards(plans: Plan[], currency: Currency): { tier: PlanTier; price: string; features: string[] }[] {
   return (["Free", "Player Pro", "Coach Pro"] as const).map((tier) => {
     const row = plans.find((p) => p.slug === TIER_SLUGS[tier]);
+    if (!row) return { tier, price: "…", features: planFeatureLines(tier, plans) };
+    if (row.priceAud === 0) return { tier, price: "Free", features: planFeatureLines(tier, plans) };
+    const { amount, currency: billCurrency } = resolvePlanPrice(row.priceAud, row.pricesByCurrency, currency);
     return {
       tier,
-      price: !row ? "…" : row.priceAud === 0 ? "Free" : `$${row.priceAud.toFixed(2)} / ${row.billingInterval ?? "month"}`,
+      price: `${formatMoney(amount, billCurrency)} / ${row.billingInterval ?? "month"}`,
       features: planFeatureLines(tier, plans),
     };
   });
@@ -34,6 +40,8 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
   const [assessmentPlan, setAssessmentPlan] = useState<Plan | null>(null);
   const [addonRedirecting, setAddonRedirecting] = useState<"library" | "assessment" | null>(null);
   const [addonError, setAddonError] = useState("");
+  const [currency, setCurrency] = useState<Currency>(player.currency ?? DEFAULT_CURRENCY);
+  const [currencySaving, setCurrencySaving] = useState(false);
 
   useEffect(() => {
     fetchActivePlans().then((pl) => {
@@ -43,7 +51,24 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
     }).catch(() => {});
   }, []);
 
-  const PLANS = useMemo(() => buildPlanCards(plans), [plans]);
+  async function handleCurrencyChange(next: Currency) {
+    setCurrency(next);
+    setCurrencySaving(true);
+    try {
+      await fetch("/api/players/update-currency", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: player.id, currency: next }),
+      });
+    } catch {
+      // Best-effort — checkout still resolves the right price for whatever's selected right now,
+      // this only affects whether the choice sticks for next time.
+    } finally {
+      setCurrencySaving(false);
+    }
+  }
+
+  const PLANS = useMemo(() => buildPlanCards(plans, currency), [plans, currency]);
   const currentSessionsLimit = sessionsLimitForPlan(player.subscription.plan, plans);
 
   const hasLibraryAccess =
@@ -250,9 +275,24 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
 
       {/* Plan selection */}
       <div className="bg-surface rounded-2xl p-6 mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">
-          Choose Plan
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            Choose Plan
+          </h2>
+          <label className="flex items-center gap-2 text-xs text-zinc-400">
+            Bill me in
+            <select
+              value={currency}
+              disabled={currencySaving}
+              onChange={(e) => handleCurrencyChange(e.target.value as Currency)}
+              className="bg-ink border border-zinc-700 rounded-lg px-2 py-1.5 text-white text-xs focus:border-pace-green focus:outline-none disabled:opacity-60"
+            >
+              {SUPPORTED_CURRENCIES.map((c) => (
+                <option key={c} value={c}>{CURRENCY_LABELS[c]}</option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {PLANS.map((p) => {
             const isActive = selectedPlan === p.tier;
@@ -353,7 +393,10 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
               <div className="p-5 rounded-xl border-2 border-zinc-700 bg-ink">
                 <div className="text-sm font-bold text-white mb-1">{libraryPlan.name}</div>
                 <div className="text-lg font-bold text-white mb-3">
-                  ${libraryPlan.priceAud.toFixed(2)} / {libraryPlan.billingInterval}
+                  {(() => {
+                    const { amount, currency: billCurrency } = resolvePlanPrice(libraryPlan.priceAud, libraryPlan.pricesByCurrency, currency);
+                    return `${formatMoney(amount, billCurrency)} / ${libraryPlan.billingInterval}`;
+                  })()}
                 </div>
                 <p className="text-xs text-zinc-400 mb-4">
                   Unlocks the Academy article library independently of your main plan above.
@@ -382,7 +425,12 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
             {assessmentPlan && (
               <div className="p-5 rounded-xl border-2 border-zinc-700 bg-ink">
                 <div className="text-sm font-bold text-white mb-1">{assessmentPlan.name}</div>
-                <div className="text-lg font-bold text-white mb-3">${assessmentPlan.priceAud.toFixed(2)} one-time</div>
+                <div className="text-lg font-bold text-white mb-3">
+                  {(() => {
+                    const { amount, currency: billCurrency } = resolvePlanPrice(assessmentPlan.priceAud, assessmentPlan.pricesByCurrency, currency);
+                    return `${formatMoney(amount, billCurrency)} one-time`;
+                  })()}
+                </div>
                 <p className="text-xs text-zinc-400 mb-4">
                   Buy a single AI biomechanics report, no subscription required.
                   {player.assessmentCredits > 0 && (
