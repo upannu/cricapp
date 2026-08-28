@@ -14,6 +14,7 @@ import type {
   PackFeeDue, PackFeeDueStatus, BookingFeeDue,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
+import { DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 
 // ─── DB row types (snake_case from Postgres) ────────────────────────────────
 
@@ -39,6 +40,7 @@ export interface DbPlayer {
   acad_total_sessions: number; acad_xp: number; acad_articles_read: number;
   tip_streak_count?: number; tip_best_streak?: number; tip_last_viewed_date?: string | null;
   login_disabled?: boolean; disabled_at?: string | null; disabled_reason?: string | null;
+  currency?: string;
 }
 
 export interface DbCoach {
@@ -52,6 +54,7 @@ export interface DbCoach {
   stripe_connect_onboarded?: boolean;
   lat?: number | null;
   lng?: number | null;
+  currency?: string;
 }
 
 export interface DbAcademy {
@@ -59,6 +62,7 @@ export interface DbAcademy {
   player_ids: string[]; player_counts: Record<string, number>;
   coach_ids: string[]; head_coach_id: string;
   stage: string; coach_name: string; start_date: string; status: string;
+  country?: string; currency?: string;
   session_fee_aud: number; session_type_fees: Record<string, number>;
   age_fees: Record<string, number>;
   stripe_customer_id?: string | null; stripe_subscription_id?: string | null;
@@ -158,6 +162,7 @@ export function dbToPlayer(r: DbPlayer): Player {
     loginDisabled: r.login_disabled ?? false,
     disabledAt: r.disabled_at ?? null,
     disabledReason: r.disabled_reason ?? null,
+    currency: (r.currency as Currency | undefined) ?? DEFAULT_CURRENCY,
     subscription: {
       plan: r.sub_plan as PlanTier,
       startDate: r.sub_start_date, endDate: r.sub_end_date,
@@ -198,6 +203,7 @@ export function dbToCoach(r: DbCoach): Coach {
     stripeConnectOnboarded: r.stripe_connect_onboarded ?? false,
     lat: r.lat ?? undefined,
     lng: r.lng ?? undefined,
+    currency: (r.currency as Currency | undefined) ?? DEFAULT_CURRENCY,
   };
 }
 
@@ -212,6 +218,8 @@ export function dbToAcademy(r: DbAcademy): Academy {
     stage: r.stage as AcademyStage,
     coachName: r.coach_name, startDate: r.start_date,
     status: r.status as "Active" | "Inactive",
+    country: r.country ?? "AU",
+    currency: (r.currency as Currency | undefined) ?? DEFAULT_CURRENCY,
     sessionFeeAud: r.session_fee_aud,
     sessionTypeFees: r.session_type_fees as Academy["sessionTypeFees"],
     ageFees: (r.age_fees ?? {}) as Academy["ageFees"],
@@ -1221,6 +1229,7 @@ export interface DbPlan {
   billing_type: string;
   billing_interval: string | null;
   price_aud: number;
+  prices_by_currency?: Record<string, number> | null;
   seat_cap: number | null;
   access_duration_months: number | null;
   included_notes: string | null;
@@ -1245,6 +1254,7 @@ export function dbToPlan(r: DbPlan): Plan {
     billingType: r.billing_type as Plan["billingType"],
     billingInterval: r.billing_interval as Plan["billingInterval"],
     priceAud: r.price_aud,
+    pricesByCurrency: (r.prices_by_currency as Partial<Record<Currency, number>> | null) ?? {},
     seatCap: r.seat_cap,
     accessDurationMonths: r.access_duration_months,
     includedNotes: r.included_notes,

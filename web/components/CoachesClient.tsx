@@ -6,6 +6,7 @@ import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player 
 import { useAuth } from "@/lib/auth";
 import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, deleteCoach, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
 import { DateInput } from "@/components/DateInput";
+import { DEFAULT_CURRENCY } from "@/lib/currency";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const CERT_LEVELS: CertificationLevel[] = ["Level 1", "Level 2", "Level 3", "Elite"];
@@ -33,6 +34,7 @@ const EMPTY_DRAFT: DraftCoach = {
   academyId: "",
   marketplaceVisible: false,
   available: true,
+  currency: DEFAULT_CURRENCY,
 };
 
 let _coachAcademies: Academy[] = [];
@@ -166,6 +168,7 @@ export function CoachesClient() {
       academyId: coach.academyId,
       marketplaceVisible: coach.marketplaceVisible,
       available: coach.available,
+      currency: coach.currency,
     });
     setFormError("");
     setShowForm(true);

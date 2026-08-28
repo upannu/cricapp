@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { NormalizedInvoice } from "@/lib/stripe-invoices";
+import { formatMoney } from "@/lib/currency";
 
 /** pdf-lib's standard fonts are WinAnsi-encoded and throw on characters outside Latin-1. */
 function sanitizeForPdf(text: string): string {
@@ -66,7 +67,7 @@ export async function buildInvoicePdf(
   page.drawText("Amount", { x: 470, y, size: 10, font: bold, color: gray });
   y -= 18;
 
-  const amountText = `$${invoice.amountAud.toFixed(2)} ${invoice.currency.toUpperCase()}`;
+  const amountText = sanitizeForPdf(formatMoney(invoice.amount, invoice.currency));
   page.drawText(sanitizeForPdf(invoice.description), { x: 50, y, size: 11, font, color: dark });
   page.drawText(amountText, { x: 470, y, size: 11, font, color: dark });
   y -= 20;

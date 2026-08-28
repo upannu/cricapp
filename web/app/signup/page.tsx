@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 
@@ -15,18 +15,35 @@ const ROLE_OPTIONS: { value: Role; label: string; desc: string }[] = [
 ];
 
 const NEEDS_PLAYER_LOOKUP: Role[] = ["player", "parent"];
+const PREFILLABLE_ROLES: Role[] = ["player", "parent"];
 
 export default function SignUpPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignUpForm />
+    </Suspense>
+  );
+}
+
+function SignUpForm() {
   const router = useRouter();
   const { signup } = useAuth();
-  const [role, setRole] = useState<Role>("academy_admin");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  // A "you've been added" email links here with ?role=player&email=...&name=... so the player
+  // just has to pick a password — see api/players/notify-added/route.ts.
+  const roleParam = searchParams.get("role");
+  const initialRole: Role = PREFILLABLE_ROLES.includes(roleParam as Role) ? (roleParam as Role) : "academy_admin";
+  const prefillEmail = searchParams.get("email") ?? "";
+  const prefillName = searchParams.get("name") ?? "";
+
+  const [role, setRole] = useState<Role>(initialRole);
+  const [name, setName] = useState(prefillName);
+  const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [academyName, setAcademyName] = useState("");
   const [academyLocation, setAcademyLocation] = useState("");
-  const [playerEmail, setPlayerEmail] = useState("");
+  const [playerEmail, setPlayerEmail] = useState(prefillEmail);
   const [playerLookup, setPlayerLookup] = useState<{ email: string; status: "checking" | "found" | "not-found"; name?: string } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);

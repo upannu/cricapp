@@ -143,7 +143,8 @@ export default function ApprovalsPage() {
       setAcademies((prev) => [...prev, {
         id, name: newAcademyName.trim(), description: "", location: newAcademyLocation.trim(),
         playerIds: [], playerCounts: {}, coachIds: [], headCoachId: "", stage: "Foundation",
-        coachName: "", startDate: today, status: "Active", sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
+        coachName: "", startDate: today, status: "Active", country: "AU", currency: "aud",
+        sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
         payoutModel: "head_coach",
       }]);
       setSelectedAcademy(id);

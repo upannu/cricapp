@@ -7,6 +7,7 @@ import { fetchActivePlans } from "@/lib/db";
 import type { Academy, Plan } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
+import { resolvePlanPrice, formatMoney } from "@/lib/currency";
 
 export function AcademyBillingClient({ academy }: { academy: Academy }) {
   const { user } = useAuth();
@@ -141,7 +142,10 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
                   {isActive && <span className="text-pace-green text-sm font-bold flex-shrink-0">✓</span>}
                 </div>
                 <div className="text-lg font-bold text-white mb-2">
-                  ${p.priceAud.toFixed(2)} / {p.billingInterval}
+                  {(() => {
+                    const { amount, currency } = resolvePlanPrice(p.priceAud, p.pricesByCurrency, academy.currency);
+                    return `${formatMoney(amount, currency)} / ${p.billingInterval}`;
+                  })()}
                 </div>
                 <div className="text-xs text-zinc-400 mb-2">Up to {p.seatCap} bowlers</div>
                 {p.accessDurationMonths != null && (

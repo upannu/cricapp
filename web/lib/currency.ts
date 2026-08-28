@@ -1,0 +1,96 @@
+// Multi-currency support — see the "Multi-currency support" plan. Deliberately starts with a
+// small, explicit set rather than trying to cover every ISO currency: extending later is just
+// adding entries to these two lists/maps, nothing structural.
+
+export type Currency = "aud" | "usd" | "gbp" | "nzd" | "inr";
+
+export const SUPPORTED_CURRENCIES: Currency[] = ["aud", "usd", "gbp", "nzd", "inr"];
+
+export const DEFAULT_CURRENCY: Currency = "aud";
+
+export const CURRENCY_SYMBOLS: Record<Currency, string> = {
+  aud: "A$",
+  usd: "US$",
+  gbp: "£",
+  nzd: "NZ$",
+  inr: "₹",
+};
+
+export const CURRENCY_LABELS: Record<Currency, string> = {
+  aud: "Australian Dollar (AUD)",
+  usd: "US Dollar (USD)",
+  gbp: "British Pound (GBP)",
+  nzd: "New Zealand Dollar (NZD)",
+  inr: "Indian Rupee (INR)",
+};
+
+/** Countries an academy can be created in at launch, and the currency its Stripe Connect payout
+ * account will use — currency is always derived from country, never picked independently, since
+ * a Connect account's payout currency is tied to the country it was created with. India is
+ * deliberately NOT in this list even though INR is a supported currency above: Stripe Connect
+ * Express doesn't support India as a connected-account country
+ * (https://docs.stripe.com/connect/express-accounts), so an academy "in India" would have no way
+ * to actually get paid out. INR is only usable for individual (non-Connect) purchases — Player
+ * Pro/Coach Pro/Library/assessments — until/unless that changes. */
+export const COUNTRY_OPTIONS: { code: string; name: string; currency: Currency }[] = [
+  { code: "AU", name: "Australia", currency: "aud" },
+  { code: "NZ", name: "New Zealand", currency: "nzd" },
+  { code: "GB", name: "United Kingdom", currency: "gbp" },
+  { code: "US", name: "United States", currency: "usd" },
+];
+
+const COUNTRY_TO_CURRENCY: Record<string, Currency> = Object.fromEntries(
+  COUNTRY_OPTIONS.map((c) => [c.code, c.currency]),
+);
+
+export function currencyForCountry(countryCode: string): Currency {
+  return COUNTRY_TO_CURRENCY[countryCode] ?? DEFAULT_CURRENCY;
+}
+
+export function isSupportedCurrency(value: string | null | undefined): value is Currency {
+  return !!value && (SUPPORTED_CURRENCIES as string[]).includes(value);
+}
+
+/** Resolves what to actually charge for a plan: the admin-set override price for `preferred`
+ * currency if one exists, otherwise the AUD price in AUD. Shared by every plan-based Stripe
+ * checkout route so "does this plan support the buyer's currency" is decided in exactly one
+ * place. */
+export function resolvePlanPrice(
+  priceAud: number,
+  pricesByCurrency: Partial<Record<Currency, number>> | null | undefined,
+  preferred: string | null | undefined,
+): { amount: number; currency: Currency } {
+  if (isSupportedCurrency(preferred) && preferred !== DEFAULT_CURRENCY) {
+    const override = pricesByCurrency?.[preferred];
+    if (override != null) return { amount: override, currency: preferred };
+  }
+  return { amount: priceAud, currency: DEFAULT_CURRENCY };
+}
+
+/** Sums a list of amounts that may span different currencies (e.g. platform-fee dues across
+ * academies in different countries) into a display string — summing the raw numbers together
+ * would be meaningless once more than one currency is involved, so each currency gets its own
+ * subtotal instead. Renders as a single amount in the common case (everything's the same
+ * currency), or "A$120.00 + NZ$45.00" style when genuinely mixed. */
+export function sumMoneyByCurrency(entries: Array<{ amount: number; currency: string }>): string {
+  const totals: Partial<Record<Currency, number>> = {};
+  for (const e of entries) {
+    const c = isSupportedCurrency(e.currency) ? e.currency : DEFAULT_CURRENCY;
+    totals[c] = (totals[c] ?? 0) + e.amount;
+  }
+  const grouped = Object.entries(totals) as [Currency, number][];
+  if (grouped.length === 0) return formatMoney(0, DEFAULT_CURRENCY);
+  return grouped.map(([c, amt]) => formatMoney(amt, c)).join(" + ");
+}
+
+/** The one shared money formatter — every UI amount should go through this rather than a
+ * hand-rolled `$${x.toFixed(2)}` string, so a display is never silently wrong about which
+ * currency it's actually showing. */
+export function formatMoney(amount: number, currency: string = DEFAULT_CURRENCY): string {
+  const code = isSupportedCurrency(currency) ? currency : DEFAULT_CURRENCY;
+  try {
+    return new Intl.NumberFormat("en-AU", { style: "currency", currency: code.toUpperCase() }).format(amount);
+  } catch {
+    return `${CURRENCY_SYMBOLS[code]}${amount.toFixed(2)}`;
+  }
+}

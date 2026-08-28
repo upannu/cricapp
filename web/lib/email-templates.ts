@@ -91,6 +91,8 @@ export function buildWelcomeEmailHtml(opts: {
   appUrl: string;
   planName?: string;
   planLines: string[];
+  ctaLabel?: string;
+  ctaHref?: string;
 }): string {
   const bodyHtml = escapeHtml(opts.bodyText)
     .split(/\n{2,}/)
@@ -105,7 +107,8 @@ export function buildWelcomeEmailHtml(opts: {
     heading: escapeHtml(opts.heading),
     intro: "",
     contentHtml: bodyHtml + planHtml,
-    ctaLabel: "Sign in to get started",
+    ctaLabel: opts.ctaLabel ?? "Sign in to get started",
+    ctaHref: opts.ctaHref,
   });
 }
 

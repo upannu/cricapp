@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
+import { DEFAULT_CURRENCY, isSupportedCurrency } from "@/lib/currency";
 
 /**
  * Payout destination depends on the academy's payout_model: 'head_coach' (default) routes 100%
@@ -80,12 +81,15 @@ export async function POST(request: Request) {
 
   const { data: academy, error: academyError } = await supabase
     .from("academies")
-    .select("id, name, head_coach_id, payout_model, plan_id")
+    .select("id, name, head_coach_id, payout_model, plan_id, currency")
     .eq("id", coach.academy_id)
     .single();
   if (academyError) {
     return NextResponse.json({ error: "Academy not found." }, { status: 404 });
   }
+  // Same currency as the academy's Connect payout account — a transfer requires the charge and
+  // destination currencies to match. See lib/currency.ts.
+  const currency = isSupportedCurrency(academy.currency) ? academy.currency : DEFAULT_CURRENCY;
 
   // Platform fee defaults to 10% unless the academy's assigned plan overrides it (e.g. an
   // academy paying well upfront gets a reduced rate) — must match the UI's display exactly.
@@ -148,7 +152,7 @@ export async function POST(request: Request) {
       customer: customerId,
       line_items: [{
         price_data: {
-          currency: "aud",
+          currency,
           unit_amount: totalCents,
           product_data: {
             name: `${booking.type} with ${coach.name}`,

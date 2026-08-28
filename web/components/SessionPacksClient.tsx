@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired, matchPlayerByNameOrEmail } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
+import { DEFAULT_CURRENCY, formatMoney, sumMoneyByCurrency } from "@/lib/currency";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
@@ -457,8 +458,8 @@ export function SessionPacksClient() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <StatCard label="Active packs" value={String(activePacks.length)} color="text-pace-green" />
         <StatCard label="Sessions remaining" value={String(totalRemain)} color="text-white" />
-        <StatCard label="Fees outstanding" value={`$${totalOutstanding.toLocaleString()}`} color={totalOutstanding > 0 ? "text-red-400" : "text-zinc-500"} />
-        <StatCard label="Gross revenue" value={`$${grossRevenue.toLocaleString()}`} color="text-amber" />
+        <StatCard label="Fees outstanding" value={sumMoneyByCurrency(feesDuePacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))} color={totalOutstanding > 0 ? "text-red-400" : "text-zinc-500"} />
+        <StatCard label="Gross revenue" value={sumMoneyByCurrency(scopedPacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))} color="text-amber" />
       </div>
 
       {/* Page tabs */}
@@ -580,7 +581,7 @@ export function SessionPacksClient() {
                       <tr key={r.rowNum} className="border-t border-zinc-800">
                         <td className="px-3 py-2 text-zinc-300 truncate max-w-[160px]">{r.player?.name ?? r.playerInput}</td>
                         <td className="px-3 py-2 text-zinc-300">{r.totalSessions}</td>
-                        <td className="px-3 py-2 text-zinc-300">${r.feePerSession}</td>
+                        <td className="px-3 py-2 text-zinc-300">{formatMoney(r.feePerSession, academyById(bulkSettings.academyId)?.currency ?? DEFAULT_CURRENCY)}</td>
                         <td className="px-3 py-2">
                           {r.csvStatus === "ready" && <span className="text-pace-green">Ready</span>}
                           {r.csvStatus === "duplicate" && <span className="text-amber" title={r.issue}>{r.issue}</span>}
@@ -714,7 +715,7 @@ export function SessionPacksClient() {
             </div>
 
             <div>
-              <label className={lbl}>Fee per Session (AUD)</label>
+              <label className={lbl}>Fee per Session ({(academyById(draft.academyId)?.currency ?? DEFAULT_CURRENCY).toUpperCase()})</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-semibold">$</span>
                 <input
@@ -747,18 +748,19 @@ export function SessionPacksClient() {
           {/* Fee breakdown */}
           {draft.feePerSession > 0 && draft.totalSessions > 0 && (() => {
             const feePct = getPlatformFeePercent(draft.academyId, _packAcademies, _packPlans);
+            const packCurrency = academyById(draft.academyId)?.currency ?? DEFAULT_CURRENCY;
             return (
               <div className="mb-5 bg-ink rounded-xl p-4 grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-lg font-bold text-white">${(draft.feePerSession * draft.totalSessions).toLocaleString()}</div>
+                  <div className="text-lg font-bold text-white">{formatMoney(draft.feePerSession * draft.totalSessions, packCurrency)}</div>
                   <div className="text-xs text-zinc-500 mt-0.5">Total collected</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-amber">${(draft.feePerSession * draft.totalSessions * (feePct / 100)).toFixed(0)}</div>
+                  <div className="text-lg font-bold text-amber">{formatMoney(draft.feePerSession * draft.totalSessions * (feePct / 100), packCurrency)}</div>
                   <div className="text-xs text-zinc-500 mt-0.5">Platform fee ({feePct}%)</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-pace-green">${(draft.feePerSession * draft.totalSessions * (1 - feePct / 100)).toFixed(0)}</div>
+                  <div className="text-lg font-bold text-pace-green">{formatMoney(draft.feePerSession * draft.totalSessions * (1 - feePct / 100), packCurrency)}</div>
                   <div className="text-xs text-zinc-500 mt-0.5">Academy receives ({100 - feePct}%)</div>
                 </div>
               </div>
@@ -794,7 +796,7 @@ export function SessionPacksClient() {
               {/* Outstanding summary */}
               <div className="grid grid-cols-3 gap-4 mb-2">
                 <div className="bg-surface rounded-2xl p-5 text-center">
-                  <div className="text-2xl font-bold text-red-400 mb-1">${totalOutstanding.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-red-400 mb-1">{sumMoneyByCurrency(feesDuePacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))}</div>
                   <div className="text-xs text-zinc-400">Total outstanding</div>
                 </div>
                 <div className="bg-surface rounded-2xl p-5 text-center">
@@ -855,7 +857,7 @@ export function SessionPacksClient() {
                                 <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
                                   <span>{academy?.name}</span>
                                   <span>·</span>
-                                  <span>{pk.totalSessions} sessions × ${pk.feePerSession}</span>
+                                  <span>{pk.totalSessions} sessions × {formatMoney(pk.feePerSession, academy?.currency ?? DEFAULT_CURRENCY)}</span>
                                   <span>·</span>
                                   <span className={`font-semibold ${status === "Overdue" ? "text-red-400" : "text-amber"}`}>
                                     Due {formatDate(pk.paymentDueDate)}
@@ -915,13 +917,13 @@ export function SessionPacksClient() {
               <div className="grid grid-cols-2 gap-4 mb-2">
                 <div className="bg-surface rounded-2xl p-5 text-center">
                   <div className="text-2xl font-bold text-amber mb-1">
-                    ${feeDues.filter((d) => d.status === "pending").reduce((s, d) => s + d.amountAud, 0).toFixed(2)}
+                    {sumMoneyByCurrency(feeDues.filter((d) => d.status === "pending").map((d) => ({ amount: d.amountAud, currency: academyById(d.academyId)?.currency ?? DEFAULT_CURRENCY })))}
                   </div>
                   <div className="text-xs text-zinc-400">Pending</div>
                 </div>
                 <div className="bg-surface rounded-2xl p-5 text-center">
                   <div className="text-2xl font-bold text-pace-green mb-1">
-                    ${feeDues.filter((d) => d.status === "collected").reduce((s, d) => s + d.amountAud, 0).toFixed(2)}
+                    {sumMoneyByCurrency(feeDues.filter((d) => d.status === "collected").map((d) => ({ amount: d.amountAud, currency: academyById(d.academyId)?.currency ?? DEFAULT_CURRENCY })))}
                   </div>
                   <div className="text-xs text-zinc-400">Collected</div>
                 </div>
@@ -941,7 +943,7 @@ export function SessionPacksClient() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4 flex-shrink-0">
-                        <div className="text-lg font-bold text-amber">${due.amountAud.toFixed(2)}</div>
+                        <div className="text-lg font-bold text-amber">{formatMoney(due.amountAud, academy?.currency ?? DEFAULT_CURRENCY)}</div>
                         {due.status === "collected" ? (
                           <span className="text-xs font-semibold text-pace-green">✓ Collected</span>
                         ) : user?.role === "platform_admin" ? (
@@ -1114,15 +1116,15 @@ export function SessionPacksClient() {
                     ) : (
                     <div className="bg-ink rounded-xl p-4 grid grid-cols-3 gap-3 text-center mb-4">
                       <div>
-                        <div className="text-sm font-bold text-white">${pack.feePerSession}/session</div>
+                        <div className="text-sm font-bold text-white">{formatMoney(pack.feePerSession, academyById(pack.academyId)?.currency ?? DEFAULT_CURRENCY)}/session</div>
                         <div className="text-xs text-zinc-500 mt-0.5">Session rate</div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-amber">${(pack.feePerSession * (getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100)).toFixed(0)}/session</div>
+                        <div className="text-sm font-bold text-amber">{formatMoney(pack.feePerSession * (getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100), academyById(pack.academyId)?.currency ?? DEFAULT_CURRENCY)}/session</div>
                         <div className="text-xs text-zinc-500 mt-0.5">Platform ({getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans)}%)</div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-pace-green">${(pack.feePerSession * pack.totalSessions * (1 - getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100)).toFixed(0)} total</div>
+                        <div className="text-sm font-bold text-pace-green">{formatMoney(pack.feePerSession * pack.totalSessions * (1 - getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100), academyById(pack.academyId)?.currency ?? DEFAULT_CURRENCY)} total</div>
                         <div className="text-xs text-zinc-500 mt-0.5">Academy receives</div>
                       </div>
                     </div>

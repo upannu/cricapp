@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
+import { resolvePlanPrice } from "@/lib/currency";
 
 export async function POST(request: Request) {
   const { playerId } = (await request.json()) as { playerId?: string };
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
 
   const { data: player, error: playerError } = await supabase
     .from("players")
-    .select("id, name, email, stripe_customer_id")
+    .select("id, name, email, stripe_customer_id, currency")
     .eq("id", playerId)
     .single();
   if (playerError || !player) {
@@ -42,12 +43,13 @@ export async function POST(request: Request) {
 
   const { data: plan, error: planError } = await supabase
     .from("plans")
-    .select("id, name, price_aud, billing_interval, active")
+    .select("id, name, price_aud, prices_by_currency, billing_interval, active")
     .eq("slug", "library")
     .single();
   if (planError || !plan || !plan.active) {
     return NextResponse.json({ error: "Library access isn't available right now." }, { status: 500 });
   }
+  const { amount: price, currency: billCurrency } = resolvePlanPrice(plan.price_aud, plan.prices_by_currency, player.currency);
 
   try {
     let customerId = player.stripe_customer_id as string | null;
@@ -67,8 +69,8 @@ export async function POST(request: Request) {
       customer: customerId,
       line_items: [{
         price_data: {
-          currency: "aud",
-          unit_amount: Math.round(plan.price_aud * 100),
+          currency: billCurrency,
+          unit_amount: Math.round(price * 100),
           recurring: { interval: (plan.billing_interval as "month" | "year") ?? "month" },
           product_data: { name: plan.name },
         },
