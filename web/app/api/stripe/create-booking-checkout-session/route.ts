@@ -24,8 +24,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const role = user.user_metadata?.role as string | undefined;
-  const ownPlayerId = user.user_metadata?.player_id as string | undefined;
+  const role = user.app_metadata?.role as string | undefined;
+  const ownPlayerId = user.app_metadata?.player_id as string | undefined;
   const isStaff = role === "platform_admin" || role === "academy_admin" || role === "coach";
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

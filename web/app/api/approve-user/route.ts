@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } },
   );
   const { data: { user: caller } } = await authClient.auth.getUser();
-  if (caller?.user_metadata?.role !== "platform_admin") {
+  if (caller?.app_metadata?.role !== "platform_admin") {
     return NextResponse.json({ error: "Only a platform admin can approve requests." }, { status: 403 });
   }
 
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "The linked account no longer exists. The request has been removed." }, { status: 404 });
     }
 
-    const meta = existingUserData.user.user_metadata ?? {};
+    const meta = existingUserData.user.app_metadata ?? {};
     const currentIdentities = (meta.linkedIdentities as LinkedIdentity[] | undefined) ?? [];
     const seeded = currentIdentities.length > 0
       ? currentIdentities
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
     // Only linkedIdentities changes here — the account's currently-active role/links are left
     // untouched, so an approval never silently changes what a logged-in session sees mid-use.
     const { error: linkUpdateError } = await supabase.auth.admin.updateUserById(reqData.existing_user_id, {
-      user_metadata: { ...meta, linkedIdentities },
+      app_metadata: { ...meta, linkedIdentities },
     });
     if (linkUpdateError) return NextResponse.json({ error: linkUpdateError.message }, { status: 400 });
 
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
   if (linkedCoachId) extraMeta.coach_id = linkedCoachId;
 
   const { error: updateError } = await supabase.auth.admin.updateUserById(authUser.id, {
-    user_metadata: extraMeta,
+    app_metadata: extraMeta,
     email_confirm: true,
   });
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });

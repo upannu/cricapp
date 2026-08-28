@@ -17,8 +17,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const role = user.user_metadata?.role;
-  const ownPlayerId = user.user_metadata?.player_id as string | undefined;
+  const role = user.app_metadata?.role;
+  const ownPlayerId = user.app_metadata?.player_id as string | undefined;
   if ((role === "player" || role === "parent") && ownPlayerId !== playerId) {
     return NextResponse.json({ error: "You can only manage your own subscription." }, { status: 403 });
   }

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Incorrect password for this existing account." }, { status: 403 });
   }
 
-  const meta = existingUser.user_metadata ?? {};
+  const meta = existingUser.app_metadata ?? {};
   const linkedIdentities = (meta.linkedIdentities as LinkedIdentity[] | undefined) ?? [];
   const alreadyHasRole =
     meta.role === role ||

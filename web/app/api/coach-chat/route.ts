@@ -52,8 +52,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await authClient.auth.getUser();
   if (!user) return Response.json({ error: "Not signed in." }, { status: 401 });
 
-  const role = user.user_metadata?.role as string | undefined;
-  const playerId = user.user_metadata?.player_id as string | undefined;
+  const role = user.app_metadata?.role as string | undefined;
+  const playerId = user.app_metadata?.player_id as string | undefined;
   const isPlayerOrParent = role === "player" || role === "parent";
 
   let contextBlurb = "";

@@ -41,6 +41,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/notify-admin-signup") ||
     pathname.startsWith("/api/check-existing-account") ||
     pathname.startsWith("/api/request-additional-role") ||
+    // Runs right after signUp() to set the account's real role/approval — the caller has no
+    // session yet if email confirmation is required.
+    pathname.startsWith("/api/complete-signup") ||
     // Stripe calls this server-to-server with no Supabase session cookie — it authenticates
     // via its own HMAC signature (verified inside the route), not via signed-in user session.
     pathname.startsWith("/api/stripe/webhook") ||
