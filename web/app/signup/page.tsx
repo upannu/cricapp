@@ -32,6 +32,8 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [linked, setLinked] = useState(false);
+  const [autoApproved, setAutoApproved] = useState(false);
+  const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false);
 
   // Only trust playerLookup if it was computed for the email currently in the field
   const lookupForCurrentEmail = playerLookup?.email === playerEmail.trim() ? playerLookup : null;
@@ -68,7 +70,7 @@ export default function SignUpPage() {
     }
     setLoading(true);
     setError("");
-    const { error: err, linked: wasLinked } = await signup(
+    const { error: err, linked: wasLinked, approved, needsConfirmation } = await signup(
       name.trim(), email.trim(), password, role,
       NEEDS_PLAYER_LOOKUP.includes(role) ? playerEmail.trim() : undefined,
       role === "academy_admin" ? academyName.trim() : undefined,
@@ -79,9 +81,9 @@ export default function SignUpPage() {
       setLoading(false);
       return;
     }
-    // Always show pending screen — even if no email confirmation,
-    // the account still needs platform admin approval before accessing the dashboard
     setLinked(!!wasLinked);
+    setAutoApproved(!!approved);
+    setNeedsEmailConfirm(needsConfirmation);
     setDone(true);
   }
 
@@ -108,7 +110,7 @@ export default function SignUpPage() {
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">Request submitted</h2>
+            <h2 className="text-xl font-bold text-white mb-2">{autoApproved ? "You're all set" : "Request submitted"}</h2>
             {linked ? (
               <>
                 <p className="text-zinc-400 text-sm leading-relaxed mb-2">
@@ -118,6 +120,19 @@ export default function SignUpPage() {
                 </p>
                 <p className="text-zinc-500 text-xs leading-relaxed mb-6">
                   Once approved, sign in as usual and use the role switcher to move between your linked identities.
+                </p>
+              </>
+            ) : autoApproved ? (
+              <>
+                <p className="text-zinc-400 text-sm leading-relaxed mb-2">
+                  {needsEmailConfirm ? (
+                    <>Check your email and confirm your address — <span className="text-pace-green font-semibold">no approval wait</span>, you can sign in the moment it&apos;s confirmed.</>
+                  ) : (
+                    <>Your account is ready — <span className="text-pace-green font-semibold">sign in now</span>.</>
+                  )}
+                </p>
+                <p className="text-zinc-500 text-xs leading-relaxed mb-6">
+                  Your player record was already on file, so there&apos;s no admin review for this account.
                 </p>
               </>
             ) : (

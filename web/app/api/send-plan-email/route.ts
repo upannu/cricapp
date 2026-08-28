@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   const { data: listData, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
   if (listError) return NextResponse.json({ error: listError.message }, { status: 500 });
   const recipients = listData.users.filter(
-    (u) => u.user_metadata?.role === "academy_admin" && u.user_metadata?.academy_id === academyId && u.email,
+    (u) => u.app_metadata?.role === "academy_admin" && u.app_metadata?.academy_id === academyId && u.email,
   );
   if (recipients.length === 0) {
     return NextResponse.json({ error: "No academy admin account found for this academy." }, { status: 404 });

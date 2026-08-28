@@ -14,8 +14,8 @@ export async function POST() {
   const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const role = user.user_metadata?.role;
-  const playerId = user.user_metadata?.player_id as string | undefined;
+  const role = user.app_metadata?.role;
+  const playerId = user.app_metadata?.player_id as string | undefined;
   if (role !== "parent" && role !== "player") {
     return NextResponse.json({ error: "Only a player or parent/guardian account can confirm consent." }, { status: 403 });
   }

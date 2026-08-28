@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const { data: { user: caller } } = await authClient.auth.getUser();
   if (!caller) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const meta = caller.user_metadata ?? {};
+  const meta = caller.app_metadata ?? {};
   const linkedIdentities = (meta.linkedIdentities as LinkedIdentity[] | undefined) ?? [];
 
   // Never trust the client to supply an arbitrary target — the requested identity must already
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
   );
 
   const { error } = await supabase.auth.admin.updateUserById(caller.id, {
-    user_metadata: {
+    app_metadata: {
       ...meta,
       role: target.role,
       academy_id: target.academyId ?? null,

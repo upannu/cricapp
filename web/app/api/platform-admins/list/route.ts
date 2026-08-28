@@ -20,12 +20,12 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const users = data.users
-    .filter((u) => u.user_metadata?.approved !== false)
+    .filter((u) => u.app_metadata?.approved !== false)
     .map((u) => ({
       id: u.id,
       email: u.email ?? "",
       name: (u.user_metadata?.name as string) ?? u.email ?? "",
-      role: (u.user_metadata?.role as string) ?? "coach",
+      role: (u.app_metadata?.role as string) ?? "coach",
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 

@@ -17,8 +17,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const role = user.user_metadata?.role;
-  const ownAcademyId = user.user_metadata?.academy_id as string | undefined;
+  const role = user.app_metadata?.role;
+  const ownAcademyId = user.app_metadata?.academy_id as string | undefined;
   if (role !== "platform_admin" && !(role === "academy_admin" && ownAcademyId === academyId)) {
     return NextResponse.json({ error: "You can only manage billing for your own academy." }, { status: 403 });
   }

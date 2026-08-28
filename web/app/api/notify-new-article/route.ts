@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } },
   );
   const { data: { user: caller } } = await authClient.auth.getUser();
-  if (caller?.user_metadata?.role !== "platform_admin") {
+  if (caller?.app_metadata?.role !== "platform_admin") {
     return NextResponse.json({ error: "Only a platform admin can broadcast new content." }, { status: 403 });
   }
 
