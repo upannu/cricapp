@@ -2,9 +2,9 @@
 // small, explicit set rather than trying to cover every ISO currency: extending later is just
 // adding entries to these two lists/maps, nothing structural.
 
-export type Currency = "aud" | "usd" | "gbp" | "nzd";
+export type Currency = "aud" | "usd" | "gbp" | "nzd" | "inr";
 
-export const SUPPORTED_CURRENCIES: Currency[] = ["aud", "usd", "gbp", "nzd"];
+export const SUPPORTED_CURRENCIES: Currency[] = ["aud", "usd", "gbp", "nzd", "inr"];
 
 export const DEFAULT_CURRENCY: Currency = "aud";
 
@@ -13,6 +13,7 @@ export const CURRENCY_SYMBOLS: Record<Currency, string> = {
   usd: "US$",
   gbp: "£",
   nzd: "NZ$",
+  inr: "₹",
 };
 
 export const CURRENCY_LABELS: Record<Currency, string> = {
@@ -20,11 +21,17 @@ export const CURRENCY_LABELS: Record<Currency, string> = {
   usd: "US Dollar (USD)",
   gbp: "British Pound (GBP)",
   nzd: "New Zealand Dollar (NZD)",
+  inr: "Indian Rupee (INR)",
 };
 
 /** Countries an academy can be created in at launch, and the currency its Stripe Connect payout
  * account will use — currency is always derived from country, never picked independently, since
- * a Connect account's payout currency is tied to the country it was created with. */
+ * a Connect account's payout currency is tied to the country it was created with. India is
+ * deliberately NOT in this list even though INR is a supported currency above: Stripe Connect
+ * Express doesn't support India as a connected-account country
+ * (https://docs.stripe.com/connect/express-accounts), so an academy "in India" would have no way
+ * to actually get paid out. INR is only usable for individual (non-Connect) purchases — Player
+ * Pro/Coach Pro/Library/assessments — until/unless that changes. */
 export const COUNTRY_OPTIONS: { code: string; name: string; currency: Currency }[] = [
   { code: "AU", name: "Australia", currency: "aud" },
   { code: "NZ", name: "New Zealand", currency: "nzd" },
