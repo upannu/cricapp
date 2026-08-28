@@ -9,6 +9,7 @@ import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach,
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 import { getPlatformFeePercent } from "@/lib/utils";
+import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY } from "@/lib/currency";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const STAGES: AcademyStage[] = ["Foundation", "Mechanics", "Velocity", "Elite"];
@@ -34,6 +35,7 @@ type DraftAcademy = {
   playerIds: string[]; coachIds: string[]; headCoachId: string;
   stage: AcademyStage; startDate: string;
   status: "Active" | "Inactive";
+  country: string;
   sessionFeeAud: number;
   sessionTypeFees: Partial<Record<string, number>>;
   ageFees: Partial<Record<AgeGroup, number>>;
@@ -45,7 +47,7 @@ const EMPTY_DRAFT: DraftAcademy = {
   playerIds: [], coachIds: [], headCoachId: "",
   stage: "Foundation",
   startDate: new Date().toISOString().split("T")[0],
-  status: "Active", sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
+  status: "Active", country: "AU", sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
   payoutModel: "head_coach",
 };
 
@@ -285,6 +287,7 @@ export function AcademyClient() {
       playerIds: [...academy.playerIds], coachIds: [...coachIds],
       headCoachId,
       stage: academy.stage, startDate: academy.startDate, status: academy.status,
+      country: academy.country ?? "AU",
       sessionFeeAud: academy.sessionFeeAud,
       sessionTypeFees: { ...academy.sessionTypeFees },
       ageFees: { ...academy.ageFees },
@@ -301,6 +304,15 @@ export function AcademyClient() {
     setShowNewPlayer(false); setShowNewCoach(false);
     setFormError(""); setOwnerMissing(false); setOwnerSuggested(false);
   }
+
+  // Country is locked once a Connect payout account exists for this academy (Stripe can't move a
+  // connected account's country) — true if either the head coach or any assigned coach (covers
+  // both payout_model values) already has one. Computed once here so the UI's disabled-dropdown
+  // state and handleSave's actual enforcement can never disagree. See lib/currency.ts.
+  const academyCountryLocked = !!editingId && (
+    draft.coachIds.some((cid) => allCoaches.find((c) => c.id === cid)?.stripeConnectAccountId)
+    || !!allCoaches.find((c) => c.id === draft.headCoachId)?.stripeConnectAccountId
+  );
 
   // ── Save ───────────────────────────────────────────────────────────────────
   async function handleSave() {
@@ -321,6 +333,11 @@ export function AcademyClient() {
 
     const headCoach = allCoaches.find((c) => c.id === draft.headCoachId);
     const id = editingId ?? `ac${Date.now()}`;
+    // Keep whatever's already on the row rather than the draft's (disabled-but-still-present)
+    // value when locked, so a stale/injected draft value can never slip through.
+    const existingAcademy = editingId ? academies.find((a) => a.id === editingId) : undefined;
+    const country = (existingAcademy && academyCountryLocked) ? (existingAcademy.country ?? "AU") : draft.country;
+    const currency = currencyForCountry(country);
     const newAcademy: Academy = {
       id, name: draft.name.trim(), description: draft.description, location: draft.location,
       phone: draft.phone.trim() || undefined,
@@ -328,6 +345,7 @@ export function AcademyClient() {
       headCoachId: draft.headCoachId,
       stage: draft.stage, coachName: headCoach?.name ?? "",
       startDate: draft.startDate, status: draft.status,
+      country, currency,
       sessionFeeAud: draft.sessionFeeAud,
       sessionTypeFees: draft.sessionTypeFees,
       ageFees: cleanedAgeFees,
@@ -342,6 +360,7 @@ export function AcademyClient() {
         coach_ids: newAcademy.coachIds, head_coach_id: newAcademy.headCoachId,
         coach_name: newAcademy.coachName,
         stage: newAcademy.stage, start_date: newAcademy.startDate, status: newAcademy.status,
+        country: newAcademy.country, currency: newAcademy.currency,
         session_fee_aud: newAcademy.sessionFeeAud,
         session_type_fees: newAcademy.sessionTypeFees as Record<string, number>,
         age_fees: cleanedAgeFees as Record<string, number>,
@@ -422,6 +441,7 @@ export function AcademyClient() {
       phone: "", ageGroup: newPlayerDraft.ageGroup, bowlingStyle: newPlayerDraft.bowlingStyle,
       battingHand: "Right Hand", playingLevel: "Club", heightCm: null, weightKg: null,
       club: newPlayerDraft.club.trim(), addedDate: now, coachId: "",
+      currency: currencyForCountry(draft.country),
       guardianConsentStatus: "Pending",
       subscription: {
         plan: "Free", startDate: now,
@@ -446,10 +466,19 @@ export function AcademyClient() {
       bio_injury_risk: "Low", bio_last_session: now,
       acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
       acad_xp: 0, acad_articles_read: 0,
+      currency: newPlayer.currency,
     });
     setAllPlayers((prev) => [...prev, newPlayer]);
     setDraft((prev) => ({ ...prev, playerIds: [...prev.playerIds, newId] }));
     setNewPlayerDraft(EMPTY_NEW_PLAYER); setNewPlayerError(""); setShowNewPlayer(false);
+
+    if (newPlayer.email.trim()) {
+      fetch("/api/players/notify-added", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: newId, academyId: editingId }),
+      }).catch(() => {});
+    }
   }
 
   function downloadCsvTemplate() {
@@ -522,6 +551,7 @@ export function AcademyClient() {
         phone: row.phone, ageGroup: row.ageGroup, bowlingStyle: row.bowlingStyle,
         battingHand: "Right Hand", playingLevel: "Club", heightCm: null, weightKg: null,
         club: row.club, addedDate: now, coachId: "",
+        currency: currencyForCountry(draft.country),
         guardianConsentStatus: "Pending",
         subscription: {
           plan: "Free", startDate: now,
@@ -547,6 +577,7 @@ export function AcademyClient() {
         bio_injury_risk: "Low", bio_last_session: now,
         acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
         acad_xp: 0, acad_articles_read: 0,
+        currency: p.currency,
       })));
 
       // Import happens immediately against the real academy row — unlike the rest of this form,
@@ -569,6 +600,15 @@ export function AcademyClient() {
       setCsvImportedCount(newPlayers.length);
       setCsvRows([]);
       setCsvFileName("");
+
+      for (const p of newPlayers) {
+        if (!p.email.trim()) continue;
+        fetch("/api/players/notify-added", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerId: p.id, academyId: editingId }),
+        }).catch(() => {});
+      }
     } catch (err) {
       setCsvError((err as { message?: string })?.message ?? String(err));
     } finally {
@@ -587,6 +627,7 @@ export function AcademyClient() {
       ageGroupsFocus: [], location: "", status: "Active", joinedDate: now,
       certificationLevel: newCoachDraft.certificationLevel, bio: "", academyId: "",
       marketplaceVisible: false, available: true, stripeConnectOnboarded: false,
+      currency: currencyForCountry(draft.country),
     };
     try {
       await upsertCoach({
@@ -594,7 +635,7 @@ export function AcademyClient() {
         specialization: newCoach.specialization, age_groups_focus: [],
         location: "", status: "Active", joined_date: now,
         certification_level: newCoach.certificationLevel, bio: "", academy_id: null,
-        marketplace_visible: false,
+        marketplace_visible: false, currency: newCoach.currency,
       });
     } catch (err) {
       setNewCoachError((err as { message?: string })?.message ?? String(err));
@@ -1236,6 +1277,18 @@ export function AcademyClient() {
                     <input type="text" value={draft.location}
                       onChange={(e) => setDraft({ ...draft, location: e.target.value })}
                       className={inp} placeholder="e.g. Brisbane, QLD" />
+                  </div>
+                  <div>
+                    <label className={lbl}>Country</label>
+                    <select value={draft.country} disabled={academyCountryLocked}
+                      onChange={(e) => setDraft({ ...draft, country: e.target.value })}
+                      className={`${sel} ${academyCountryLocked ? "opacity-60 cursor-not-allowed" : ""}`}>
+                      {COUNTRY_OPTIONS.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+                    </select>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Players are billed and the academy paid out in {(COUNTRY_OPTIONS.find((c) => c.code === draft.country)?.currency ?? DEFAULT_CURRENCY).toUpperCase()}.
+                      {academyCountryLocked && " Locked — a coach here already has a Stripe payout account set up."}
+                    </p>
                   </div>
                   <div>
                     <label className={lbl}>Phone</label>

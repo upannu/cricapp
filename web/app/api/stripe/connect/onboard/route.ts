@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
   const { data: coach, error: coachError } = await supabase
     .from("coaches")
-    .select("id, name, email, stripe_connect_account_id")
+    .select("id, name, email, academy_id, stripe_connect_account_id")
     .eq("id", coachId)
     .single();
   if (coachError || !coach) {
@@ -50,8 +50,17 @@ export async function POST(request: Request) {
   try {
     let accountId = coach.stripe_connect_account_id as string | null;
     if (!accountId) {
+      // The connected account's payout currency is tied to its country and can't be changed
+      // later — resolve it from the coach's academy (see lib/currency.ts) so payouts land in the
+      // right currency from day one. An unaffiliated coach defaults to AU.
+      let country = "AU";
+      if (coach.academy_id) {
+        const { data: academy } = await supabase.from("academies").select("country").eq("id", coach.academy_id).maybeSingle();
+        country = academy?.country ?? "AU";
+      }
       const account = await stripe.accounts.create({
         type: "express",
+        country,
         email: coach.email,
         capabilities: { transfers: { requested: true } },
         metadata: { coach_id: coachId },

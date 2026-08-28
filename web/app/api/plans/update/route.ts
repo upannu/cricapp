@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { isSupportedCurrency } from "@/lib/currency";
 
 interface PlanInput {
   id?: string;
@@ -11,6 +12,7 @@ interface PlanInput {
   billingType?: string;
   billingInterval?: string | null;
   priceAud?: number;
+  pricesByCurrency?: Record<string, number>;
   seatCap?: number | null;
   accessDurationMonths?: number | null;
   includedNotes?: string | null;
@@ -52,6 +54,13 @@ export async function POST(request: Request) {
   if (input.chatMessagesPerDayLimit != null && (typeof input.chatMessagesPerDayLimit !== "number" || input.chatMessagesPerDayLimit < 0)) {
     return NextResponse.json({ error: "Chat messages/day limit must be a non-negative number, or left blank for unlimited." }, { status: 400 });
   }
+  if (input.pricesByCurrency) {
+    for (const [currency, price] of Object.entries(input.pricesByCurrency)) {
+      if (!isSupportedCurrency(currency) || currency === "aud" || typeof price !== "number" || !(price >= 0)) {
+        return NextResponse.json({ error: `Invalid price override for currency "${currency}".` }, { status: 400 });
+      }
+    }
+  }
 
   const cookieStore = await cookies();
   const authClient = createServerClient(
@@ -79,6 +88,7 @@ export async function POST(request: Request) {
     billing_type: input.billingType,
     billing_interval: input.billingType === "subscription" ? input.billingInterval : null,
     price_aud: input.priceAud,
+    prices_by_currency: input.pricesByCurrency ?? {},
     seat_cap: input.seatCap ?? null,
     access_duration_months: input.accessDurationMonths ?? null,
     included_notes: input.includedNotes?.trim() || null,

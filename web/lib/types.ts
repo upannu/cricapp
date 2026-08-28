@@ -1,3 +1,5 @@
+import type { Currency } from '@/lib/currency';
+
 export type PlanTier = 'Coach Pro' | 'Player Pro' | 'Free';
 
 /** The four roles a signup approval can be for — also the fixed set of editable welcome-email
@@ -28,6 +30,9 @@ export interface Plan {
   billingType: 'subscription' | 'one_time';
   billingInterval: 'month' | 'year' | null;
   priceAud: number;
+  /** Optional per-currency override prices (e.g. { usd: 35, gbp: 28 }) — see lib/currency.ts.
+   * A currency missing here isn't offered for this plan; checkout falls back to priceAud/AUD. */
+  pricesByCurrency: Partial<Record<Currency, number>>;
   seatCap: number | null;
   accessDurationMonths: number | null;
   includedNotes: string | null;
@@ -146,6 +151,12 @@ export interface Academy {
   coachName: string;
   startDate: string;
   status: 'Active' | 'Inactive';
+  /** ISO 3166-1 alpha-2, e.g. "AU" — set at creation, locked once a Stripe Connect payout account
+   * exists for the academy (see lib/currency.ts). Determines `currency` below. */
+  country: string;
+  /** Derived from `country` — the currency session fees below are denominated in, and what
+   * players/parents are charged (and the academy paid out) in via Stripe. */
+  currency: Currency;
   sessionFeeAud: number;
   sessionTypeFees: Partial<Record<BookingType, number>>;
   ageFees: Partial<Record<AgeGroup, number>>;
@@ -374,6 +385,10 @@ export interface Coach {
   /** Geocoded from `location` on save — absent until the geocoding API has resolved it at least once. */
   lat?: number;
   lng?: number;
+  /** The currency an unaffiliated (no academyId) coach pays their own individual Coach Pro
+   * subscription in — see lib/currency.ts. Irrelevant once a coach belongs to an academy, since
+   * that academy's own `currency` governs any revenue split. */
+  currency: Currency;
 }
 
 export type BookingStatus = 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed';
@@ -449,6 +464,10 @@ export interface Player {
   ageGroup: AgeGroup;
   club: string;
   coachId: string;
+  /** The currency this player (or their parent) pays in for anything not tied to an academy's own
+   * currency — their individual Player Pro/Library subscription, or an unaffiliated one-off
+   * purchase. See lib/currency.ts. */
+  currency: Currency;
   guardianConsentStatus: GuardianConsent;
   guardianConsentConfirmedAt?: string;
   guardianConsentConfirmedBy?: string;
