@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolvePlanPrice, formatMoney } from "@/lib/currency";
 
 /** Looks up an academy's assigned org-level plan (the `plans` catalog — name, price, and its
  * free-text `included_notes`) and formats it the same way for every email that shows "what's
@@ -8,19 +9,20 @@ export async function fetchAcademyPlanInfo(
   supabase: SupabaseClient,
   academyId: string,
 ): Promise<{ planName?: string; planLines: string[] }> {
-  const { data: academyRow } = await supabase.from("academies").select("plan_id").eq("id", academyId).maybeSingle();
+  const { data: academyRow } = await supabase.from("academies").select("plan_id, currency").eq("id", academyId).maybeSingle();
   if (!academyRow?.plan_id) return { planLines: [] };
 
   const { data: planRow } = await supabase
     .from("plans")
-    .select("name, price_aud, billing_interval, included_notes")
+    .select("name, price_aud, prices_by_currency, billing_interval, included_notes")
     .eq("id", academyRow.plan_id)
     .maybeSingle();
   if (!planRow) return { planLines: [] };
 
   const planLines: string[] = [];
   if (planRow.price_aud != null) {
-    planLines.push(`$${planRow.price_aud.toLocaleString("en-AU")} AUD${planRow.billing_interval ? ` / ${planRow.billing_interval}` : ""}`);
+    const { amount, currency } = resolvePlanPrice(planRow.price_aud, planRow.prices_by_currency, academyRow.currency);
+    planLines.push(`${formatMoney(amount, currency)}${planRow.billing_interval ? ` / ${planRow.billing_interval}` : ""}`);
   }
   if (planRow.included_notes) planLines.push(planRow.included_notes);
 

@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchActivePlans, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus, markBookingPaid, fetchBookingFeeDues, fetchNets } from "@/lib/db";
 import { formatDate, getSessionFee, getPlatformFeePercent } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
+import { DEFAULT_CURRENCY, formatMoney, sumMoneyByCurrency, type Currency } from "@/lib/currency";
 
 const BOOKING_TYPES: BookingType[] = [
   "Net Session", "Individual Coaching", "Video Review",
@@ -103,6 +104,12 @@ function platformFeePercentForCoach(coachId: string): number {
   const coach = _coaches.find((c) => c.id === coachId);
   if (!coach) return 10;
   return getPlatformFeePercent(coach.academyId, _academies, _plans);
+}
+
+function currencyForCoach(coachId: string): Currency {
+  const coach = _coaches.find((c) => c.id === coachId);
+  const academy = coach ? _academies.find((a) => a.id === coach.academyId) : undefined;
+  return academy?.currency ?? DEFAULT_CURRENCY;
 }
 
 const EMPTY_DRAFT: DraftBooking = {
@@ -474,7 +481,7 @@ export function BookingsClient() {
 
             {/* Fee */}
             <div>
-              <label className={lbl}>Session Fee (AUD)</label>
+              <label className={lbl}>Session Fee ({currencyForCoach(draft.coachId).toUpperCase()})</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-semibold">$</span>
                 <input
@@ -492,8 +499,8 @@ export function BookingsClient() {
                 <p className="text-xs text-pace-green mt-1.5">✓ Covered by the academy's plan — no session fee</p>
               ) : draft.feeAud > 0 && (
                 <div className="flex gap-4 mt-1.5 text-[11px]">
-                  <span className="text-amber">Platform: ${(draft.feeAud * (platformFeePercentForCoach(draft.coachId) / 100)).toFixed(0)}</span>
-                  <span className="text-pace-green">Academy: ${(draft.feeAud * (1 - platformFeePercentForCoach(draft.coachId) / 100)).toFixed(0)}</span>
+                  <span className="text-amber">Platform: {formatMoney(draft.feeAud * (platformFeePercentForCoach(draft.coachId) / 100), currencyForCoach(draft.coachId))}</span>
+                  <span className="text-pace-green">Academy: {formatMoney(draft.feeAud * (1 - platformFeePercentForCoach(draft.coachId) / 100), currencyForCoach(draft.coachId))}</span>
                 </div>
               )}
             </div>
@@ -607,13 +614,13 @@ export function BookingsClient() {
               <div className="grid grid-cols-2 gap-4 mb-2">
                 <div className="bg-surface rounded-2xl p-5 text-center">
                   <div className="text-2xl font-bold text-amber mb-1">
-                    ${feeDues.filter((d) => d.status === "pending").reduce((s, d) => s + d.amountAud, 0).toFixed(2)}
+                    {sumMoneyByCurrency(feeDues.filter((d) => d.status === "pending").map((d) => ({ amount: d.amountAud, currency: academyById(d.academyId)?.currency ?? DEFAULT_CURRENCY })))}
                   </div>
                   <div className="text-xs text-zinc-400">Pending</div>
                 </div>
                 <div className="bg-surface rounded-2xl p-5 text-center">
                   <div className="text-2xl font-bold text-pace-green mb-1">
-                    ${feeDues.filter((d) => d.status === "collected").reduce((s, d) => s + d.amountAud, 0).toFixed(2)}
+                    {sumMoneyByCurrency(feeDues.filter((d) => d.status === "collected").map((d) => ({ amount: d.amountAud, currency: academyById(d.academyId)?.currency ?? DEFAULT_CURRENCY })))}
                   </div>
                   <div className="text-xs text-zinc-400">Collected</div>
                 </div>
@@ -633,7 +640,7 @@ export function BookingsClient() {
                         </div>
                       </div>
                       <div className="flex items-center gap-4 flex-shrink-0">
-                        <div className="text-lg font-bold text-amber">${due.amountAud.toFixed(2)}</div>
+                        <div className="text-lg font-bold text-amber">{formatMoney(due.amountAud, academy?.currency ?? DEFAULT_CURRENCY)}</div>
                         {due.status === "collected" ? (
                           <span className="text-xs font-semibold text-pace-green">✓ Collected</span>
                         ) : user?.role === "platform_admin" ? (
@@ -792,7 +799,7 @@ function BookingCard({
             <div className="flex items-center gap-2 text-xs text-zinc-400 flex-wrap">
               <span>{b.durationMins} min</span>
               {coach && <><span>·</span><span className="text-zinc-300">👤 {coach.name}</span></>}
-              {b.feeAud > 0 && <><span>·</span><span className="text-amber font-semibold">${b.feeAud}</span></>}
+              {b.feeAud > 0 && <><span>·</span><span className="text-amber font-semibold">{formatMoney(b.feeAud, currencyForCoach(b.coachId))}</span></>}
               {b.location && <><span>·</span><span className="truncate max-w-xs">{b.location}</span></>}
             </div>
           </div>
@@ -824,15 +831,15 @@ function BookingCard({
               {b.feeAud > 0 && (
                 <div className="mt-3 pt-3 border-t border-zinc-700/50 grid grid-cols-3 gap-2 text-center">
                   <div>
-                    <div className="text-sm font-bold text-white">${b.feeAud}</div>
+                    <div className="text-sm font-bold text-white">{formatMoney(b.feeAud, currencyForCoach(b.coachId))}</div>
                     <div className="text-[10px] text-zinc-500">Session fee</div>
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-amber">${(b.feeAud * (platformFeePercentForCoach(b.coachId) / 100)).toFixed(0)}</div>
+                    <div className="text-sm font-bold text-amber">{formatMoney(b.feeAud * (platformFeePercentForCoach(b.coachId) / 100), currencyForCoach(b.coachId))}</div>
                     <div className="text-[10px] text-zinc-500">Platform ({platformFeePercentForCoach(b.coachId)}%)</div>
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-pace-green">${(b.feeAud * (1 - platformFeePercentForCoach(b.coachId) / 100)).toFixed(0)}</div>
+                    <div className="text-sm font-bold text-pace-green">{formatMoney(b.feeAud * (1 - platformFeePercentForCoach(b.coachId) / 100), currencyForCoach(b.coachId))}</div>
                     <div className="text-[10px] text-zinc-500">Academy ({100 - platformFeePercentForCoach(b.coachId)}%)</div>
                   </div>
                 </div>

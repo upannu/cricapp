@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchPlayer, fetchCoaches, fetchAcademies, fetchActivePlans, upsertBooking } from "@/lib/db";
 import { getSessionFee, getInitials, distanceKm } from "@/lib/utils";
 import { canUseMarketplace } from "@/lib/plan-features";
+import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currency";
 import type { Player, Coach, Academy, AgeGroup, BookingType, Plan } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 
@@ -340,7 +341,7 @@ function RequestBookingModal({
 
               <div className="flex items-center justify-between bg-ink rounded-xl px-4 py-3">
                 <span className="text-xs text-zinc-400">{feesWaived ? "Session fee" : "Estimated fee"}</span>
-                <span className="text-pace-green font-mono font-bold text-sm">{feesWaived ? "Covered by academy plan" : `$${fee}`}</span>
+                <span className="text-pace-green font-mono font-bold text-sm">{feesWaived ? "Covered by academy plan" : formatMoney(fee, academy?.currency ?? DEFAULT_CURRENCY)}</span>
               </div>
 
               {error && <p className="text-red-400 text-xs">{error}</p>}

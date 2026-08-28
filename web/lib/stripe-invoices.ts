@@ -9,7 +9,7 @@ export interface NormalizedInvoice {
   stripeId: string;
   invoiceNumber: string;
   date: string;
-  amountAud: number;
+  amount: number;
   currency: string;
   status: InvoiceStatus;
   description: string;
@@ -65,7 +65,7 @@ export function normalizeStripeInvoice(invoice: Stripe.Invoice): NormalizedInvoi
     stripeId: invoice.id ?? "",
     invoiceNumber: invoice.number ?? deriveInvoiceNumber(invoice.id ?? ""),
     date: toIso(invoice.created),
-    amountAud: amountCents / 100,
+    amount: amountCents / 100,
     currency: invoice.currency,
     status,
     description,
@@ -81,7 +81,7 @@ export function normalizeCheckoutSession(session: Stripe.Checkout.Session): Norm
     stripeId: session.id,
     invoiceNumber: deriveInvoiceNumber(session.id),
     date: toIso(session.created),
-    amountAud: (session.amount_total ?? 0) / 100,
+    amount: (session.amount_total ?? 0) / 100,
     currency: session.currency ?? "aud",
     status: "paid",
     description: ONE_TIME_LABELS[paymentType] ?? "One-time payment",

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { fetchAllPlans } from "@/lib/db";
 import type { Plan } from "@/lib/types";
-import { SUPPORTED_CURRENCIES, type Currency } from "@/lib/currency";
+import { SUPPORTED_CURRENCIES, formatMoney, type Currency } from "@/lib/currency";
 
 const OTHER_CURRENCIES = SUPPORTED_CURRENCIES.filter((c) => c !== "aud");
 
@@ -247,10 +247,11 @@ export function PlansAdminClient() {
                   )}
                 </div>
                 <div className="text-xs text-zinc-400">
-                  ${p.priceAud.toFixed(2)} AUD
+                  {formatMoney(p.priceAud, "aud")}
                   {p.billingType === "subscription" ? ` / ${p.billingInterval}` : " one-time"}
                   {p.seatCap != null && ` · capped at ${p.seatCap} bowlers`}
                   {p.accessDurationMonths != null && ` · access for ${p.accessDurationMonths} month${p.accessDurationMonths === 1 ? "" : "s"}`}
+                  {OTHER_CURRENCIES.filter((c) => p.pricesByCurrency[c] != null).map((c) => ` · ${formatMoney(p.pricesByCurrency[c]!, c)}`).join("")}
                 </div>
                 {p.includedNotes && <div className="text-xs text-zinc-500 mt-1">{p.includedNotes}</div>}
               </div>

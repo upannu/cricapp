@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { fetchAcademies, fetchCoaches, fetchAllPlans } from "@/lib/db";
+import { formatMoney } from "@/lib/currency";
 import type { Academy, Coach, Plan, AcademyStage } from "@/lib/types";
 
 const STAGE_STYLES: Record<AcademyStage, string> = {
@@ -117,7 +118,7 @@ export function PlatformKpisClient() {
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-white font-medium truncate">{plan.name}</span>
                     <span className="text-zinc-500 text-xs flex-shrink-0">
-                      {plan.billingType === "one_time" ? "one-time" : `/${plan.billingInterval}`} · ${plan.priceAud}
+                      {plan.billingType === "one_time" ? "one-time" : `/${plan.billingInterval}`} · {formatMoney(plan.priceAud, "aud")}
                     </span>
                   </div>
                   <span className="text-zinc-300 font-bold flex-shrink-0">{count}</span>

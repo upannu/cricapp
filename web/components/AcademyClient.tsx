@@ -9,7 +9,7 @@ import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach,
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 import { getPlatformFeePercent } from "@/lib/utils";
-import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY } from "@/lib/currency";
+import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const STAGES: AcademyStage[] = ["Foundation", "Mechanics", "Velocity", "Elite"];
@@ -841,7 +841,7 @@ export function AcademyClient() {
                       <div className="text-[10px] text-zinc-500">Coaches</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-sm font-bold text-white">{academy.sessionFeeAud > 0 ? `$${academy.sessionFeeAud}` : "—"}</div>
+                      <div className="text-sm font-bold text-white">{academy.sessionFeeAud > 0 ? formatMoney(academy.sessionFeeAud, academy.currency) : "—"}</div>
                       <div className="text-[10px] text-zinc-500">Fee/session</div>
                     </div>
                   </div>
@@ -1052,16 +1052,16 @@ export function AcademyClient() {
                           <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Default Session Fee</p>
                           <div className="flex items-baseline gap-2">
                             <span className="text-2xl font-bold text-pace-green">
-                              {academy.sessionFeeAud > 0 ? `$${academy.sessionFeeAud}` : "—"}
+                              {academy.sessionFeeAud > 0 ? formatMoney(academy.sessionFeeAud, academy.currency) : "—"}
                             </span>
-                            {academy.sessionFeeAud > 0 && <span className="text-zinc-400 text-sm">AUD per session</span>}
+                            {academy.sessionFeeAud > 0 && <span className="text-zinc-400 text-sm">{academy.currency.toUpperCase()} per session</span>}
                           </div>
                           {academy.sessionFeeAud > 0 && (() => {
                             const feePct = getPlatformFeePercent(academy.id, academies, orgPlans);
                             return (
                               <div className="flex gap-6 mt-1.5 text-xs text-zinc-400">
-                                <span>Platform fee ({feePct}%): <span className="text-amber font-semibold">${(academy.sessionFeeAud * (feePct / 100)).toFixed(2)}</span></span>
-                                <span>Academy receives: <span className="text-pace-green font-semibold">${(academy.sessionFeeAud * (1 - feePct / 100)).toFixed(2)}</span></span>
+                                <span>Platform fee ({feePct}%): <span className="text-amber font-semibold">{formatMoney(academy.sessionFeeAud * (feePct / 100), academy.currency)}</span></span>
+                                <span>Academy receives: <span className="text-pace-green font-semibold">{formatMoney(academy.sessionFeeAud * (1 - feePct / 100), academy.currency)}</span></span>
                               </div>
                             );
                           })()}
@@ -1074,7 +1074,7 @@ export function AcademyClient() {
                                 (fee ?? 0) > 0 ? (
                                   <div key={type} className="flex items-center justify-between">
                                     <span className="text-xs text-zinc-400">{type}</span>
-                                    <span className="text-xs font-bold text-white">${fee}</span>
+                                    <span className="text-xs font-bold text-white">{formatMoney(fee ?? 0, academy.currency)}</span>
                                   </div>
                                 ) : null
                               )}
@@ -1088,7 +1088,7 @@ export function AcademyClient() {
                               {AGE_GROUPS.filter((g) => (academy.ageFees[g] ?? 0) > 0).map((g) => (
                                 <div key={g} className="bg-surface rounded-lg p-2 text-center">
                                   <div className="text-xs text-zinc-400 mb-0.5">{g}</div>
-                                  <div className="text-sm font-bold text-pace-green">${academy.ageFees[g]}</div>
+                                  <div className="text-sm font-bold text-pace-green">{formatMoney(academy.ageFees[g] ?? 0, academy.currency)}</div>
                                 </div>
                               ))}
                             </div>
@@ -1478,7 +1478,7 @@ export function AcademyClient() {
                 <p className={sectionLbl}>Pricing</p>
                 <div className="bg-ink rounded-xl p-4 space-y-4">
                   <div>
-                    <label className={lbl}>Default Session Fee (AUD)</label>
+                    <label className={lbl}>Default Session Fee ({currencyForCountry(draft.country).toUpperCase()})</label>
                     <div className="flex items-center gap-4">
                       <div className="relative max-w-xs flex-1">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-semibold">$</span>
@@ -1489,10 +1489,11 @@ export function AcademyClient() {
                       </div>
                       {draft.sessionFeeAud > 0 && (() => {
                         const feePct = editingId ? getPlatformFeePercent(editingId, academies, orgPlans) : 10;
+                        const draftCurrency = currencyForCountry(draft.country);
                         return (
                           <div className="text-xs text-zinc-400 space-y-0.5">
-                            <div>Platform ({feePct}%): <span className="text-amber font-semibold">${(draft.sessionFeeAud * (feePct / 100)).toFixed(2)}</span></div>
-                            <div>Academy: <span className="text-pace-green font-semibold">${(draft.sessionFeeAud * (1 - feePct / 100)).toFixed(2)}</span></div>
+                            <div>Platform ({feePct}%): <span className="text-amber font-semibold">{formatMoney(draft.sessionFeeAud * (feePct / 100), draftCurrency)}</span></div>
+                            <div>Academy: <span className="text-pace-green font-semibold">{formatMoney(draft.sessionFeeAud * (1 - feePct / 100), draftCurrency)}</span></div>
                           </div>
                         );
                       })()}

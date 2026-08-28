@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { fetchReferrals, fetchReferralPayouts, fetchPlayers, fetchCoaches, fetchAcademies } from "@/lib/db";
 import { formatDate } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 import { DateInput } from "@/components/DateInput";
 import type { Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, Player, Coach, Academy } from "@/lib/types";
 
@@ -367,8 +368,11 @@ function ReferralRow({
             </div>
           </div>
           <div className="text-right flex-shrink-0">
-            <div className="text-sm font-bold font-mono text-pace-green">${totalPaid.toFixed(2)} paid</div>
-            {totalPending > 0 && <div className="text-xs font-mono text-amber">${totalPending.toFixed(2)} pending</div>}
+            {/* Referral commissions are a fixed platform payout structure (a flat AUD rate or % of
+                revenue), independent of whatever currency the referred academy/player/coach
+                happens to bill in — always AUD, not derived from the referred entity. */}
+            <div className="text-sm font-bold font-mono text-pace-green">{formatMoney(totalPaid, "aud")} paid</div>
+            {totalPending > 0 && <div className="text-xs font-mono text-amber">{formatMoney(totalPending, "aud")} pending</div>}
           </div>
         </div>
       </button>
@@ -389,7 +393,7 @@ function ReferralRow({
               {payoutList.map((p) => (
                 <div key={p.id} className="flex items-center justify-between gap-3 bg-ink rounded-xl px-4 py-2.5">
                   <div className="text-sm text-white">
-                    {p.periodLabel ? `${p.periodLabel} · ` : ""}${p.amountAud.toFixed(2)}
+                    {p.periodLabel ? `${p.periodLabel} · ` : ""}{formatMoney(p.amountAud, "aud")}
                     {p.status === "paid" && p.paidDate && <span className="text-zinc-500 text-xs ml-2">paid {formatDate(p.paidDate)}</span>}
                   </div>
                   {p.status === "paid" ? (

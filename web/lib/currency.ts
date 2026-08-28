@@ -60,6 +60,22 @@ export function resolvePlanPrice(
   return { amount: priceAud, currency: DEFAULT_CURRENCY };
 }
 
+/** Sums a list of amounts that may span different currencies (e.g. platform-fee dues across
+ * academies in different countries) into a display string — summing the raw numbers together
+ * would be meaningless once more than one currency is involved, so each currency gets its own
+ * subtotal instead. Renders as a single amount in the common case (everything's the same
+ * currency), or "A$120.00 + NZ$45.00" style when genuinely mixed. */
+export function sumMoneyByCurrency(entries: Array<{ amount: number; currency: string }>): string {
+  const totals: Partial<Record<Currency, number>> = {};
+  for (const e of entries) {
+    const c = isSupportedCurrency(e.currency) ? e.currency : DEFAULT_CURRENCY;
+    totals[c] = (totals[c] ?? 0) + e.amount;
+  }
+  const grouped = Object.entries(totals) as [Currency, number][];
+  if (grouped.length === 0) return formatMoney(0, DEFAULT_CURRENCY);
+  return grouped.map(([c, amt]) => formatMoney(amt, c)).join(" + ");
+}
+
 /** The one shared money formatter — every UI amount should go through this rather than a
  * hand-rolled `$${x.toFixed(2)}` string, so a display is never silently wrong about which
  * currency it's actually showing. */
