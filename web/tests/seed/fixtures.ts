@@ -4,6 +4,8 @@ import { E2E_PREFIX } from "./client";
 export const ACADEMY_ID = `${E2E_PREFIX}academy`;
 export const COACH_ENTITY_ID = `${E2E_PREFIX}coach`;
 export const PLAYER_ENTITY_ID = `${E2E_PREFIX}player`;
+/** A report with a flagged, drill-mapped issue — generate-action-plan's E2E smoke test needs one to exist. */
+export const FLAGGED_REPORT_ID = `${E2E_PREFIX}report-flagged`;
 
 export type E2eRole = "platform_admin" | "academy_admin" | "coach" | "player" | "parent";
 

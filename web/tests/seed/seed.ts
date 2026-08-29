@@ -7,7 +7,7 @@
  *
  * Usage: npm run seed
  */
-import { ACADEMY_ID, COACH_ENTITY_ID, PLAYER_ENTITY_ID, ROLE_FIXTURES } from "./fixtures";
+import { ACADEMY_ID, COACH_ENTITY_ID, FLAGGED_REPORT_ID, PLAYER_ENTITY_ID, ROLE_FIXTURES } from "./fixtures";
 import { E2E_TEST_PASSWORD, serviceClient } from "./client";
 
 async function upsertAuthUser(supabase: ReturnType<typeof serviceClient>, email: string, userMetadata: Record<string, string>) {
@@ -94,6 +94,31 @@ export async function runSeed() {
     { onConflict: "id" },
   );
   if (playerError) throw new Error(`Failed to seed player: ${playerError.message}`);
+
+  console.log("Seeding a flagged biomechanics report (for generate-action-plan's E2E smoke test)...");
+  const { error: reportError } = await supabase.from("reports").upsert(
+    {
+      id: FLAGGED_REPORT_ID,
+      player_id: PLAYER_ENTITY_ID,
+      date: today,
+      type: "Biomechanics",
+      summary: "E2E fixture report with a flagged, drill-mapped issue.",
+      tags: [],
+      metrics: {
+        metrics: [{ id: "frontKneeFFC", label: "Front Knee Angle", zone: "release", value: 150, unit: "°", score: 60 }],
+        zoneScores: { approach: 70, deliveryStride: 65, release: 60, followThrough: 68 },
+        flags: ["Front knee collapsing early"],
+        flaggedMetricIds: ["frontKneeFFC"],
+        overallScore: 65,
+      },
+      drills: [{ id: "d1", name: "Wall Drill", focus: "Knee brace", description: "Practice bracing the front knee." }],
+      injury_risk: "Moderate",
+      action_type: "Side-on",
+      overall_score: 65,
+    },
+    { onConflict: "id" },
+  );
+  if (reportError) throw new Error(`Failed to seed flagged report: ${reportError.message}`);
 
   console.log("Seed complete.");
 }

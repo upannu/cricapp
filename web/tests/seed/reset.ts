@@ -12,8 +12,9 @@ import { runSeed } from "./seed";
 // Deletion order matters: coaches.academy_id is a real FK to academies, so
 // coaches must go before academies. players.coach_id has no DB-level FK
 // (app-level reference only, per schema-notes.md), so its order relative to
-// coaches doesn't matter, but it's deleted first for clarity.
-const TABLES_IN_DELETE_ORDER = ["players", "coaches", "academies"] as const;
+// coaches doesn't matter, but it's deleted first for clarity. reports
+// references players the same (app-level only) way, deleted first regardless.
+const TABLES_IN_DELETE_ORDER = ["reports", "players", "coaches", "academies"] as const;
 
 async function main() {
   const supabase = serviceClient();
