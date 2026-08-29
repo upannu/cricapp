@@ -51,7 +51,9 @@ export async function middleware(request: NextRequest) {
     // cookie, each authenticated via its own CRON_SECRET bearer token (verified inside the route).
     pathname.startsWith("/api/cron/") ||
     // Contact form can be submitted by a signed-out visitor.
-    pathname.startsWith("/api/contact");
+    pathname.startsWith("/api/contact") ||
+    // Public player-registration page (/register) — gated by its own shared code, not a session.
+    pathname.startsWith("/api/public-register-player");
 
   const isPublicPage =
     pathname.startsWith("/login") ||
@@ -65,7 +67,10 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/about") ||
     pathname.startsWith("/contact") ||
     pathname.startsWith("/terms") ||
-    pathname.startsWith("/privacy");
+    pathname.startsWith("/privacy") ||
+    // Public, code-gated player-registration page — a coach/staff member should be able to open
+    // it too (e.g. to demo it to a parent) without getting bounced.
+    pathname.startsWith("/register");
 
   if (!user && !isPublicPage && !isAlwaysPublicPage && !isAuthApi) {
     return NextResponse.redirect(new URL("/login", request.url));

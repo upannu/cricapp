@@ -118,6 +118,14 @@ export default function ApprovalsPage() {
 
   async function handleCreateAcademy() {
     if (!newAcademyName.trim()) return;
+    // Backstop for requests queued before signup itself started checking this (see
+    // complete-signup) — an admin approving an older pending request could otherwise still
+    // create a second academy with the same name.
+    const nameTaken = academies.some((a) => a.name.trim().toLowerCase() === newAcademyName.trim().toLowerCase());
+    if (nameTaken) {
+      setErrorMsg(`An academy named "${newAcademyName.trim()}" already exists — pick it from the dropdown instead of creating a new one.`);
+      return;
+    }
     setSavingAcademy(true);
     setErrorMsg(null);
     try {

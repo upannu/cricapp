@@ -41,6 +41,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Signup verification failed." }, { status: 400 });
   }
 
+  // This route should only ever run once per account — the moment right after a genuinely new
+  // signUp() call. Supabase silently returns the *existing* (same id) user for a repeat signUp()
+  // against an email that's unconfirmed rather than erroring, so a second signup attempt for the
+  // same email can reach here even when /api/check-existing-account + the request-additional-role
+  // flow were supposed to catch it first. Refusing to touch an account that already has a role set
+  // is the actual backstop — without it, this call blindly overwrites app_metadata, silently
+  // wiping out whatever role/approval/academy_id the first signup already established.
+  if (userData.user.app_metadata?.role) {
+    return NextResponse.json({ error: "This email already has an account. Sign in instead, or use 'request an additional role' from your account settings." }, { status: 409 });
+  }
+
   if (role === "player" || role === "parent") {
     if (!playerLookupEmail) {
       return NextResponse.json({ error: "A linked player email is required." }, { status: 400 });
@@ -67,6 +78,21 @@ export async function POST(request: Request) {
     const { error } = await supabase.auth.admin.updateUserById(userId, { app_metadata: appMetadata });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true, approved: true });
+  }
+
+  // A fresh academy_admin signup almost always means a fresh academy — nothing stops someone
+  // typing a name that already exists (their own academy, mistakenly signing up again, or
+  // someone else's), which otherwise sails through into the pending queue and only surfaces as a
+  // confusing duplicate once a platform admin tries to approve it.
+  if (role === "academy_admin" && academyName?.trim()) {
+    const { data: existingAcademy } = await supabase
+      .from("academies")
+      .select("id")
+      .ilike("name", academyName.trim())
+      .limit(1);
+    if (existingAcademy && existingAcademy.length > 0) {
+      return NextResponse.json({ error: `An academy named "${academyName.trim()}" already exists. If this is your academy, ask its existing admin to add you instead of signing up again.` }, { status: 409 });
+    }
   }
 
   // academy_admin / coach — unchanged from before: still queued for a platform admin to review.
