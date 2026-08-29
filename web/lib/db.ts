@@ -354,8 +354,11 @@ export async function fetchPlayer(id: string): Promise<Player | null> {
 
 export async function fetchPlayerByEmail(email: string): Promise<Player | null> {
   const sb = createClient();
-  const { data } = await sb.from("players").select("*").ilike("email", email).maybeSingle();
-  return data ? dbToPlayer(data as DbPlayer) : null;
+  // Player emails aren't unique (siblings can share a family email) — maybeSingle() silently
+  // returns null the moment more than one row matches, so use limit(1) like every other
+  // email-based player lookup in this app.
+  const { data } = await sb.from("players").select("*").ilike("email", email).limit(1);
+  return data?.[0] ? dbToPlayer(data[0] as DbPlayer) : null;
 }
 
 export async function updatePlayer(id: string, edits: Partial<DbPlayer>): Promise<void> {
