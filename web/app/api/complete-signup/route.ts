@@ -45,21 +45,26 @@ export async function POST(request: Request) {
     if (!playerLookupEmail) {
       return NextResponse.json({ error: "A linked player email is required." }, { status: 400 });
     }
-    // Player emails aren't unique (e.g. a parent reusing one email for multiple kids), so don't
-    // use maybeSingle() — it errors out silently on multiple matches.
+    // Player emails aren't unique — siblings often share one family email, and the same real
+    // child can have more than one player row (this app ties one coach_id to each row, so "same
+    // kid, two academies" is two separate rows too). Link ALL of them, not just the first: the
+    // account's app_metadata.player_id becomes the active one, and every match (including the
+    // active one, per the linkedIdentities convention elsewhere in this app) goes into
+    // linkedIdentities so NavBar's existing role-switcher lets them flip between children —
+    // exactly the same mechanism a coach-who's-also-a-parent already uses to switch roles.
     const { data: playerMatches } = await supabase
       .from("players")
       .select("id")
-      .ilike("email", playerLookupEmail)
-      .limit(1);
-    const playerMatch = playerMatches?.[0];
-    if (!playerMatch) {
+      .ilike("email", playerLookupEmail);
+    if (!playerMatches || playerMatches.length === 0) {
       return NextResponse.json({ error: `No player found with email ${playerLookupEmail}. Add the player first, then sign up.` }, { status: 400 });
     }
 
-    const { error } = await supabase.auth.admin.updateUserById(userId, {
-      app_metadata: { role, approved: true, player_id: playerMatch.id },
-    });
+    const appMetadata: Record<string, unknown> = { role, approved: true, player_id: playerMatches[0].id };
+    if (playerMatches.length > 1) {
+      appMetadata.linkedIdentities = playerMatches.map((p) => ({ role, playerId: p.id }));
+    }
+    const { error } = await supabase.auth.admin.updateUserById(userId, { app_metadata: appMetadata });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ success: true, approved: true });
   }

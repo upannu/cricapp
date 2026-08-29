@@ -114,7 +114,12 @@ export async function POST(request: Request) {
     if (linkedCoachId) newIdentity.coachId = linkedCoachId;
     if (linkedPlayerId) newIdentity.playerId = linkedPlayerId;
 
-    const alreadyLinked = seeded.some((li) => li.role === newIdentity.role);
+    // One identity per role for academy_admin/coach (a second one doesn't make sense), but a
+    // parent/player can legitimately have several — one per child — so dedup those by the full
+    // (role, playerId) pair instead, letting a newly-discovered sibling still get linked later.
+    const alreadyLinked = (newIdentity.role === "player" || newIdentity.role === "parent")
+      ? seeded.some((li) => li.role === newIdentity.role && li.playerId === newIdentity.playerId)
+      : seeded.some((li) => li.role === newIdentity.role);
     const linkedIdentities = alreadyLinked ? seeded : [...seeded, newIdentity];
 
     // Only linkedIdentities changes here — the account's currently-active role/links are left
