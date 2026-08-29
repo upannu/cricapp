@@ -55,6 +55,36 @@ function SignUpForm() {
   // Only trust playerLookup if it was computed for the email currently in the field
   const lookupForCurrentEmail = playerLookup?.email === playerEmail.trim() ? playerLookup : null;
 
+  // Live "does this email already have an account" check on the account-email field itself —
+  // catches the case that actually caused real damage: someone submitting a second signup for
+  // an email that already has a pending/approved account, before they even hit submit, rather
+  // than finding out only after something went wrong (or, before this existed, silently
+  // overwriting the first account's role entirely).
+  const [emailCheck, setEmailCheck] = useState<{ email: string; status: "checking" | "exists" | "clear" } | null>(null);
+  const emailCheckForCurrent = emailCheck?.email === email.trim() ? emailCheck : null;
+
+  useEffect(() => {
+    if (!email.trim()) { setEmailCheck(null); return; }
+    const e = email.trim();
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      if (cancelled) return;
+      setEmailCheck({ email: e, status: "checking" });
+      try {
+        const res = await fetch("/api/check-existing-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: e }),
+        });
+        const data = await res.json();
+        if (!cancelled) setEmailCheck({ email: e, status: data.exists ? "exists" : "clear" });
+      } catch {
+        if (!cancelled) setEmailCheck(null);
+      }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(handle); };
+  }, [email]);
+
   useEffect(() => {
     if (!NEEDS_PLAYER_LOOKUP.includes(role) || !playerEmail.trim()) return;
     const email = playerEmail.trim();
@@ -271,6 +301,14 @@ function SignUpForm() {
                   placeholder="your@email.com"
                   required
                 />
+                {emailCheckForCurrent?.status === "exists" && (
+                  <p className="text-amber text-xs mt-1.5">
+                    This email already has a CRIC HQ account. If it&apos;s yours,{" "}
+                    <Link href="/login" className="underline hover:opacity-80">sign in</Link> instead —
+                    submitting this form will queue a request to link a {ROLE_OPTIONS.find((o) => o.value === role)?.label.toLowerCase()} role
+                    to it rather than create a new account.
+                  </p>
+                )}
               </div>
 
               <div>
