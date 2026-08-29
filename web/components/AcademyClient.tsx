@@ -317,6 +317,8 @@ export function AcademyClient() {
   // ── Save ───────────────────────────────────────────────────────────────────
   async function handleSave() {
     if (!draft.name.trim()) { setFormError("Academy Name is required."); return; }
+    const nameTaken = academies.some((a) => a.id !== editingId && a.name.trim().toLowerCase() === draft.name.trim().toLowerCase());
+    if (nameTaken) { setFormError(`An academy named "${draft.name.trim()}" already exists.`); return; }
     if (!draft.headCoachId) { setOwnerMissing(true); return; }
     setFormError(""); setSaving(true);
 
@@ -618,6 +620,14 @@ export function AcademyClient() {
 
   async function handleAddNewCoach() {
     if (!newCoachDraft.name.trim()) { setNewCoachError("Name is required."); return; }
+    const email = newCoachDraft.email.trim();
+    // Nothing in the schema stops two coach rows sharing an email — and when that happens, every
+    // email-based lookup elsewhere (invite approval, login linking) can only ever resolve to one
+    // of them, silently orphaning whichever wasn't picked. Catch it here instead.
+    if (email && allCoaches.some((c) => c.email.toLowerCase() === email.toLowerCase())) {
+      setNewCoachError(`Another coach already uses ${email} — each coach needs a unique email.`);
+      return;
+    }
     setNewCoachError(""); setSavingCoach(true);
     const newId  = `c_${Date.now()}`;
     const now    = new Date().toISOString().split("T")[0];

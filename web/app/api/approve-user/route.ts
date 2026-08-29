@@ -76,15 +76,17 @@ export async function POST(request: Request) {
   // Coaches who self-signed-up (rather than being invited via the coaches admin UI, which
   // already links coach_id at invite time) still need linking to their own coaches row here —
   // best-effort by email match, not a hard requirement, since a coach may legitimately sign up
-  // before any coaches row exists for them yet.
+  // before any coaches row exists for them yet. Coach emails aren't guaranteed unique (nothing
+  // stops two coach rows sharing one by mistake) — maybeSingle() throws on more than one match,
+  // silently dropping the link entirely, so use limit(1) like the player lookup below already does.
   let linkedCoachId: string | undefined;
   if (reqData.role === "coach") {
-    const { data: coachMatch } = await supabase
+    const { data: coachMatches } = await supabase
       .from("coaches")
       .select("id")
       .ilike("email", reqData.email)
-      .maybeSingle();
-    linkedCoachId = coachMatch?.id;
+      .limit(1);
+    linkedCoachId = coachMatches?.[0]?.id;
   }
 
   // A "link" request (an already-approved account requesting an additional role) is tied to
