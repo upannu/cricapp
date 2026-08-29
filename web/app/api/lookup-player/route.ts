@@ -14,15 +14,19 @@ export async function GET(request: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  // Player emails aren't unique (e.g. a parent reusing one email for multiple kids),
-  // so don't use maybeSingle() — it errors out silently on multiple matches.
+  // Player emails aren't unique (e.g. a parent reusing one email for multiple kids), so don't use
+  // maybeSingle() — it errors out silently on multiple matches. Signing up now links every match
+  // (see /api/complete-signup), so surface the count here too rather than silently picking one.
   const { data } = await supabase
     .from("players")
     .select("name")
-    .ilike("email", email)
-    .limit(1);
+    .ilike("email", email);
 
   const match = data?.[0];
   // Only return existence + first name — never leak other player data pre-signup
-  return NextResponse.json({ found: !!match, playerName: match?.name ?? null });
+  return NextResponse.json({
+    found: !!match,
+    playerName: match?.name ?? null,
+    additionalCount: data && data.length > 1 ? data.length - 1 : 0,
+  });
 }

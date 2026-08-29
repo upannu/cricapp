@@ -53,6 +53,7 @@ export function NavBar() {
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [playerNames, setPlayerNames] = useState<Record<string, { name: string; academyName: string | null }>>({});
   const adminMenuRef = useRef<HTMLDivElement>(null);
   const roleMenuRef = useRef<HTMLDivElement>(null);
 
@@ -63,6 +64,37 @@ export function NavBar() {
       .then((d) => setPendingCount(d.requests?.length ?? 0))
       .catch(() => {});
   }, [user]);
+
+  // Two linked children of the same role both show as "Player"/"Parent / Guardian" unless we
+  // fetch their actual names — RLS only lets the caller read their currently-active player row,
+  // so this goes through a dedicated route (see api/players/linked-names) rather than a direct
+  // client-side query.
+  useEffect(() => {
+    const playerIds = (user?.linkedIdentities ?? [])
+      .map((li) => li.playerId)
+      .filter((id): id is string => !!id);
+    if (playerIds.length < 2) { setPlayerNames({}); return; }
+    fetch("/api/players/linked-names", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playerIds }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        const map: Record<string, { name: string; academyName: string | null }> = {};
+        for (const p of d.players ?? []) map[p.id] = { name: p.name, academyName: p.academyName };
+        setPlayerNames(map);
+      })
+      .catch(() => {});
+  }, [user?.linkedIdentities]);
+
+  function identityLabel(identity: { role: UserRole; playerId?: string }): string {
+    if (identity.playerId && playerNames[identity.playerId]) {
+      const p = playerNames[identity.playerId];
+      return p.academyName ? `${p.name} · ${p.academyName}` : p.name;
+    }
+    return ROLE_LABELS[identity.role];
+  }
 
   // Close the mobile menu automatically whenever the route changes.
   useEffect(() => {
@@ -262,7 +294,7 @@ export function NavBar() {
                             isActive ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
                           }`}
                         >
-                          {ROLE_LABELS[identity.role]}
+                          {identityLabel(identity)}
                           {isActive && <span className="text-xs">✓ Active</span>}
                         </button>
                       );
@@ -388,7 +420,7 @@ export function NavBar() {
                         isActive ? "border-pace-green bg-pace-green/10 text-pace-green" : "border-zinc-700 text-zinc-300"
                       }`}
                     >
-                      {ROLE_LABELS[identity.role]}{isActive ? " ✓" : ""}
+                      {identityLabel(identity)}{isActive ? " ✓" : ""}
                     </button>
                   );
                 })}

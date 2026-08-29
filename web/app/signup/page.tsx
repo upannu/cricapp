@@ -44,7 +44,7 @@ function SignUpForm() {
   const [academyName, setAcademyName] = useState("");
   const [academyLocation, setAcademyLocation] = useState("");
   const [playerEmail, setPlayerEmail] = useState(prefillEmail);
-  const [playerLookup, setPlayerLookup] = useState<{ email: string; status: "checking" | "found" | "not-found"; name?: string } | null>(null);
+  const [playerLookup, setPlayerLookup] = useState<{ email: string; status: "checking" | "found" | "not-found"; name?: string; additionalCount?: number } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -65,7 +65,7 @@ function SignUpForm() {
       try {
         const res = await fetch(`/api/lookup-player?email=${encodeURIComponent(email)}`);
         const data = await res.json();
-        if (!cancelled) setPlayerLookup(data.found ? { email, status: "found", name: data.playerName } : { email, status: "not-found" });
+        if (!cancelled) setPlayerLookup(data.found ? { email, status: "found", name: data.playerName, additionalCount: data.additionalCount ?? 0 } : { email, status: "not-found" });
       } catch {
         if (!cancelled) setPlayerLookup({ email, status: "not-found" });
       }
@@ -212,7 +212,10 @@ function SignUpForm() {
                     <p className="text-zinc-500 text-xs mt-1.5">Checking…</p>
                   )}
                   {lookupForCurrentEmail?.status === "found" && (
-                    <p className="text-pace-green text-xs mt-1.5">✓ Found: {lookupForCurrentEmail.name}</p>
+                    <p className="text-pace-green text-xs mt-1.5">
+                      ✓ Found: {lookupForCurrentEmail.name}
+                      {!!lookupForCurrentEmail.additionalCount && ` (+${lookupForCurrentEmail.additionalCount} more child${lookupForCurrentEmail.additionalCount === 1 ? "" : "ren"} at this email — you'll get access to all of them)`}
+                    </p>
                   )}
                   {lookupForCurrentEmail?.status === "not-found" && (
                     <p className="text-red-400 text-xs mt-1.5">No player found with this email — ask your coach to add the player first.</p>
