@@ -185,6 +185,11 @@ export function CoachesClient() {
     if (!draft.name.trim()) { setFormError("Coach name is required."); return; }
     if (!draft.email.trim()) { setFormError("Email is required."); return; }
     if (!draft.academyId) { setFormError("Please assign this coach to an academy."); return; }
+    // Nothing in the schema stops two coach rows sharing an email — and when that happens, every
+    // email-based lookup elsewhere (invite approval, login linking) can only ever resolve to one
+    // of them, silently orphaning whichever wasn't picked. Catch it here instead.
+    const emailTaken = coaches.some((c) => c.id !== editingId && c.email.toLowerCase() === draft.email.trim().toLowerCase());
+    if (emailTaken) { setFormError(`Another coach already uses ${draft.email.trim()} — each coach needs a unique email.`); return; }
     setFormError("");
     setSaving(true);
 
