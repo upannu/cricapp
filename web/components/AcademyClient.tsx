@@ -317,6 +317,8 @@ export function AcademyClient() {
   // ── Save ───────────────────────────────────────────────────────────────────
   async function handleSave() {
     if (!draft.name.trim()) { setFormError("Academy Name is required."); return; }
+    const nameTaken = academies.some((a) => a.id !== editingId && a.name.trim().toLowerCase() === draft.name.trim().toLowerCase());
+    if (nameTaken) { setFormError(`An academy named "${draft.name.trim()}" already exists.`); return; }
     if (!draft.headCoachId) { setOwnerMissing(true); return; }
     setFormError(""); setSaving(true);
 
