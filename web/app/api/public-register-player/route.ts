@@ -31,6 +31,12 @@ export async function POST(request: Request) {
   if (!name?.trim()) {
     return NextResponse.json({ error: "Player name is required." }, { status: 400 });
   }
+  if (!email?.trim()) {
+    return NextResponse.json({ error: "Email is required." }, { status: 400 });
+  }
+  if (!phone?.trim()) {
+    return NextResponse.json({ error: "Phone is required." }, { status: 400 });
+  }
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) return NextResponse.json({ error: "Not configured." }, { status: 500 });
@@ -55,7 +61,7 @@ export async function POST(request: Request) {
   const resolvedBowlingStyle = BOWLING_STYLES.includes(bowlingStyle ?? "") ? bowlingStyle! : "Right Arm Fast";
 
   const { error: insertError } = await supabase.from("players").insert({
-    id, name: name.trim(), email: email?.trim() ?? "", phone: phone?.trim() ?? "",
+    id, name: name.trim(), email: email.trim(), phone: phone.trim(),
     bowling_style: resolvedBowlingStyle, age_group: resolvedAgeGroup, club: club?.trim() ?? "",
     coach_id: null, guardian_consent_status: "Pending",
     added_date: now, sessions_count: 0, last_active: now, xp: 0,

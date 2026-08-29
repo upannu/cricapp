@@ -49,6 +49,8 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) { setError("Player name is required."); return; }
+    if (!form.email.trim()) { setError("Email is required."); return; }
+    if (!form.phone.trim()) { setError("Phone is required."); return; }
     setError("");
     setSubmitting(true);
     try {
@@ -145,25 +147,27 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Parent/Player Email</label>
+              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Parent/Player Email *</label>
               <input
                 type="email"
                 value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                onChange={(e) => { setForm({ ...form, email: e.target.value }); setError(""); }}
                 className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
                 placeholder="you@email.com"
+                required
               />
-              <p className="text-zinc-500 text-xs mt-1.5">Optional, but lets you sign in later to see progress — use this same email at /signup.</p>
+              <p className="text-zinc-500 text-xs mt-1.5">Lets you sign in later to see progress — use this same email at /signup.</p>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Phone</label>
+              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Phone *</label>
               <input
                 type="tel"
                 value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                onChange={(e) => { setForm({ ...form, phone: e.target.value }); setError(""); }}
                 className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
                 placeholder="e.g. 0412 345 678"
+                required
               />
             </div>
 
