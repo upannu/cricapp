@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { fetchPlayer, fetchSessions, fetchReports, fetchTodaysTip, recordTipView, fetchSessionPacks } from "@/lib/db";
 import { formatDate, getReportPdfUrl, getInitials } from "@/lib/utils";
+import { formatMoney, type Currency } from "@/lib/currency";
 import { BadgeStrip } from "@/components/BadgeStrip";
 import type { Player, Session, Report, DailyTip, SessionPack } from "@/lib/types";
 
@@ -80,14 +81,19 @@ export function PortalClient() {
   }
 
   const initials = getInitials(player.name);
-  const overduePack = packs.find((pk) => pk.status === "Active" && pk.paymentStatus === "Overdue");
+  // Any active pack still owing money — Overdue first, so the most urgent one leads. Shown as
+  // soon as staff creates the pack (Pending), not just once it lapses into Overdue, so a
+  // parent/player can pay proactively instead of only after the fact.
+  const unpaidPacks = packs
+    .filter((pk) => pk.status === "Active" && pk.paymentStatus !== "Paid")
+    .sort((a, b) => (a.paymentStatus === b.paymentStatus ? 0 : a.paymentStatus === "Overdue" ? -1 : 1));
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-      {/* Overdue session pack payment warning — not yet locked, just a nudge */}
-      {overduePack && !player.loginDisabled && (
-        <OverduePackBanner packId={overduePack.id} />
-      )}
+      {/* Unpaid session pack(s) — not yet locked, just a nudge/way to pay */}
+      {!player.loginDisabled && unpaidPacks.map((pk) => (
+        <UnpaidPackCard key={pk.id} pack={pk} currency={player.currency} />
+      ))}
 
       {/* Header */}
       <div className="flex items-center gap-4">
@@ -263,9 +269,11 @@ export function PortalClient() {
   );
 }
 
-function OverduePackBanner({ packId }: { packId: string }) {
+function UnpaidPackCard({ pack, currency }: { pack: SessionPack; currency: Currency }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const overdue = pack.paymentStatus === "Overdue";
+  const total = pack.totalSessions * pack.feePerSession;
 
   async function handlePay() {
     setLoading(true);
@@ -274,7 +282,7 @@ function OverduePackBanner({ packId }: { packId: string }) {
       const res = await fetch("/api/stripe/create-pack-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packId }),
+        body: JSON.stringify({ packId: pack.id }),
       });
       const data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error ?? "Could not start checkout.");
@@ -287,15 +295,24 @@ function OverduePackBanner({ packId }: { packId: string }) {
   }
 
   return (
-    <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap">
+    <div className={`rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap border ${
+      overdue ? "bg-red-500/10 border-red-500/30" : "bg-amber/10 border-amber/30"
+    }`}>
       <div>
-        <p className="text-red-400 text-sm font-semibold">
-          Your session pack payment is overdue — pay now to avoid losing access to your account.
+        <p className={`text-sm font-semibold ${overdue ? "text-red-400" : "text-amber"}`}>
+          {overdue
+            ? "Your session pack payment is overdue — pay now to avoid losing access to your account."
+            : `Payment due for your ${pack.sessionType} pack — ${pack.totalSessions} sessions × ${formatMoney(pack.feePerSession, currency)}.`}
         </p>
-        {error && <p className="text-red-300 text-xs mt-1">{error}</p>}
+        <p className={`text-xs mt-0.5 ${overdue ? "text-red-300" : "text-amber/80"}`}>
+          {formatMoney(total, currency)} total · due {formatDate(pack.paymentDueDate)}
+        </p>
+        {error && <p className={`text-xs mt-1 ${overdue ? "text-red-300" : "text-amber/80"}`}>{error}</p>}
       </div>
       <button type="button" onClick={handlePay} disabled={loading}
-        className="px-4 py-2 text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/30 rounded-xl hover:bg-red-500/30 transition-colors flex-shrink-0 disabled:opacity-60 cursor-pointer">
+        className={`px-4 py-2 text-xs font-bold rounded-xl transition-colors flex-shrink-0 disabled:opacity-60 cursor-pointer border ${
+          overdue ? "bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30" : "bg-amber/20 text-amber border-amber/30 hover:bg-amber/30"
+        }`}>
         {loading ? "Loading…" : "Pay Online"}
       </button>
     </div>
