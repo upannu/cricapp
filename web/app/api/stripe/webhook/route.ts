@@ -45,7 +45,14 @@ export async function POST(request: Request) {
       if (session.metadata?.type === "pack_payment") {
         const packId = session.metadata?.pack_id;
         if (packId) {
-          await supabase.from("session_packs").update({ payment_status: "Paid" }).eq("id", packId);
+          // paid_date was previously only ever set by the manual "Mark Paid" (cash/bank transfer)
+          // flow — a pack paid online never recorded one, so the "Paid {date}" badge on the Packs
+          // page silently never showed for the majority of packs. event.created (not "today") is
+          // the actual payment instant, in case the webhook is retried or delayed.
+          await supabase.from("session_packs").update({
+            payment_status: "Paid",
+            paid_date: new Date(event.created * 1000).toISOString().slice(0, 10),
+          }).eq("id", packId);
         }
         break;
       }
