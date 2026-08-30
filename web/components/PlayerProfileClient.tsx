@@ -29,6 +29,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
   const [rpeSummary, setRpeSummary] = useState<RpeSummary | null>(null);
   const [scLoadSummary, setSCLoadSummary] = useState<SCLoadSummary | null>(null);
   const [reportCount, setReportCount] = useState(0);
+  const [lastPayment, setLastPayment] = useState<{ date: string; source: "manual" | "pack" | "stripe" } | null | undefined>(undefined);
 
   useEffect(() => {
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
@@ -43,6 +44,19 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
       setReportCount(reports.length);
     });
   }, [playerId, user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Staff-only, same as the field it replaces — pulls whichever of (manually recorded date, a
+  // pack's own paid_date, Stripe's payment history) is most recent, so this doesn't just reflect
+  // whatever staff last typed in even when a real payment record exists. undefined = still
+  // loading, null = nothing found on any source.
+  useEffect(() => {
+    if (user?.role === "player" || user?.role === "parent") return;
+    setLastPayment(undefined);
+    fetch(`/api/players/${playerId}/last-payment`)
+      .then((res) => res.json())
+      .then((data) => setLastPayment(data.lastPaymentDate ? { date: data.lastPaymentDate, source: data.source } : null))
+      .catch(() => setLastPayment(null));
+  }, [playerId, user]);
 
   if (notFound) {
     return (
@@ -358,9 +372,16 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             <InfoRow
               label="Last payment date"
               value={
-                player.subscription.lastPaymentDate
-                  ? formatDate(player.subscription.lastPaymentDate)
-                  : <span className="text-zinc-600">Not recorded</span>
+                lastPayment === undefined
+                  ? <span className="text-zinc-600">Loading…</span>
+                  : lastPayment
+                    ? <>
+                        {formatDate(lastPayment.date)}{" "}
+                        <span className="text-zinc-600 text-xs">
+                          ({lastPayment.source === "stripe" ? "via Stripe" : lastPayment.source === "pack" ? "pack payment" : "manual"})
+                        </span>
+                      </>
+                    : <span className="text-zinc-600">Not recorded</span>
               }
             />
           )}
