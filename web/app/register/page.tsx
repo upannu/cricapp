@@ -24,11 +24,14 @@ export default function RegisterPage() {
   const [registered, setRegistered] = useState<{ name: string; ageGroup: string }[] | null>(null);
 
   useEffect(() => {
-    fetch("/api/public-register-player")
+    // Only visible once a valid code has been entered, and scoped to that same code — someone
+    // with the "marsden" code shouldn't see who registered under "silverwater"/"oran".
+    if (!unlocked) { setRegistered(null); return; }
+    fetch(`/api/public-register-player?code=${encodeURIComponent(code.trim())}`)
       .then((r) => r.json())
       .then((d) => setRegistered(d.players ?? []))
       .catch(() => setRegistered([]));
-  }, [done]); // re-fetch right after a new registration so the list updates immediately
+  }, [unlocked, done, code]); // re-fetch right after a new registration so the list updates immediately
 
   async function handleUnlock(e: React.FormEvent) {
     e.preventDefault();
