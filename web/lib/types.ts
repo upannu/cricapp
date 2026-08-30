@@ -84,6 +84,9 @@ export interface Subscription {
   stripeSubscriptionId?: string;
   /** Stripe's own subscription status (active, past_due, canceled, ...) — the webhook-driven source of truth, not `plan` alone. */
   subscriptionStatus?: string;
+  /** Manually recorded by a coach/academy_admin/platform_admin — not derived from Stripe or pack
+   * payment records, and never editable by the player/parent themselves. */
+  lastPaymentDate?: string;
 }
 
 export interface BiomechanicsData {

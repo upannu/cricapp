@@ -30,6 +30,7 @@ export interface DbPlayer {
   added_date: string; sessions_count: number; last_active: string; xp: number;
   sub_plan: string; sub_start_date: string; sub_end_date: string;
   sub_sessions_used: number; sub_sessions_limit: number | null;
+  sub_last_payment_date?: string | null;
   stripe_customer_id?: string | null; stripe_subscription_id?: string | null;
   subscription_status?: string | null;
   library_stripe_subscription_id?: string | null; library_subscription_status?: string | null;
@@ -170,6 +171,7 @@ export function dbToPlayer(r: DbPlayer): Player {
       stripeCustomerId: r.stripe_customer_id ?? undefined,
       stripeSubscriptionId: r.stripe_subscription_id ?? undefined,
       subscriptionStatus: r.subscription_status ?? undefined,
+      lastPaymentDate: r.sub_last_payment_date ?? undefined,
     },
     biomechanics: {
       ballSpeedKmh: r.bio_ball_speed_kmh,

@@ -354,6 +354,16 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
               </span>
             }
           />
+          {user?.role !== "player" && user?.role !== "parent" && (
+            <InfoRow
+              label="Last payment date"
+              value={
+                player.subscription.lastPaymentDate
+                  ? formatDate(player.subscription.lastPaymentDate)
+                  : <span className="text-zinc-600">Not recorded</span>
+              }
+            />
+          )}
         </InfoCard>
       </div>
 
