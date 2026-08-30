@@ -15,6 +15,38 @@ const BOWLING_STYLES = [
   "Left Arm Fast-Medium", "Right Arm Medium", "Left Arm Medium",
 ];
 
+/** Public "who's registered so far" list shown at the bottom of /register — names and age group
+ * only, never email/phone/etc., same privacy stance as the other public lookup in this app
+ * (api/lookup-player). No code required to view this — it's just a reassuring "others have
+ * signed up too" list, not sensitive data. */
+export async function GET() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return NextResponse.json({ error: "Not configured." }, { status: 500 });
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceKey,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+
+  const { data: academy } = await supabase
+    .from("academies")
+    .select("player_ids")
+    .eq("id", TARGET_ACADEMY_ID)
+    .single();
+  const playerIds = academy?.player_ids ?? [];
+  if (playerIds.length === 0) return NextResponse.json({ players: [] });
+
+  const { data: players } = await supabase
+    .from("players")
+    .select("name, age_group, added_date")
+    .in("id", playerIds)
+    .order("added_date", { ascending: false });
+
+  return NextResponse.json({
+    players: (players ?? []).map((p) => ({ name: p.name, ageGroup: p.age_group })),
+  });
+}
+
 export async function POST(request: Request) {
   const { code, name, email, phone, ageGroup, bowlingStyle, club, validateOnly } = (await request.json()) as {
     code?: string; name?: string; email?: string; phone?: string;
