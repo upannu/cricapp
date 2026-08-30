@@ -75,10 +75,17 @@ export async function POST(request: Request) {
 
   // Coaches who self-signed-up (rather than being invited via the coaches admin UI, which
   // already links coach_id at invite time) still need linking to their own coaches row here —
-  // best-effort by email match, not a hard requirement, since a coach may legitimately sign up
-  // before any coaches row exists for them yet. Coach emails aren't guaranteed unique (nothing
-  // stops two coach rows sharing one by mistake) — maybeSingle() throws on more than one match,
-  // silently dropping the link entirely, so use limit(1) like the player lookup below already does.
+  // by email match when staff already created one ahead of time. Coach emails aren't guaranteed
+  // unique (nothing stops two coach rows sharing one by mistake) — maybeSingle() throws on more
+  // than one match, silently dropping the link entirely, so use limit(1) like the player lookup
+  // below already does.
+  //
+  // A direct self-signup ("Coach" on /signup, no academy involved at all — this app supports
+  // genuinely independent coaches on their own Coach Pro plan, not just academy staff) has no
+  // coaches row waiting for it, so create one here rather than leaving the account approved with
+  // no coach_id — that used to silently produce an orphaned "coach" account invisible on every
+  // coaches list and non-functional in the app. academy_id is left null (independent); an academy
+  // can always add them to a roster later the normal way.
   let linkedCoachId: string | undefined;
   if (reqData.role === "coach") {
     const { data: coachMatches } = await supabase
@@ -87,6 +94,20 @@ export async function POST(request: Request) {
       .ilike("email", reqData.email)
       .limit(1);
     linkedCoachId = coachMatches?.[0]?.id;
+
+    if (!linkedCoachId) {
+      const newCoachId = `c_${Date.now()}`;
+      const { error: coachInsertError } = await supabase.from("coaches").insert({
+        id: newCoachId, name: reqData.name, email: reqData.email, phone: "",
+        specialization: "", age_groups_focus: [], location: "", status: "Active",
+        joined_date: new Date().toISOString().split("T")[0], certification_level: "Level 1",
+        bio: "", academy_id: null, marketplace_visible: false,
+      });
+      if (coachInsertError) {
+        return NextResponse.json({ error: `Could not create coach profile: ${coachInsertError.message}` }, { status: 500 });
+      }
+      linkedCoachId = newCoachId;
+    }
   }
 
   // A "link" request (an already-approved account requesting an additional role) is tied to
