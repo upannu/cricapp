@@ -15,13 +15,44 @@ const BOWLING_STYLES = [
   "Left Arm Fast-Medium", "Right Arm Medium", "Left Arm Medium",
 ];
 
+/** "Who's registered so far" list shown at the bottom of /register, but only once a code has
+ * been entered — and only players registered with that *same* code, not the whole academy roster
+ * (someone with the "marsden" code shouldn't see "silverwater"/"oran" registrations). Names and
+ * age group only, never email/phone/etc. — same privacy stance as the other public lookup in this
+ * app (api/lookup-player). Still requires a valid code, just like the registration form itself. */
+export async function GET(request: Request) {
+  const code = new URL(request.url).searchParams.get("code")?.trim().toLowerCase();
+  if (!code || !VALID_CODES.has(code)) {
+    return NextResponse.json({ error: "Invalid registration code." }, { status: 403 });
+  }
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return NextResponse.json({ error: "Not configured." }, { status: 500 });
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceKey,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+
+  const { data: players } = await supabase
+    .from("players")
+    .select("name, age_group, added_date")
+    .eq("registration_code", code)
+    .order("added_date", { ascending: false });
+
+  return NextResponse.json({
+    players: (players ?? []).map((p) => ({ name: p.name, ageGroup: p.age_group })),
+  });
+}
+
 export async function POST(request: Request) {
   const { code, name, email, phone, ageGroup, bowlingStyle, club, validateOnly } = (await request.json()) as {
     code?: string; name?: string; email?: string; phone?: string;
     ageGroup?: string; bowlingStyle?: string; club?: string; validateOnly?: boolean;
   };
 
-  if (!code || !VALID_CODES.has(code.trim().toLowerCase())) {
+  const normalizedCode = code?.trim().toLowerCase();
+  if (!normalizedCode || !VALID_CODES.has(normalizedCode)) {
     return NextResponse.json({ error: "Invalid registration code." }, { status: 403 });
   }
   // The code-entry screen checks here first, before showing the actual form — so a wrong code
@@ -73,6 +104,7 @@ export async function POST(request: Request) {
     acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
     acad_xp: 0, acad_articles_read: 0,
     currency: academy.currency ?? "aud",
+    registration_code: normalizedCode,
   });
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 

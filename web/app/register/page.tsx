@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const AGE_GROUPS = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"] as const;
 const BOWLING_STYLES = [
@@ -21,6 +21,17 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
+  const [registered, setRegistered] = useState<{ name: string; ageGroup: string }[] | null>(null);
+
+  useEffect(() => {
+    // Only visible once a valid code has been entered, and scoped to that same code — someone
+    // with the "marsden" code shouldn't see who registered under "silverwater"/"oran".
+    if (!unlocked) { setRegistered(null); return; }
+    fetch(`/api/public-register-player?code=${encodeURIComponent(code.trim())}`)
+      .then((r) => r.json())
+      .then((d) => setRegistered(d.players ?? []))
+      .catch(() => setRegistered([]));
+  }, [unlocked, done, code]); // re-fetch right after a new registration so the list updates immediately
 
   async function handleUnlock(e: React.FormEvent) {
     e.preventDefault();
@@ -215,6 +226,24 @@ export default function RegisterPage() {
               {submitting ? "Submitting…" : "Register Player"}
             </button>
           </form>
+        )}
+
+        {registered && registered.length > 0 && (
+          <div className="mt-8">
+            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 text-center">
+              {registered.length} player{registered.length === 1 ? "" : "s"} registered so far
+            </p>
+            <div className="bg-surface rounded-2xl p-4 max-h-64 overflow-y-auto">
+              <ul className="space-y-2">
+                {registered.map((p, i) => (
+                  <li key={i} className="flex items-center justify-between text-sm px-2 py-1.5">
+                    <span className="text-zinc-200">{p.name}</span>
+                    <span className="text-zinc-500 text-xs">{p.ageGroup}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         )}
       </div>
     </div>
