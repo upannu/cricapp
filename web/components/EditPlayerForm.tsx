@@ -6,6 +6,7 @@ import Link from "next/link";
 import type { Player } from "@/lib/types";
 import { updatePlayer } from "@/lib/db";
 import { DateInput } from "@/components/DateInput";
+import { useAuth } from "@/lib/auth";
 
 const BOWLING_STYLES = [
   "Right Arm Fast",
@@ -24,6 +25,11 @@ const BATTING_HANDS = ["Right Hand", "Left Hand"] as const;
 
 export function EditPlayerForm({ player }: { player: Player }) {
   const router = useRouter();
+  const { user } = useAuth();
+  // canAccessPlayerServer lets a player/parent reach their own edit page too — this field should
+  // never even render for them, though RLS already blocks the underlying write regardless
+  // (players_update has no player/parent branch).
+  const isStaff = user?.role !== "player" && user?.role !== "parent";
   const [saved, setSaved] = useState(false);
 
   // Profile fields
@@ -51,6 +57,7 @@ export function EditPlayerForm({ player }: { player: Player }) {
   const [weeklySessionsPerWeek, setWeeklySessionsPerWeek] = useState<number | "">(
     ""
   );
+  const [lastPaymentDate, setLastPaymentDate] = useState(player.subscription.lastPaymentDate ?? "");
 
   // Recalculate end date whenever start date, total sessions, or weekly frequency changes
   useEffect(() => {
@@ -79,6 +86,9 @@ export function EditPlayerForm({ player }: { player: Player }) {
       sub_start_date: startDate,
       sub_end_date: endDate,
       sub_sessions_limit: sessionsLimit ? parseInt(sessionsLimit) : null,
+      // Only staff can even see this field, but guard the write too — never send a player/parent's
+      // (impossible, since it's not rendered) or a stale value if the field was hidden.
+      ...(isStaff ? { sub_last_payment_date: lastPaymentDate || null } : {}),
     }).then(() => {
       setSaved(true);
       setTimeout(() => router.push(`/players/${player.id}`), 1200);
@@ -336,6 +346,17 @@ export function EditPlayerForm({ player }: { player: Player }) {
                 )}
               </div>
             </Field>
+
+            {isStaff && (
+              <Field label="Last Payment Date">
+                <DateInput
+                  value={lastPaymentDate}
+                  onChange={setLastPaymentDate}
+                  className={inputCls}
+                />
+                <p className="text-xs text-zinc-500 mt-1.5">Staff-only — recorded manually, not derived from Stripe or pack payments.</p>
+              </Field>
+            )}
           </div>
         </Section>
 

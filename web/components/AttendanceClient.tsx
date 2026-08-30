@@ -94,6 +94,8 @@ export function AttendanceClient() {
   const [draft, setDraft] = useState<DraftGroup>(EMPTY_DRAFT);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [allPacks, setAllPacks] = useState<SessionPack[]>([]);
+  const [rosterError, setRosterError] = useState("");
 
   const [attendanceFor, setAttendanceFor] = useState<{ group: GroupSession; date: string } | null>(null);
   const [attendanceDraft, setAttendanceDraft] = useState<Record<string, AttendanceStatus>>({});
@@ -122,10 +124,12 @@ export function AttendanceClient() {
       fetchGroupSessions(academyId, coachId),
       fetchPlayers(coachId, academyId),
       fetchCoaches(academyId),
-    ]).then(([g, p, c]) => {
+      fetchSessionPacks(),
+    ]).then(([g, p, c, packs]) => {
       setGroups(g);
       setPlayers(p);
       setCoaches(c);
+      setAllPacks(packs);
       setLoading(false);
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -137,6 +141,7 @@ export function AttendanceClient() {
   function openAdd() {
     setDraft({ ...EMPTY_DRAFT, coachId: coachId ?? coaches[0]?.id ?? "" });
     setFormError("");
+    setRosterError("");
     setShowForm(true);
     setShowRosterCsv(false);
     setRosterCsvRows([]);
@@ -150,13 +155,34 @@ export function AttendanceClient() {
       coachId: g.coachId, playerIds: g.playerIds,
     });
     setFormError("");
+    setRosterError("");
     setShowForm(true);
     setShowRosterCsv(false);
     setRosterCsvRows([]);
     setRosterCsvError("");
   }
 
+  // Mirrors the same resolution handleSaveGroup already does — the draft itself doesn't carry an
+  // academyId until save time, so this is needed anywhere a roster-add check needs to know it too.
+  function resolvedDraftAcademyId(): string {
+    return academyId ?? groups.find((g) => g.id === draft.id)?.academyId ?? coaches.find((c) => c.id === draft.coachId)?.academyId ?? "";
+  }
+
+  function hasActivePackFor(playerId: string): boolean {
+    const acadId = resolvedDraftAcademyId();
+    return allPacks.some((pk) =>
+      pk.playerId === playerId && pk.sessionType === draft.sessionType && pk.academyId === acadId &&
+      pk.status === "Active" && (pk.totalSessions - pk.sessionsUsed + pk.sessionCredits) > 0
+    );
+  }
+
   function toggleDraftPlayer(playerId: string) {
+    const isAdding = !draft.playerIds.includes(playerId);
+    if (isAdding && !hasActivePackFor(playerId)) {
+      setRosterError(`${playerName(playerId)} has no active session pack for ${draft.sessionType} — create one first.`);
+      return;
+    }
+    setRosterError("");
     setDraft((prev) => ({
       ...prev,
       playerIds: prev.playerIds.includes(playerId)
@@ -204,8 +230,15 @@ export function AttendanceClient() {
   }
 
   function handleRosterCsvMerge() {
-    const matchedIds = rosterCsvRows.filter((r) => r.player).map((r) => r.player!.id);
-    setDraft((prev) => ({ ...prev, playerIds: [...new Set([...prev.playerIds, ...matchedIds])] }));
+    const matched = rosterCsvRows.filter((r) => r.player).map((r) => r.player!);
+    const withPack = matched.filter((p) => hasActivePackFor(p.id));
+    const withoutPack = matched.filter((p) => !hasActivePackFor(p.id));
+    setDraft((prev) => ({ ...prev, playerIds: [...new Set([...prev.playerIds, ...withPack.map((p) => p.id)])] }));
+    setRosterError(
+      withoutPack.length > 0
+        ? `Skipped ${withoutPack.length} player${withoutPack.length === 1 ? "" : "s"} with no active ${draft.sessionType} pack: ${withoutPack.map((p) => p.name).join(", ")}`
+        : ""
+    );
     setRosterCsvRows([]);
     setShowRosterCsv(false);
   }
@@ -592,18 +625,24 @@ export function AttendanceClient() {
                     )}
                   </div>
                 )}
+                {rosterError && <p className="text-red-400 text-xs mb-2">{rosterError}</p>}
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                   {players.map((p) => {
                     const selected = draft.playerIds.includes(p.id);
+                    const packOk = selected || hasActivePackFor(p.id);
                     return (
                       <button key={p.id} type="button" onClick={() => toggleDraftPlayer(p.id)}
+                        title={packOk ? undefined : `No active ${draft.sessionType} pack`}
                         className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors cursor-pointer text-left ${
-                          selected ? "border-pace-green/50 bg-pace-green/10" : "border-zinc-700 bg-ink hover:border-zinc-500"
+                          selected ? "border-pace-green/50 bg-pace-green/10"
+                            : packOk ? "border-zinc-700 bg-ink hover:border-zinc-500"
+                            : "border-zinc-800 bg-ink opacity-50 hover:border-red-500/50"
                         }`}>
                         <div className="w-6 h-6 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-[10px] font-bold flex-shrink-0">
                           {p.name.split(" ").map((n) => n[0]).join("")}
                         </div>
                         <span className="text-sm text-white">{p.name}</span>
+                        {!packOk && <span className="text-[10px] text-red-400 ml-auto flex-shrink-0">No active pack</span>}
                       </button>
                     );
                   })}
