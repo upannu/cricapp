@@ -70,6 +70,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     needs: [lint-and-typecheck, unit-and-api-tests]
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_DEV_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_DEV_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -79,6 +82,12 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      # Resets e2e-prefixed rows to a known state before every run — specs in
+      # this project mutate seeded data (e.g. spend the seeded player's
+      # assessment credit), so re-running without this would drift/fail on
+      # the 2nd+ run against the shared dev project.
+      - name: Reset E2E fixture data
+        run: npm run seed:reset
       - name: Wait for Vercel preview
         id: wait-for-preview
         uses: patrickedqvist/wait-for-vercel-preview@v1.4.1
@@ -103,6 +112,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     needs: [lint-and-typecheck, unit-and-api-tests]
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_DEV_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_DEV_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -127,6 +139,12 @@ jobs:
         if: steps.filter.outputs.video == 'true'
       - run: npx playwright install --with-deps chromium
         if: steps.filter.outputs.video == 'true'
+      # This spec spends the seeded player's assessment credit — reset first
+      # so repeated runs (and the sibling e2e job's own reset) don't leave it
+      # unreachable.
+      - name: Reset E2E fixture data
+        if: steps.filter.outputs.video == 'true'
+        run: npm run seed:reset
       - name: Wait for Vercel preview
         if: steps.filter.outputs.video == 'true'
         id: wait-for-preview

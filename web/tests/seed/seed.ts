@@ -90,6 +90,11 @@ export async function runSeed() {
       sub_start_date: today,
       sub_end_date: today,
       coach_id: COACH_ENTITY_ID,
+      // Free plan (see find-coach.spec.ts, which depends on this player
+      // staying on Free to test the marketplace paywall) — 1 assessment
+      // credit is seeded instead so video-pipeline.spec.ts can reach the
+      // "Use Assessment Credit" report-generation button without a paid plan.
+      assessment_credits: 1,
     },
     { onConflict: "id" },
   );
