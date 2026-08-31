@@ -8,8 +8,11 @@ const BOWLING_STYLES = [
   "Left Arm Fast-Medium", "Right Arm Medium", "Left Arm Medium",
 ] as const;
 
+// Age group and bowling style start blank (not a real default like "U10") — a parent has to
+// actively pick one so a record can never quietly reach "registered" carrying a value nobody
+// actually chose.
 const EMPTY_FORM = {
-  name: "", email: "", phone: "", ageGroup: "U10" as string, bowlingStyle: "Right Arm Fast" as string, club: "",
+  name: "", email: "", phone: "", ageGroup: "" as string, bowlingStyle: "" as string, club: "",
 };
 
 export default function RegisterPage() {
@@ -22,16 +25,39 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
   const [registered, setRegistered] = useState<{ name: string; ageGroup: string }[] | null>(null);
+  const [pending, setPending] = useState<{ id: string; name: string }[] | null>(null);
+  // null = still choosing; a string = completing that pre-entered player; "" = registering fresh
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null | "">(null);
 
   useEffect(() => {
     // Only visible once a valid code has been entered, and scoped to that same code — someone
     // with the "marsden" code shouldn't see who registered under "silverwater"/"oran".
-    if (!unlocked) { setRegistered(null); return; }
+    if (!unlocked) { setRegistered(null); setPending(null); return; }
     fetch(`/api/public-register-player?code=${encodeURIComponent(code.trim())}`)
       .then((r) => r.json())
-      .then((d) => setRegistered(d.players ?? []))
-      .catch(() => setRegistered([]));
+      .then((d) => { setRegistered(d.players ?? []); setPending(d.pending ?? []); })
+      .catch(() => { setRegistered([]); setPending([]); });
   }, [unlocked, done, code]); // re-fetch right after a new registration so the list updates immediately
+
+  function pickPending(p: { id: string; name: string }) {
+    setSelectedPlayerId(p.id);
+    setForm({ ...EMPTY_FORM, name: p.name });
+    setError("");
+  }
+
+  function registerFresh() {
+    setSelectedPlayerId("");
+    setForm(EMPTY_FORM);
+    setError("");
+  }
+
+  useEffect(() => {
+    // No pre-entered roster for this code (marsden/silverwater today) — skip the selection step
+    // entirely so behaviour is unchanged for codes nobody pre-seeded names for.
+    if (pending && pending.length === 0 && selectedPlayerId === null) {
+      setSelectedPlayerId("");
+    }
+  }, [pending, selectedPlayerId]);
 
   async function handleUnlock(e: React.FormEvent) {
     e.preventDefault();
@@ -62,13 +88,15 @@ export default function RegisterPage() {
     if (!form.name.trim()) { setError("Player name is required."); return; }
     if (!form.email.trim()) { setError("Email is required."); return; }
     if (!form.phone.trim()) { setError("Phone is required."); return; }
+    if (!form.ageGroup) { setError("Please select an age group."); return; }
+    if (!form.bowlingStyle) { setError("Please select a bowling style."); return; }
     setError("");
     setSubmitting(true);
     try {
       const res = await fetch("/api/public-register-player", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, ...form }),
+        body: JSON.stringify({ code, playerId: selectedPlayerId || undefined, ...form }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not submit registration.");
@@ -84,6 +112,9 @@ export default function RegisterPage() {
     setForm(EMPTY_FORM);
     setDone(false);
     setError("");
+    // Back to the selection screen (if this code has a pre-entered roster) rather than assuming
+    // another fresh registration — most parents here are completing a second sibling by name.
+    setSelectedPlayerId(pending && pending.length > 0 ? null : "");
   }
 
   return (
@@ -141,9 +172,55 @@ export default function RegisterPage() {
               Register Another Player
             </button>
           </div>
+        ) : selectedPlayerId === null ? (
+          <div className="bg-surface rounded-2xl p-8 shadow-2xl space-y-4">
+            <h2 className="text-lg font-semibold text-white text-center mb-2">Find your child</h2>
+            <p className="text-zinc-400 text-sm text-center mb-2">
+              Your coach already added these names — pick yours below to finish registering.
+            </p>
+            {pending === null ? (
+              <p className="text-zinc-500 text-sm text-center py-4">Loading…</p>
+            ) : (
+              <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+                {pending.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => pickPending(p)}
+                    className="w-full text-left px-4 py-3 rounded-xl bg-ink border border-zinc-700 hover:border-pace-green text-white text-sm transition-colors cursor-pointer"
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={registerFresh}
+              className="w-full text-center text-zinc-400 hover:text-white text-sm py-2 transition-colors cursor-pointer underline"
+            >
+              My child isn&apos;t listed — register them
+            </button>
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="bg-surface rounded-2xl p-8 shadow-2xl space-y-4">
-            <h2 className="text-lg font-semibold text-white text-center mb-2">Player Details</h2>
+            {selectedPlayerId && pending && pending.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedPlayerId(null)}
+                className="text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer -mt-1 -mb-2"
+              >
+                ← Back to the list
+              </button>
+            )}
+            <h2 className="text-lg font-semibold text-white text-center mb-2">
+              {selectedPlayerId ? "Finish Registration" : "Player Details"}
+            </h2>
+            {selectedPlayerId && (
+              <p className="text-zinc-400 text-sm text-center -mt-2 mb-2">
+                Just fill in the rest for <span className="text-white font-semibold">{form.name}</span>.
+              </p>
+            )}
 
             <div>
               <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Full Name *</label>
@@ -184,22 +261,26 @@ export default function RegisterPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Age Group</label>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Age Group *</label>
                 <select
                   value={form.ageGroup}
-                  onChange={(e) => setForm({ ...form, ageGroup: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, ageGroup: e.target.value }); setError(""); }}
                   className="w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                  required
                 >
+                  <option value="" disabled>— Select —</option>
                   {AGE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Bowling Style</label>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Bowling Style *</label>
                 <select
                   value={form.bowlingStyle}
-                  onChange={(e) => setForm({ ...form, bowlingStyle: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, bowlingStyle: e.target.value }); setError(""); }}
                   className="w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                  required
                 >
+                  <option value="" disabled>— Select —</option>
                   {BOWLING_STYLES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>

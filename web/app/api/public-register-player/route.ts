@@ -19,7 +19,12 @@ const BOWLING_STYLES = [
  * been entered — and only players registered with that *same* code, not the whole academy roster
  * (someone with the "marsden" code shouldn't see "silverwater"/"oran" registrations). Names and
  * age group only, never email/phone/etc. — same privacy stance as the other public lookup in this
- * app (api/lookup-player). Still requires a valid code, just like the registration form itself. */
+ * app (api/lookup-player). Still requires a valid code, just like the registration form itself.
+ *
+ * Also returns `pending`: players a coach/staff pre-entered by name for this code (a roster
+ * handed to us ahead of time) who haven't had their details completed yet — recognised by having
+ * no email on file, since a real completed registration always sets one (see POST below). A
+ * parent picks their child from this list instead of registering a duplicate from scratch. */
 export async function GET(request: Request) {
   const code = new URL(request.url).searchParams.get("code")?.trim().toLowerCase();
   if (!code || !VALID_CODES.has(code)) {
@@ -34,20 +39,24 @@ export async function GET(request: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  const { data: players } = await supabase
+  const { data: rows } = await supabase
     .from("players")
-    .select("name, age_group, added_date")
+    .select("id, name, email, age_group, added_date")
     .eq("registration_code", code)
     .order("added_date", { ascending: false });
 
+  const completed = (rows ?? []).filter((p) => !!p.email?.trim());
+  const pending = (rows ?? []).filter((p) => !p.email?.trim());
+
   return NextResponse.json({
-    players: (players ?? []).map((p) => ({ name: p.name, ageGroup: p.age_group })),
+    players: completed.map((p) => ({ name: p.name, ageGroup: p.age_group })),
+    pending: pending.map((p) => ({ id: p.id, name: p.name })),
   });
 }
 
 export async function POST(request: Request) {
-  const { code, name, email, phone, ageGroup, bowlingStyle, club, validateOnly } = (await request.json()) as {
-    code?: string; name?: string; email?: string; phone?: string;
+  const { code, playerId, name, email, phone, ageGroup, bowlingStyle, club, validateOnly } = (await request.json()) as {
+    code?: string; playerId?: string; name?: string; email?: string; phone?: string;
     ageGroup?: string; bowlingStyle?: string; club?: string; validateOnly?: boolean;
   };
 
@@ -68,6 +77,14 @@ export async function POST(request: Request) {
   if (!phone?.trim()) {
     return NextResponse.json({ error: "Phone is required." }, { status: 400 });
   }
+  // No silent defaulting here — a record only counts as actually registered once a parent has
+  // deliberately picked both of these, not whatever the form happened to start on.
+  if (!AGE_GROUPS.includes(ageGroup ?? "")) {
+    return NextResponse.json({ error: "Please select a valid age group." }, { status: 400 });
+  }
+  if (!BOWLING_STYLES.includes(bowlingStyle ?? "")) {
+    return NextResponse.json({ error: "Please select a valid bowling style." }, { status: 400 });
+  }
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) return NextResponse.json({ error: "Not configured." }, { status: 500 });
@@ -76,6 +93,31 @@ export async function POST(request: Request) {
     serviceKey,
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
+
+  const resolvedAgeGroup = ageGroup!;
+  const resolvedBowlingStyle = bowlingStyle!;
+
+  // Completing a pre-entered player (a coach handed us a roster of names ahead of time) — fill in
+  // the rest rather than creating a duplicate row. Scoped to this same code so a parent can't
+  // complete an arbitrary player id just by guessing one.
+  if (playerId) {
+    const { data: existing, error: existingError } = await supabase
+      .from("players")
+      .select("id")
+      .eq("id", playerId)
+      .eq("registration_code", normalizedCode)
+      .maybeSingle();
+    if (existingError || !existing) {
+      return NextResponse.json({ error: "That player couldn't be found for this code — try registering fresh instead." }, { status: 404 });
+    }
+    const { error: updateError } = await supabase.from("players").update({
+      name: name.trim(), email: email.trim(), phone: phone.trim(),
+      bowling_style: resolvedBowlingStyle, age_group: resolvedAgeGroup,
+      club: club?.trim() ?? "",
+    }).eq("id", playerId);
+    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+    return NextResponse.json({ success: true });
+  }
 
   const { data: academy, error: academyError } = await supabase
     .from("academies")
@@ -88,8 +130,6 @@ export async function POST(request: Request) {
 
   const id = `p_${Date.now()}`;
   const now = new Date().toISOString().split("T")[0];
-  const resolvedAgeGroup = AGE_GROUPS.includes(ageGroup ?? "") ? ageGroup! : "U10";
-  const resolvedBowlingStyle = BOWLING_STYLES.includes(bowlingStyle ?? "") ? bowlingStyle! : "Right Arm Fast";
 
   const { error: insertError } = await supabase.from("players").insert({
     id, name: name.trim(), email: email.trim(), phone: phone.trim(),
