@@ -121,6 +121,7 @@ export function AcademyClient() {
   const [editingNetId, setEditingNetId] = useState<string | null>(null);
   const [netDraft,     setNetDraft]     = useState<NetDraft>(EMPTY_NET_DRAFT);
   const [netError,     setNetError]     = useState("");
+  const [confirmDeleteNetId, setConfirmDeleteNetId] = useState<string | null>(null);
 
   // 3-dot menu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -233,6 +234,7 @@ export function AcademyClient() {
     } catch (err) {
       setNetError((err as { message?: string })?.message ?? String(err));
     }
+    setConfirmDeleteNetId(null);
   }
   function toggleExpand(id: string) {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -1123,8 +1125,18 @@ export function AcademyClient() {
                                 {net.dimensions && <div className="text-xs text-zinc-400">{net.dimensions}</div>}
                               </div>
                               <div className="flex items-center gap-3 flex-shrink-0">
-                                <button type="button" onClick={() => openEditNet(net)} className="text-xs text-pace-green hover:underline cursor-pointer">Edit</button>
-                                <button type="button" onClick={() => handleDeleteNet(net.id)} className="text-xs text-red-400 hover:underline cursor-pointer">Delete</button>
+                                {confirmDeleteNetId === net.id ? (
+                                  <>
+                                    <span className="text-xs text-zinc-400">Delete this net?</span>
+                                    <button type="button" onClick={() => handleDeleteNet(net.id)} className="text-xs font-semibold text-red-400 hover:underline cursor-pointer">Confirm</button>
+                                    <button type="button" onClick={() => setConfirmDeleteNetId(null)} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Cancel</button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button type="button" onClick={() => openEditNet(net)} className="text-xs text-pace-green hover:underline cursor-pointer">Edit</button>
+                                    <button type="button" onClick={() => setConfirmDeleteNetId(net.id)} className="text-xs text-red-400 hover:underline cursor-pointer">Delete</button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           ))}
