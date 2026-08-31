@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
+import { resolvePlanPrice } from "@/lib/currency";
 
 export async function POST(request: Request) {
   const { academyId, planId } = (await request.json()) as { academyId?: string; planId?: string };
@@ -19,8 +20,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const role = user.user_metadata?.role;
-  const ownAcademyId = user.user_metadata?.academy_id as string | undefined;
+  const role = user.app_metadata?.role;
+  const ownAcademyId = user.app_metadata?.academy_id as string | undefined;
   if (role !== "platform_admin" && !(role === "academy_admin" && ownAcademyId === academyId)) {
     return NextResponse.json({ error: "You can only manage billing for your own academy." }, { status: 403 });
   }
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
 
   const { data: academy, error: academyError } = await supabase
     .from("academies")
-    .select("id, name, head_coach_id, stripe_customer_id")
+    .select("id, name, head_coach_id, stripe_customer_id, currency")
     .eq("id", academyId)
     .single();
   if (academyError || !academy) {
@@ -44,12 +45,13 @@ export async function POST(request: Request) {
 
   const { data: plan, error: planError } = await supabase
     .from("plans")
-    .select("id, name, audience, price_aud, billing_interval, active")
+    .select("id, name, audience, price_aud, prices_by_currency, billing_interval, active")
     .eq("id", planId)
     .single();
   if (planError || !plan || !plan.active || plan.audience !== "organization") {
     return NextResponse.json({ error: "That plan isn't available." }, { status: 400 });
   }
+  const { amount: price, currency: billCurrency } = resolvePlanPrice(plan.price_aud, plan.prices_by_currency, academy.currency);
 
   try {
     let customerId = academy.stripe_customer_id as string | null;
@@ -74,8 +76,8 @@ export async function POST(request: Request) {
       customer: customerId,
       line_items: [{
         price_data: {
-          currency: "aud",
-          unit_amount: Math.round(plan.price_aud * 100),
+          currency: billCurrency,
+          unit_amount: Math.round(price * 100),
           recurring: { interval: (plan.billing_interval as "month" | "year") ?? "month" },
           product_data: { name: plan.name },
         },

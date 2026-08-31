@@ -20,8 +20,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const role = user.user_metadata?.role;
-  const ownCoachId = user.user_metadata?.coach_id as string | undefined;
+  const role = user.app_metadata?.role;
+  const ownCoachId = user.app_metadata?.coach_id as string | undefined;
   if (role === "coach" && ownCoachId !== coachId) {
     return NextResponse.json({ error: "You can only view your own payout account." }, { status: 403 });
   }

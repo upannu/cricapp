@@ -1,0 +1,99 @@
+<mxfile host="app.diagrams.net" agent="CRIC HQ docs generator" pages="2">
+  <diagram name="CRIC HQ - How It All Fits Together" id="CRIC-HQ---How-It-All-Fits-Together">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="n2" value="Who Uses It" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9AA5B5;verticalAlign=top;align=left;fontColor=#00D4AA;fontSize=13;fontStyle=1;spacingLeft=10;spacingTop=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="320" height="640" as="geometry" />
+        </mxCell>
+        <mxCell id="n3" value="Platform Owner" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=14;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="80" y="120" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n4" value="Academy / Club Admins &amp; Coaches" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=14;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="80" y="340" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n5" value="Players &amp; Parents" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=14;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="80" y="560" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n6" value="CRIC HQ Platform" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#00D4AA;verticalAlign=top;align=left;fontColor=#00D4AA;fontSize=13;fontStyle=1;spacingLeft=10;spacingTop=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="440" y="60" width="480" height="640" as="geometry" />
+        </mxCell>
+        <mxCell id="n7" value="Player &amp; Coach Profiles" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="480" y="120" width="400" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n8" value="Coaching Sessions &amp; AI Performance Reports" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="480" y="210" width="400" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n9" value="Academy Learning Path (Foundation → Elite)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="480" y="300" width="400" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n10" value="Bookings &amp; Attendance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="480" y="390" width="400" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n11" value="Payments &amp; Session Packs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="480" y="480" width="400" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n12" value="Reminders &amp; Notifications" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33261A;strokeColor=#FF6B2B;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="480" y="570" width="400" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="n13" value="What It Delivers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9AA5B5;verticalAlign=top;align=left;fontColor=#00D4AA;fontSize=13;fontStyle=1;spacingLeft=10;spacingTop=8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="60" width="320" height="640" as="geometry" />
+        </mxCell>
+        <mxCell id="n14" value="Player development tracked over time" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0F1F33;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=14;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="140" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n15" value="Predictable revenue for academies &amp; coaches" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0F1F33;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=14;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="340" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n16" value="Fewer missed payments, fewer no-shows" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0F1F33;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=14;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="540" width="240" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="n17" value="manages the whole platform" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n3" target="n6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n18" value="runs their program" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n4" target="n6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n19" value="trains, books, pays" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n5" target="n6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n7" target="n8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n8" target="n9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n22" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n10" target="n11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n11" target="n12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n24" value="email + SMS" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#FF6B2B;fontColor=#FF6B2B;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n12" target="n5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n25" value="keeps coaches in the loop" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#FF6B2B;fontColor=#FF6B2B;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n12" target="n4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n26" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n6" target="n14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n27" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n6" target="n15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n28" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n6" target="n16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="De4wMoOVOzzezOYubxwS" name="Page-2">
+    <mxGraphModel dx="1414" dy="761" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

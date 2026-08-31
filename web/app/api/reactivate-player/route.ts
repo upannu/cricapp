@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } },
   );
   const { data: { user: caller } } = await authClient.auth.getUser();
-  const callerRole = caller?.user_metadata?.role as string | undefined;
+  const callerRole = caller?.app_metadata?.role as string | undefined;
   if (callerRole !== "platform_admin" && callerRole !== "academy_admin") {
     return NextResponse.json({ error: "Only a platform admin or academy admin can reactivate an account." }, { status: 403 });
   }
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
   if (callerRole === "academy_admin") {
     // Players don't carry an academy_id column — an academy's roster lives as a player_ids
     // array on the academy row instead, so scoping by academy needs that lookup first.
-    const callerAcademyId = caller?.user_metadata?.academy_id as string | undefined;
+    const callerAcademyId = caller?.app_metadata?.academy_id as string | undefined;
     const { data: academy } = callerAcademyId
       ? await supabase.from("academies").select("player_ids").eq("id", callerAcademyId).single()
       : { data: null };

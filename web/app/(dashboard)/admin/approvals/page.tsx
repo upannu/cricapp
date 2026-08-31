@@ -118,6 +118,14 @@ export default function ApprovalsPage() {
 
   async function handleCreateAcademy() {
     if (!newAcademyName.trim()) return;
+    // Backstop for requests queued before signup itself started checking this (see
+    // complete-signup) — an admin approving an older pending request could otherwise still
+    // create a second academy with the same name.
+    const nameTaken = academies.some((a) => a.name.trim().toLowerCase() === newAcademyName.trim().toLowerCase());
+    if (nameTaken) {
+      setErrorMsg(`An academy named "${newAcademyName.trim()}" already exists — pick it from the dropdown instead of creating a new one.`);
+      return;
+    }
     setSavingAcademy(true);
     setErrorMsg(null);
     try {
@@ -143,7 +151,8 @@ export default function ApprovalsPage() {
       setAcademies((prev) => [...prev, {
         id, name: newAcademyName.trim(), description: "", location: newAcademyLocation.trim(),
         playerIds: [], playerCounts: {}, coachIds: [], headCoachId: "", stage: "Foundation",
-        coachName: "", startDate: today, status: "Active", sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
+        coachName: "", startDate: today, status: "Active", country: "AU", currency: "aud",
+        sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
         payoutModel: "head_coach",
       }]);
       setSelectedAcademy(id);

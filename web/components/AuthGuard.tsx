@@ -15,9 +15,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       router.replace("/login");
       return;
     }
-    // Player/Parent accounts only get the portal — everything else is coach/admin territory
+    // Player/Parent accounts only get the portal — everything else is coach/admin territory.
+    // One deliberate exception: their own Manage Subscription page. It's the only self-service
+    // page built for this role that the Portal doesn't already surface an equivalent of (Recent
+    // Sessions/Reports/Academy Progress all have a Portal-native view) — everything else under
+    // /players/[id]/* really is staff tooling. The page itself still enforces ownership
+    // server-side (canAccessPlayerServer), so this is just about not bouncing them before they
+    // ever reach it.
     const isPlayerOrParent = user.role === "player" || user.role === "parent";
-    if (isPlayerOrParent && !pathname.startsWith("/portal")) {
+    const isOwnSubscriptionPage = !!user.playerId && pathname === `/players/${user.playerId}/subscription`;
+    if (isPlayerOrParent && !pathname.startsWith("/portal") && !isOwnSubscriptionPage) {
       router.replace("/portal");
     }
   }, [user, router, pathname]);

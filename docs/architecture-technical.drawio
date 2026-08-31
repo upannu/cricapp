@@ -1,0 +1,78 @@
+<mxfile host="app.diagrams.net" agent="CRIC HQ docs generator" version="24.0.0">
+  <diagram name="CRIC HQ - Technical Architecture" id="CRIC-HQ---Technical-Architecture">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="n2" value="Client Roles" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9AA5B5;verticalAlign=top;align=left;fontColor=#00D4AA;fontSize=13;fontStyle=1;spacingLeft=10;spacingTop=8;dashed=0;" vertex="1" parent="1"><mxGeometry x="60" y="30" width="1480" height="130" as="geometry"/></mxCell>
+        <mxCell id="n3" value="Platform Admin" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="90" y="70" width="270" height="60" as="geometry"/></mxCell>
+        <mxCell id="n4" value="Academy Admin" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="380" y="70" width="270" height="60" as="geometry"/></mxCell>
+        <mxCell id="n5" value="Coach" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="670" y="70" width="270" height="60" as="geometry"/></mxCell>
+        <mxCell id="n6" value="Player" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="960" y="70" width="270" height="60" as="geometry"/></mxCell>
+        <mxCell id="n7" value="Parent / Guardian" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="1250" y="70" width="270" height="60" as="geometry"/></mxCell>
+        <mxCell id="n8" value="Vercel — dev branch
+(staging)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0F1F33;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="480" y="210" width="340" height="70" as="geometry"/></mxCell>
+        <mxCell id="n9" value="Hostinger — master branch
+crichq.com.au (production)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0F1F33;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="860" y="210" width="340" height="70" as="geometry"/></mxCell>
+        <mxCell id="n10" value="Next.js 16 App (App Router, TypeScript, Turbopack)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#00D4AA;verticalAlign=top;align=left;fontColor=#00D4AA;fontSize=13;fontStyle=1;spacingLeft=10;spacingTop=8;dashed=0;" vertex="1" parent="1"><mxGeometry x="60" y="330" width="1480" height="210" as="geometry"/></mxCell>
+        <mxCell id="n11" value="middleware.ts
+session gate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=12;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="100" y="380" width="260" height="70" as="geometry"/></mxCell>
+        <mxCell id="n12" value="Pages / Dashboards
+Players, Sessions, Academy, Bookings,
+Session Packs, Attendance, Coaches, Reports" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=11;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="390" y="380" width="430" height="70" as="geometry"/></mxCell>
+        <mxCell id="n13" value="API Routes
+(server-side, service-role writes)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=12;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="850" y="380" width="300" height="70" as="geometry"/></mxCell>
+        <mxCell id="n14" value="/api/cron/pack-reminders
+daily payment reminders" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#33261A;strokeColor=#FF6B2B;fontColor=#FFFFFF;fontSize=12;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="1180" y="380" width="320" height="70" as="geometry"/></mxCell>
+        <mxCell id="n15" value="Supabase" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#00D4AA;verticalAlign=top;align=left;fontColor=#00D4AA;fontSize=13;fontStyle=1;spacingLeft=10;spacingTop=8;dashed=0;" vertex="1" parent="1"><mxGeometry x="60" y="580" width="620" height="230" as="geometry"/></mxCell>
+        <mxCell id="n16" value="Postgres
+academies · players · coaches
+session_packs · bookings · plans" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=12;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="100" y="630" width="540" height="70" as="geometry"/></mxCell>
+        <mxCell id="n17" value="Auth
+role-based access" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=12;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="100" y="715" width="260" height="70" as="geometry"/></mxCell>
+        <mxCell id="n18" value="Storage
+session-reports (PDFs)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=12;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="380" y="715" width="260" height="70" as="geometry"/></mxCell>
+        <mxCell id="n19" value="External Services" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9AA5B5;verticalAlign=top;align=left;fontColor=#00D4AA;fontSize=13;fontStyle=1;spacingLeft=10;spacingTop=8;dashed=0;" vertex="1" parent="1"><mxGeometry x="720" y="580" width="820" height="230" as="geometry"/></mxCell>
+        <mxCell id="n20" value="Stripe + Stripe Connect
+subscriptions, one-time payments,
+split payouts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=11;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="760" y="630" width="260" height="80" as="geometry"/></mxCell>
+        <mxCell id="n21" value="ClickSend
+SMS reminders +
+notifications" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=12;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="1040" y="630" width="240" height="80" as="geometry"/></mxCell>
+        <mxCell id="n22" value="Gmail SMTP
+transactional email +
+Supabase Auth email" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=11;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="1300" y="630" width="220" height="80" as="geometry"/></mxCell>
+        <mxCell id="n23" value="Anthropic API
+AI biomechanics reports,
+coach chat assistant" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=11;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="760" y="725" width="260" height="70" as="geometry"/></mxCell>
+        <mxCell id="n24" value="Google Maps API
+coach discovery / location" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=12;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="1040" y="725" width="240" height="70" as="geometry"/></mxCell>
+        <mxCell id="n25" value="GitHub Actions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#9AA5B5;verticalAlign=top;align=left;fontColor=#00D4AA;fontSize=13;fontStyle=1;spacingLeft=10;spacingTop=8;dashed=0;" vertex="1" parent="1"><mxGeometry x="60" y="850" width="1480" height="160" as="geometry"/></mxCell>
+        <mxCell id="n26" value="Scheduled workflow
+triggers pack-reminders daily" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="120" y="900" width="460" height="80" as="geometry"/></mxCell>
+        <mxCell id="n27" value="Promote dev→master
+build-then-merge gate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1A2E45;strokeColor=#00D4AA;fontColor=#FFFFFF;fontSize=13;fontStyle=1;arcSize=8;spacing=6;" vertex="1" parent="1"><mxGeometry x="700" y="900" width="460" height="80" as="geometry"/></mxCell>
+        <mxCell id="n28" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n2" target="n8"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n29" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n2" target="n9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n30" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n8" target="n10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n31" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n9" target="n10"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n32" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n11" target="n12"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n33" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n12" target="n13"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n34" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n13" target="n16"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n35" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n13" target="n17"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n36" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n13" target="n18"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n37" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n13" target="n20"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n38" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n13" target="n21"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n39" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n13" target="n22"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n40" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n13" target="n23"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n41" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n12" target="n24"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n42" value="POST + CRON_SECRET" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#FF6B2B;fontColor=#FF6B2B;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n26" target="n14"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n43" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n14" target="n16"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n44" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n14" target="n21"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n45" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n14" target="n22"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n46" value="build check, then merge" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#FF6B2B;fontColor=#FF6B2B;fontSize=10;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n27" target="n9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="n47" value="webhook" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#9AA5B5;fontColor=#9AA5B5;fontSize=10;dashed=1;endArrow=block;elbow=vertical;" edge="1" parent="1" source="n20" target="n13"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

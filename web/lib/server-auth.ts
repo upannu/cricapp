@@ -22,10 +22,10 @@ export async function getCaller(): Promise<Caller | null> {
   if (!user) return null;
   return {
     userId: user.id,
-    role: user.user_metadata?.role,
-    academyId: user.user_metadata?.academy_id,
-    coachId: user.user_metadata?.coach_id,
-    playerId: user.user_metadata?.player_id,
+    role: user.app_metadata?.role,
+    academyId: user.app_metadata?.academy_id,
+    coachId: user.app_metadata?.coach_id,
+    playerId: user.app_metadata?.player_id,
   };
 }
 

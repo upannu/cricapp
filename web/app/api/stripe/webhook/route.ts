@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
+import { freeSessionsLimit } from "@/lib/server-plans";
 
 function serviceClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -38,7 +39,14 @@ export async function POST(request: Request) {
       if (session.metadata?.type === "pack_payment") {
         const packId = session.metadata?.pack_id;
         if (packId) {
-          await supabase.from("session_packs").update({ payment_status: "Paid" }).eq("id", packId);
+          // paid_date was previously only ever set by the manual "Mark Paid" (cash/bank transfer)
+          // flow — a pack paid online never recorded one, so the "Paid {date}" badge on the Packs
+          // page silently never showed for the majority of packs. event.created (not "today") is
+          // the actual payment instant, in case the webhook is retried or delayed.
+          await supabase.from("session_packs").update({
+            payment_status: "Paid",
+            paid_date: new Date(event.created * 1000).toISOString().slice(0, 10),
+          }).eq("id", packId);
         }
         break;
       }
@@ -65,6 +73,18 @@ export async function POST(request: Request) {
             library_stripe_subscription_id: librarySub.id,
             library_subscription_status: librarySub.status,
           }).eq("id", libraryPlayerId);
+        }
+        break;
+      }
+      if (session.metadata?.type === "coach_subscription") {
+        const subscribingCoachId = session.metadata?.coach_id;
+        if (subscribingCoachId && typeof session.subscription === "string") {
+          const coachSub = await stripe.subscriptions.retrieve(session.subscription);
+          await supabase.from("coaches").update({
+            stripe_subscription_id: coachSub.id,
+            subscription_status: coachSub.status,
+            sub_plan: "Coach Pro",
+          }).eq("id", subscribingCoachId);
         }
         break;
       }
@@ -130,6 +150,13 @@ export async function POST(request: Request) {
           .eq("stripe_subscription_id", subscription.id);
         break;
       }
+      if (subscription.metadata?.type === "coach_subscription") {
+        const isCoachActive = subscription.status === "active" || subscription.status === "trialing";
+        await supabase.from("coaches")
+          .update({ subscription_status: subscription.status, ...(!isCoachActive ? { sub_plan: "Free" } : {}) })
+          .eq("stripe_subscription_id", subscription.id);
+        break;
+      }
 
       const plan = subscription.metadata?.plan ?? null;
       const isActive = subscription.status === "active" || subscription.status === "trialing";
@@ -138,7 +165,7 @@ export async function POST(request: Request) {
         subscription_status: subscription.status,
         sub_end_date: new Date(subscription.items.data[0].current_period_end * 1000).toISOString().split("T")[0],
         ...(plan && isActive ? { sub_plan: plan, sub_sessions_limit: null } : {}),
-        ...(!isActive ? { sub_plan: "Free", sub_sessions_limit: 4 } : {}),
+        ...(!isActive ? { sub_plan: "Free", sub_sessions_limit: await freeSessionsLimit(supabase) } : {}),
       }).eq("stripe_subscription_id", subscription.id);
       break;
     }
@@ -158,11 +185,17 @@ export async function POST(request: Request) {
           .eq("stripe_subscription_id", subscription.id);
         break;
       }
+      if (subscription.metadata?.type === "coach_subscription") {
+        await supabase.from("coaches")
+          .update({ sub_plan: "Free", subscription_status: "canceled", stripe_subscription_id: null })
+          .eq("stripe_subscription_id", subscription.id);
+        break;
+      }
 
       await supabase.from("players").update({
         sub_plan: "Free",
         subscription_status: "canceled",
-        sub_sessions_limit: 4,
+        sub_sessions_limit: await freeSessionsLimit(supabase),
         stripe_subscription_id: null,
       }).eq("stripe_subscription_id", subscription.id);
       break;

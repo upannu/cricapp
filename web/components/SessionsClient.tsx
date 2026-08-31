@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import type { Session, BookingType, Player, Coach, Academy, Plan, CameraCalibration, VideoAnnotation, VoiceNote, Assessment } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchActivePlans, fetchCameraCalibration, fetchVideoAnnotations, fetchVoiceNotes, fetchAssessments, updateSessionRpe } from "@/lib/db";
+import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchActivePlans, fetchCameraCalibration, fetchVideoAnnotations, fetchVoiceNotes, deleteVoiceNote, fetchAssessments, updateSessionRpe } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel } from "@/lib/utils";
 import { extractPoseSequence, type PoseFrame } from "@/lib/pose";
 import { computeBiomechanics } from "@/lib/biomechanics";
@@ -15,7 +15,7 @@ import { CameraCalibrationModal } from "@/components/CameraCalibrationModal";
 import { VideoAnnotator } from "@/components/VideoAnnotator";
 import { VoiceNoteRecorder } from "@/components/VoiceNoteRecorder";
 import { AssessmentForm } from "@/components/AssessmentForm";
-import { canGenerateAiReports } from "@/lib/plan-features";
+import { canGenerateAiReports, canGenerateAiReportsForCoach } from "@/lib/plan-features";
 
 const SESSION_TYPES: BookingType[] = [
   "Net Session",
@@ -42,13 +42,30 @@ let _sessPlans: Plan[] = [];
 function playerById(id: string) { return _sessPlayers.find((p) => p.id === id); }
 /** AI reports are normally gated by the player's own subscription tier — but an academy
  * player on a fees-waived academy plan (e.g. a cricket board license) gets them included too,
- * same as they already get booking/pack session fees waived. */
+ * same as they already get booking/pack session fees waived. Unlike fee-waiving (which lasts the
+ * whole paid billing cycle), a plan with accessDurationMonths set only grants this for that
+ * shorter "AI monitoring window" per cycle (see academy.accessExpiresAt, set by the webhook on
+ * subscribe) — once it lapses, reports stop being included until the academy renews, even though
+ * the subscription itself, and its session-fee waiver, are still active. An independent coach's
+ * own Coach Pro plan covers AI reports for every player on their roster the same way — the coach
+ * is the one paying for the capability, not each individual player. */
 function aiReportsIncludedForPlayer(player: Player): boolean {
-  if (canGenerateAiReports(player.subscription.plan)) return true;
+  if (canGenerateAiReports(player.subscription.plan, _sessPlans)) return true;
   const academy = _sessAcademies.find((a) => a.playerIds.includes(player.id));
-  if (!academy?.planId) return false;
-  const plan = _sessPlans.find((p) => p.id === academy.planId);
-  return !!plan?.waivesSessionFees;
+  if (academy?.planId) {
+    const plan = _sessPlans.find((p) => p.id === academy.planId);
+    if (plan?.waivesSessionFees) {
+      const withinMonitoringWindow =
+        plan.accessDurationMonths == null ||
+        (!!academy.accessExpiresAt && new Date(academy.accessExpiresAt) > new Date());
+      if (withinMonitoringWindow) return true;
+    }
+  }
+  if (player.coachId) {
+    const coach = _sessCoaches.find((c) => c.id === player.coachId);
+    if (coach && !coach.academyId && canGenerateAiReportsForCoach(coach.subPlan as "Free" | "Coach Pro", _sessPlans)) return true;
+  }
+  return false;
 }
 
 function thisWeekCount(sessions: Session[]): number {
@@ -111,6 +128,8 @@ export function SessionsClient() {
   const [sessionExtras, setSessionExtras] = useState<Record<string, { annotations: VideoAnnotation[]; voiceNotes: VoiceNote[]; assessments: Assessment[] }>>({});
   const [annotatingVideo, setAnnotatingVideo] = useState<{ session: Session; angle: "front" | "side" | "back"; url: string } | null>(null);
   const [voiceNoteSession, setVoiceNoteSession] = useState<Session | null>(null);
+  const [confirmDeleteVoiceNoteId, setConfirmDeleteVoiceNoteId] = useState<string | null>(null);
+  const [deletingVoiceNoteId, setDeletingVoiceNoteId] = useState<string | null>(null);
   const [assessmentSession, setAssessmentSession] = useState<Session | null>(null);
   const [editingRpeId, setEditingRpeId] = useState<string | null>(null);
 
@@ -313,6 +332,23 @@ export function SessionsClient() {
       setDeleteErrors((prev) => ({ ...prev, [session.id]: msg }));
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleDeleteVoiceNote(sessionId: string, noteId: string) {
+    setDeletingVoiceNoteId(noteId);
+    try {
+      await deleteVoiceNote(noteId);
+      setSessionExtras((prev) => {
+        const extras = prev[sessionId];
+        if (!extras) return prev;
+        return { ...prev, [sessionId]: { ...extras, voiceNotes: extras.voiceNotes.filter((n) => n.id !== noteId) } };
+      });
+      setConfirmDeleteVoiceNoteId(null);
+    } catch {
+      // best-effort — leave the confirm state so the user can retry
+    } finally {
+      setDeletingVoiceNoteId(null);
     }
   }
 
@@ -639,7 +675,38 @@ export function SessionsClient() {
                               <div className="space-y-3">
                                 {extras.voiceNotes.map((n) => (
                                   <div key={n.id}>
-                                    <audio src={n.audioUrl} controls className="w-full h-8 mb-1.5" />
+                                    <div className="flex items-center gap-2">
+                                      <audio src={n.audioUrl} controls className="w-full h-8 mb-1.5" />
+                                      {confirmDeleteVoiceNoteId === n.id ? (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDeleteVoiceNote(session.id, n.id)}
+                                            disabled={deletingVoiceNoteId === n.id}
+                                            className="shrink-0 px-2 py-1 text-[10px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-md hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer"
+                                          >
+                                            {deletingVoiceNoteId === n.id ? "Deleting…" : "Confirm"}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setConfirmDeleteVoiceNoteId(null)}
+                                            disabled={deletingVoiceNoteId === n.id}
+                                            className="shrink-0 px-2 py-1 text-[10px] font-semibold text-zinc-400 border border-zinc-700 rounded-md hover:text-white transition-colors cursor-pointer"
+                                          >
+                                            Cancel
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => setConfirmDeleteVoiceNoteId(n.id)}
+                                          title="Delete this voice note"
+                                          className="shrink-0 px-2 py-1 text-[10px] font-semibold text-zinc-500 border border-zinc-700 rounded-md hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
+                                        >
+                                          Delete
+                                        </button>
+                                      )}
+                                    </div>
                                     {n.transcript && <p className="text-xs text-zinc-400 leading-relaxed">{n.transcript}</p>}
                                   </div>
                                 ))}

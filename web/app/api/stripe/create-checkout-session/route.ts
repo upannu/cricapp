@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { stripe, isPaidPlan } from "@/lib/stripe";
+import { resolvePlanPrice } from "@/lib/currency";
 
 export async function POST(request: Request) {
   const { playerId, plan } = (await request.json()) as { playerId?: string; plan?: string };
@@ -20,8 +21,8 @@ export async function POST(request: Request) {
   const { data: { user } } = await authClient.auth.getUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
 
-  const role = user.user_metadata?.role;
-  const ownPlayerId = user.user_metadata?.player_id as string | undefined;
+  const role = user.app_metadata?.role;
+  const ownPlayerId = user.app_metadata?.player_id as string | undefined;
   if ((role === "player" || role === "parent") && ownPlayerId !== playerId) {
     return NextResponse.json({ error: "You can only manage your own subscription." }, { status: 403 });
   }
@@ -36,24 +37,28 @@ export async function POST(request: Request) {
 
   const { data: player, error: playerError } = await supabase
     .from("players")
-    .select("id, name, email, stripe_customer_id")
+    .select("id, name, email, stripe_customer_id, currency")
     .eq("id", playerId)
     .single();
   if (playerError || !player) {
     return NextResponse.json({ error: "Player not found." }, { status: 404 });
   }
 
-  // Priced from the database (editable at /admin/pricing) rather than a pre-created Stripe
+  // Priced from the Plan Catalog (editable at /admin/plans) rather than a pre-created Stripe
   // Price object — avoids needing to visit the Stripe dashboard to change a subscription price.
-  const { data: settings, error: settingsError } = await supabase
-    .from("platform_settings")
-    .select("player_pro_price_aud, coach_pro_price_aud")
-    .eq("id", "default")
+  const slug = plan === "Player Pro" ? "player-pro" : "coach-pro";
+  const { data: planRow, error: planError } = await supabase
+    .from("plans")
+    .select("price_aud, prices_by_currency, billing_interval")
+    .eq("slug", slug)
     .single();
-  if (settingsError || !settings) {
+  if (planError || !planRow) {
     return NextResponse.json({ error: "Pricing is not configured." }, { status: 500 });
   }
-  const priceAud = plan === "Player Pro" ? settings.player_pro_price_aud : settings.coach_pro_price_aud;
+  const { amount: price, currency: billCurrency } = resolvePlanPrice(
+    planRow.price_aud, planRow.prices_by_currency, player.currency,
+  );
+  const interval = (planRow.billing_interval as "month" | "year" | null) ?? "month";
 
   try {
     let customerId = player.stripe_customer_id as string | null;
@@ -73,9 +78,9 @@ export async function POST(request: Request) {
       customer: customerId,
       line_items: [{
         price_data: {
-          currency: "aud",
-          unit_amount: Math.round(priceAud * 100),
-          recurring: { interval: "month" },
+          currency: billCurrency,
+          unit_amount: Math.round(price * 100),
+          recurring: { interval },
           product_data: { name: plan },
         },
         quantity: 1,

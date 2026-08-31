@@ -38,11 +38,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Incorrect password for this existing account." }, { status: 403 });
   }
 
-  const meta = existingUser.user_metadata ?? {};
+  const meta = existingUser.app_metadata ?? {};
   const linkedIdentities = (meta.linkedIdentities as LinkedIdentity[] | undefined) ?? [];
-  const alreadyHasRole =
+  // player/parent can legitimately request this role again — one per child, and which specific
+  // player it resolves to isn't known until approval (see approve-user's per-playerId dedup) —
+  // so only academy_admin/coach (one identity of those per account) get blocked here.
+  const alreadyHasRole = role !== "player" && role !== "parent" && (
     meta.role === role ||
-    linkedIdentities.some((li) => li.role === role);
+    linkedIdentities.some((li) => li.role === role)
+  );
   if (alreadyHasRole) {
     return NextResponse.json({ error: `You already have a ${role.replace("_", " ")} account with this email — just log in.` }, { status: 409 });
   }

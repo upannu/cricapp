@@ -8,10 +8,13 @@ import type {
   SCWorkout, SCWorkoutType,
   VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
   Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
-  PlatformSettings, Plan,
-  GroupSession, AttendanceStatus, AttendanceRecord,
+  Plan, EmailTemplate,
+  GroupSession, AttendanceStatus, AttendanceRecord, Net,
+  Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, ReferralStatus, ReferralPayoutStatus,
+  PackFeeDue, PackFeeDueStatus, BookingFeeDue,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
+import { DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
 
 // ─── DB row types (snake_case from Postgres) ────────────────────────────────
 
@@ -27,6 +30,7 @@ export interface DbPlayer {
   added_date: string; sessions_count: number; last_active: string; xp: number;
   sub_plan: string; sub_start_date: string; sub_end_date: string;
   sub_sessions_used: number; sub_sessions_limit: number | null;
+  sub_last_payment_date?: string | null;
   stripe_customer_id?: string | null; stripe_subscription_id?: string | null;
   subscription_status?: string | null;
   library_stripe_subscription_id?: string | null; library_subscription_status?: string | null;
@@ -37,6 +41,7 @@ export interface DbPlayer {
   acad_total_sessions: number; acad_xp: number; acad_articles_read: number;
   tip_streak_count?: number; tip_best_streak?: number; tip_last_viewed_date?: string | null;
   login_disabled?: boolean; disabled_at?: string | null; disabled_reason?: string | null;
+  currency?: string;
 }
 
 export interface DbCoach {
@@ -50,6 +55,11 @@ export interface DbCoach {
   stripe_connect_onboarded?: boolean;
   lat?: number | null;
   lng?: number | null;
+  currency?: string;
+  sub_plan?: string;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
+  subscription_status?: string | null;
 }
 
 export interface DbAcademy {
@@ -57,6 +67,7 @@ export interface DbAcademy {
   player_ids: string[]; player_counts: Record<string, number>;
   coach_ids: string[]; head_coach_id: string;
   stage: string; coach_name: string; start_date: string; status: string;
+  country?: string; currency?: string;
   session_fee_aud: number; session_type_fees: Record<string, number>;
   age_fees: Record<string, number>;
   stripe_customer_id?: string | null; stripe_subscription_id?: string | null;
@@ -69,8 +80,14 @@ export interface DbBooking {
   id: string; player_id: string; coach_id: string; date: string;
   time: string; duration_mins: number; type: string; status: string;
   location: string; notes: string; fee_aud: number; pack_id?: string | null;
+  net_id?: string | null;
   source?: string | null;
   payment_status?: string;
+  paid_date?: string | null;
+}
+
+export interface DbNet {
+  id: string; academy_id: string; name: string; dimensions: string;
 }
 
 export interface DbSession {
@@ -109,6 +126,9 @@ export interface DbReport {
   skeleton_images?: SkeletonImage[] | null;
   drills?: ReportDrill[] | null;
   ball_tracking?: BallTrackingResult | null;
+  review_status?: string;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
 }
 
 export interface DbCameraCalibration {
@@ -147,6 +167,7 @@ export function dbToPlayer(r: DbPlayer): Player {
     loginDisabled: r.login_disabled ?? false,
     disabledAt: r.disabled_at ?? null,
     disabledReason: r.disabled_reason ?? null,
+    currency: (r.currency as Currency | undefined) ?? DEFAULT_CURRENCY,
     subscription: {
       plan: r.sub_plan as PlanTier,
       startDate: r.sub_start_date, endDate: r.sub_end_date,
@@ -154,6 +175,7 @@ export function dbToPlayer(r: DbPlayer): Player {
       stripeCustomerId: r.stripe_customer_id ?? undefined,
       stripeSubscriptionId: r.stripe_subscription_id ?? undefined,
       subscriptionStatus: r.subscription_status ?? undefined,
+      lastPaymentDate: r.sub_last_payment_date ?? undefined,
     },
     biomechanics: {
       ballSpeedKmh: r.bio_ball_speed_kmh,
@@ -187,6 +209,11 @@ export function dbToCoach(r: DbCoach): Coach {
     stripeConnectOnboarded: r.stripe_connect_onboarded ?? false,
     lat: r.lat ?? undefined,
     lng: r.lng ?? undefined,
+    currency: (r.currency as Currency | undefined) ?? DEFAULT_CURRENCY,
+    subPlan: (r.sub_plan as Coach["subPlan"]) ?? "Free",
+    stripeCustomerId: r.stripe_customer_id ?? undefined,
+    stripeSubscriptionId: r.stripe_subscription_id ?? undefined,
+    subscriptionStatus: r.subscription_status ?? undefined,
   };
 }
 
@@ -201,6 +228,8 @@ export function dbToAcademy(r: DbAcademy): Academy {
     stage: r.stage as AcademyStage,
     coachName: r.coach_name, startDate: r.start_date,
     status: r.status as "Active" | "Inactive",
+    country: r.country ?? "AU",
+    currency: (r.currency as Currency | undefined) ?? DEFAULT_CURRENCY,
     sessionFeeAud: r.session_fee_aud,
     sessionTypeFees: r.session_type_fees as Academy["sessionTypeFees"],
     ageFees: (r.age_fees ?? {}) as Academy["ageFees"],
@@ -220,9 +249,15 @@ export function dbToBooking(r: DbBooking): Booking {
     type: r.type as BookingType, status: r.status as BookingStatus,
     location: r.location, notes: r.notes, feeAud: r.fee_aud,
     packId: r.pack_id ?? undefined,
+    netId: r.net_id ?? undefined,
     source: (r.source as Booking["source"]) ?? undefined,
     paymentStatus: (r.payment_status as PaymentStatus) ?? "Pending",
+    paidDate: r.paid_date ?? undefined,
   };
+}
+
+export function dbToNet(r: DbNet): Net {
+  return { id: r.id, academyId: r.academy_id, name: r.name, dimensions: r.dimensions };
 }
 
 export function dbToSession(r: DbSession): Session {
@@ -269,6 +304,9 @@ export function dbToReport(r: DbReport): Report {
     skeletonImages: r.skeleton_images ?? undefined,
     drills: r.drills ?? undefined,
     ballTracking: r.ball_tracking ?? undefined,
+    reviewStatus: (r.review_status as Report["reviewStatus"]) ?? "not_reviewed",
+    reviewedAt: r.reviewed_at ?? undefined,
+    reviewedBy: r.reviewed_by ?? undefined,
   };
 }
 
@@ -326,8 +364,11 @@ export async function fetchPlayer(id: string): Promise<Player | null> {
 
 export async function fetchPlayerByEmail(email: string): Promise<Player | null> {
   const sb = createClient();
-  const { data } = await sb.from("players").select("*").ilike("email", email).maybeSingle();
-  return data ? dbToPlayer(data as DbPlayer) : null;
+  // Player emails aren't unique (siblings can share a family email) — maybeSingle() silently
+  // returns null the moment more than one row matches, so use limit(1) like every other
+  // email-based player lookup in this app.
+  const { data } = await sb.from("players").select("*").ilike("email", email).limit(1);
+  return data?.[0] ? dbToPlayer(data[0] as DbPlayer) : null;
 }
 
 export async function updatePlayer(id: string, edits: Partial<DbPlayer>): Promise<void> {
@@ -391,6 +432,12 @@ export async function fetchCoaches(academyId?: string): Promise<Coach[]> {
   const { data, error } = await q;
   if (error) throw error;
   return (data as DbCoach[]).map(dbToCoach);
+}
+
+export async function fetchCoach(id: string): Promise<Coach | null> {
+  const sb = createClient();
+  const { data } = await sb.from("coaches").select("*").eq("id", id).maybeSingle();
+  return data ? dbToCoach(data as DbCoach) : null;
 }
 
 export async function fetchAcademies(): Promise<Academy[]> {
@@ -473,6 +520,27 @@ export async function deleteAcademy(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function fetchNets(academyId?: string): Promise<Net[]> {
+  const sb = createClient();
+  let q = sb.from("nets").select("*").order("name");
+  if (academyId) q = q.eq("academy_id", academyId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as DbNet[]).map(dbToNet);
+}
+
+export async function upsertNet(n: Partial<DbNet> & { id: string }): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("nets").upsert(n);
+  if (error) throw error;
+}
+
+export async function deleteNet(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("nets").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function fetchBookings(coachId?: string, playerId?: string, playerIds?: string[]): Promise<Booking[]> {
   if (playerIds && playerIds.length === 0) return [];
   const sb = createClient();
@@ -488,6 +556,12 @@ export async function fetchBookings(coachId?: string, playerId?: string, playerI
 export async function upsertBooking(b: Partial<DbBooking> & { id: string }): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("bookings").upsert(b);
+  if (error) throw error;
+}
+
+export async function markBookingPaid(id: string, paidDate: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("bookings").update({ payment_status: "Paid", paid_date: paidDate }).eq("id", id);
   if (error) throw error;
 }
 
@@ -540,6 +614,13 @@ export async function fetchSessionPacks(playerIds?: string[]): Promise<SessionPa
 export async function upsertSessionPack(pk: Partial<DbSessionPack> & { id: string }): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("session_packs").upsert(pk);
+  if (error) throw error;
+}
+
+export async function insertSessionPacks(rows: DbSessionPack[]): Promise<void> {
+  if (rows.length === 0) return;
+  const sb = createClient();
+  const { error } = await sb.from("session_packs").insert(rows);
   if (error) throw error;
 }
 
@@ -1140,23 +1221,21 @@ export async function recordTipView(playerId: string): Promise<{ streak: number;
   return { streak: newStreak, bonusAwarded };
 }
 
-// ─── Platform settings (subscription pricing) ───────────────────────────────
+// ─── Welcome-email templates (one per role, edited at /admin/email-templates) ──────────────
 
-export interface DbPlatformSettings {
-  id: string;
-  player_pro_price_aud: number;
-  coach_pro_price_aud: number;
+export interface DbEmailTemplate {
+  id: string; subject: string; heading: string; body: string;
 }
 
-export function dbToPlatformSettings(r: DbPlatformSettings): PlatformSettings {
-  return { playerProPriceAud: r.player_pro_price_aud, coachProPriceAud: r.coach_pro_price_aud };
+export function dbToEmailTemplate(r: DbEmailTemplate): EmailTemplate {
+  return { id: r.id as EmailTemplate["id"], subject: r.subject, heading: r.heading, body: r.body };
 }
 
-export async function fetchPlatformSettings(): Promise<PlatformSettings> {
+export async function fetchEmailTemplates(): Promise<EmailTemplate[]> {
   const sb = createClient();
-  const { data, error } = await sb.from("platform_settings").select("*").eq("id", "default").single();
+  const { data, error } = await sb.from("email_templates").select("*").order("id");
   if (error) throw error;
-  return dbToPlatformSettings(data as DbPlatformSettings);
+  return (data as DbEmailTemplate[]).map(dbToEmailTemplate);
 }
 
 // ─── Plan catalog (Library, Individual Assessment, Academy/Club/Board licenses) ────────────
@@ -1169,6 +1248,7 @@ export interface DbPlan {
   billing_type: string;
   billing_interval: string | null;
   price_aud: number;
+  prices_by_currency?: Record<string, number> | null;
   seat_cap: number | null;
   access_duration_months: number | null;
   included_notes: string | null;
@@ -1177,6 +1257,11 @@ export interface DbPlan {
   platform_fee_percent?: number;
   active: boolean;
   sort_order: number;
+  sessions_per_month_limit?: number | null;
+  chat_messages_per_day_limit?: number | null;
+  ai_reports_enabled?: boolean;
+  marketplace_enabled?: boolean;
+  locked?: boolean;
 }
 
 export function dbToPlan(r: DbPlan): Plan {
@@ -1188,6 +1273,7 @@ export function dbToPlan(r: DbPlan): Plan {
     billingType: r.billing_type as Plan["billingType"],
     billingInterval: r.billing_interval as Plan["billingInterval"],
     priceAud: r.price_aud,
+    pricesByCurrency: (r.prices_by_currency as Partial<Record<Currency, number>> | null) ?? {},
     seatCap: r.seat_cap,
     accessDurationMonths: r.access_duration_months,
     includedNotes: r.included_notes,
@@ -1196,6 +1282,11 @@ export function dbToPlan(r: DbPlan): Plan {
     platformFeePercent: r.platform_fee_percent ?? 10,
     active: r.active,
     sortOrder: r.sort_order,
+    sessionsPerMonthLimit: r.sessions_per_month_limit ?? null,
+    chatMessagesPerDayLimit: r.chat_messages_per_day_limit ?? null,
+    aiReportsEnabled: r.ai_reports_enabled ?? true,
+    marketplaceEnabled: r.marketplace_enabled ?? true,
+    locked: r.locked ?? false,
   };
 }
 
@@ -1219,4 +1310,110 @@ export async function fetchPlanBySlug(slug: string): Promise<Plan | null> {
   const sb = createClient();
   const { data } = await sb.from("plans").select("*").eq("slug", slug).maybeSingle();
   return data ? dbToPlan(data as DbPlan) : null;
+}
+
+// ─── Referrals ──────────────────────────────────────────────────────────────
+
+export interface DbReferral {
+  id: string; referrer_name: string; referrer_email?: string | null; referrer_phone?: string | null;
+  referrer_payment_details?: string | null;
+  referred_type: string;
+  referred_academy_id?: string | null; referred_coach_id?: string | null; referred_player_id?: string | null;
+  referred_name: string;
+  commission_type: string;
+  one_off_amount_aud?: number | null;
+  ongoing_rate_percent?: number | null;
+  ongoing_revenue_source?: string | null;
+  ongoing_end_date?: string | null;
+  status: string;
+  notes?: string | null;
+  created_at?: string;
+  created_by: string;
+}
+
+export interface DbReferralPayout {
+  id: string; referral_id: string; period_label?: string | null;
+  amount_aud: number; status: string; paid_date?: string | null; paid_by?: string | null;
+  created_at?: string;
+}
+
+export function dbToReferral(r: DbReferral): Referral {
+  return {
+    id: r.id, referrerName: r.referrer_name, referrerEmail: r.referrer_email ?? undefined,
+    referrerPhone: r.referrer_phone ?? undefined, referrerPaymentDetails: r.referrer_payment_details ?? undefined,
+    referredType: r.referred_type as ReferredType,
+    referredAcademyId: r.referred_academy_id ?? undefined, referredCoachId: r.referred_coach_id ?? undefined,
+    referredPlayerId: r.referred_player_id ?? undefined, referredName: r.referred_name,
+    commissionType: r.commission_type as ReferralCommissionType,
+    oneOffAmountAud: r.one_off_amount_aud ?? undefined, ongoingRatePercent: r.ongoing_rate_percent ?? undefined,
+    ongoingRevenueSource: (r.ongoing_revenue_source as ReferralRevenueSource) ?? undefined,
+    ongoingEndDate: r.ongoing_end_date ?? undefined, status: r.status as ReferralStatus,
+    notes: r.notes ?? undefined, createdAt: r.created_at, createdBy: r.created_by,
+  };
+}
+
+export function dbToReferralPayout(r: DbReferralPayout): ReferralPayout {
+  return {
+    id: r.id, referralId: r.referral_id, periodLabel: r.period_label ?? undefined,
+    amountAud: r.amount_aud, status: r.status as ReferralPayoutStatus,
+    paidDate: r.paid_date ?? undefined, paidBy: r.paid_by ?? undefined, createdAt: r.created_at,
+  };
+}
+
+export async function fetchReferrals(): Promise<Referral[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("referrals").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as DbReferral[]).map(dbToReferral);
+}
+
+export async function fetchReferralPayouts(referralId?: string): Promise<ReferralPayout[]> {
+  const sb = createClient();
+  let q = sb.from("referral_payouts").select("*").order("created_at", { ascending: false });
+  if (referralId) q = q.eq("referral_id", referralId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as DbReferralPayout[]).map(dbToReferralPayout);
+}
+
+// ─── Platform fee dues (cash/bank-transfer packs) ──────────────────────────
+
+export interface DbPackFeeDue {
+  id: string; pack_id: string; academy_id: string; amount_aud: number; fee_percent: number;
+  status: string; collected_date?: string | null; collected_by?: string | null; created_at?: string;
+}
+
+export function dbToPackFeeDue(r: DbPackFeeDue): PackFeeDue {
+  return {
+    id: r.id, packId: r.pack_id, academyId: r.academy_id, amountAud: r.amount_aud, feePercent: r.fee_percent,
+    status: r.status as PackFeeDueStatus, collectedDate: r.collected_date ?? undefined,
+    collectedBy: r.collected_by ?? undefined, createdAt: r.created_at,
+  };
+}
+
+export async function fetchPackFeeDues(): Promise<PackFeeDue[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("pack_fee_dues").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as DbPackFeeDue[]).map(dbToPackFeeDue);
+}
+
+export interface DbBookingFeeDue {
+  id: string; booking_id: string; academy_id: string; amount_aud: number; fee_percent: number;
+  status: string; collected_date?: string | null; collected_by?: string | null; created_at?: string;
+}
+
+export function dbToBookingFeeDue(r: DbBookingFeeDue): BookingFeeDue {
+  return {
+    id: r.id, bookingId: r.booking_id, academyId: r.academy_id, amountAud: r.amount_aud, feePercent: r.fee_percent,
+    status: r.status as PackFeeDueStatus, collectedDate: r.collected_date ?? undefined,
+    collectedBy: r.collected_by ?? undefined, createdAt: r.created_at,
+  };
+}
+
+export async function fetchBookingFeeDues(): Promise<BookingFeeDue[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("booking_fee_dues").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as DbBookingFeeDue[]).map(dbToBookingFeeDue);
 }

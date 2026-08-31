@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, deleteCoach, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
 import { DateInput } from "@/components/DateInput";
+import { DEFAULT_CURRENCY } from "@/lib/currency";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const CERT_LEVELS: CertificationLevel[] = ["Level 1", "Level 2", "Level 3", "Elite"];
@@ -17,7 +19,9 @@ const CERT_STYLES: Record<CertificationLevel, string> = {
   "Elite":   "bg-pace-green/20 text-pace-green",
 };
 
-type DraftCoach = Omit<Coach, "id" | "stripeConnectAccountId" | "stripeConnectOnboarded">;
+// Billing fields (subPlan/stripe*) are managed by the subscription flow and webhook, never
+// through this edit form — excluded from the draft entirely rather than carried around unused.
+type DraftCoach = Omit<Coach, "id" | "stripeConnectAccountId" | "stripeConnectOnboarded" | "subPlan" | "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus">;
 
 const EMPTY_DRAFT: DraftCoach = {
   name: "",
@@ -33,6 +37,7 @@ const EMPTY_DRAFT: DraftCoach = {
   academyId: "",
   marketplaceVisible: false,
   available: true,
+  currency: DEFAULT_CURRENCY,
 };
 
 let _coachAcademies: Academy[] = [];
@@ -70,6 +75,7 @@ export function CoachesClient() {
   const [reassignToCoachId, setReassignToCoachId] = useState("");
   const [newHeadCoachId, setNewHeadCoachId] = useState("");
   const [reassigning, setReassigning] = useState(false);
+  const [confirmDeleteCoachId, setConfirmDeleteCoachId] = useState<string | null>(null);
   const [payoutLoading, setPayoutLoading] = useState<string | null>(null);
   const [payoutError, setPayoutError] = useState<{ coachId: string; message: string } | null>(null);
 
@@ -166,8 +172,10 @@ export function CoachesClient() {
       academyId: coach.academyId,
       marketplaceVisible: coach.marketplaceVisible,
       available: coach.available,
+      currency: coach.currency,
     });
     setFormError("");
+    setConfirmDeleteCoachId(null);
     setShowForm(true);
     scrollToForm();
   }
@@ -176,12 +184,18 @@ export function CoachesClient() {
     setShowForm(false);
     setEditingId(null);
     setFormError("");
+    setConfirmDeleteCoachId(null);
   }
 
   async function handleSave() {
     if (!draft.name.trim()) { setFormError("Coach name is required."); return; }
     if (!draft.email.trim()) { setFormError("Email is required."); return; }
     if (!draft.academyId) { setFormError("Please assign this coach to an academy."); return; }
+    // Nothing in the schema stops two coach rows sharing an email — and when that happens, every
+    // email-based lookup elsewhere (invite approval, login linking) can only ever resolve to one
+    // of them, silently orphaning whichever wasn't picked. Catch it here instead.
+    const emailTaken = coaches.some((c) => c.id !== editingId && c.email.toLowerCase() === draft.email.trim().toLowerCase());
+    if (emailTaken) { setFormError(`Another coach already uses ${draft.email.trim()} — each coach needs a unique email.`); return; }
     setFormError("");
     setSaving(true);
 
@@ -192,6 +206,12 @@ export function CoachesClient() {
       stripeConnectAccountId: existing?.stripeConnectAccountId,
       stripeConnectOnboarded: existing?.stripeConnectOnboarded ?? false,
       lat: existing?.lat, lng: existing?.lng,
+      // Billing fields are never touched by this form — preserved as-is from whatever the
+      // subscription flow/webhook last set (defaulting to Free for a brand-new coach).
+      subPlan: existing?.subPlan ?? "Free",
+      stripeCustomerId: existing?.stripeCustomerId,
+      stripeSubscriptionId: existing?.stripeSubscriptionId,
+      subscriptionStatus: existing?.subscriptionStatus,
     };
 
     // Re-geocode whenever the location text changes — best-effort, never blocks the save.
@@ -385,7 +405,15 @@ export function CoachesClient() {
       <div ref={formRef} />
 
       {/* Create / Edit form */}
-      {showForm && (
+      {showForm && (() => {
+        const editingCoach = editingId ? coaches.find((c) => c.id === editingId) : undefined;
+        // A coach editing their own independent profile needs Coach Pro to turn marketplace
+        // visibility on — staff (who can also reach this form) aren't gated, since they're not
+        // the ones paying for it.
+        const marketplaceLocked =
+          user?.role === "coach" && user.coachId === editingId && !editingCoach?.academyId &&
+          editingCoach?.subPlan !== "Coach Pro" && !draft.marketplaceVisible;
+        return (
         <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-6">
             {editingId ? "Edit Coach" : "New Coach"}
@@ -461,16 +489,23 @@ export function CoachesClient() {
                 placeholder="Background, experience, coaching philosophy…" />
             </div>
             <div className="sm:col-span-2">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <label className={`flex items-center gap-2.5 select-none ${marketplaceLocked ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
                 <input
                   type="checkbox"
                   checked={draft.marketplaceVisible}
+                  disabled={marketplaceLocked}
                   onChange={(e) => setDraft({ ...draft, marketplaceVisible: e.target.checked })}
-                  className="w-4 h-4 rounded accent-pace-green cursor-pointer"
+                  className="w-4 h-4 rounded accent-pace-green cursor-pointer disabled:cursor-not-allowed"
                 />
                 <span className="text-sm text-white font-medium">Visible in the coach marketplace</span>
               </label>
-              <p className="text-xs text-zinc-500 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
+              {marketplaceLocked ? (
+                <p className="text-xs text-amber mt-1 ml-6">
+                  Requires Coach Pro. <Link href="/coach/subscription" className="underline hover:opacity-80">Upgrade</Link> to become discoverable and get booked by players.
+                </p>
+              ) : (
+                <p className="text-xs text-zinc-500 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
+              )}
             </div>
             <div className="sm:col-span-2">
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
@@ -554,10 +589,24 @@ export function CoachesClient() {
               Cancel
             </button>
             {editingId && user?.role !== "coach" && !(reassignTarget?.coachId === editingId) && (
-              <button type="button" onClick={() => handleDelete(editingId)}
-                className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer">
-                Delete Coach
-              </button>
+              confirmDeleteCoachId === editingId ? (
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-xs text-zinc-400">Delete this coach?</span>
+                  <button type="button" onClick={() => { handleDelete(editingId); setConfirmDeleteCoachId(null); }}
+                    className="px-3 py-1.5 text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors cursor-pointer">
+                    Confirm delete
+                  </button>
+                  <button type="button" onClick={() => setConfirmDeleteCoachId(null)}
+                    className="px-3 py-1.5 text-xs font-semibold text-zinc-400 border border-zinc-700 rounded-lg hover:text-white transition-colors cursor-pointer">
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setConfirmDeleteCoachId(editingId)}
+                  className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer">
+                  Delete Coach
+                </button>
+              )
             )}
           </div>
 
@@ -617,7 +666,8 @@ export function CoachesClient() {
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* Success banner */}
       {saved && !showForm && (
@@ -765,6 +815,25 @@ export function CoachesClient() {
                     >
                       {payoutLoading === coach.id ? "Loading…" : coach.stripeConnectOnboarded ? "View payouts" : "Set up payouts"}
                     </button>
+                  </div>
+                )}
+
+                {/* Own plan — only meaningful for an independent coach; an academy-employed one
+                    has no reason to pay for this themselves. */}
+                {user?.role === "coach" && user.coachId === coach.id && !coach.academyId && (
+                  <div className="mt-4 pt-4 border-t border-zinc-700/40 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-zinc-500">Your plan</p>
+                      <p className={`text-xs font-semibold ${coach.subPlan === "Coach Pro" ? "text-pace-green" : "text-zinc-400"}`}>
+                        {coach.subPlan === "Coach Pro" ? "✓ Coach Pro" : "Free"}
+                      </p>
+                    </div>
+                    <Link
+                      href="/coach/subscription"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer disabled:opacity-60 text-zinc-300 border-zinc-600 hover:border-pace-green hover:text-pace-green flex-shrink-0"
+                    >
+                      {coach.subPlan === "Coach Pro" ? "Manage plan" : "Upgrade"}
+                    </Link>
                   </div>
                 )}
               </div>

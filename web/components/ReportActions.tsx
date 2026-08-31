@@ -3,16 +3,19 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getReportPdfUrl } from "@/lib/utils";
+import type { ReportReviewStatus } from "@/lib/types";
 
 export function ReportActions({
   reportId,
   playerId,
   hasPdf,
+  reviewStatus,
   onDeleted,
 }: {
   reportId: string;
   playerId: string;
   hasPdf: boolean;
+  reviewStatus: ReportReviewStatus;
   onDeleted?: (reportId: string) => void;
 }) {
   const router = useRouter();
@@ -83,8 +86,9 @@ export function ReportActions({
         <button
           type="button"
           onClick={handleEmail}
-          disabled={emailing}
-          className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors disabled:opacity-60 cursor-pointer"
+          disabled={emailing || reviewStatus !== "completed"}
+          title={reviewStatus !== "completed" ? "Complete the coach review before emailing this report" : undefined}
+          className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           {emailing ? "Sending…" : "Email Report"}
         </button>

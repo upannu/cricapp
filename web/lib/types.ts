@@ -1,9 +1,18 @@
+import type { Currency } from '@/lib/currency';
+
 export type PlanTier = 'Coach Pro' | 'Player Pro' | 'Free';
 
-/** Platform-wide subscription prices, editable by a platform admin — see /admin/pricing. */
-export interface PlatformSettings {
-  playerProPriceAud: number;
-  coachProPriceAud: number;
+/** The four roles a signup approval can be for — also the fixed set of editable welcome-email
+ * templates at /admin/email-templates (one row per role, never user-created/deleted). */
+export type WelcomeEmailRole = 'player' | 'coach' | 'academy_admin' | 'parent';
+
+/** Admin-editable welcome-email copy sent by /api/approve-user. `subject` and `heading` support a
+ * `{{name}}` placeholder; `body` supports `{{name}}` too and may use blank lines for paragraphs. */
+export interface EmailTemplate {
+  id: WelcomeEmailRole;
+  subject: string;
+  heading: string;
+  body: string;
 }
 
 /**
@@ -21,6 +30,9 @@ export interface Plan {
   billingType: 'subscription' | 'one_time';
   billingInterval: 'month' | 'year' | null;
   priceAud: number;
+  /** Optional per-currency override prices (e.g. { usd: 35, gbp: 28 }) — see lib/currency.ts.
+   * A currency missing here isn't offered for this plan; checkout falls back to priceAud/AUD. */
+  pricesByCurrency: Partial<Record<Currency, number>>;
   seatCap: number | null;
   accessDurationMonths: number | null;
   includedNotes: string | null;
@@ -36,6 +48,15 @@ export interface Plan {
   platformFeePercent: number;
   active: boolean;
   sortOrder: number;
+  /** Individual-player/coach session & Coach AI chat caps — null means unlimited. Only meaningful
+   * on the three fixed tier plans (slug `free`/`player-pro`/`coach-pro`); see [[PlanTier]]. */
+  sessionsPerMonthLimit: number | null;
+  chatMessagesPerDayLimit: number | null;
+  aiReportsEnabled: boolean;
+  marketplaceEnabled: boolean;
+  /** True only for the three seeded tier plans — their slug/audience/billing type can't be
+   * changed via /admin/plans since code looks them up by slug (see lib/plan-features.ts). */
+  locked: boolean;
 }
 export type PlayerStatus = 'Active' | 'Expiring' | 'Expired';
 export type BowlingStyle =
@@ -63,6 +84,9 @@ export interface Subscription {
   stripeSubscriptionId?: string;
   /** Stripe's own subscription status (active, past_due, canceled, ...) — the webhook-driven source of truth, not `plan` alone. */
   subscriptionStatus?: string;
+  /** Manually recorded by a coach/academy_admin/platform_admin — not derived from Stripe or pack
+   * payment records, and never editable by the player/parent themselves. */
+  lastPaymentDate?: string;
 }
 
 export interface BiomechanicsData {
@@ -130,6 +154,12 @@ export interface Academy {
   coachName: string;
   startDate: string;
   status: 'Active' | 'Inactive';
+  /** ISO 3166-1 alpha-2, e.g. "AU" — set at creation, locked once a Stripe Connect payout account
+   * exists for the academy (see lib/currency.ts). Determines `currency` below. */
+  country: string;
+  /** Derived from `country` — the currency session fees below are denominated in, and what
+   * players/parents are charged (and the academy paid out) in via Stripe. */
+  currency: Currency;
   sessionFeeAud: number;
   sessionTypeFees: Partial<Record<BookingType, number>>;
   ageFees: Partial<Record<AgeGroup, number>>;
@@ -143,6 +173,15 @@ export interface Academy {
   /** 'head_coach' (default): all booking/pack revenue pays out to headCoachId. 'split_by_coach':
    * each booking/pack pays out to its own coach directly. */
   payoutModel: 'head_coach' | 'split_by_coach';
+}
+
+/** A physical practice net belonging to an academy — e.g. "Net 1", "Turf Net". Used at booking
+ * time to assign a specific net when an academy has more than one. */
+export interface Net {
+  id: string;
+  academyId: string;
+  name: string;
+  dimensions: string;
 }
 
 export type UserRole = 'platform_admin' | 'academy_admin' | 'coach' | 'player' | 'parent';
@@ -318,7 +357,12 @@ export interface Report {
   skeletonImages?: SkeletonImage[];
   drills?: ReportDrill[];
   ballTracking?: BallTrackingResult;
+  reviewStatus: ReportReviewStatus;
+  reviewedAt?: string;
+  reviewedBy?: string;
 }
+
+export type ReportReviewStatus = 'not_reviewed' | 'under_review' | 'completed';
 
 export type CoachStatus = 'Active' | 'Inactive';
 export type CertificationLevel = 'Level 1' | 'Level 2' | 'Level 3' | 'Elite';
@@ -344,6 +388,20 @@ export interface Coach {
   /** Geocoded from `location` on save — absent until the geocoding API has resolved it at least once. */
   lat?: number;
   lng?: number;
+  /** The currency an unaffiliated (no academyId) coach pays their own individual Coach Pro
+   * subscription in — see lib/currency.ts. Irrelevant once a coach belongs to an academy, since
+   * that academy's own `currency` governs any revenue split. */
+  currency: Currency;
+  /** A coach's own plan — Free or Coach Pro, billed directly to them (see
+   * create-coach-checkout-session), separate from any academy they belong to and separate from
+   * a player's own Free/Player Pro. Only 'Free' | 'Coach Pro' ever apply here (the 'Player Pro'
+   * member of PlanTier is never set on a coach), but reusing the one shared type avoids a
+   * near-identical duplicate. Gates marketplace visibility, own-roster size (see
+   * players.seatCap on the free plan), and AI report generation for their players. */
+  subPlan: PlanTier;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  subscriptionStatus?: string;
 }
 
 export type BookingStatus = 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed';
@@ -368,10 +426,15 @@ export interface Booking {
   notes: string;
   feeAud: number;
   packId?: string;
+  /** Which of the academy's nets this booking is assigned to — only meaningful when the coach's
+   * academy has nets configured. Unset for academies with no nets or off-site sessions. */
+  netId?: string;
   /** Set when a player submitted this via the coach marketplace, rather than staff creating it directly. */
   source?: 'marketplace';
   /** Only meaningful when there's no `packId` — a pack-drawn booking is already paid for via the pack. */
   paymentStatus: PaymentStatus;
+  /** Set when staff marked this booking paid manually (cash/bank transfer) rather than via Stripe. */
+  paidDate?: string;
 }
 
 export interface SessionVideo {
@@ -414,6 +477,10 @@ export interface Player {
   ageGroup: AgeGroup;
   club: string;
   coachId: string;
+  /** The currency this player (or their parent) pays in for anything not tied to an academy's own
+   * currency — their individual Player Pro/Library subscription, or an unaffiliated one-off
+   * purchase. See lib/currency.ts. */
+  currency: Currency;
   guardianConsentStatus: GuardianConsent;
   guardianConsentConfirmedAt?: string;
   guardianConsentConfirmedBy?: string;
@@ -509,5 +576,70 @@ export interface Assessment {
   ratings: Partial<Record<AssessmentCategory, number>>;
   comments: Partial<Record<AssessmentCategory, string>>;
   overallRecommendation: string;
+  createdAt?: string;
+}
+
+export type ReferredType = 'academy' | 'coach' | 'player' | 'other';
+export type ReferralCommissionType = 'one_off' | 'ongoing';
+export type ReferralRevenueSource = 'session_packs' | 'bookings' | 'both';
+export type ReferralStatus = 'active' | 'ended';
+export type ReferralPayoutStatus = 'pending' | 'paid';
+
+export interface Referral {
+  id: string;
+  referrerName: string;
+  referrerEmail?: string;
+  referrerPhone?: string;
+  referrerPaymentDetails?: string;
+  referredType: ReferredType;
+  referredAcademyId?: string;
+  referredCoachId?: string;
+  referredPlayerId?: string;
+  referredName: string;
+  commissionType: ReferralCommissionType;
+  oneOffAmountAud?: number;
+  ongoingRatePercent?: number;
+  ongoingRevenueSource?: ReferralRevenueSource;
+  ongoingEndDate?: string;
+  status: ReferralStatus;
+  notes?: string;
+  createdAt?: string;
+  createdBy: string;
+}
+
+export interface ReferralPayout {
+  id: string;
+  referralId: string;
+  periodLabel?: string;
+  amountAud: number;
+  status: ReferralPayoutStatus;
+  paidDate?: string;
+  paidBy?: string;
+  createdAt?: string;
+}
+
+export type PackFeeDueStatus = 'pending' | 'collected';
+
+export interface PackFeeDue {
+  id: string;
+  packId: string;
+  academyId: string;
+  amountAud: number;
+  feePercent: number;
+  status: PackFeeDueStatus;
+  collectedDate?: string;
+  collectedBy?: string;
+  createdAt?: string;
+}
+
+export interface BookingFeeDue {
+  id: string;
+  bookingId: string;
+  academyId: string;
+  amountAud: number;
+  feePercent: number;
+  status: PackFeeDueStatus;
+  collectedDate?: string;
+  collectedBy?: string;
   createdAt?: string;
 }

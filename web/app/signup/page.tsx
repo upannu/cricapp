@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 
@@ -15,26 +15,75 @@ const ROLE_OPTIONS: { value: Role; label: string; desc: string }[] = [
 ];
 
 const NEEDS_PLAYER_LOOKUP: Role[] = ["player", "parent"];
+const PREFILLABLE_ROLES: Role[] = ["player", "parent"];
 
 export default function SignUpPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignUpForm />
+    </Suspense>
+  );
+}
+
+function SignUpForm() {
   const router = useRouter();
   const { signup } = useAuth();
-  const [role, setRole] = useState<Role>("academy_admin");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const searchParams = useSearchParams();
+  // A "you've been added" email links here with ?role=player&email=...&name=... so the player
+  // just has to pick a password — see api/players/notify-added/route.ts.
+  const roleParam = searchParams.get("role");
+  const initialRole: Role = PREFILLABLE_ROLES.includes(roleParam as Role) ? (roleParam as Role) : "academy_admin";
+  const prefillEmail = searchParams.get("email") ?? "";
+  const prefillName = searchParams.get("name") ?? "";
+
+  const [role, setRole] = useState<Role>(initialRole);
+  const [name, setName] = useState(prefillName);
+  const [email, setEmail] = useState(prefillEmail);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [academyName, setAcademyName] = useState("");
   const [academyLocation, setAcademyLocation] = useState("");
-  const [playerEmail, setPlayerEmail] = useState("");
-  const [playerLookup, setPlayerLookup] = useState<{ email: string; status: "checking" | "found" | "not-found"; name?: string } | null>(null);
+  const [playerEmail, setPlayerEmail] = useState(prefillEmail);
+  const [playerLookup, setPlayerLookup] = useState<{ email: string; status: "checking" | "found" | "not-found"; name?: string; additionalCount?: number } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [linked, setLinked] = useState(false);
+  const [autoApproved, setAutoApproved] = useState(false);
+  const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false);
 
   // Only trust playerLookup if it was computed for the email currently in the field
   const lookupForCurrentEmail = playerLookup?.email === playerEmail.trim() ? playerLookup : null;
+
+  // Live "does this email already have an account" check on the account-email field itself —
+  // catches the case that actually caused real damage: someone submitting a second signup for
+  // an email that already has a pending/approved account, before they even hit submit, rather
+  // than finding out only after something went wrong (or, before this existed, silently
+  // overwriting the first account's role entirely).
+  const [emailCheck, setEmailCheck] = useState<{ email: string; status: "checking" | "exists" | "clear" } | null>(null);
+  const emailCheckForCurrent = emailCheck?.email === email.trim() ? emailCheck : null;
+
+  useEffect(() => {
+    if (!email.trim()) { setEmailCheck(null); return; }
+    const e = email.trim();
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      if (cancelled) return;
+      setEmailCheck({ email: e, status: "checking" });
+      try {
+        const res = await fetch("/api/check-existing-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: e }),
+        });
+        const data = await res.json();
+        if (!cancelled) setEmailCheck({ email: e, status: data.exists ? "exists" : "clear" });
+      } catch {
+        if (!cancelled) setEmailCheck(null);
+      }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(handle); };
+  }, [email]);
 
   useEffect(() => {
     if (!NEEDS_PLAYER_LOOKUP.includes(role) || !playerEmail.trim()) return;
@@ -46,7 +95,7 @@ export default function SignUpPage() {
       try {
         const res = await fetch(`/api/lookup-player?email=${encodeURIComponent(email)}`);
         const data = await res.json();
-        if (!cancelled) setPlayerLookup(data.found ? { email, status: "found", name: data.playerName } : { email, status: "not-found" });
+        if (!cancelled) setPlayerLookup(data.found ? { email, status: "found", name: data.playerName, additionalCount: data.additionalCount ?? 0 } : { email, status: "not-found" });
       } catch {
         if (!cancelled) setPlayerLookup({ email, status: "not-found" });
       }
@@ -68,7 +117,7 @@ export default function SignUpPage() {
     }
     setLoading(true);
     setError("");
-    const { error: err, linked: wasLinked } = await signup(
+    const { error: err, linked: wasLinked, approved, needsConfirmation } = await signup(
       name.trim(), email.trim(), password, role,
       NEEDS_PLAYER_LOOKUP.includes(role) ? playerEmail.trim() : undefined,
       role === "academy_admin" ? academyName.trim() : undefined,
@@ -79,9 +128,9 @@ export default function SignUpPage() {
       setLoading(false);
       return;
     }
-    // Always show pending screen — even if no email confirmation,
-    // the account still needs platform admin approval before accessing the dashboard
     setLinked(!!wasLinked);
+    setAutoApproved(!!approved);
+    setNeedsEmailConfirm(needsConfirmation);
     setDone(true);
   }
 
@@ -108,7 +157,7 @@ export default function SignUpPage() {
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">Request submitted</h2>
+            <h2 className="text-xl font-bold text-white mb-2">{autoApproved ? "You're all set" : "Request submitted"}</h2>
             {linked ? (
               <>
                 <p className="text-zinc-400 text-sm leading-relaxed mb-2">
@@ -118,6 +167,19 @@ export default function SignUpPage() {
                 </p>
                 <p className="text-zinc-500 text-xs leading-relaxed mb-6">
                   Once approved, sign in as usual and use the role switcher to move between your linked identities.
+                </p>
+              </>
+            ) : autoApproved ? (
+              <>
+                <p className="text-zinc-400 text-sm leading-relaxed mb-2">
+                  {needsEmailConfirm ? (
+                    <>Check your email and confirm your address — <span className="text-pace-green font-semibold">no approval wait</span>, you can sign in the moment it&apos;s confirmed.</>
+                  ) : (
+                    <>Your account is ready — <span className="text-pace-green font-semibold">sign in now</span>.</>
+                  )}
+                </p>
+                <p className="text-zinc-500 text-xs leading-relaxed mb-6">
+                  Your player record was already on file, so there&apos;s no admin review for this account.
                 </p>
               </>
             ) : (
@@ -180,7 +242,10 @@ export default function SignUpPage() {
                     <p className="text-zinc-500 text-xs mt-1.5">Checking…</p>
                   )}
                   {lookupForCurrentEmail?.status === "found" && (
-                    <p className="text-pace-green text-xs mt-1.5">✓ Found: {lookupForCurrentEmail.name}</p>
+                    <p className="text-pace-green text-xs mt-1.5">
+                      ✓ Found: {lookupForCurrentEmail.name}
+                      {!!lookupForCurrentEmail.additionalCount && ` (+${lookupForCurrentEmail.additionalCount} more child${lookupForCurrentEmail.additionalCount === 1 ? "" : "ren"} at this email — you'll get access to all of them)`}
+                    </p>
                   )}
                   {lookupForCurrentEmail?.status === "not-found" && (
                     <p className="text-red-400 text-xs mt-1.5">No player found with this email — ask your coach to add the player first.</p>
@@ -236,6 +301,14 @@ export default function SignUpPage() {
                   placeholder="your@email.com"
                   required
                 />
+                {emailCheckForCurrent?.status === "exists" && (
+                  <p className="text-amber text-xs mt-1.5">
+                    This email already has a CRIC HQ account. If it&apos;s yours,{" "}
+                    <Link href="/login" className="underline hover:opacity-80">sign in</Link> instead —
+                    submitting this form will queue a request to link a {ROLE_OPTIONS.find((o) => o.value === role)?.label.toLowerCase()} role
+                    to it rather than create a new account.
+                  </p>
+                )}
               </div>
 
               <div>

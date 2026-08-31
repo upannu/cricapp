@@ -3,6 +3,11 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { buildWelcomeEmailHtml, renderTemplate } from "@/lib/email-templates";
+import { fetchAcademyPlanInfo } from "@/lib/plan-email";
+import { planFeatureLines } from "@/lib/plan-features";
+import { dbToPlan, type DbPlan } from "@/lib/db";
+import type { PlanTier } from "@/lib/types";
 
 interface LinkedIdentity {
   role: string;
@@ -24,7 +29,7 @@ export async function POST(request: Request) {
     { cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} } },
   );
   const { data: { user: caller } } = await authClient.auth.getUser();
-  if (caller?.user_metadata?.role !== "platform_admin") {
+  if (caller?.app_metadata?.role !== "platform_admin") {
     return NextResponse.json({ error: "Only a platform admin can approve requests." }, { status: 403 });
   }
 
@@ -70,16 +75,39 @@ export async function POST(request: Request) {
 
   // Coaches who self-signed-up (rather than being invited via the coaches admin UI, which
   // already links coach_id at invite time) still need linking to their own coaches row here —
-  // best-effort by email match, not a hard requirement, since a coach may legitimately sign up
-  // before any coaches row exists for them yet.
+  // by email match when staff already created one ahead of time. Coach emails aren't guaranteed
+  // unique (nothing stops two coach rows sharing one by mistake) — maybeSingle() throws on more
+  // than one match, silently dropping the link entirely, so use limit(1) like the player lookup
+  // below already does.
+  //
+  // A direct self-signup ("Coach" on /signup, no academy involved at all — this app supports
+  // genuinely independent coaches on their own Coach Pro plan, not just academy staff) has no
+  // coaches row waiting for it, so create one here rather than leaving the account approved with
+  // no coach_id — that used to silently produce an orphaned "coach" account invisible on every
+  // coaches list and non-functional in the app. academy_id is left null (independent); an academy
+  // can always add them to a roster later the normal way.
   let linkedCoachId: string | undefined;
   if (reqData.role === "coach") {
-    const { data: coachMatch } = await supabase
+    const { data: coachMatches } = await supabase
       .from("coaches")
       .select("id")
       .ilike("email", reqData.email)
-      .maybeSingle();
-    linkedCoachId = coachMatch?.id;
+      .limit(1);
+    linkedCoachId = coachMatches?.[0]?.id;
+
+    if (!linkedCoachId) {
+      const newCoachId = `c_${Date.now()}`;
+      const { error: coachInsertError } = await supabase.from("coaches").insert({
+        id: newCoachId, name: reqData.name, email: reqData.email, phone: "",
+        specialization: "", age_groups_focus: [], location: "", status: "Active",
+        joined_date: new Date().toISOString().split("T")[0], certification_level: "Level 1",
+        bio: "", academy_id: null, marketplace_visible: false,
+      });
+      if (coachInsertError) {
+        return NextResponse.json({ error: `Could not create coach profile: ${coachInsertError.message}` }, { status: 500 });
+      }
+      linkedCoachId = newCoachId;
+    }
   }
 
   // A "link" request (an already-approved account requesting an additional role) is tied to
@@ -93,7 +121,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "The linked account no longer exists. The request has been removed." }, { status: 404 });
     }
 
-    const meta = existingUserData.user.user_metadata ?? {};
+    const meta = existingUserData.user.app_metadata ?? {};
     const currentIdentities = (meta.linkedIdentities as LinkedIdentity[] | undefined) ?? [];
     const seeded = currentIdentities.length > 0
       ? currentIdentities
@@ -109,13 +137,18 @@ export async function POST(request: Request) {
     if (linkedCoachId) newIdentity.coachId = linkedCoachId;
     if (linkedPlayerId) newIdentity.playerId = linkedPlayerId;
 
-    const alreadyLinked = seeded.some((li) => li.role === newIdentity.role);
+    // One identity per role for academy_admin/coach (a second one doesn't make sense), but a
+    // parent/player can legitimately have several — one per child — so dedup those by the full
+    // (role, playerId) pair instead, letting a newly-discovered sibling still get linked later.
+    const alreadyLinked = (newIdentity.role === "player" || newIdentity.role === "parent")
+      ? seeded.some((li) => li.role === newIdentity.role && li.playerId === newIdentity.playerId)
+      : seeded.some((li) => li.role === newIdentity.role);
     const linkedIdentities = alreadyLinked ? seeded : [...seeded, newIdentity];
 
     // Only linkedIdentities changes here — the account's currently-active role/links are left
     // untouched, so an approval never silently changes what a logged-in session sees mid-use.
     const { error: linkUpdateError } = await supabase.auth.admin.updateUserById(reqData.existing_user_id, {
-      user_metadata: { ...meta, linkedIdentities },
+      app_metadata: { ...meta, linkedIdentities },
     });
     if (linkUpdateError) return NextResponse.json({ error: linkUpdateError.message }, { status: 400 });
 
@@ -142,7 +175,7 @@ export async function POST(request: Request) {
   if (linkedCoachId) extraMeta.coach_id = linkedCoachId;
 
   const { error: updateError } = await supabase.auth.admin.updateUserById(authUser.id, {
-    user_metadata: extraMeta,
+    app_metadata: extraMeta,
     email_confirm: true,
   });
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 400 });
@@ -162,6 +195,46 @@ export async function POST(request: Request) {
       player: "Player",
       parent: "Parent / Guardian",
     }[reqData.role as string] ?? reqData.role;
+
+    // "What's included" varies by which of the two parallel plan systems this account is on —
+    // an academy/coach's org-level plan (plans catalog, free-text includedNotes) vs a player's
+    // individual freemium tier (lib/plan-features.ts, structured gates). Pulled fresh here rather
+    // than duplicated as copy, so this line can never drift from what the account actually gets.
+    let planName: string | undefined;
+    let planLines: string[] = [];
+
+    if (reqData.role === "academy_admin" || reqData.role === "coach") {
+      let orgAcademyId = academyId as string | undefined;
+      if (!orgAcademyId && linkedCoachId) {
+        const { data: coachRow } = await supabase.from("coaches").select("academy_id").eq("id", linkedCoachId).maybeSingle();
+        orgAcademyId = coachRow?.academy_id ?? undefined;
+      }
+      if (orgAcademyId) {
+        const info = await fetchAcademyPlanInfo(supabase, orgAcademyId);
+        planName = info.planName;
+        planLines = info.planLines;
+      }
+    } else if ((reqData.role === "player" || reqData.role === "parent") && linkedPlayerId) {
+      const { data: playerRow } = await supabase.from("players").select("sub_plan").eq("id", linkedPlayerId).maybeSingle();
+      const tier = (playerRow?.sub_plan as PlanTier | undefined) ?? "Free";
+      planName = tier;
+      const { data: planRows } = await supabase.from("plans").select("*").eq("active", true);
+      const plans = ((planRows as DbPlan[] | null) ?? []).map(dbToPlan);
+      planLines = planFeatureLines(tier, plans);
+    }
+
+    // Admin-editable copy per role (see /admin/email-templates) — falls back to a generic
+    // default if the row is ever missing so approval emails never silently go unsent.
+    const { data: templateRow } = await supabase
+      .from("email_templates")
+      .select("subject, heading, body")
+      .eq("id", reqData.role)
+      .maybeSingle();
+    const vars = { name: reqData.name };
+    const subject = templateRow ? renderTemplate(templateRow.subject, vars) : "Your CRIC HQ account has been approved";
+    const heading = templateRow ? renderTemplate(templateRow.heading, vars) : `Welcome, ${reqData.name}! 🏏`;
+    const bodyText = templateRow ? renderTemplate(templateRow.body, vars) : `Your CRIC HQ account has been approved as a ${roleLabel}.`;
+
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: { user: gmailUser, pass: gmailPass },
@@ -169,22 +242,24 @@ export async function POST(request: Request) {
     const text = [
       `Hi ${reqData.name},`,
       ``,
-      `Great news! Your CRIC HQ account has been approved.`,
+      bodyText,
       ``,
       `You can now log in and get started:`,
       `${appUrl}/login`,
       ``,
       `Your role: ${roleLabel}`,
+      planName ? `Your plan: ${planName}` : ``,
+      ...planLines.map((l) => `- ${l}`),
       ``,
-      `Welcome to the team!`,
       `— CRIC HQ`,
-    ].join("\n");
+    ].filter((l, i, arr) => !(l === `` && arr[i - 1] === ``)).join("\n");
 
     await transporter.sendMail({
       from: `"CRIC HQ" <${gmailUser}>`,
       to: reqData.email,
-      subject: "Your CRIC HQ account has been approved",
+      subject,
       text,
+      html: buildWelcomeEmailHtml({ heading, bodyText, appUrl, planName, planLines }),
     }).catch(() => {
       // Don't fail the approval if email sending fails
     });

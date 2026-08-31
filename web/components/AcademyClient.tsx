@@ -3,12 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Papa from "papaparse";
-import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan } from "@/lib/types";
+import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan, Net } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, insertPlayers, updateAcademyFields, fetchActivePlans } from "@/lib/db";
+import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, insertPlayers, updateAcademyFields, fetchActivePlans, fetchNets, upsertNet, deleteNet } from "@/lib/db";
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 import { getPlatformFeePercent } from "@/lib/utils";
+import { sessionsLimitForPlan } from "@/lib/plan-features";
+import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const STAGES: AcademyStage[] = ["Foundation", "Mechanics", "Velocity", "Elite"];
@@ -34,6 +36,7 @@ type DraftAcademy = {
   playerIds: string[]; coachIds: string[]; headCoachId: string;
   stage: AcademyStage; startDate: string;
   status: "Active" | "Inactive";
+  country: string;
   sessionFeeAud: number;
   sessionTypeFees: Partial<Record<string, number>>;
   ageFees: Partial<Record<AgeGroup, number>>;
@@ -45,7 +48,7 @@ const EMPTY_DRAFT: DraftAcademy = {
   playerIds: [], coachIds: [], headCoachId: "",
   stage: "Foundation",
   startDate: new Date().toISOString().split("T")[0],
-  status: "Active", sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
+  status: "Active", country: "AU", sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
   payoutModel: "head_coach",
 };
 
@@ -96,6 +99,9 @@ const EMPTY_NEW_COACH: NewCoachDraft = {
 type SortOption = "name" | "players" | "newest" | "stage";
 type ConfirmToggle = { id: string; name: string; newStatus: "Active" | "Inactive" };
 
+type NetDraft = { name: string; dimensions: string };
+const EMPTY_NET_DRAFT: NetDraft = { name: "", dimensions: "" };
+
 export function AcademyClient() {
   const { user } = useAuth();
 
@@ -104,11 +110,20 @@ export function AcademyClient() {
   const [allPlayers,  setAllPlayers]  = useState<Player[]>([]);
   const [allCoaches,  setAllCoaches]  = useState<Coach[]>([]);
   const [orgPlans,    setOrgPlans]    = useState<Plan[]>([]);
+  const [allPlans,    setAllPlans]    = useState<Plan[]>([]);
+  const [nets,        setNets]        = useState<Net[]>([]);
 
   // Accordion
   const [expandedId,      setExpandedId]      = useState<string | null>(null);
-  const [tabMap,          setTabMap]          = useState<Record<string, "players" | "coaches" | "pricing">>({});
+  const [tabMap,          setTabMap]          = useState<Record<string, "players" | "coaches" | "pricing" | "nets">>({});
   const [activeGroupView, setActiveGroupView] = useState<{ academyId: string; ageGroup: AgeGroup } | null>(null);
+
+  // Nets inline add/edit form
+  const [showNetForm,  setShowNetForm]  = useState<string | null>(null); // holds academyId while open
+  const [editingNetId, setEditingNetId] = useState<string | null>(null);
+  const [netDraft,     setNetDraft]     = useState<NetDraft>(EMPTY_NET_DRAFT);
+  const [netError,     setNetError]     = useState("");
+  const [confirmDeleteNetId, setConfirmDeleteNetId] = useState<string | null>(null);
 
   // 3-dot menu
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -158,9 +173,11 @@ export function AcademyClient() {
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
-    Promise.all([fetchAcademies(), fetchPlayers(coachId, academyId), fetchCoaches(academyId), fetchActivePlans()]).then(([a, p, c, plans]) => {
+    Promise.all([fetchAcademies(), fetchPlayers(coachId, academyId), fetchCoaches(academyId), fetchActivePlans(), fetchNets()]).then(([a, p, c, plans, n]) => {
       setAcademies(a); setAllPlayers(p); setAllCoaches(c);
       setOrgPlans(plans.filter((x) => x.audience === "organization"));
+      setAllPlans(plans);
+      setNets(n);
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -177,8 +194,50 @@ export function AcademyClient() {
 
   // ── Accordion ──────────────────────────────────────────────────────────────
   function getTab(id: string) { return tabMap[id] ?? "players"; }
-  function setTab(id: string, tab: "players" | "coaches" | "pricing") {
+  function setTab(id: string, tab: "players" | "coaches" | "pricing" | "nets") {
     setTabMap((prev) => ({ ...prev, [id]: tab }));
+  }
+
+  // ── Nets ────────────────────────────────────────────────────────────────
+  function openAddNet(academyId: string) {
+    setEditingNetId(null);
+    setNetDraft(EMPTY_NET_DRAFT);
+    setNetError("");
+    setShowNetForm(academyId);
+  }
+  function openEditNet(net: Net) {
+    setEditingNetId(net.id);
+    setNetDraft({ name: net.name, dimensions: net.dimensions });
+    setNetError("");
+    setShowNetForm(net.academyId);
+  }
+  function closeNetForm() {
+    setShowNetForm(null);
+    setEditingNetId(null);
+    setNetError("");
+  }
+  async function handleSaveNet(academyId: string) {
+    if (!netDraft.name.trim()) { setNetError("Please give this net a name."); return; }
+    setNetError("");
+    const id = editingNetId ?? `net${Date.now()}`;
+    const net: Net = { id, academyId, name: netDraft.name.trim(), dimensions: netDraft.dimensions.trim() };
+    try {
+      await upsertNet({ id: net.id, academy_id: academyId, name: net.name, dimensions: net.dimensions });
+    } catch (err) {
+      setNetError((err as { message?: string })?.message ?? String(err));
+      return;
+    }
+    setNets((prev) => (editingNetId ? prev.map((n) => (n.id === editingNetId ? net : n)) : [...prev, net]));
+    closeNetForm();
+  }
+  async function handleDeleteNet(id: string) {
+    try {
+      await deleteNet(id);
+      setNets((prev) => prev.filter((n) => n.id !== id));
+    } catch (err) {
+      setNetError((err as { message?: string })?.message ?? String(err));
+    }
+    setConfirmDeleteNetId(null);
   }
   function toggleExpand(id: string) {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -233,6 +292,7 @@ export function AcademyClient() {
       playerIds: [...academy.playerIds], coachIds: [...coachIds],
       headCoachId,
       stage: academy.stage, startDate: academy.startDate, status: academy.status,
+      country: academy.country ?? "AU",
       sessionFeeAud: academy.sessionFeeAud,
       sessionTypeFees: { ...academy.sessionTypeFees },
       ageFees: { ...academy.ageFees },
@@ -250,9 +310,20 @@ export function AcademyClient() {
     setFormError(""); setOwnerMissing(false); setOwnerSuggested(false);
   }
 
+  // Country is locked once a Connect payout account exists for this academy (Stripe can't move a
+  // connected account's country) — true if either the head coach or any assigned coach (covers
+  // both payout_model values) already has one. Computed once here so the UI's disabled-dropdown
+  // state and handleSave's actual enforcement can never disagree. See lib/currency.ts.
+  const academyCountryLocked = !!editingId && (
+    draft.coachIds.some((cid) => allCoaches.find((c) => c.id === cid)?.stripeConnectAccountId)
+    || !!allCoaches.find((c) => c.id === draft.headCoachId)?.stripeConnectAccountId
+  );
+
   // ── Save ───────────────────────────────────────────────────────────────────
   async function handleSave() {
     if (!draft.name.trim()) { setFormError("Academy Name is required."); return; }
+    const nameTaken = academies.some((a) => a.id !== editingId && a.name.trim().toLowerCase() === draft.name.trim().toLowerCase());
+    if (nameTaken) { setFormError(`An academy named "${draft.name.trim()}" already exists.`); return; }
     if (!draft.headCoachId) { setOwnerMissing(true); return; }
     setFormError(""); setSaving(true);
 
@@ -269,6 +340,11 @@ export function AcademyClient() {
 
     const headCoach = allCoaches.find((c) => c.id === draft.headCoachId);
     const id = editingId ?? `ac${Date.now()}`;
+    // Keep whatever's already on the row rather than the draft's (disabled-but-still-present)
+    // value when locked, so a stale/injected draft value can never slip through.
+    const existingAcademy = editingId ? academies.find((a) => a.id === editingId) : undefined;
+    const country = (existingAcademy && academyCountryLocked) ? (existingAcademy.country ?? "AU") : draft.country;
+    const currency = currencyForCountry(country);
     const newAcademy: Academy = {
       id, name: draft.name.trim(), description: draft.description, location: draft.location,
       phone: draft.phone.trim() || undefined,
@@ -276,6 +352,7 @@ export function AcademyClient() {
       headCoachId: draft.headCoachId,
       stage: draft.stage, coachName: headCoach?.name ?? "",
       startDate: draft.startDate, status: draft.status,
+      country, currency,
       sessionFeeAud: draft.sessionFeeAud,
       sessionTypeFees: draft.sessionTypeFees,
       ageFees: cleanedAgeFees,
@@ -290,6 +367,7 @@ export function AcademyClient() {
         coach_ids: newAcademy.coachIds, head_coach_id: newAcademy.headCoachId,
         coach_name: newAcademy.coachName,
         stage: newAcademy.stage, start_date: newAcademy.startDate, status: newAcademy.status,
+        country: newAcademy.country, currency: newAcademy.currency,
         session_fee_aud: newAcademy.sessionFeeAud,
         session_type_fees: newAcademy.sessionTypeFees as Record<string, number>,
         age_fees: cleanedAgeFees as Record<string, number>,
@@ -365,16 +443,18 @@ export function AcademyClient() {
     if (!newPlayerDraft.name.trim()) { setNewPlayerError("Name is required."); return; }
     const newId = `p_${Date.now()}`;
     const now = new Date().toISOString().split("T")[0];
+    const freeSessionsLimit = sessionsLimitForPlan("Free", allPlans);
     const newPlayer: Player = {
       id: newId, name: newPlayerDraft.name.trim(), email: newPlayerDraft.email.trim(),
       phone: "", ageGroup: newPlayerDraft.ageGroup, bowlingStyle: newPlayerDraft.bowlingStyle,
       battingHand: "Right Hand", playingLevel: "Club", heightCm: null, weightKg: null,
       club: newPlayerDraft.club.trim(), addedDate: now, coachId: "",
+      currency: currencyForCountry(draft.country),
       guardianConsentStatus: "Pending",
       subscription: {
         plan: "Free", startDate: now,
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        sessionsUsed: 0, sessionsLimit: 4,
+        sessionsUsed: 0, sessionsLimit: freeSessionsLimit,
       },
       biomechanics: { ballSpeedKmh: 0, frontKneeAngleDeg: 0, actionType: "Side-on", injuryRisk: "Low", lastSession: now },
       academy: { stage: "Foundation", completionPercent: 0, totalSessions: 0, xp: 0, articlesRead: 0 },
@@ -389,15 +469,24 @@ export function AcademyClient() {
       club: newPlayer.club, coach_id: null, guardian_consent_status: "Pending",
       added_date: now, sessions_count: 0, last_active: now, xp: 0,
       sub_plan: "Free", sub_start_date: now, sub_end_date: newPlayer.subscription.endDate,
-      sub_sessions_used: 0, sub_sessions_limit: 4,
+      sub_sessions_used: 0, sub_sessions_limit: freeSessionsLimit,
       bio_ball_speed_kmh: 0, bio_front_knee_angle_deg: 0, bio_action_type: "Side-on",
       bio_injury_risk: "Low", bio_last_session: now,
       acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
       acad_xp: 0, acad_articles_read: 0,
+      currency: newPlayer.currency,
     });
     setAllPlayers((prev) => [...prev, newPlayer]);
     setDraft((prev) => ({ ...prev, playerIds: [...prev.playerIds, newId] }));
     setNewPlayerDraft(EMPTY_NEW_PLAYER); setNewPlayerError(""); setShowNewPlayer(false);
+
+    if (newPlayer.email.trim()) {
+      fetch("/api/players/notify-added", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: newId, academyId: editingId }),
+      }).catch(() => {});
+    }
   }
 
   function downloadCsvTemplate() {
@@ -465,16 +554,18 @@ export function AcademyClient() {
     setCsvError("");
     try {
       const now = new Date().toISOString().split("T")[0];
+      const freeSessionsLimit = sessionsLimitForPlan("Free", allPlans);
       const newPlayers: Player[] = importable.map((row, i) => ({
         id: `p_${Date.now()}_${i}`, name: row.name, email: row.email,
         phone: row.phone, ageGroup: row.ageGroup, bowlingStyle: row.bowlingStyle,
         battingHand: "Right Hand", playingLevel: "Club", heightCm: null, weightKg: null,
         club: row.club, addedDate: now, coachId: "",
+        currency: currencyForCountry(draft.country),
         guardianConsentStatus: "Pending",
         subscription: {
           plan: "Free", startDate: now,
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          sessionsUsed: 0, sessionsLimit: 4,
+          sessionsUsed: 0, sessionsLimit: freeSessionsLimit,
         },
         biomechanics: { ballSpeedKmh: 0, frontKneeAngleDeg: 0, actionType: "Side-on", injuryRisk: "Low", lastSession: now },
         academy: { stage: "Foundation", completionPercent: 0, totalSessions: 0, xp: 0, articlesRead: 0 },
@@ -490,11 +581,12 @@ export function AcademyClient() {
         club: p.club, coach_id: null, guardian_consent_status: "Pending",
         added_date: now, sessions_count: 0, last_active: now, xp: 0,
         sub_plan: "Free", sub_start_date: now, sub_end_date: p.subscription.endDate,
-        sub_sessions_used: 0, sub_sessions_limit: 4,
+        sub_sessions_used: 0, sub_sessions_limit: freeSessionsLimit,
         bio_ball_speed_kmh: 0, bio_front_knee_angle_deg: 0, bio_action_type: "Side-on",
         bio_injury_risk: "Low", bio_last_session: now,
         acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
         acad_xp: 0, acad_articles_read: 0,
+        currency: p.currency,
       })));
 
       // Import happens immediately against the real academy row — unlike the rest of this form,
@@ -517,6 +609,15 @@ export function AcademyClient() {
       setCsvImportedCount(newPlayers.length);
       setCsvRows([]);
       setCsvFileName("");
+
+      for (const p of newPlayers) {
+        if (!p.email.trim()) continue;
+        fetch("/api/players/notify-added", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerId: p.id, academyId: editingId }),
+        }).catch(() => {});
+      }
     } catch (err) {
       setCsvError((err as { message?: string })?.message ?? String(err));
     } finally {
@@ -526,6 +627,14 @@ export function AcademyClient() {
 
   async function handleAddNewCoach() {
     if (!newCoachDraft.name.trim()) { setNewCoachError("Name is required."); return; }
+    const email = newCoachDraft.email.trim();
+    // Nothing in the schema stops two coach rows sharing an email — and when that happens, every
+    // email-based lookup elsewhere (invite approval, login linking) can only ever resolve to one
+    // of them, silently orphaning whichever wasn't picked. Catch it here instead.
+    if (email && allCoaches.some((c) => c.email.toLowerCase() === email.toLowerCase())) {
+      setNewCoachError(`Another coach already uses ${email} — each coach needs a unique email.`);
+      return;
+    }
     setNewCoachError(""); setSavingCoach(true);
     const newId  = `c_${Date.now()}`;
     const now    = new Date().toISOString().split("T")[0];
@@ -535,6 +644,8 @@ export function AcademyClient() {
       ageGroupsFocus: [], location: "", status: "Active", joinedDate: now,
       certificationLevel: newCoachDraft.certificationLevel, bio: "", academyId: "",
       marketplaceVisible: false, available: true, stripeConnectOnboarded: false,
+      currency: currencyForCountry(draft.country),
+      subPlan: "Free",
     };
     try {
       await upsertCoach({
@@ -542,7 +653,7 @@ export function AcademyClient() {
         specialization: newCoach.specialization, age_groups_focus: [],
         location: "", status: "Active", joined_date: now,
         certification_level: newCoach.certificationLevel, bio: "", academy_id: null,
-        marketplace_visible: false,
+        marketplace_visible: false, currency: newCoach.currency,
       });
     } catch (err) {
       setNewCoachError((err as { message?: string })?.message ?? String(err));
@@ -748,7 +859,7 @@ export function AcademyClient() {
                       <div className="text-[10px] text-zinc-500">Coaches</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-sm font-bold text-white">{academy.sessionFeeAud > 0 ? `$${academy.sessionFeeAud}` : "—"}</div>
+                      <div className="text-sm font-bold text-white">{academy.sessionFeeAud > 0 ? formatMoney(academy.sessionFeeAud, academy.currency) : "—"}</div>
                       <div className="text-[10px] text-zinc-500">Fee/session</div>
                     </div>
                   </div>
@@ -836,14 +947,15 @@ export function AcademyClient() {
                 {isExpanded && (
                   <div className="border-t border-zinc-700/60 px-5 pb-5">
                     <div className="flex gap-1 pt-4 mb-4">
-                      {(["players", "coaches", "pricing"] as const).map((t) => (
+                      {(["players", "coaches", "pricing", "nets"] as const).map((t) => (
                         <button key={t} type="button" onClick={() => setTab(academy.id, t)}
                           className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors cursor-pointer ${
                             tab === t ? "bg-pace-green text-black" : "bg-ink text-zinc-400 hover:text-white"
                           }`}>
                           {t === "players" ? `Players (${assignedPlayers.length})`
                             : t === "coaches" ? `Coaches (${assignedCoaches.length})`
-                            : "Pricing"}
+                            : t === "pricing" ? "Pricing"
+                            : `Nets (${nets.filter((n) => n.academyId === academy.id).length})`}
                         </button>
                       ))}
                     </div>
@@ -958,16 +1070,16 @@ export function AcademyClient() {
                           <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Default Session Fee</p>
                           <div className="flex items-baseline gap-2">
                             <span className="text-2xl font-bold text-pace-green">
-                              {academy.sessionFeeAud > 0 ? `$${academy.sessionFeeAud}` : "—"}
+                              {academy.sessionFeeAud > 0 ? formatMoney(academy.sessionFeeAud, academy.currency) : "—"}
                             </span>
-                            {academy.sessionFeeAud > 0 && <span className="text-zinc-400 text-sm">AUD per session</span>}
+                            {academy.sessionFeeAud > 0 && <span className="text-zinc-400 text-sm">{academy.currency.toUpperCase()} per session</span>}
                           </div>
                           {academy.sessionFeeAud > 0 && (() => {
                             const feePct = getPlatformFeePercent(academy.id, academies, orgPlans);
                             return (
                               <div className="flex gap-6 mt-1.5 text-xs text-zinc-400">
-                                <span>Platform fee ({feePct}%): <span className="text-amber font-semibold">${(academy.sessionFeeAud * (feePct / 100)).toFixed(2)}</span></span>
-                                <span>Academy receives: <span className="text-pace-green font-semibold">${(academy.sessionFeeAud * (1 - feePct / 100)).toFixed(2)}</span></span>
+                                <span>Platform fee ({feePct}%): <span className="text-amber font-semibold">{formatMoney(academy.sessionFeeAud * (feePct / 100), academy.currency)}</span></span>
+                                <span>Academy receives: <span className="text-pace-green font-semibold">{formatMoney(academy.sessionFeeAud * (1 - feePct / 100), academy.currency)}</span></span>
                               </div>
                             );
                           })()}
@@ -980,7 +1092,7 @@ export function AcademyClient() {
                                 (fee ?? 0) > 0 ? (
                                   <div key={type} className="flex items-center justify-between">
                                     <span className="text-xs text-zinc-400">{type}</span>
-                                    <span className="text-xs font-bold text-white">${fee}</span>
+                                    <span className="text-xs font-bold text-white">{formatMoney(fee ?? 0, academy.currency)}</span>
                                   </div>
                                 ) : null
                               )}
@@ -994,7 +1106,7 @@ export function AcademyClient() {
                               {AGE_GROUPS.filter((g) => (academy.ageFees[g] ?? 0) > 0).map((g) => (
                                 <div key={g} className="bg-surface rounded-lg p-2 text-center">
                                   <div className="text-xs text-zinc-400 mb-0.5">{g}</div>
-                                  <div className="text-sm font-bold text-pace-green">${academy.ageFees[g]}</div>
+                                  <div className="text-sm font-bold text-pace-green">{formatMoney(academy.ageFees[g] ?? 0, academy.currency)}</div>
                                 </div>
                               ))}
                             </div>
@@ -1002,6 +1114,75 @@ export function AcademyClient() {
                         )}
                       </div>
                     )}
+
+                    {/* Nets tab */}
+                    {tab === "nets" && (() => {
+                      const academyNets = nets.filter((n) => n.academyId === academy.id);
+                      return (
+                        <div className="space-y-3">
+                          {academyNets.length === 0 && showNetForm !== academy.id && (
+                            <p className="text-zinc-500 text-sm py-4 text-center">No nets configured yet. Bookings for this academy will use free-text location until you add one.</p>
+                          )}
+                          {academyNets.map((net) => (
+                            <div key={net.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-ink rounded-xl">
+                              <div className="min-w-0">
+                                <div className="text-sm font-semibold text-white truncate">{net.name}</div>
+                                {net.dimensions && <div className="text-xs text-zinc-400">{net.dimensions}</div>}
+                              </div>
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                {confirmDeleteNetId === net.id ? (
+                                  <>
+                                    <span className="text-xs text-zinc-400">Delete this net?</span>
+                                    <button type="button" onClick={() => handleDeleteNet(net.id)} className="text-xs font-semibold text-red-400 hover:underline cursor-pointer">Confirm</button>
+                                    <button type="button" onClick={() => setConfirmDeleteNetId(null)} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Cancel</button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button type="button" onClick={() => openEditNet(net)} className="text-xs text-pace-green hover:underline cursor-pointer">Edit</button>
+                                    <button type="button" onClick={() => setConfirmDeleteNetId(net.id)} className="text-xs text-red-400 hover:underline cursor-pointer">Delete</button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+
+                          {showNetForm === academy.id ? (
+                            <div className="bg-ink rounded-xl p-4 space-y-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Name *</label>
+                                  <input type="text" value={netDraft.name} onChange={(e) => setNetDraft({ ...netDraft, name: e.target.value })}
+                                    className="w-full bg-surface rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
+                                    placeholder="e.g. Net 1" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Dimensions</label>
+                                  <input type="text" value={netDraft.dimensions} onChange={(e) => setNetDraft({ ...netDraft, dimensions: e.target.value })}
+                                    className="w-full bg-surface rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
+                                    placeholder="e.g. 30m x 3.5m" />
+                                </div>
+                              </div>
+                              {netError && <p className="text-red-400 text-xs">{netError}</p>}
+                              <div className="flex items-center gap-3">
+                                <button type="button" onClick={() => handleSaveNet(academy.id)}
+                                  className="px-4 py-2 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+                                  {editingNetId ? "Save Changes" : "Add Net"}
+                                </button>
+                                <button type="button" onClick={closeNetForm}
+                                  className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer">
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button type="button" onClick={() => openAddNet(academy.id)}
+                              className="px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/30 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer">
+                              + Add Net
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
               </div>
@@ -1124,6 +1305,18 @@ export function AcademyClient() {
                     <input type="text" value={draft.location}
                       onChange={(e) => setDraft({ ...draft, location: e.target.value })}
                       className={inp} placeholder="e.g. Brisbane, QLD" />
+                  </div>
+                  <div>
+                    <label className={lbl}>Country</label>
+                    <select value={draft.country} disabled={academyCountryLocked}
+                      onChange={(e) => setDraft({ ...draft, country: e.target.value })}
+                      className={`${sel} ${academyCountryLocked ? "opacity-60 cursor-not-allowed" : ""}`}>
+                      {COUNTRY_OPTIONS.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+                    </select>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Players are billed and the academy paid out in {(COUNTRY_OPTIONS.find((c) => c.code === draft.country)?.currency ?? DEFAULT_CURRENCY).toUpperCase()}.
+                      {academyCountryLocked && " Locked — a coach here already has a Stripe payout account set up."}
+                    </p>
                   </div>
                   <div>
                     <label className={lbl}>Phone</label>
@@ -1313,7 +1506,7 @@ export function AcademyClient() {
                 <p className={sectionLbl}>Pricing</p>
                 <div className="bg-ink rounded-xl p-4 space-y-4">
                   <div>
-                    <label className={lbl}>Default Session Fee (AUD)</label>
+                    <label className={lbl}>Default Session Fee ({currencyForCountry(draft.country).toUpperCase()})</label>
                     <div className="flex items-center gap-4">
                       <div className="relative max-w-xs flex-1">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-semibold">$</span>
@@ -1324,10 +1517,11 @@ export function AcademyClient() {
                       </div>
                       {draft.sessionFeeAud > 0 && (() => {
                         const feePct = editingId ? getPlatformFeePercent(editingId, academies, orgPlans) : 10;
+                        const draftCurrency = currencyForCountry(draft.country);
                         return (
                           <div className="text-xs text-zinc-400 space-y-0.5">
-                            <div>Platform ({feePct}%): <span className="text-amber font-semibold">${(draft.sessionFeeAud * (feePct / 100)).toFixed(2)}</span></div>
-                            <div>Academy: <span className="text-pace-green font-semibold">${(draft.sessionFeeAud * (1 - feePct / 100)).toFixed(2)}</span></div>
+                            <div>Platform ({feePct}%): <span className="text-amber font-semibold">{formatMoney(draft.sessionFeeAud * (feePct / 100), draftCurrency)}</span></div>
+                            <div>Academy: <span className="text-pace-green font-semibold">{formatMoney(draft.sessionFeeAud * (1 - feePct / 100), draftCurrency)}</span></div>
                           </div>
                         );
                       })()}

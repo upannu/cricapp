@@ -2,13 +2,23 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
-import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan } from "@/lib/types";
+import Papa from "papaparse";
+import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan, PackFeeDue } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, upsertSessionPack, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid } from "@/lib/db";
-import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired } from "@/lib/utils";
+import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid } from "@/lib/db";
+import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired, matchPlayerByNameOrEmail } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
+import { DEFAULT_CURRENCY, formatMoney, sumMoneyByCurrency } from "@/lib/currency";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+const PACK_CSV_TEMPLATE = "player,totalSessions\nJohn Smith,10\njane@example.com,\n";
+type PackCsvStatus = "ready" | "duplicate" | "skipped";
+type PackCsvRow = {
+  rowNum: number; playerInput: string; player: Player | undefined;
+  totalSessions: number; feePerSession: number; csvStatus: PackCsvStatus; issue: string;
+};
+type BulkPackSettings = { academyId: string; purchaseDate: string; totalSessions: number; agreedDays: string[] };
 
 const TYPE_STYLES: Record<BookingType, string> = {
   "Net Session":            "bg-pace-green/15 text-pace-green",
@@ -72,18 +82,28 @@ const EMPTY_DRAFT: DraftPack = {
 };
 
 type FilterType = "All" | "Active" | "Exhausted" | "No Pack";
-type PageTab = "Packs" | "Fees Due";
+type PageTab = "Packs" | "Fees Due" | "Platform Fees";
 
 export function SessionPacksClient() {
   const { user } = useAuth();
   const formRef = useRef<HTMLDivElement>(null);
 
   const [packs, setPacks] = useState<SessionPack[]>([]);
+  const [feeDues, setFeeDues] = useState<PackFeeDue[]>([]);
   const [pageTab, setPageTab] = useState<PageTab>("Packs");
   const [filter, setFilter] = useState<FilterType>("All");
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState<DraftPack>(EMPTY_DRAFT);
   const [formError, setFormError] = useState("");
+
+  // Bulk pack CSV import
+  const [showBulkForm, setShowBulkForm] = useState(false);
+  const [bulkSettings, setBulkSettings] = useState<BulkPackSettings>({ academyId: "", purchaseDate: today, totalSessions: 10, agreedDays: [] });
+  const [packCsvRows, setPackCsvRows] = useState<PackCsvRow[]>([]);
+  const [packCsvFileName, setPackCsvFileName] = useState("");
+  const [packCsvError, setPackCsvError] = useState("");
+  const [packCsvImporting, setPackCsvImporting] = useState(false);
+  const [packCsvImportedCount, setPackCsvImportedCount] = useState<number | null>(null);
 
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
@@ -100,15 +120,34 @@ export function SessionPacksClient() {
     }).then(([pk, bk]) => {
       setPacks(pk); _packBookings = bk;
     });
+    fetchPackFeeDues().then(setFeeDues).catch(() => {
+      // RLS naturally scopes this to what the caller can see (platform_admin sees all, an
+      // academy/coach sees only their own) — swallow rather than surface a loud error to a
+      // player/parent role who has no rows to see anyway.
+    });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function resolvedPaymentStatus(pk: SessionPack): PaymentStatus {
     return pk.paymentStatus;
   }
 
-  function handleMarkPaid(packId: string, paidDate: string) {
+  async function handleMarkPaid(packId: string, paidDate: string) {
     markPackPaid(packId, paidDate);
     setPacks((prev) => prev.map((pk) => pk.id === packId ? { ...pk, paymentStatus: "Paid", paidDate } : pk));
+    // Paid outside Stripe (cash/bank transfer) means the platform's own fee cut was never
+    // collected the way a real Checkout payment collects it automatically — record what's owed.
+    try {
+      const res = await fetch("/api/packs/record-fee-due", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ packId }),
+      });
+      const data = await res.json();
+      if (res.ok && !data.error) {
+        const fresh = await fetchPackFeeDues();
+        setFeeDues(fresh);
+      }
+    } catch {
+      // Best-effort — a coach's own "mark paid" flow shouldn't fail on this bookkeeping step.
+    }
   }
 
   function handleReactivate(playerId: string) {
@@ -174,6 +213,133 @@ export function SessionPacksClient() {
   function handleAcademyChange(academyId: string) {
     const fee = feeForAcademyAndType(academyId, draft.sessionType, draft.playerId);
     setDraft({ ...draft, academyId, feePerSession: fee });
+  }
+
+  // ── Bulk pack CSV import ────────────────────────────────────────────────
+  function openBulkAdd() {
+    const defaultAcademy = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
+    setBulkSettings({ academyId: defaultAcademy, purchaseDate: today, totalSessions: 10, agreedDays: [] });
+    setPackCsvRows([]); setPackCsvFileName(""); setPackCsvError(""); setPackCsvImportedCount(null);
+    setShowBulkForm(true);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
+
+  function handleToggleBulkDay(day: string) {
+    setBulkSettings((prev) => ({
+      ...prev,
+      agreedDays: prev.agreedDays.includes(day) ? prev.agreedDays.filter((d) => d !== day) : [...prev.agreedDays, day],
+    }));
+  }
+
+  function downloadPackCsvTemplate() {
+    const blob = new Blob([PACK_CSV_TEMPLATE], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "packs-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handlePackCsvFile(file: File) {
+    setPackCsvError(""); setPackCsvImportedCount(null); setPackCsvFileName(file.name);
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (results.errors.length > 0) {
+          setPackCsvError(`Could not parse the file: ${results.errors[0].message}`);
+          setPackCsvRows([]);
+          return;
+        }
+        const seenPlayerIds = new Set<string>();
+        const rows: PackCsvRow[] = results.data.map((raw, i) => {
+          const get = (key: string) => raw[key] ?? raw[key.toLowerCase()] ?? raw[key.toUpperCase()] ?? "";
+          const playerInput = get("player").trim() || get("name").trim() || get("email").trim();
+          const totalSessionsRaw = get("totalSessions").trim();
+          const totalSessions = totalSessionsRaw ? parseInt(totalSessionsRaw, 10) || bulkSettings.totalSessions : bulkSettings.totalSessions;
+
+          let csvStatus: PackCsvStatus = "ready";
+          let issue = "";
+          const player = matchPlayerByNameOrEmail(scopedPlayers, playerInput);
+          if (!player) { issue = "Player not found"; csvStatus = "skipped"; }
+
+          if (csvStatus !== "skipped" && player) {
+            if (seenPlayerIds.has(player.id)) {
+              issue = "Duplicate player in this file — first occurrence used";
+              csvStatus = "duplicate";
+            } else {
+              seenPlayerIds.add(player.id);
+              const hasActivePack = scopedPacks.some((pk) =>
+                pk.playerId === player.id && pk.academyId === bulkSettings.academyId
+                && pk.sessionType === "Net Session" && pk.status === "Active");
+              if (hasActivePack) {
+                issue = "Already has an active pack for this academy — creating another would break attendance recording";
+                csvStatus = "duplicate";
+              }
+            }
+          }
+
+          const feePerSession = player && csvStatus !== "skipped"
+            ? feeForAcademyAndType(bulkSettings.academyId, "Net Session", player.id)
+            : 0;
+
+          return { rowNum: i + 2, playerInput, player, totalSessions, feePerSession, csvStatus, issue };
+        });
+        setPackCsvRows(rows);
+      },
+      error: (err) => {
+        setPackCsvError(err.message);
+        setPackCsvRows([]);
+      },
+    });
+  }
+
+  async function handlePackCsvImport() {
+    if (!bulkSettings.academyId) { setPackCsvError("Please select an academy first."); return; }
+    if (bulkSettings.agreedDays.length === 0) { setPackCsvError("Please select at least one session day."); return; }
+    const ready = packCsvRows.filter((r) => r.csvStatus === "ready" && r.player);
+    if (ready.length === 0) return;
+    setPackCsvImporting(true);
+    setPackCsvError("");
+    try {
+      const waived = academyWaivesFees(bulkSettings.academyId);
+      const paymentStatus: PaymentStatus = waived ? "Paid" : "Pending";
+      const paymentDueDate = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+      const newPacks: SessionPack[] = ready.map((row, i) => ({
+        id: `sp_${Date.now()}_${i}`,
+        playerId: row.player!.id,
+        academyId: bulkSettings.academyId,
+        sessionType: "Net Session",
+        purchaseDate: bulkSettings.purchaseDate,
+        totalSessions: row.totalSessions,
+        sessionsUsed: 0,
+        sessionCredits: 0,
+        feePerSession: row.feePerSession,
+        status: "Active",
+        paymentStatus,
+        paymentDueDate,
+        paidDate: null,
+        agreedDays: bulkSettings.agreedDays,
+      }));
+
+      await insertSessionPacks(newPacks.map((p) => ({
+        id: p.id, player_id: p.playerId, academy_id: p.academyId,
+        session_type: p.sessionType, purchase_date: p.purchaseDate,
+        total_sessions: p.totalSessions, sessions_used: 0, session_credits: 0,
+        fee_per_session: p.feePerSession, status: "Active",
+        payment_status: p.paymentStatus, payment_due_date: p.paymentDueDate,
+        agreed_days: p.agreedDays,
+      })));
+
+      setPacks((prev) => [...newPacks, ...prev]);
+      setPackCsvImportedCount(newPacks.length);
+      setPackCsvRows([]);
+      setPackCsvFileName("");
+    } catch (err) {
+      setPackCsvError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setPackCsvImporting(false);
+    }
   }
 
   function handleToggleDraftDay(day: string) {
@@ -275,10 +441,16 @@ export function SessionPacksClient() {
           <p className="text-zinc-400 text-sm">Track upfront session purchases, scheduled dates, and credits</p>
         </div>
         {canAddPack && (
-          <button type="button" onClick={openAdd}
-            className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
-            + New Pack
-          </button>
+          <div className="flex gap-3">
+            <button type="button" onClick={openBulkAdd}
+              className="px-5 py-2.5 text-pace-green text-sm font-bold rounded-xl border border-pace-green/40 hover:bg-pace-green/10 transition-colors cursor-pointer">
+              Bulk Import Packs
+            </button>
+            <button type="button" onClick={openAdd}
+              className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+              + New Pack
+            </button>
+          </div>
         )}
       </div>
 
@@ -286,15 +458,18 @@ export function SessionPacksClient() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <StatCard label="Active packs" value={String(activePacks.length)} color="text-pace-green" />
         <StatCard label="Sessions remaining" value={String(totalRemain)} color="text-white" />
-        <StatCard label="Fees outstanding" value={`$${totalOutstanding.toLocaleString()}`} color={totalOutstanding > 0 ? "text-red-400" : "text-zinc-500"} />
-        <StatCard label="Gross revenue" value={`$${grossRevenue.toLocaleString()}`} color="text-amber" />
+        <StatCard label="Fees outstanding" value={sumMoneyByCurrency(feesDuePacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))} color={totalOutstanding > 0 ? "text-red-400" : "text-zinc-500"} />
+        <StatCard label="Gross revenue" value={sumMoneyByCurrency(scopedPacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))} color="text-amber" />
       </div>
 
       {/* Page tabs */}
       <div className="flex gap-2 mb-6">
-        {(["Packs", "Fees Due"] as PageTab[]).map((t) => {
+        {(["Packs", "Fees Due", "Platform Fees"] as PageTab[]).map((t) => {
           const isActive = pageTab === t;
-          const badge = t === "Fees Due" && feesDuePacks.length > 0 ? feesDuePacks.length : null;
+          const pendingFeeDues = feeDues.filter((d) => d.status === "pending").length;
+          const badge = t === "Fees Due" ? (feesDuePacks.length > 0 ? feesDuePacks.length : null)
+            : t === "Platform Fees" ? (pendingFeeDues > 0 ? pendingFeeDues : null)
+            : null;
           return (
             <button key={t} type="button" onClick={() => setPageTab(t)}
               className={`px-5 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center gap-2 ${
@@ -313,6 +488,126 @@ export function SessionPacksClient() {
 
       {/* Form anchor */}
       <div ref={formRef} />
+
+      {/* Bulk import packs form */}
+      {showBulkForm && (
+        <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-1">Bulk Import Packs</h2>
+          <p className="text-xs text-zinc-500 mb-6">Set the shared pack details below, then upload a player list — every matched player gets an identical Net Session pack (session count can be overridden per row).</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+            <div>
+              <label className={lbl}>Academy *</label>
+              <select
+                value={bulkSettings.academyId}
+                onChange={(e) => setBulkSettings({ ...bulkSettings, academyId: e.target.value })}
+                className={sel}
+                disabled={user?.role === "academy_admin"}
+              >
+                <option value="">— Select academy —</option>
+                {_packAcademies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={lbl}>Purchase Date</label>
+              <DateInput
+                value={bulkSettings.purchaseDate}
+                onChange={(v) => setBulkSettings({ ...bulkSettings, purchaseDate: v })}
+                className={inp}
+              />
+            </div>
+            <div>
+              <label className={lbl}>Default Sessions per Pack</label>
+              <select
+                value={bulkSettings.totalSessions}
+                onChange={(e) => setBulkSettings({ ...bulkSettings, totalSessions: parseInt(e.target.value) })}
+                className={sel}
+              >
+                {[5, 10, 15, 20].map((n) => <option key={n} value={n}>{n} sessions</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={lbl}>Session Days *</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {DAYS.map((day) => {
+                  const checked = bulkSettings.agreedDays.includes(day);
+                  return (
+                    <button key={day} type="button" onClick={() => handleToggleBulkDay(day)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
+                        checked ? "bg-pace-green text-black" : "bg-ink text-zinc-400 border border-zinc-700 hover:text-white"
+                      }`}>
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-zinc-700/50 pt-4">
+            <div className="flex items-center justify-between mb-2">
+              <label className={lbl}>Player CSV</label>
+              <button type="button" onClick={downloadPackCsvTemplate}
+                className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer">
+                Download Template
+              </button>
+            </div>
+            <input
+              type="file" accept=".csv,text/csv"
+              disabled={!bulkSettings.academyId || bulkSettings.agreedDays.length === 0}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePackCsvFile(f); }}
+              className="text-sm text-zinc-300 w-full mb-2 disabled:opacity-50"
+            />
+            {(!bulkSettings.academyId || bulkSettings.agreedDays.length === 0) && (
+              <p className="text-xs text-zinc-500 mb-2">Select an academy and at least one session day before uploading — these apply to every imported row.</p>
+            )}
+            {packCsvError && <p className="text-red-400 text-xs mb-2">{packCsvError}</p>}
+            {packCsvImportedCount !== null && (
+              <p className="text-pace-green text-xs mb-2">✓ Imported {packCsvImportedCount} pack{packCsvImportedCount === 1 ? "" : "s"} from {packCsvFileName}.</p>
+            )}
+            {packCsvRows.length > 0 && (
+              <div className="border border-zinc-700 rounded-xl overflow-hidden mb-4">
+                <table className="w-full text-xs">
+                  <thead className="bg-ink text-zinc-500">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-semibold">Player</th>
+                      <th className="text-left px-3 py-2 font-semibold">Sessions</th>
+                      <th className="text-left px-3 py-2 font-semibold">Fee/Session</th>
+                      <th className="text-left px-3 py-2 font-semibold">Result</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {packCsvRows.map((r) => (
+                      <tr key={r.rowNum} className="border-t border-zinc-800">
+                        <td className="px-3 py-2 text-zinc-300 truncate max-w-[160px]">{r.player?.name ?? r.playerInput}</td>
+                        <td className="px-3 py-2 text-zinc-300">{r.totalSessions}</td>
+                        <td className="px-3 py-2 text-zinc-300">{formatMoney(r.feePerSession, academyById(bulkSettings.academyId)?.currency ?? DEFAULT_CURRENCY)}</td>
+                        <td className="px-3 py-2">
+                          {r.csvStatus === "ready" && <span className="text-pace-green">Ready</span>}
+                          {r.csvStatus === "duplicate" && <span className="text-amber" title={r.issue}>{r.issue}</span>}
+                          {r.csvStatus === "skipped" && <span className="text-red-400" title={r.issue}>{r.issue}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={handlePackCsvImport}
+              disabled={packCsvImporting || packCsvRows.filter((r) => r.csvStatus === "ready").length === 0}
+              className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+              {packCsvImporting ? "Importing…" : `Import ${packCsvRows.filter((r) => r.csvStatus === "ready").length} Pack${packCsvRows.filter((r) => r.csvStatus === "ready").length === 1 ? "" : "s"}`}
+            </button>
+            <button type="button" onClick={() => setShowBulkForm(false)}
+              className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* New pack form */}
       {showForm && (
@@ -420,7 +715,7 @@ export function SessionPacksClient() {
             </div>
 
             <div>
-              <label className={lbl}>Fee per Session (AUD)</label>
+              <label className={lbl}>Fee per Session ({(academyById(draft.academyId)?.currency ?? DEFAULT_CURRENCY).toUpperCase()})</label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-semibold">$</span>
                 <input
@@ -453,18 +748,19 @@ export function SessionPacksClient() {
           {/* Fee breakdown */}
           {draft.feePerSession > 0 && draft.totalSessions > 0 && (() => {
             const feePct = getPlatformFeePercent(draft.academyId, _packAcademies, _packPlans);
+            const packCurrency = academyById(draft.academyId)?.currency ?? DEFAULT_CURRENCY;
             return (
               <div className="mb-5 bg-ink rounded-xl p-4 grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-lg font-bold text-white">${(draft.feePerSession * draft.totalSessions).toLocaleString()}</div>
+                  <div className="text-lg font-bold text-white">{formatMoney(draft.feePerSession * draft.totalSessions, packCurrency)}</div>
                   <div className="text-xs text-zinc-500 mt-0.5">Total collected</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-amber">${(draft.feePerSession * draft.totalSessions * (feePct / 100)).toFixed(0)}</div>
+                  <div className="text-lg font-bold text-amber">{formatMoney(draft.feePerSession * draft.totalSessions * (feePct / 100), packCurrency)}</div>
                   <div className="text-xs text-zinc-500 mt-0.5">Platform fee ({feePct}%)</div>
                 </div>
                 <div>
-                  <div className="text-lg font-bold text-pace-green">${(draft.feePerSession * draft.totalSessions * (1 - feePct / 100)).toFixed(0)}</div>
+                  <div className="text-lg font-bold text-pace-green">{formatMoney(draft.feePerSession * draft.totalSessions * (1 - feePct / 100), packCurrency)}</div>
                   <div className="text-xs text-zinc-500 mt-0.5">Academy receives ({100 - feePct}%)</div>
                 </div>
               </div>
@@ -500,7 +796,7 @@ export function SessionPacksClient() {
               {/* Outstanding summary */}
               <div className="grid grid-cols-3 gap-4 mb-2">
                 <div className="bg-surface rounded-2xl p-5 text-center">
-                  <div className="text-2xl font-bold text-red-400 mb-1">${totalOutstanding.toLocaleString()}</div>
+                  <div className="text-2xl font-bold text-red-400 mb-1">{sumMoneyByCurrency(feesDuePacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))}</div>
                   <div className="text-xs text-zinc-400">Total outstanding</div>
                 </div>
                 <div className="bg-surface rounded-2xl p-5 text-center">
@@ -561,7 +857,7 @@ export function SessionPacksClient() {
                                 <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
                                   <span>{academy?.name}</span>
                                   <span>·</span>
-                                  <span>{pk.totalSessions} sessions × ${pk.feePerSession}</span>
+                                  <span>{pk.totalSessions} sessions × {formatMoney(pk.feePerSession, academy?.currency ?? DEFAULT_CURRENCY)}</span>
                                   <span>·</span>
                                   <span className={`font-semibold ${status === "Overdue" ? "text-red-400" : "text-amber"}`}>
                                     Due {formatDate(pk.paymentDueDate)}
@@ -603,6 +899,68 @@ export function SessionPacksClient() {
                   </div>
                 );
               })}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── PLATFORM FEES TAB — cash/bank-transfer packs where Stripe never collected the
+           platform's own cut, so it's tracked here as a ledger instead ──────────────────── */}
+      {pageTab === "Platform Fees" && (
+        <div className="space-y-4">
+          {feeDues.length === 0 ? (
+            <div className="bg-surface rounded-2xl p-16 text-center">
+              <p className="text-zinc-400 text-sm">No cash/bank-transfer packs owe a platform fee.</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-4 mb-2">
+                <div className="bg-surface rounded-2xl p-5 text-center">
+                  <div className="text-2xl font-bold text-amber mb-1">
+                    {sumMoneyByCurrency(feeDues.filter((d) => d.status === "pending").map((d) => ({ amount: d.amountAud, currency: academyById(d.academyId)?.currency ?? DEFAULT_CURRENCY })))}
+                  </div>
+                  <div className="text-xs text-zinc-400">Pending</div>
+                </div>
+                <div className="bg-surface rounded-2xl p-5 text-center">
+                  <div className="text-2xl font-bold text-pace-green mb-1">
+                    {sumMoneyByCurrency(feeDues.filter((d) => d.status === "collected").map((d) => ({ amount: d.amountAud, currency: academyById(d.academyId)?.currency ?? DEFAULT_CURRENCY })))}
+                  </div>
+                  <div className="text-xs text-zinc-400">Collected</div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {feeDues.map((due) => {
+                  const pack = packs.find((pk) => pk.id === due.packId);
+                  const player = pack ? playerById(pack.playerId) : undefined;
+                  const academy = academyById(due.academyId);
+                  return (
+                    <div key={due.id} className="bg-surface rounded-2xl p-5 flex items-center justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="text-white font-semibold text-sm">{academy?.name ?? "Unknown academy"}</div>
+                        <div className="text-xs text-zinc-400">
+                          {player?.name ?? "Unknown player"} · {due.feePercent}% platform fee
+                          {due.status === "collected" && due.collectedDate && ` · collected ${formatDate(due.collectedDate)}`}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 flex-shrink-0">
+                        <div className="text-lg font-bold text-amber">{formatMoney(due.amountAud, academy?.currency ?? DEFAULT_CURRENCY)}</div>
+                        {due.status === "collected" ? (
+                          <span className="text-xs font-semibold text-pace-green">✓ Collected</span>
+                        ) : user?.role === "platform_admin" ? (
+                          <MarkFeeCollectedButton
+                            dueId={due.id}
+                            onCollected={(collectedDate) =>
+                              setFeeDues((prev) => prev.map((d) => (d.id === due.id ? { ...d, status: "collected", collectedDate } : d)))
+                            }
+                          />
+                        ) : (
+                          <span className="text-xs font-semibold text-amber">Pending</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </>
           )}
         </div>
@@ -758,15 +1116,15 @@ export function SessionPacksClient() {
                     ) : (
                     <div className="bg-ink rounded-xl p-4 grid grid-cols-3 gap-3 text-center mb-4">
                       <div>
-                        <div className="text-sm font-bold text-white">${pack.feePerSession}/session</div>
+                        <div className="text-sm font-bold text-white">{formatMoney(pack.feePerSession, academyById(pack.academyId)?.currency ?? DEFAULT_CURRENCY)}/session</div>
                         <div className="text-xs text-zinc-500 mt-0.5">Session rate</div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-amber">${(pack.feePerSession * (getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100)).toFixed(0)}/session</div>
+                        <div className="text-sm font-bold text-amber">{formatMoney(pack.feePerSession * (getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100), academyById(pack.academyId)?.currency ?? DEFAULT_CURRENCY)}/session</div>
                         <div className="text-xs text-zinc-500 mt-0.5">Platform ({getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans)}%)</div>
                       </div>
                       <div>
-                        <div className="text-sm font-bold text-pace-green">${(pack.feePerSession * pack.totalSessions * (1 - getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100)).toFixed(0)} total</div>
+                        <div className="text-sm font-bold text-pace-green">{formatMoney(pack.feePerSession * pack.totalSessions * (1 - getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100), academyById(pack.academyId)?.currency ?? DEFAULT_CURRENCY)} total</div>
                         <div className="text-xs text-zinc-500 mt-0.5">Academy receives</div>
                       </div>
                     </div>
@@ -939,6 +1297,47 @@ function MarkPaidButton({ onPaid }: { onPaid: (paidDate: string) => void }) {
     <button type="button" onClick={() => setShowConfirm(true)}
       className="px-4 py-2 text-xs font-bold bg-pace-green text-black rounded-xl hover:opacity-90 cursor-pointer transition-opacity">
       Mark Paid
+    </button>
+  );
+}
+
+function MarkFeeCollectedButton({ dueId, onCollected }: { dueId: string; onCollected: (collectedDate: string) => void }) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [collectedDate, setCollectedDate] = useState(today);
+  const [saving, setSaving] = useState(false);
+
+  async function handleConfirm() {
+    setSaving(true);
+    try {
+      await fetch("/api/packs/mark-fee-collected", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dueId, collectedDate }),
+      });
+      onCollected(collectedDate);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (showConfirm) {
+    return (
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <DateInput value={collectedDate} onChange={setCollectedDate} className="w-32 bg-ink rounded-lg px-3 py-1.5 text-xs border border-zinc-700 focus:border-pace-green focus:outline-none" />
+        <button type="button" onClick={handleConfirm} disabled={saving}
+          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-60">
+          {saving ? "…" : "Confirm"}
+        </button>
+        <button type="button" onClick={() => setShowConfirm(false)} className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button type="button" onClick={() => setShowConfirm(true)}
+      className="px-3 py-1.5 text-xs font-bold text-amber border border-amber/30 rounded-lg hover:bg-amber/10 cursor-pointer transition-colors flex-shrink-0">
+      Mark Collected
     </button>
   );
 }

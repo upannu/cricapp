@@ -12,7 +12,8 @@ interface AuthContextValue {
   user: AuthUser | null;
   loaded: boolean;
   login: (email: string, password: string) => Promise<string | null>;
-  signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string, academyName?: string, academyLocation?: string) => Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean }>;
+  resendConfirmation: (email: string) => Promise<string | null>;
+  signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string, academyName?: string, academyLocation?: string) => Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean; approved?: boolean }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -21,24 +22,28 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   loaded: false,
   login: async () => null,
+  resendConfirmation: async () => null,
   signup: async () => ({ error: null, needsConfirmation: false }),
   logout: async () => {},
   refreshUser: async () => {},
 });
 
-function supabaseUserToAuthUser(sbUser: { id: string; email?: string; user_metadata: Record<string, unknown> }): AuthUser {
+function supabaseUserToAuthUser(sbUser: { id: string; email?: string; user_metadata: Record<string, unknown>; app_metadata: Record<string, unknown> }): AuthUser {
+  // Security-sensitive fields (role, approved, and every identity link) live in app_metadata —
+  // server-only, never client-writable. user_metadata is still where display-only `name` lives.
   const meta = sbUser.user_metadata ?? {};
-  const linkedIdentities = meta.linkedIdentities as LinkedIdentity[] | undefined;
+  const secureMeta = sbUser.app_metadata ?? {};
+  const linkedIdentities = secureMeta.linkedIdentities as LinkedIdentity[] | undefined;
   return {
     id: sbUser.id,
     name: (meta.name as string) ?? sbUser.email ?? "",
     email: sbUser.email ?? "",
-    role: (meta.role as AuthUser["role"]) ?? "coach",
+    role: (secureMeta.role as AuthUser["role"]) ?? "coach",
     // Accounts without the flag (pre-existing/admin) are treated as approved
-    approved: meta.approved !== undefined ? (meta.approved as boolean) : true,
-    academyId: meta.academy_id as string | undefined,
-    coachId: meta.coach_id as string | undefined,
-    playerId: meta.player_id as string | undefined,
+    approved: secureMeta.approved !== undefined ? (secureMeta.approved as boolean) : true,
+    academyId: secureMeta.academy_id as string | undefined,
+    coachId: secureMeta.coach_id as string | undefined,
+    playerId: secureMeta.player_id as string | undefined,
     linkedIdentities: linkedIdentities && linkedIdentities.length > 1 ? linkedIdentities : undefined,
   };
 }
@@ -64,12 +69,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function login(email: string, password: string): Promise<string | null> {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return error.message;
+    if (error) {
+      // Surfaced as its own case rather than the generic "Invalid email or password." — a
+      // just-signed-up user who hasn't confirmed yet (or whose confirmation link was consumed by
+      // an email-scanning bot before they clicked it) needs a way to get a fresh link, not a
+      // message that reads like their password is wrong.
+      if (error.message.toLowerCase().includes("email not confirmed")) return "EMAIL_NOT_CONFIRMED";
+      return error.message;
+    }
 
     // A player whose session pack payment went unpaid past the grace period gets locked out here
     // — checked post-auth (self-read of their own player row) rather than pre-auth, since only an
     // authenticated request can read it under RLS. Reactivation is staff-only, never automatic.
-    const playerId = data.user?.user_metadata?.player_id as string | undefined;
+    const playerId = data.user?.app_metadata?.player_id as string | undefined;
     if (playerId) {
       const { data: player } = await supabase
         .from("players")
@@ -97,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     playerLookupEmail?: string,
     academyName?: string,
     academyLocation?: string,
-  ): Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean }> {
+  ): Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean; approved?: boolean }> {
     // An email that already has an account can't go through signUp() again (Supabase returns an
     // ambiguous "ghost" response for a duplicate email rather than a clean error) — check first
     // and route into the "link an additional role" request instead of creating a new account.
@@ -118,33 +130,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: null, needsConfirmation: false, linked: true };
     }
 
+    // options.data only ever sets user_metadata (client-writable, so never trust it for
+    // authorization) — role/approved/player_id are decided server-side by /api/complete-signup
+    // right below, which is the only place that can write app_metadata.
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, role, approved: false } },
+      options: { data: { name } },
     });
     if (error) return { error: error.message, needsConfirmation: false };
-    // Record the request for platform admin approval
+    let approved = false;
     if (data.user) {
-      await supabase.from("user_requests").insert({
-        id: data.user.id,
-        name,
-        email,
-        role,
-        requested_at: new Date().toISOString(),
-        player_lookup_email: playerLookupEmail || null,
-        academy_name: academyName || null,
-        academy_location: academyLocation || null,
-      });
-      // Fire-and-forget — don't block signup on email failure
-      fetch("/api/notify-admin-signup", {
+      const completeRes = await fetch("/api/complete-signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, role }),
-      }).catch(() => {});
+        body: JSON.stringify({
+          userId: data.user.id, name, email, role,
+          playerLookupEmail: playerLookupEmail || null,
+          academyName: academyName || null,
+          academyLocation: academyLocation || null,
+        }),
+      });
+      const completeData = await completeRes.json().catch(() => ({}));
+      if (!completeRes.ok) return { error: completeData?.error ?? "Could not complete signup.", needsConfirmation: false };
+      approved = !!completeData.approved;
     }
     const needsConfirmation = !data.session;
-    return { error: null, needsConfirmation };
+    return { error: null, needsConfirmation, approved };
+  }
+
+  async function resendConfirmation(email: string): Promise<string | null> {
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    return error ? error.message : null;
   }
 
   async function logout() {
@@ -166,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loaded, login, signup, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loaded, login, signup, logout, refreshUser, resendConfirmation }}>
       {children}
     </AuthContext.Provider>
   );

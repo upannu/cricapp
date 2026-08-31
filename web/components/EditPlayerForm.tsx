@@ -6,6 +6,8 @@ import Link from "next/link";
 import type { Player } from "@/lib/types";
 import { updatePlayer } from "@/lib/db";
 import { DateInput } from "@/components/DateInput";
+import { useAuth } from "@/lib/auth";
+import { formatDate } from "@/lib/utils";
 
 const BOWLING_STYLES = [
   "Right Arm Fast",
@@ -17,13 +19,19 @@ const BOWLING_STYLES = [
 ] as const;
 
 const AGE_GROUPS = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"] as const;
-const PLANS = ["Free", "Player Pro", "Coach Pro"] as const;
+// Coach Pro is now a coach's own plan (see CoachSubscriptionPage), not something a player picks.
+const PLANS = ["Free", "Player Pro"] as const;
 const CONSENT_OPTIONS = ["N/A", "Confirmed", "Pending"] as const;
 const PLAYING_LEVELS = ["Beginner", "Club", "Representative", "State", "National", "International"] as const;
 const BATTING_HANDS = ["Right Hand", "Left Hand"] as const;
 
 export function EditPlayerForm({ player }: { player: Player }) {
   const router = useRouter();
+  const { user } = useAuth();
+  // canAccessPlayerServer lets a player/parent reach their own edit page too — this field should
+  // never even render for them, though RLS already blocks the underlying write regardless
+  // (players_update has no player/parent branch).
+  const isStaff = user?.role !== "player" && user?.role !== "parent";
   const [saved, setSaved] = useState(false);
 
   // Profile fields
@@ -51,6 +59,18 @@ export function EditPlayerForm({ player }: { player: Player }) {
   const [weeklySessionsPerWeek, setWeeklySessionsPerWeek] = useState<number | "">(
     ""
   );
+  const [lastPaymentDate, setLastPaymentDate] = useState(player.subscription.lastPaymentDate ?? "");
+  // Read-only context alongside the manual field above — whichever of a pack's own paid_date or
+  // Stripe's payment history is most recent, so staff can see whether there's already a real
+  // record before typing one in by hand. undefined = loading, null = nothing found.
+  const [detectedPayment, setDetectedPayment] = useState<{ date: string; source: "manual" | "pack" | "stripe" } | null | undefined>(undefined);
+  useEffect(() => {
+    if (!isStaff) return;
+    fetch(`/api/players/${player.id}/last-payment`)
+      .then((res) => res.json())
+      .then((data) => setDetectedPayment(data.lastPaymentDate ? { date: data.lastPaymentDate, source: data.source } : null))
+      .catch(() => setDetectedPayment(null));
+  }, [player.id, isStaff]);
 
   // Recalculate end date whenever start date, total sessions, or weekly frequency changes
   useEffect(() => {
@@ -79,6 +99,9 @@ export function EditPlayerForm({ player }: { player: Player }) {
       sub_start_date: startDate,
       sub_end_date: endDate,
       sub_sessions_limit: sessionsLimit ? parseInt(sessionsLimit) : null,
+      // Only staff can even see this field, but guard the write too — never send a player/parent's
+      // (impossible, since it's not rendered) or a stale value if the field was hidden.
+      ...(isStaff ? { sub_last_payment_date: lastPaymentDate || null } : {}),
     }).then(() => {
       setSaved(true);
       setTimeout(() => router.push(`/players/${player.id}`), 1200);
@@ -336,6 +359,25 @@ export function EditPlayerForm({ player }: { player: Player }) {
                 )}
               </div>
             </Field>
+
+            {isStaff && (
+              <Field label="Last Payment Date">
+                <DateInput
+                  value={lastPaymentDate}
+                  onChange={setLastPaymentDate}
+                  className={inputCls}
+                />
+                <p className="text-xs text-zinc-500 mt-1.5">
+                  {detectedPayment === undefined ? (
+                    "Staff-only fallback — checking for a recorded pack or Stripe payment…"
+                  ) : detectedPayment && detectedPayment.source !== "manual" ? (
+                    <>Staff-only fallback — a {detectedPayment.source === "stripe" ? "Stripe" : "pack"} payment on {formatDate(detectedPayment.date)} already takes priority over this on the profile; only set this for payments with no other record (e.g. cash).</>
+                  ) : (
+                    "Staff-only fallback — no pack or Stripe payment found yet, so this manual date is what shows on the profile."
+                  )}
+                </p>
+              </Field>
+            )}
           </div>
         </Section>
 

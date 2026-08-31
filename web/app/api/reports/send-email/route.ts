@@ -2,15 +2,9 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { getCaller, callerCanAccessPlayer } from "@/lib/server-auth";
+import { formatDateTime as formatSessionDateTime } from "@/lib/utils";
 
 const PDF_BUCKET = "session-reports";
-
-function formatSessionDateTime(iso: string): string {
-  const d = new Date(iso);
-  const datePart = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  const timePart = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  return `${datePart} at ${timePart}`;
-}
 
 export async function POST(request: Request) {
   const { reportId, playerId } = (await request.json()) as { reportId?: string; playerId?: string };
@@ -42,11 +36,14 @@ export async function POST(request: Request) {
 
   const { data: report, error: reportError } = await supabase
     .from("reports")
-    .select("id, summary, speed_kmh, front_knee_angle_deg, tags, highlight, date, session_date")
+    .select("id, summary, speed_kmh, front_knee_angle_deg, tags, highlight, date, session_date, review_status")
     .eq("id", reportId)
     .single();
   if (reportError || !report) {
     return NextResponse.json({ error: "Report not found." }, { status: 404 });
+  }
+  if (report.review_status !== "completed") {
+    return NextResponse.json({ error: "This report hasn't completed coach review yet." }, { status: 400 });
   }
 
   const { data: player, error: playerError } = await supabase

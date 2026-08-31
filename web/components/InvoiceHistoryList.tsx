@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { formatDate } from "@/lib/utils";
+import { formatMoney } from "@/lib/currency";
 import type { NormalizedInvoice } from "@/lib/stripe-invoices";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -12,7 +13,7 @@ const STATUS_STYLES: Record<string, string> = {
   unpaid: "bg-fire/20 text-fire",
 };
 
-export function InvoiceHistoryList({ scope, id }: { scope: "player" | "academy"; id: string }) {
+export function InvoiceHistoryList({ scope, id }: { scope: "player" | "academy" | "coach"; id: string }) {
   const [invoices, setInvoices] = useState<NormalizedInvoice[] | null>(null);
   const [error, setError] = useState("");
 
@@ -59,7 +60,7 @@ export function InvoiceHistoryList({ scope, id }: { scope: "player" | "academy";
                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${STATUS_STYLES[inv.status] ?? "bg-zinc-700 text-zinc-400"}`}>
                   {inv.status}
                 </span>
-                <span className="text-sm font-semibold text-white">${inv.amountAud.toFixed(2)} {inv.currency.toUpperCase()}</span>
+                <span className="text-sm font-semibold text-white">{formatMoney(inv.amount, inv.currency)}</span>
                 <a
                   href={`/api/stripe/invoices/download?${scope}Id=${id}&kind=${inv.kind}&stripeId=${inv.stripeId}`}
                   target="_blank"

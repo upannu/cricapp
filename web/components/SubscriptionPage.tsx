@@ -2,61 +2,82 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import type { Player, PlanTier, PlatformSettings, Plan } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
+import type { Player, PlanTier, Plan } from "@/lib/types";
 import { formatDate, getPlayerStatus } from "@/lib/utils";
 import { isPaidPlan } from "@/lib/stripe-client";
-import { fetchPlatformSettings, fetchActivePlans } from "@/lib/db";
+import { sessionsLimitForPlan, planFeatureLines } from "@/lib/plan-features";
+import { fetchActivePlans } from "@/lib/db";
 import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
+import { SUPPORTED_CURRENCIES, CURRENCY_LABELS, DEFAULT_CURRENCY, resolvePlanPrice, formatMoney, type Currency } from "@/lib/currency";
 
-function buildPlans(settings: PlatformSettings | null): { tier: PlanTier; price: string; sessions: number | null; features: string[] }[] {
-  return [
-    {
-      tier: "Free",
-      price: "Free",
-      sessions: 4,
-      features: ["4 sessions total", "Basic video upload", "Manual analysis"],
-    },
-    {
-      tier: "Player Pro",
-      price: settings ? `$${settings.playerProPriceAud.toFixed(2)} / month` : "…",
-      sessions: null,
-      features: ["Unlimited sessions", "AI biomechanics", "Progress reports", "Video library"],
-    },
-    {
-      tier: "Coach Pro",
-      price: settings ? `$${settings.coachProPriceAud.toFixed(2)} / month` : "…",
-      sessions: null,
-      features: [
-        "Everything in Player Pro",
-        "Unlimited players",
-        "Academy management",
-        "Bulk reports",
-        "Priority support",
-      ],
-    },
-  ];
+const TIER_SLUGS: Record<PlanTier, string> = { Free: "free", "Player Pro": "player-pro", "Coach Pro": "coach-pro" };
+
+/** Free/Player Pro/Coach Pro cards — priced and featured from their Plan Catalog rows (editable
+ * at /admin/plans) rather than hardcoded copy. Price resolves through the same
+ * currency-override logic the actual checkout route uses, so what's shown here is always what
+ * Stripe will actually charge for the selected currency. */
+function buildPlanCards(plans: Plan[], currency: Currency): { tier: PlanTier; price: string; features: string[] }[] {
+  // Coach Pro used to be offered here too, but it's now a coach's own plan (see
+  // CoachSubscriptionPage) — a player only ever chooses between Free and Player Pro.
+  return (["Free", "Player Pro"] as const).map((tier) => {
+    const row = plans.find((p) => p.slug === TIER_SLUGS[tier]);
+    if (!row) return { tier, price: "…", features: planFeatureLines(tier, plans) };
+    if (row.priceAud === 0) return { tier, price: "Free", features: planFeatureLines(tier, plans) };
+    const { amount, currency: billCurrency } = resolvePlanPrice(row.priceAud, row.pricesByCurrency, currency);
+    return {
+      tier,
+      price: `${formatMoney(amount, billCurrency)} / ${row.billingInterval ?? "month"}`,
+      features: planFeatureLines(tier, plans),
+    };
+  });
 }
 
 export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: Player; isAcademyPlayer?: boolean }) {
+  const { user } = useAuth();
+  // A player/parent viewing their own plan has no "profile" page of their own to go back to
+  // (AuthGuard only lets them reach this one page directly) — send them back to the portal
+  // instead of a staff page they'd just get bounced from.
+  const backHref = user?.role === "player" || user?.role === "parent" ? "/portal" : `/players/${player.id}`;
   const status = getPlayerStatus(player.subscription.endDate);
   const [selectedPlan, setSelectedPlan] = useState<PlanTier>(player.subscription.plan);
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState("");
-  const [settings, setSettings] = useState<PlatformSettings | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [libraryPlan, setLibraryPlan] = useState<Plan | null>(null);
   const [assessmentPlan, setAssessmentPlan] = useState<Plan | null>(null);
   const [addonRedirecting, setAddonRedirecting] = useState<"library" | "assessment" | null>(null);
   const [addonError, setAddonError] = useState("");
+  const [currency, setCurrency] = useState<Currency>(player.currency ?? DEFAULT_CURRENCY);
+  const [currencySaving, setCurrencySaving] = useState(false);
 
   useEffect(() => {
-    fetchPlatformSettings().then(setSettings).catch(() => {});
-    fetchActivePlans().then((plans) => {
-      setLibraryPlan(plans.find((p) => p.slug === "library") ?? null);
-      setAssessmentPlan(plans.find((p) => p.slug === "individual-assessment") ?? null);
+    fetchActivePlans().then((pl) => {
+      setPlans(pl);
+      setLibraryPlan(pl.find((p) => p.slug === "library") ?? null);
+      setAssessmentPlan(pl.find((p) => p.slug === "individual-assessment") ?? null);
     }).catch(() => {});
   }, []);
 
-  const PLANS = useMemo(() => buildPlans(settings), [settings]);
+  async function handleCurrencyChange(next: Currency) {
+    setCurrency(next);
+    setCurrencySaving(true);
+    try {
+      await fetch("/api/players/update-currency", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: player.id, currency: next }),
+      });
+    } catch {
+      // Best-effort — checkout still resolves the right price for whatever's selected right now,
+      // this only affects whether the choice sticks for next time.
+    } finally {
+      setCurrencySaving(false);
+    }
+  }
+
+  const PLANS = useMemo(() => buildPlanCards(plans, currency), [plans, currency]);
+  const currentSessionsLimit = sessionsLimitForPlan(player.subscription.plan, plans);
 
   const hasLibraryAccess =
     player.librarySubscriptionStatus === "active" || player.librarySubscriptionStatus === "trialing";
@@ -137,10 +158,10 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
       {/* Back */}
       <div className="flex items-center justify-between mb-6">
         <Link
-          href={`/players/${player.id}`}
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
         >
-          ← Back to Profile
+          ← Back{backHref === "/portal" ? "" : " to Profile"}
         </Link>
       </div>
 
@@ -158,15 +179,15 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
       {isAcademyPlayer && (
         <div className="rounded-2xl p-5 mb-6 border bg-blue-500/10 border-blue-500/30">
           <p className="text-sm text-zinc-300">
-            Your access to CRIC HQ comes through your academy&apos;s own plan — there&apos;s no personal
-            subscription to manage here. You can still buy optional extras below, like Library
-            Access or a one-off AI biomechanics report.
+            Your academy&apos;s plan covers your session fees — but your monthly session-logging,
+            AI chat, and report limits below are still your own individual plan, separate from
+            that. Upgrade any time if you need more than what Free includes.
           </p>
         </div>
       )}
 
       {/* Current subscription status card */}
-      {!isAcademyPlayer && <div
+      <div
         className={`rounded-2xl p-6 mb-6 border ${
           status === "Expired"
             ? "bg-red-500/10 border-red-500/30"
@@ -197,8 +218,8 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
               <Stat
                 label="Sessions used"
                 value={
-                  player.subscription.sessionsLimit
-                    ? `${player.subscription.sessionsUsed} / ${player.subscription.sessionsLimit}`
+                  currentSessionsLimit
+                    ? `${player.subscription.sessionsUsed} / ${currentSessionsLimit}`
                     : `${player.subscription.sessionsUsed} (unlimited)`
                 }
               />
@@ -221,24 +242,24 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
         </div>
 
         {/* Sessions progress bar */}
-        {player.subscription.sessionsLimit && (
+        {currentSessionsLimit && (
           <div className="mt-5">
             <div className="flex justify-between text-xs text-zinc-400 mb-1.5">
               <span>Sessions used</span>
               <span>
-                {player.subscription.sessionsUsed} / {player.subscription.sessionsLimit}
+                {player.subscription.sessionsUsed} / {currentSessionsLimit}
               </span>
             </div>
             <div className="h-2 bg-ink rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
-                  player.subscription.sessionsUsed / player.subscription.sessionsLimit > 0.85
+                  player.subscription.sessionsUsed / currentSessionsLimit > 0.85
                     ? "bg-fire"
                     : "bg-pace-green"
                 }`}
                 style={{
                   width: `${Math.min(
-                    (player.subscription.sessionsUsed / player.subscription.sessionsLimit) * 100,
+                    (player.subscription.sessionsUsed / currentSessionsLimit) * 100,
                     100
                   )}%`,
                 }}
@@ -258,14 +279,29 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
               : "⛔ Subscription has expired. Renew to restore access."}
           </div>
         )}
-      </div>}
+      </div>
 
       {/* Plan selection */}
-      {!isAcademyPlayer && <div className="bg-surface rounded-2xl p-6 mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">
-          Choose Plan
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="bg-surface rounded-2xl p-6 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            Choose Plan
+          </h2>
+          <label className="flex items-center gap-2 text-xs text-zinc-400">
+            Bill me in
+            <select
+              value={currency}
+              disabled={currencySaving}
+              onChange={(e) => handleCurrencyChange(e.target.value as Currency)}
+              className="bg-ink border border-zinc-700 rounded-lg px-2 py-1.5 text-white text-xs focus:border-pace-green focus:outline-none disabled:opacity-60"
+            >
+              {SUPPORTED_CURRENCIES.map((c) => (
+                <option key={c} value={c}>{CURRENCY_LABELS[c]}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {PLANS.map((p) => {
             const isActive = selectedPlan === p.tier;
             return (
@@ -302,7 +338,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
             );
           })}
         </div>
-      </div>}
+      </div>
 
       {error && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
@@ -311,7 +347,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
       )}
 
       {/* Billing actions */}
-      {!isAcademyPlayer && <div className="flex flex-wrap items-center gap-3 mb-8">
+      <div className="flex flex-wrap items-center gap-3 mb-8">
         {hasActiveSub ? (
           <button
             type="button"
@@ -342,14 +378,14 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
           </button>
         )}
         <Link
-          href={`/players/${player.id}`}
+          href={backHref}
           className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors"
         >
           Cancel
         </Link>
-      </div>}
+      </div>
 
-      {!isAcademyPlayer && hasActiveSub && (
+      {hasActiveSub && (
         <p className="text-zinc-500 text-xs -mt-4 mb-8">
           To switch plans, update your payment method, or cancel, use Manage Billing above — it opens Stripe&apos;s secure billing portal. For a full record of every payment (subscriptions, bookings, packs, assessments), see Invoice History below.
         </p>
@@ -365,7 +401,10 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
               <div className="p-5 rounded-xl border-2 border-zinc-700 bg-ink">
                 <div className="text-sm font-bold text-white mb-1">{libraryPlan.name}</div>
                 <div className="text-lg font-bold text-white mb-3">
-                  ${libraryPlan.priceAud.toFixed(2)} / {libraryPlan.billingInterval}
+                  {(() => {
+                    const { amount, currency: billCurrency } = resolvePlanPrice(libraryPlan.priceAud, libraryPlan.pricesByCurrency, currency);
+                    return `${formatMoney(amount, billCurrency)} / ${libraryPlan.billingInterval}`;
+                  })()}
                 </div>
                 <p className="text-xs text-zinc-400 mb-4">
                   Unlocks the Academy article library independently of your main plan above.
@@ -394,7 +433,12 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
             {assessmentPlan && (
               <div className="p-5 rounded-xl border-2 border-zinc-700 bg-ink">
                 <div className="text-sm font-bold text-white mb-1">{assessmentPlan.name}</div>
-                <div className="text-lg font-bold text-white mb-3">${assessmentPlan.priceAud.toFixed(2)} one-time</div>
+                <div className="text-lg font-bold text-white mb-3">
+                  {(() => {
+                    const { amount, currency: billCurrency } = resolvePlanPrice(assessmentPlan.priceAud, assessmentPlan.pricesByCurrency, currency);
+                    return `${formatMoney(amount, billCurrency)} one-time`;
+                  })()}
+                </div>
                 <p className="text-xs text-zinc-400 mb-4">
                   Buy a single AI biomechanics report, no subscription required.
                   {player.assessmentCredits > 0 && (

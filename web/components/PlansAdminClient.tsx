@@ -6,6 +6,9 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { fetchAllPlans } from "@/lib/db";
 import type { Plan } from "@/lib/types";
+import { SUPPORTED_CURRENCIES, formatMoney, type Currency } from "@/lib/currency";
+
+const OTHER_CURRENCIES = SUPPORTED_CURRENCIES.filter((c) => c !== "aud");
 
 type Draft = {
   id?: string;
@@ -15,6 +18,9 @@ type Draft = {
   billingType: "subscription" | "one_time";
   billingInterval: "month" | "year";
   priceAud: string;
+  /** Optional per-currency override prices, raw input strings — blank means "not offered in that
+   * currency" (falls back to priceAud/AUD at checkout). See lib/currency.ts. */
+  pricesByCurrency: Partial<Record<Currency, string>>;
   seatCap: string;
   accessDurationMonths: string;
   includedNotes: string;
@@ -23,11 +29,17 @@ type Draft = {
   platformFeePercent: string;
   active: boolean;
   sortOrder: string;
+  sessionsPerMonthLimit: string;
+  chatMessagesPerDayLimit: string;
+  aiReportsEnabled: boolean;
+  marketplaceEnabled: boolean;
+  locked: boolean;
 };
 
 const EMPTY_DRAFT: Draft = {
   slug: "", name: "", audience: "individual", billingType: "subscription", billingInterval: "month",
-  priceAud: "", seatCap: "", accessDurationMonths: "", includedNotes: "", waivesSessionFees: false, platformAdminOnly: false, platformFeePercent: "10", active: true, sortOrder: "0",
+  priceAud: "", pricesByCurrency: {}, seatCap: "", accessDurationMonths: "", includedNotes: "", waivesSessionFees: false, platformAdminOnly: false, platformFeePercent: "10", active: true, sortOrder: "0",
+  sessionsPerMonthLimit: "", chatMessagesPerDayLimit: "", aiReportsEnabled: true, marketplaceEnabled: true, locked: false,
 };
 
 function planToDraft(p: Plan): Draft {
@@ -39,6 +51,11 @@ function planToDraft(p: Plan): Draft {
     billingType: p.billingType,
     billingInterval: p.billingInterval ?? "month",
     priceAud: String(p.priceAud),
+    pricesByCurrency: Object.fromEntries(
+      OTHER_CURRENCIES
+        .filter((c) => p.pricesByCurrency[c] != null)
+        .map((c) => [c, String(p.pricesByCurrency[c])]),
+    ),
     seatCap: p.seatCap != null ? String(p.seatCap) : "",
     accessDurationMonths: p.accessDurationMonths != null ? String(p.accessDurationMonths) : "",
     includedNotes: p.includedNotes ?? "",
@@ -47,6 +64,11 @@ function planToDraft(p: Plan): Draft {
     platformFeePercent: String(p.platformFeePercent),
     active: p.active,
     sortOrder: String(p.sortOrder),
+    sessionsPerMonthLimit: p.sessionsPerMonthLimit != null ? String(p.sessionsPerMonthLimit) : "",
+    chatMessagesPerDayLimit: p.chatMessagesPerDayLimit != null ? String(p.chatMessagesPerDayLimit) : "",
+    aiReportsEnabled: p.aiReportsEnabled,
+    marketplaceEnabled: p.marketplaceEnabled,
+    locked: p.locked,
   };
 }
 
@@ -86,11 +108,16 @@ export function PlansAdminClient() {
     const d = { ...draft, ...overrides };
     setFormError("");
     const priceAud = parseFloat(d.priceAud);
-    if (!d.slug.trim() || !d.name.trim() || !(priceAud > 0)) {
-      setFormError("Slug, name, and a positive price are required.");
+    if (!d.slug.trim() || !d.name.trim() || !(priceAud >= 0)) {
+      setFormError("Slug, name, and a non-negative price are required.");
       return;
     }
     setSaving(true);
+    const pricesByCurrency: Partial<Record<Currency, number>> = {};
+    for (const c of OTHER_CURRENCIES) {
+      const raw = d.pricesByCurrency[c]?.trim();
+      if (raw) pricesByCurrency[c] = parseFloat(raw);
+    }
     try {
       const res = await fetch("/api/plans/update", {
         method: "POST",
@@ -103,6 +130,7 @@ export function PlansAdminClient() {
           billingType: d.billingType,
           billingInterval: d.billingType === "subscription" ? d.billingInterval : null,
           priceAud,
+          pricesByCurrency,
           seatCap: d.seatCap.trim() ? parseInt(d.seatCap, 10) : null,
           accessDurationMonths: d.accessDurationMonths.trim() ? parseInt(d.accessDurationMonths, 10) : null,
           includedNotes: d.includedNotes.trim() || null,
@@ -111,6 +139,10 @@ export function PlansAdminClient() {
           platformFeePercent: d.platformFeePercent.trim() ? parseFloat(d.platformFeePercent) : 10,
           active: d.active,
           sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
+          sessionsPerMonthLimit: d.sessionsPerMonthLimit.trim() ? parseInt(d.sessionsPerMonthLimit, 10) : null,
+          chatMessagesPerDayLimit: d.chatMessagesPerDayLimit.trim() ? parseInt(d.chatMessagesPerDayLimit, 10) : null,
+          aiReportsEnabled: d.aiReportsEnabled,
+          marketplaceEnabled: d.marketplaceEnabled,
         }),
       });
       const data = await res.json();
@@ -119,11 +151,16 @@ export function PlansAdminClient() {
       const saved: Plan = {
         id: data.id, slug: d.slug.trim(), name: d.name.trim(), audience: d.audience,
         billingType: d.billingType, billingInterval: d.billingType === "subscription" ? d.billingInterval : null,
-        priceAud, seatCap: d.seatCap.trim() ? parseInt(d.seatCap, 10) : null,
+        priceAud, pricesByCurrency, seatCap: d.seatCap.trim() ? parseInt(d.seatCap, 10) : null,
         accessDurationMonths: d.accessDurationMonths.trim() ? parseInt(d.accessDurationMonths, 10) : null,
         includedNotes: d.includedNotes.trim() || null, waivesSessionFees: d.waivesSessionFees, platformAdminOnly: d.platformAdminOnly,
         platformFeePercent: d.platformFeePercent.trim() ? parseFloat(d.platformFeePercent) : 10, active: d.active,
         sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
+        sessionsPerMonthLimit: d.sessionsPerMonthLimit.trim() ? parseInt(d.sessionsPerMonthLimit, 10) : null,
+        chatMessagesPerDayLimit: d.chatMessagesPerDayLimit.trim() ? parseInt(d.chatMessagesPerDayLimit, 10) : null,
+        aiReportsEnabled: d.aiReportsEnabled,
+        marketplaceEnabled: d.marketplaceEnabled,
+        locked: d.locked,
       };
       setPlans((prev) => {
         const exists = prev.some((p) => p.id === saved.id);
@@ -203,12 +240,20 @@ export function PlansAdminClient() {
                       {p.platformFeePercent}% Platform Fee
                     </span>
                   )}
+                  {p.locked && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">
+                      System Plan
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-zinc-400">
-                  ${p.priceAud.toFixed(2)} AUD
+                  {formatMoney(p.priceAud, "aud")}
                   {p.billingType === "subscription" ? ` / ${p.billingInterval}` : " one-time"}
-                  {p.seatCap != null && ` · capped at ${p.seatCap} bowlers`}
+                  {p.seatCap != null && (p.slug === "coach-free" || p.slug === "coach-pro"
+                    ? ` · capped at ${p.seatCap} players on a coach's own roster`
+                    : ` · capped at ${p.seatCap} bowlers`)}
                   {p.accessDurationMonths != null && ` · access for ${p.accessDurationMonths} month${p.accessDurationMonths === 1 ? "" : "s"}`}
+                  {OTHER_CURRENCIES.filter((c) => p.pricesByCurrency[c] != null).map((c) => ` · ${formatMoney(p.pricesByCurrency[c]!, c)}`).join("")}
                 </div>
                 {p.includedNotes && <div className="text-xs text-zinc-500 mt-1">{p.includedNotes}</div>}
               </div>
@@ -241,6 +286,12 @@ export function PlansAdminClient() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-bold text-white">{draft.id ? "Edit Plan" : "New Plan"}</h2>
+            {draft.locked && (
+              <p className="text-xs text-amber bg-amber/10 border border-amber/30 rounded-lg px-3 py-2">
+                This is a system plan (Free / Player Pro / Coach Pro) — its slug, audience, and billing type are
+                locked because code looks it up by slug. Price, limits, and everything else are still editable.
+              </p>
+            )}
 
             <div>
               <label className={lbl}>Name</label>
@@ -249,7 +300,7 @@ export function PlansAdminClient() {
 
             <div>
               <label className={lbl}>Slug (stable identifier, used in code)</label>
-              <input className={inp} value={draft.slug} onChange={(e) => setDraft({ ...draft, slug: e.target.value })} />
+              <input className={inp} value={draft.slug} disabled={draft.locked} onChange={(e) => setDraft({ ...draft, slug: e.target.value })} />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -258,6 +309,7 @@ export function PlansAdminClient() {
                 <select
                   className={sel}
                   value={draft.audience}
+                  disabled={draft.locked}
                   onChange={(e) => setDraft({ ...draft, audience: e.target.value as Draft["audience"] })}
                 >
                   <option value="individual">Individual</option>
@@ -269,6 +321,7 @@ export function PlansAdminClient() {
                 <select
                   className={sel}
                   value={draft.billingType}
+                  disabled={draft.locked}
                   onChange={(e) => setDraft({ ...draft, billingType: e.target.value as Draft["billingType"] })}
                 >
                   <option value="subscription">Subscription</option>
@@ -300,14 +353,45 @@ export function PlansAdminClient() {
               )}
             </div>
 
+            <div>
+              <label className={lbl}>Other currencies (optional)</label>
+              <p className="text-xs text-zinc-500 mb-2">
+                Leave blank to not offer this plan in that currency — checkout falls back to the AUD price.
+              </p>
+              <div className="grid grid-cols-3 gap-3">
+                {OTHER_CURRENCIES.map((c) => (
+                  <div key={c}>
+                    <label className="text-[11px] text-zinc-500 uppercase">{c}</label>
+                    <input
+                      type="number" min={0} step="0.01" className={inp}
+                      value={draft.pricesByCurrency[c] ?? ""}
+                      onChange={(e) => setDraft({ ...draft, pricesByCurrency: { ...draft.pricesByCurrency, [c]: e.target.value } })}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={lbl}>Seat Cap (bowlers, optional)</label>
+                <label className={lbl}>
+                  {draft.slug === "coach-free" || draft.slug === "coach-pro"
+                    ? "Roster Cap (players a coach can add themselves, optional)"
+                    : "Seat Cap (bowlers, optional)"}
+                </label>
                 <input
                   type="number" min={0} className={inp}
                   value={draft.seatCap} onChange={(e) => setDraft({ ...draft, seatCap: e.target.value })}
                   placeholder="Uncapped"
                 />
+                {draft.slug === "coach-free" && (
+                  <p className="text-xs text-zinc-500 mt-1.5">
+                    Governs how many of their own players an independent coach on this plan can add (Players page). This plan is separate from the player-facing Free plan.
+                  </p>
+                )}
+                {draft.slug === "coach-pro" && (
+                  <p className="text-xs text-zinc-500 mt-1.5">Should stay blank (uncapped) — Coach Pro is the unlimited-roster tier.</p>
+                )}
               </div>
               <div>
                 <label className={lbl}>Access Duration (months, optional)</label>
@@ -320,7 +404,7 @@ export function PlansAdminClient() {
             </div>
 
             <div>
-              <label className={lbl}>Included Notes (shown on the pricing card, optional)</label>
+              <label className={lbl}>Inclusions (shown on the pricing card and in the welcome email, optional)</label>
               <textarea
                 className={`${inp} min-h-[70px]`}
                 value={draft.includedNotes} onChange={(e) => setDraft({ ...draft, includedNotes: e.target.value })}
@@ -366,6 +450,42 @@ export function PlansAdminClient() {
                 placeholder="10"
               />
               <p className="text-xs text-zinc-500 mt-1">Share of session-pack/booking revenue the platform takes via Stripe for academies on this plan. Defaults to 10% — lower it for an academy paying well upfront.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={lbl}>Sessions / month limit (individual tiers only)</label>
+                <input
+                  type="number" min={0} className={inp}
+                  value={draft.sessionsPerMonthLimit} onChange={(e) => setDraft({ ...draft, sessionsPerMonthLimit: e.target.value })}
+                  placeholder="Unlimited"
+                />
+              </div>
+              <div>
+                <label className={lbl}>Coach AI messages / day limit</label>
+                <input
+                  type="number" min={0} className={inp}
+                  value={draft.chatMessagesPerDayLimit} onChange={(e) => setDraft({ ...draft, chatMessagesPerDayLimit: e.target.value })}
+                  placeholder="Unlimited"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+                <input
+                  type="checkbox" checked={draft.aiReportsEnabled}
+                  onChange={(e) => setDraft({ ...draft, aiReportsEnabled: e.target.checked })}
+                />
+                AI biomechanics reports
+              </label>
+              <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+                <input
+                  type="checkbox" checked={draft.marketplaceEnabled}
+                  onChange={(e) => setDraft({ ...draft, marketplaceEnabled: e.target.checked })}
+                />
+                Coach marketplace access
+              </label>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

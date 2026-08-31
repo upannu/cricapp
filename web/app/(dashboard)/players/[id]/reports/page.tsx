@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchPlayerServer, fetchReportsServer, canAccessPlayerServer } from "@/lib/supabase-server";
+import { fetchPlayerServer, fetchReportsServer, canAccessPlayerServer, getViewerRoleServer } from "@/lib/supabase-server";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { ReportActions } from "@/components/ReportActions";
+import { ReportReview } from "@/components/ReportReview";
 
 const TYPE_STYLES: Record<string, string> = {
   "Biomechanics":    "bg-pace-green/10 text-pace-green",
@@ -24,12 +25,18 @@ export default async function PlayerReportsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [player, reports, allowed] = await Promise.all([
+  const [player, allReports, allowed, viewerRole] = await Promise.all([
     fetchPlayerServer(id),
     fetchReportsServer(id),
     canAccessPlayerServer(id),
+    getViewerRoleServer(),
   ]);
   if (!player || !allowed) notFound();
+
+  // Player/parent viewers only ever see a report once a coach has completed reviewing it —
+  // coaches/admins land here too (via "All Reports for {player}") and need to see everything.
+  const canReview = viewerRole === "coach" || viewerRole === "academy_admin" || viewerRole === "platform_admin";
+  const reports = canReview ? allReports : allReports.filter((r) => r.reviewStatus === "completed");
 
   const initials = player.name.split(" ").map((n: string) => n[0] ?? "").join("");
   const sortedReports = [...reports].sort((a, b) => {
@@ -116,15 +123,7 @@ export default async function PlayerReportsPage({
                       </span>
                     ))}
                   </div>
-                  <p className="text-zinc-300 text-sm leading-relaxed">{r.summary}</p>
-                  {r.highlight && (
-                    <p className="mt-1.5 text-xs text-amber font-semibold">★ {r.highlight}</p>
-                  )}
-                  {r.metrics && (
-                    <p className="mt-1.5 text-xs text-amber/80">
-                      ⚠ AI-generated — it can make mistakes. Discuss the details with a coach before acting on it.
-                    </p>
-                  )}
+                  <ReportReview report={r} playerId={player.id} canReview={canReview} />
                   {(r.actionType || r.injuryRisk) && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {r.actionType && (
@@ -223,7 +222,7 @@ export default async function PlayerReportsPage({
               )}
 
               <div className="mt-4 pt-4 border-t border-zinc-700/40">
-                <ReportActions reportId={r.id} playerId={player.id} hasPdf={!!r.sessionId} />
+                <ReportActions reportId={r.id} playerId={player.id} hasPdf={!!r.sessionId} reviewStatus={r.reviewStatus} />
               </div>
             </div>
           ))}

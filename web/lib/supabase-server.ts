@@ -39,17 +39,17 @@ export async function canAccessPlayerServer(targetPlayerId: string): Promise<boo
   const sb = await createClient();
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return false;
-  const role = user.user_metadata?.role as string | undefined;
+  const role = user.app_metadata?.role as string | undefined;
   if (role === "platform_admin") return true;
-  if (role === "player" || role === "parent") return user.user_metadata?.player_id === targetPlayerId;
+  if (role === "player" || role === "parent") return user.app_metadata?.player_id === targetPlayerId;
   if (role === "coach") {
-    const coachId = user.user_metadata?.coach_id as string | undefined;
+    const coachId = user.app_metadata?.coach_id as string | undefined;
     if (!coachId) return false;
     const { data } = await sb.from("players").select("coach_id").eq("id", targetPlayerId).single();
     return data?.coach_id === coachId;
   }
   if (role === "academy_admin") {
-    const academyId = user.user_metadata?.academy_id as string | undefined;
+    const academyId = user.app_metadata?.academy_id as string | undefined;
     if (!academyId) return false;
     const { data } = await sb.from("academies").select("player_ids").eq("id", academyId).single();
     return !!(data?.player_ids as string[] | undefined)?.includes(targetPlayerId);
@@ -68,6 +68,15 @@ export async function isAcademyPlayerServer(playerId: string): Promise<boolean> 
     .select("id", { count: "exact", head: true })
     .contains("player_ids", [playerId]);
   return !!count && count > 0;
+}
+
+/** The logged-in viewer's role, for pages that need to decide what to show without a specific
+ * player to check ownership against (e.g. filtering a reports list to completed-only for player/
+ * parent viewers, while coaches/admins see everything). */
+export async function getViewerRoleServer(): Promise<string | undefined> {
+  const sb = await createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  return user?.app_metadata?.role as string | undefined;
 }
 
 export async function fetchReportsServer(playerId?: string): Promise<Report[]> {

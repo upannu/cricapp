@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchReports, fetchPlayers, fetchAcademies, fetchCoaches } from "@/lib/db";
 import { formatDate, formatDateTime, getCoachOrAcademyLabel } from "@/lib/utils";
 import { ReportActions } from "@/components/ReportActions";
+import { ReportReview, ReportStatusBadge } from "@/components/ReportReview";
 
 const REPORT_TYPES: ReportType[] = ["Biomechanics", "Session Review", "Progress Report", "Action Plan"];
 
@@ -337,6 +338,7 @@ export function ReportsClient() {
                                   isOpen={expandedReportId === r.id}
                                   onToggle={() => setExpandedReportId(expandedReportId === r.id ? null : r.id)}
                                   onDeleted={(id) => setReports((prev) => prev.filter((rep) => rep.id !== id))}
+                                  onUpdated={(id, patch) => setReports((prev) => prev.map((rep) => (rep.id === id ? { ...rep, ...patch } : rep)))}
                                 />
                               ))}
                             </div>
@@ -415,12 +417,14 @@ function ReportCard({
   isOpen,
   onToggle,
   onDeleted,
+  onUpdated,
 }: {
   report: Report;
   player: Player;
   isOpen: boolean;
   onToggle: () => void;
   onDeleted: (id: string) => void;
+  onUpdated: (id: string, patch: Partial<Report>) => void;
 }) {
   return (
     <div
@@ -445,6 +449,7 @@ function ReportCard({
                 <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${TYPE_DOT[r.type]}`} />
                 {r.type}
               </span>
+              <ReportStatusBadge status={r.reviewStatus} />
               <span className="text-zinc-500 text-xs">Report: {formatDate(r.date)}</span>
             </div>
 
@@ -487,12 +492,7 @@ function ReportCard({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div className="sm:col-span-2 bg-ink rounded-xl p-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Full Analysis</p>
-              <p className="text-sm text-zinc-300 leading-relaxed">{r.summary}</p>
-              {r.metrics && (
-                <p className="text-xs text-amber/80 mt-3 leading-relaxed">
-                  ⚠ AI-generated — it can make mistakes. Discuss the details with a coach before acting on it.
-                </p>
-              )}
+              <ReportReview report={r} playerId={player.id} canReview onUpdated={onUpdated} />
             </div>
 
             <div className="bg-ink rounded-xl p-4 space-y-3">
@@ -652,6 +652,7 @@ function ReportCard({
               reportId={r.id}
               playerId={player.id}
               hasPdf={!!r.sessionId}
+              reviewStatus={r.reviewStatus}
               onDeleted={onDeleted}
             />
           </div>

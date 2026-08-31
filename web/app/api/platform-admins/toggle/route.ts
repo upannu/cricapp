@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   );
 
   const { error } = await supabase.auth.admin.updateUserById(userId, {
-    user_metadata: { role: makeAdmin ? "platform_admin" : fallbackRole },
+    app_metadata: { role: makeAdmin ? "platform_admin" : fallbackRole },
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
