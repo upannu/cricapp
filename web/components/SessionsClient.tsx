@@ -15,7 +15,7 @@ import { CameraCalibrationModal } from "@/components/CameraCalibrationModal";
 import { VideoAnnotator } from "@/components/VideoAnnotator";
 import { VoiceNoteRecorder } from "@/components/VoiceNoteRecorder";
 import { AssessmentForm } from "@/components/AssessmentForm";
-import { canGenerateAiReports } from "@/lib/plan-features";
+import { canGenerateAiReports, canGenerateAiReportsForCoach } from "@/lib/plan-features";
 
 const SESSION_TYPES: BookingType[] = [
   "Net Session",
@@ -54,7 +54,7 @@ function aiReportsIncludedForPlayer(player: Player): boolean {
   }
   if (player.coachId) {
     const coach = _sessCoaches.find((c) => c.id === player.coachId);
-    if (coach && !coach.academyId && canGenerateAiReports(coach.subPlan, _sessPlans)) return true;
+    if (coach && !coach.academyId && canGenerateAiReportsForCoach(coach.subPlan as "Free" | "Coach Pro", _sessPlans)) return true;
   }
   return false;
 }

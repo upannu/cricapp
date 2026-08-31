@@ -249,7 +249,7 @@ export function PlansAdminClient() {
                 <div className="text-xs text-zinc-400">
                   {formatMoney(p.priceAud, "aud")}
                   {p.billingType === "subscription" ? ` / ${p.billingInterval}` : " one-time"}
-                  {p.seatCap != null && (p.audience === "individual"
+                  {p.seatCap != null && (p.slug === "coach-free" || p.slug === "coach-pro"
                     ? ` · capped at ${p.seatCap} players on a coach's own roster`
                     : ` · capped at ${p.seatCap} bowlers`)}
                   {p.accessDurationMonths != null && ` · access for ${p.accessDurationMonths} month${p.accessDurationMonths === 1 ? "" : "s"}`}
@@ -375,7 +375,7 @@ export function PlansAdminClient() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={lbl}>
-                  {draft.audience === "individual"
+                  {draft.slug === "coach-free" || draft.slug === "coach-pro"
                     ? "Roster Cap (players a coach can add themselves, optional)"
                     : "Seat Cap (bowlers, optional)"}
                 </label>
@@ -384,10 +384,13 @@ export function PlansAdminClient() {
                   value={draft.seatCap} onChange={(e) => setDraft({ ...draft, seatCap: e.target.value })}
                   placeholder="Uncapped"
                 />
-                {draft.audience === "individual" && draft.slug === "free" && (
+                {draft.slug === "coach-free" && (
                   <p className="text-xs text-zinc-500 mt-1.5">
-                    Governs how many of their own players an independent coach on this plan can add (Players page). Only meaningful on the Free tier — Coach Pro should stay uncapped.
+                    Governs how many of their own players an independent coach on this plan can add (Players page). This plan is separate from the player-facing Free plan.
                   </p>
+                )}
+                {draft.slug === "coach-pro" && (
+                  <p className="text-xs text-zinc-500 mt-1.5">Should stay blank (uncapped) — Coach Pro is the unlimited-roster tier.</p>
                 )}
               </div>
               <div>

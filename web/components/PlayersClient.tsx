@@ -72,7 +72,7 @@ export function PlayersClient() {
   // Academy's, gated to academy staff).
   const ownCoach = user?.role === "coach" ? coaches.find((c) => c.id === user.coachId) : undefined;
   const isIndependentCoach = user?.role === "coach" && !!user.coachId && !ownCoach?.academyId;
-  const rosterCap = ownCoach ? rosterCapForCoachPlan(ownCoach.subPlan, plans) : null;
+  const rosterCap = ownCoach ? rosterCapForCoachPlan(ownCoach.subPlan as "Free" | "Coach Pro", plans) : null;
   const atRosterCap = rosterCap !== null && players.length >= rosterCap;
 
   async function handleAddPlayer() {

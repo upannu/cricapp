@@ -9,7 +9,9 @@ import { fetchActivePlans } from "@/lib/db";
 import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
 import { DEFAULT_CURRENCY, formatMoney, resolvePlanPrice, type Currency } from "@/lib/currency";
 
-const TIER_SLUGS: Record<"Free" | "Coach Pro", string> = { Free: "free", "Coach Pro": "coach-pro" };
+// A coach's own Free plan is its own Plan Catalog row (slug coach-free), separate from a
+// player's Free (slug free) — see lib/plan-features.ts.
+const TIER_SLUGS: Record<"Free" | "Coach Pro", string> = { Free: "coach-free", "Coach Pro": "coach-pro" };
 
 function buildPlanCards(plans: Plan[], currency: Currency): { tier: "Free" | "Coach Pro"; price: string; features: string[] }[] {
   return (["Free", "Coach Pro"] as const).map((tier) => {
