@@ -56,6 +56,10 @@ export interface DbCoach {
   lat?: number | null;
   lng?: number | null;
   currency?: string;
+  sub_plan?: string;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
+  subscription_status?: string | null;
 }
 
 export interface DbAcademy {
@@ -206,6 +210,10 @@ export function dbToCoach(r: DbCoach): Coach {
     lat: r.lat ?? undefined,
     lng: r.lng ?? undefined,
     currency: (r.currency as Currency | undefined) ?? DEFAULT_CURRENCY,
+    subPlan: (r.sub_plan as Coach["subPlan"]) ?? "Free",
+    stripeCustomerId: r.stripe_customer_id ?? undefined,
+    stripeSubscriptionId: r.stripe_subscription_id ?? undefined,
+    subscriptionStatus: r.subscription_status ?? undefined,
   };
 }
 
@@ -424,6 +432,12 @@ export async function fetchCoaches(academyId?: string): Promise<Coach[]> {
   const { data, error } = await q;
   if (error) throw error;
   return (data as DbCoach[]).map(dbToCoach);
+}
+
+export async function fetchCoach(id: string): Promise<Coach | null> {
+  const sb = createClient();
+  const { data } = await sb.from("coaches").select("*").eq("id", id).maybeSingle();
+  return data ? dbToCoach(data as DbCoach) : null;
 }
 
 export async function fetchAcademies(): Promise<Academy[]> {

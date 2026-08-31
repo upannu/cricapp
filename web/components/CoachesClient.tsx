@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
@@ -18,7 +19,9 @@ const CERT_STYLES: Record<CertificationLevel, string> = {
   "Elite":   "bg-pace-green/20 text-pace-green",
 };
 
-type DraftCoach = Omit<Coach, "id" | "stripeConnectAccountId" | "stripeConnectOnboarded">;
+// Billing fields (subPlan/stripe*) are managed by the subscription flow and webhook, never
+// through this edit form — excluded from the draft entirely rather than carried around unused.
+type DraftCoach = Omit<Coach, "id" | "stripeConnectAccountId" | "stripeConnectOnboarded" | "subPlan" | "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus">;
 
 const EMPTY_DRAFT: DraftCoach = {
   name: "",
@@ -200,6 +203,12 @@ export function CoachesClient() {
       stripeConnectAccountId: existing?.stripeConnectAccountId,
       stripeConnectOnboarded: existing?.stripeConnectOnboarded ?? false,
       lat: existing?.lat, lng: existing?.lng,
+      // Billing fields are never touched by this form — preserved as-is from whatever the
+      // subscription flow/webhook last set (defaulting to Free for a brand-new coach).
+      subPlan: existing?.subPlan ?? "Free",
+      stripeCustomerId: existing?.stripeCustomerId,
+      stripeSubscriptionId: existing?.stripeSubscriptionId,
+      subscriptionStatus: existing?.subscriptionStatus,
     };
 
     // Re-geocode whenever the location text changes — best-effort, never blocks the save.
@@ -393,7 +402,15 @@ export function CoachesClient() {
       <div ref={formRef} />
 
       {/* Create / Edit form */}
-      {showForm && (
+      {showForm && (() => {
+        const editingCoach = editingId ? coaches.find((c) => c.id === editingId) : undefined;
+        // A coach editing their own independent profile needs Coach Pro to turn marketplace
+        // visibility on — staff (who can also reach this form) aren't gated, since they're not
+        // the ones paying for it.
+        const marketplaceLocked =
+          user?.role === "coach" && user.coachId === editingId && !editingCoach?.academyId &&
+          editingCoach?.subPlan !== "Coach Pro" && !draft.marketplaceVisible;
+        return (
         <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-6">
             {editingId ? "Edit Coach" : "New Coach"}
@@ -469,16 +486,23 @@ export function CoachesClient() {
                 placeholder="Background, experience, coaching philosophy…" />
             </div>
             <div className="sm:col-span-2">
-              <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <label className={`flex items-center gap-2.5 select-none ${marketplaceLocked ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
                 <input
                   type="checkbox"
                   checked={draft.marketplaceVisible}
+                  disabled={marketplaceLocked}
                   onChange={(e) => setDraft({ ...draft, marketplaceVisible: e.target.checked })}
-                  className="w-4 h-4 rounded accent-pace-green cursor-pointer"
+                  className="w-4 h-4 rounded accent-pace-green cursor-pointer disabled:cursor-not-allowed"
                 />
                 <span className="text-sm text-white font-medium">Visible in the coach marketplace</span>
               </label>
-              <p className="text-xs text-zinc-500 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
+              {marketplaceLocked ? (
+                <p className="text-xs text-amber mt-1 ml-6">
+                  Requires Coach Pro. <Link href="/coach/subscription" className="underline hover:opacity-80">Upgrade</Link> to become discoverable and get booked by players.
+                </p>
+              ) : (
+                <p className="text-xs text-zinc-500 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
+              )}
             </div>
             <div className="sm:col-span-2">
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
@@ -625,7 +649,8 @@ export function CoachesClient() {
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* Success banner */}
       {saved && !showForm && (
@@ -773,6 +798,25 @@ export function CoachesClient() {
                     >
                       {payoutLoading === coach.id ? "Loading…" : coach.stripeConnectOnboarded ? "View payouts" : "Set up payouts"}
                     </button>
+                  </div>
+                )}
+
+                {/* Own plan — only meaningful for an independent coach; an academy-employed one
+                    has no reason to pay for this themselves. */}
+                {user?.role === "coach" && user.coachId === coach.id && !coach.academyId && (
+                  <div className="mt-4 pt-4 border-t border-zinc-700/40 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-zinc-500">Your plan</p>
+                      <p className={`text-xs font-semibold ${coach.subPlan === "Coach Pro" ? "text-pace-green" : "text-zinc-400"}`}>
+                        {coach.subPlan === "Coach Pro" ? "✓ Coach Pro" : "Free"}
+                      </p>
+                    </div>
+                    <Link
+                      href="/coach/subscription"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer disabled:opacity-60 text-zinc-300 border-zinc-600 hover:border-pace-green hover:text-pace-green flex-shrink-0"
+                    >
+                      {coach.subPlan === "Coach Pro" ? "Manage plan" : "Upgrade"}
+                    </Link>
                   </div>
                 )}
               </div>

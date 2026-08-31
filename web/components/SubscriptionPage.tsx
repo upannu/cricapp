@@ -17,7 +17,9 @@ const TIER_SLUGS: Record<PlanTier, string> = { Free: "free", "Player Pro": "play
  * currency-override logic the actual checkout route uses, so what's shown here is always what
  * Stripe will actually charge for the selected currency. */
 function buildPlanCards(plans: Plan[], currency: Currency): { tier: PlanTier; price: string; features: string[] }[] {
-  return (["Free", "Player Pro", "Coach Pro"] as const).map((tier) => {
+  // Coach Pro used to be offered here too, but it's now a coach's own plan (see
+  // CoachSubscriptionPage) — a player only ever chooses between Free and Player Pro.
+  return (["Free", "Player Pro"] as const).map((tier) => {
     const row = plans.find((p) => p.slug === TIER_SLUGS[tier]);
     if (!row) return { tier, price: "…", features: planFeatureLines(tier, plans) };
     if (row.priceAud === 0) return { tier, price: "Free", features: planFeatureLines(tier, plans) };
@@ -293,7 +295,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
             </select>
           </label>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {PLANS.map((p) => {
             const isActive = selectedPlan === p.tier;
             return (

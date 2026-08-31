@@ -53,3 +53,24 @@ export function planFeatureLines(tier: PlanTier, plans: Plan[]): string[] {
     chatLimit === null ? "Unlimited Coach AI chat" : `${chatLimit} Coach AI messages per day`,
   ];
 }
+
+/** An independent coach's own roster cap — reuses the org-plan `seatCap` field (otherwise only
+ * meaningful for an academy's headcount) since a coach's Free-tier roster is the exact same
+ * "how many players am I allowed" shape. null on Coach Pro means unlimited, same convention as
+ * every other limit here. */
+export function rosterCapForCoachPlan(tier: PlanTier, plans: Plan[]): number | null {
+  const plan = findTierPlan(tier, plans);
+  return plan ? plan.seatCap : (tier === "Free" ? 5 : null);
+}
+
+/** Coach-facing equivalent of planFeatureLines — same three admin-editable Plan Catalog toggles
+ * (marketplaceEnabled/seatCap/aiReportsEnabled) as the player side, just described for what a
+ * coach cares about instead of what a player does. Used by CoachSubscriptionPage. */
+export function coachPlanFeatureLines(tier: PlanTier, plans: Plan[]): string[] {
+  const rosterCap = rosterCapForCoachPlan(tier, plans);
+  return [
+    canUseMarketplace(tier, plans) ? "Marketplace visibility — get found & booked by players" : "Marketplace visibility — upgrade to unlock",
+    rosterCap === null ? "Unlimited players on your roster" : `Up to ${rosterCap} players on your roster`,
+    canGenerateAiReports(tier, plans) ? "AI biomechanics reports for your players" : "AI biomechanics reports — upgrade to unlock",
+  ];
+}

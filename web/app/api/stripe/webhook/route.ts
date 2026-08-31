@@ -82,6 +82,18 @@ export async function POST(request: Request) {
         }
         break;
       }
+      if (session.metadata?.type === "coach_subscription") {
+        const subscribingCoachId = session.metadata?.coach_id;
+        if (subscribingCoachId && typeof session.subscription === "string") {
+          const coachSub = await stripe.subscriptions.retrieve(session.subscription);
+          await supabase.from("coaches").update({
+            stripe_subscription_id: coachSub.id,
+            subscription_status: coachSub.status,
+            sub_plan: "Coach Pro",
+          }).eq("id", subscribingCoachId);
+        }
+        break;
+      }
       if (session.metadata?.type === "academy_subscription") {
         const academyId = session.metadata?.academy_id;
         const planId = session.metadata?.plan_id;
@@ -144,6 +156,13 @@ export async function POST(request: Request) {
           .eq("stripe_subscription_id", subscription.id);
         break;
       }
+      if (subscription.metadata?.type === "coach_subscription") {
+        const isCoachActive = subscription.status === "active" || subscription.status === "trialing";
+        await supabase.from("coaches")
+          .update({ subscription_status: subscription.status, ...(!isCoachActive ? { sub_plan: "Free" } : {}) })
+          .eq("stripe_subscription_id", subscription.id);
+        break;
+      }
 
       const plan = subscription.metadata?.plan ?? null;
       const isActive = subscription.status === "active" || subscription.status === "trialing";
@@ -169,6 +188,12 @@ export async function POST(request: Request) {
       if (subscription.metadata?.type === "academy_subscription") {
         await supabase.from("academies")
           .update({ subscription_status: "canceled", stripe_subscription_id: null, plan_id: null, access_expires_at: null })
+          .eq("stripe_subscription_id", subscription.id);
+        break;
+      }
+      if (subscription.metadata?.type === "coach_subscription") {
+        await supabase.from("coaches")
+          .update({ sub_plan: "Free", subscription_status: "canceled", stripe_subscription_id: null })
           .eq("stripe_subscription_id", subscription.id);
         break;
       }

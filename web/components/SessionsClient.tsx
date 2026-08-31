@@ -42,13 +42,21 @@ let _sessPlans: Plan[] = [];
 function playerById(id: string) { return _sessPlayers.find((p) => p.id === id); }
 /** AI reports are normally gated by the player's own subscription tier — but an academy
  * player on a fees-waived academy plan (e.g. a cricket board license) gets them included too,
- * same as they already get booking/pack session fees waived. */
+ * same as they already get booking/pack session fees waived. An independent coach's own Coach
+ * Pro plan covers AI reports for every player on their roster the same way — the coach is the
+ * one paying for the capability, not each individual player. */
 function aiReportsIncludedForPlayer(player: Player): boolean {
   if (canGenerateAiReports(player.subscription.plan, _sessPlans)) return true;
   const academy = _sessAcademies.find((a) => a.playerIds.includes(player.id));
-  if (!academy?.planId) return false;
-  const plan = _sessPlans.find((p) => p.id === academy.planId);
-  return !!plan?.waivesSessionFees;
+  if (academy?.planId) {
+    const plan = _sessPlans.find((p) => p.id === academy.planId);
+    if (plan?.waivesSessionFees) return true;
+  }
+  if (player.coachId) {
+    const coach = _sessCoaches.find((c) => c.id === player.coachId);
+    if (coach && !coach.academyId && canGenerateAiReports(coach.subPlan, _sessPlans)) return true;
+  }
+  return false;
 }
 
 function thisWeekCount(sessions: Session[]): number {
