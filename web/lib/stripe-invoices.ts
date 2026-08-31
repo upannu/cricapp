@@ -47,6 +47,9 @@ export function normalizeStripeInvoice(invoice: Stripe.Invoice): NormalizedInvoi
   } else if (subMeta.type === "library_subscription") {
     paymentType = "library_subscription";
     description = "Library Access";
+  } else if (subMeta.type === "coach_subscription") {
+    paymentType = "coach_pro";
+    description = "Coach Pro subscription";
   } else if (subMeta.plan === "Player Pro" || subMeta.plan === "Coach Pro") {
     paymentType = subMeta.plan === "Player Pro" ? "player_pro" : "coach_pro";
     description = `${subMeta.plan} subscription`;

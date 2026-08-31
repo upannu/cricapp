@@ -13,7 +13,7 @@ const STATUS_STYLES: Record<string, string> = {
   unpaid: "bg-fire/20 text-fire",
 };
 
-export function InvoiceHistoryList({ scope, id }: { scope: "player" | "academy"; id: string }) {
+export function InvoiceHistoryList({ scope, id }: { scope: "player" | "academy" | "coach"; id: string }) {
   const [invoices, setInvoices] = useState<NormalizedInvoice[] | null>(null);
   const [error, setError] = useState("");
 

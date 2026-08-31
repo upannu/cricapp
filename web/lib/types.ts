@@ -392,6 +392,16 @@ export interface Coach {
    * subscription in — see lib/currency.ts. Irrelevant once a coach belongs to an academy, since
    * that academy's own `currency` governs any revenue split. */
   currency: Currency;
+  /** A coach's own plan — Free or Coach Pro, billed directly to them (see
+   * create-coach-checkout-session), separate from any academy they belong to and separate from
+   * a player's own Free/Player Pro. Only 'Free' | 'Coach Pro' ever apply here (the 'Player Pro'
+   * member of PlanTier is never set on a coach), but reusing the one shared type avoids a
+   * near-identical duplicate. Gates marketplace visibility, own-roster size (see
+   * players.seatCap on the free plan), and AI report generation for their players. */
+  subPlan: PlanTier;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  subscriptionStatus?: string;
 }
 
 export type BookingStatus = 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed';

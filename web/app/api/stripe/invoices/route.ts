@@ -15,8 +15,10 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const playerId = url.searchParams.get("playerId");
   const academyId = url.searchParams.get("academyId");
-  if ((!playerId && !academyId) || (playerId && academyId)) {
-    return NextResponse.json({ error: "Provide exactly one of playerId or academyId." }, { status: 400 });
+  const coachId = url.searchParams.get("coachId");
+  const provided = [playerId, academyId, coachId].filter(Boolean).length;
+  if (provided !== 1) {
+    return NextResponse.json({ error: "Provide exactly one of playerId, academyId, or coachId." }, { status: 400 });
   }
 
   const caller = await getCaller();
@@ -31,6 +33,16 @@ export async function GET(request: Request) {
     const { data: player } = await supabase.from("players").select("stripe_customer_id").eq("id", playerId).single();
     if (!player?.stripe_customer_id) return NextResponse.json({ invoices: [] });
     const invoices = await listInvoicesForCustomer(player.stripe_customer_id);
+    return NextResponse.json({ invoices });
+  }
+
+  if (coachId) {
+    const allowed = caller.role === "platform_admin" || (caller.role === "coach" && caller.coachId === coachId);
+    if (!allowed) return NextResponse.json({ error: "You can only view invoices for your own coach account." }, { status: 403 });
+
+    const { data: coach } = await supabase.from("coaches").select("stripe_customer_id").eq("id", coachId).single();
+    if (!coach?.stripe_customer_id) return NextResponse.json({ invoices: [] });
+    const invoices = await listInvoicesForCustomer(coach.stripe_customer_id);
     return NextResponse.json({ invoices });
   }
 

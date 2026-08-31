@@ -638,6 +638,7 @@ export function AcademyClient() {
       certificationLevel: newCoachDraft.certificationLevel, bio: "", academyId: "",
       marketplaceVisible: false, available: true, stripeConnectOnboarded: false,
       currency: currencyForCountry(draft.country),
+      subPlan: "Free",
     };
     try {
       await upsertCoach({

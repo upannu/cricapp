@@ -3,11 +3,23 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayers, fetchAcademies, fetchCoaches } from "@/lib/db";
+import { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer } from "@/lib/db";
 import { formatDate, getPlayerStatus, getInitials, getCoachOrAcademyLabel } from "@/lib/utils";
-import type { Academy, Coach, Player, PlayerStatus } from "@/lib/types";
+import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, Plan } from "@/lib/types";
 import { MessageModal } from "@/components/MessageModal";
 import { BulkMessageModal } from "@/components/BulkMessageModal";
+import { DEFAULT_CURRENCY } from "@/lib/currency";
+import { rosterCapForCoachPlan } from "@/lib/plan-features";
+
+const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
+const BOWLING_STYLES: BowlingStyle[] = [
+  "Right Arm Fast", "Left Arm Fast", "Right Arm Fast-Medium",
+  "Left Arm Fast-Medium", "Right Arm Medium", "Left Arm Medium",
+];
+const EMPTY_NEW_PLAYER = { name: "", email: "", ageGroup: "U14" as AgeGroup, bowlingStyle: "Right Arm Fast" as BowlingStyle, club: "" };
+const inputCls = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
+const selectCls = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
+const labelCls = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
 
 const statusStyles: Record<PlayerStatus, string> = {
   Active:   "bg-pace-green/15 text-pace-green",
@@ -29,15 +41,21 @@ export function PlayersClient() {
   const [messagingPlayer, setMessagingPlayer] = useState<Player | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkMessaging, setBulkMessaging] = useState(false);
+  const [showAddPlayer, setShowAddPlayer] = useState(false);
+  const [newPlayerDraft, setNewPlayerDraft] = useState(EMPTY_NEW_PLAYER);
+  const [addPlayerError, setAddPlayerError] = useState("");
+  const [savingPlayer, setSavingPlayer] = useState(false);
+  const [plans, setPlans] = useState<Plan[]>([]);
 
   useEffect(() => {
     if (!user) return;
     const coachId = user.role === "coach" ? user.coachId : undefined;
     const academyId = user.role === "academy_admin" ? user.academyId : undefined;
-    Promise.all([fetchPlayers(coachId, academyId), fetchAcademies(), fetchCoaches(academyId)]).then(([p, a, c]) => {
+    Promise.all([fetchPlayers(coachId, academyId), fetchAcademies(), fetchCoaches(academyId), fetchActivePlans()]).then(([p, a, c, pl]) => {
       setPlayers(p);
       setAcademies(a);
       setCoaches(c);
+      setPlans(pl);
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -47,6 +65,82 @@ export function PlayersClient() {
     (p) => p.subscription.plan !== "Free" && getPlayerStatus(p.subscription.endDate) === "Active"
   ).length;
   const totalSessions = players.reduce((s, p) => s + p.sessionsCount, 0);
+
+  // An academy-employed coach adds players through the Academy page instead, onto that academy's
+  // own roster — this "+ Add Player" is only for a coach with no academy at all, who otherwise had
+  // no way to put anyone on their own roster (the only insertPlayer() call site used to be
+  // Academy's, gated to academy staff).
+  const ownCoach = user?.role === "coach" ? coaches.find((c) => c.id === user.coachId) : undefined;
+  const isIndependentCoach = user?.role === "coach" && !!user.coachId && !ownCoach?.academyId;
+  const rosterCap = ownCoach ? rosterCapForCoachPlan(ownCoach.subPlan as "Free" | "Coach Pro", plans) : null;
+  const atRosterCap = rosterCap !== null && players.length >= rosterCap;
+
+  async function handleAddPlayer() {
+    if (!user?.coachId) return;
+    if (atRosterCap) {
+      setAddPlayerError(`Free plan is capped at ${rosterCap} players — upgrade to Coach Pro for an unlimited roster.`);
+      return;
+    }
+    const name = newPlayerDraft.name.trim();
+    if (!name) { setAddPlayerError("Name is required."); return; }
+    const email = newPlayerDraft.email.trim();
+    if (email && players.some((p) => p.email.toLowerCase() === email.toLowerCase())) {
+      setAddPlayerError(`Another player already uses ${email} — each player needs a unique email.`);
+      return;
+    }
+    setAddPlayerError("");
+    setSavingPlayer(true);
+    const newId = `p_${Date.now()}`;
+    const now = new Date().toISOString().split("T")[0];
+    const currency = ownCoach?.currency ?? DEFAULT_CURRENCY;
+    const newPlayer: Player = {
+      id: newId, name, email, phone: "", ageGroup: newPlayerDraft.ageGroup,
+      bowlingStyle: newPlayerDraft.bowlingStyle, battingHand: "Right Hand", playingLevel: "Club",
+      heightCm: null, weightKg: null, club: newPlayerDraft.club.trim(), addedDate: now,
+      coachId: user.coachId, currency, guardianConsentStatus: "Pending",
+      subscription: {
+        plan: "Free", startDate: now,
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        sessionsUsed: 0, sessionsLimit: 4,
+      },
+      biomechanics: { ballSpeedKmh: 0, frontKneeAngleDeg: 0, actionType: "Side-on", injuryRisk: "Low", lastSession: now },
+      academy: { stage: "Foundation", completionPercent: 0, totalSessions: 0, xp: 0, articlesRead: 0 },
+      sessionsCount: 0, lastActive: now, xp: 0,
+      tipStreakCount: 0, tipBestStreak: 0,
+      assessmentCredits: 0,
+      loginDisabled: false, disabledAt: null, disabledReason: null,
+    };
+    try {
+      await insertPlayer({
+        id: newId, name: newPlayer.name, email: newPlayer.email, phone: "",
+        bowling_style: newPlayer.bowlingStyle, age_group: newPlayer.ageGroup,
+        club: newPlayer.club, coach_id: user.coachId, guardian_consent_status: "Pending",
+        added_date: now, sessions_count: 0, last_active: now, xp: 0,
+        sub_plan: "Free", sub_start_date: now, sub_end_date: newPlayer.subscription.endDate,
+        sub_sessions_used: 0, sub_sessions_limit: 4,
+        bio_ball_speed_kmh: 0, bio_front_knee_angle_deg: 0, bio_action_type: "Side-on",
+        bio_injury_risk: "Low", bio_last_session: now,
+        acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
+        acad_xp: 0, acad_articles_read: 0,
+        currency,
+      });
+    } catch (err) {
+      setAddPlayerError((err as { message?: string })?.message ?? String(err));
+      setSavingPlayer(false);
+      return;
+    }
+    setPlayers((prev) => [...prev, newPlayer]);
+    setNewPlayerDraft(EMPTY_NEW_PLAYER);
+    setShowAddPlayer(false);
+    setSavingPlayer(false);
+    if (email) {
+      fetch("/api/players/notify-added", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerId: newId }),
+      }).catch(() => {});
+    }
+  }
 
   const allSelected = selectedIds.size === players.length && players.length > 0;
   const someSelected = selectedIds.size > 0 && !allSelected;
@@ -91,7 +185,72 @@ export function PlayersClient() {
         >
           ✉ Message All
         </button>
+        {isIndependentCoach && (
+          atRosterCap ? (
+            <Link
+              href="/coach/subscription"
+              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-amber border border-amber/40 rounded-xl hover:bg-amber/10 transition-colors"
+            >
+              Roster full ({rosterCap}) — Upgrade
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setShowAddPlayer((v) => !v); setAddPlayerError(""); }}
+              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer"
+            >
+              {showAddPlayer ? "Cancel" : "+ Add Player"}
+            </button>
+          )
+        )}
       </div>
+
+      {isIndependentCoach && showAddPlayer && !atRosterCap && (
+        <div className="bg-surface rounded-2xl p-5 mb-6 border border-pace-green/30">
+          <p className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-3">New Player</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-3">
+            <div>
+              <label className={labelCls}>Full Name *</label>
+              <input type="text" value={newPlayerDraft.name}
+                onChange={(e) => setNewPlayerDraft({ ...newPlayerDraft, name: e.target.value })}
+                className={inputCls} placeholder="Player name" />
+            </div>
+            <div>
+              <label className={labelCls}>Email</label>
+              <input type="email" value={newPlayerDraft.email}
+                onChange={(e) => setNewPlayerDraft({ ...newPlayerDraft, email: e.target.value })}
+                className={inputCls} placeholder="player@email.com" />
+            </div>
+            <div>
+              <label className={labelCls}>Age Group</label>
+              <select value={newPlayerDraft.ageGroup}
+                onChange={(e) => setNewPlayerDraft({ ...newPlayerDraft, ageGroup: e.target.value as AgeGroup })}
+                className={selectCls}>
+                {AGE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Bowling Style</label>
+              <select value={newPlayerDraft.bowlingStyle}
+                onChange={(e) => setNewPlayerDraft({ ...newPlayerDraft, bowlingStyle: e.target.value as BowlingStyle })}
+                className={selectCls}>
+                {BOWLING_STYLES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Club</label>
+              <input type="text" value={newPlayerDraft.club}
+                onChange={(e) => setNewPlayerDraft({ ...newPlayerDraft, club: e.target.value })}
+                className={inputCls} placeholder="Club name" />
+            </div>
+          </div>
+          {addPlayerError && <p className="text-red-400 text-xs mb-3">{addPlayerError}</p>}
+          <button type="button" onClick={handleAddPlayer} disabled={savingPlayer}
+            className="px-4 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+            {savingPlayer ? "Adding…" : "Add Player"}
+          </button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
