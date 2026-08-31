@@ -75,6 +75,7 @@ export function CoachesClient() {
   const [reassignToCoachId, setReassignToCoachId] = useState("");
   const [newHeadCoachId, setNewHeadCoachId] = useState("");
   const [reassigning, setReassigning] = useState(false);
+  const [confirmDeleteCoachId, setConfirmDeleteCoachId] = useState<string | null>(null);
   const [payoutLoading, setPayoutLoading] = useState<string | null>(null);
   const [payoutError, setPayoutError] = useState<{ coachId: string; message: string } | null>(null);
 
@@ -174,6 +175,7 @@ export function CoachesClient() {
       currency: coach.currency,
     });
     setFormError("");
+    setConfirmDeleteCoachId(null);
     setShowForm(true);
     scrollToForm();
   }
@@ -182,6 +184,7 @@ export function CoachesClient() {
     setShowForm(false);
     setEditingId(null);
     setFormError("");
+    setConfirmDeleteCoachId(null);
   }
 
   async function handleSave() {
@@ -586,10 +589,24 @@ export function CoachesClient() {
               Cancel
             </button>
             {editingId && user?.role !== "coach" && !(reassignTarget?.coachId === editingId) && (
-              <button type="button" onClick={() => handleDelete(editingId)}
-                className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer">
-                Delete Coach
-              </button>
+              confirmDeleteCoachId === editingId ? (
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-xs text-zinc-400">Delete this coach?</span>
+                  <button type="button" onClick={() => { handleDelete(editingId); setConfirmDeleteCoachId(null); }}
+                    className="px-3 py-1.5 text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors cursor-pointer">
+                    Confirm delete
+                  </button>
+                  <button type="button" onClick={() => setConfirmDeleteCoachId(null)}
+                    className="px-3 py-1.5 text-xs font-semibold text-zinc-400 border border-zinc-700 rounded-lg hover:text-white transition-colors cursor-pointer">
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => setConfirmDeleteCoachId(editingId)}
+                  className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer">
+                  Delete Coach
+                </button>
+              )
             )}
           </div>
 
