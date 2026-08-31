@@ -249,7 +249,9 @@ export function PlansAdminClient() {
                 <div className="text-xs text-zinc-400">
                   {formatMoney(p.priceAud, "aud")}
                   {p.billingType === "subscription" ? ` / ${p.billingInterval}` : " one-time"}
-                  {p.seatCap != null && ` · capped at ${p.seatCap} bowlers`}
+                  {p.seatCap != null && (p.audience === "individual"
+                    ? ` · capped at ${p.seatCap} players on a coach's own roster`
+                    : ` · capped at ${p.seatCap} bowlers`)}
                   {p.accessDurationMonths != null && ` · access for ${p.accessDurationMonths} month${p.accessDurationMonths === 1 ? "" : "s"}`}
                   {OTHER_CURRENCIES.filter((c) => p.pricesByCurrency[c] != null).map((c) => ` · ${formatMoney(p.pricesByCurrency[c]!, c)}`).join("")}
                 </div>
@@ -372,12 +374,21 @@ export function PlansAdminClient() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={lbl}>Seat Cap (bowlers, optional)</label>
+                <label className={lbl}>
+                  {draft.audience === "individual"
+                    ? "Roster Cap (players a coach can add themselves, optional)"
+                    : "Seat Cap (bowlers, optional)"}
+                </label>
                 <input
                   type="number" min={0} className={inp}
                   value={draft.seatCap} onChange={(e) => setDraft({ ...draft, seatCap: e.target.value })}
                   placeholder="Uncapped"
                 />
+                {draft.audience === "individual" && draft.slug === "free" && (
+                  <p className="text-xs text-zinc-500 mt-1.5">
+                    Governs how many of their own players an independent coach on this plan can add (Players page). Only meaningful on the Free tier — Coach Pro should stay uncapped.
+                  </p>
+                )}
               </div>
               <div>
                 <label className={lbl}>Access Duration (months, optional)</label>
