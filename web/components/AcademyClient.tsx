@@ -9,6 +9,7 @@ import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach,
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 import { getPlatformFeePercent } from "@/lib/utils";
+import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
@@ -109,6 +110,7 @@ export function AcademyClient() {
   const [allPlayers,  setAllPlayers]  = useState<Player[]>([]);
   const [allCoaches,  setAllCoaches]  = useState<Coach[]>([]);
   const [orgPlans,    setOrgPlans]    = useState<Plan[]>([]);
+  const [allPlans,    setAllPlans]    = useState<Plan[]>([]);
   const [nets,        setNets]        = useState<Net[]>([]);
 
   // Accordion
@@ -174,6 +176,7 @@ export function AcademyClient() {
     Promise.all([fetchAcademies(), fetchPlayers(coachId, academyId), fetchCoaches(academyId), fetchActivePlans(), fetchNets()]).then(([a, p, c, plans, n]) => {
       setAcademies(a); setAllPlayers(p); setAllCoaches(c);
       setOrgPlans(plans.filter((x) => x.audience === "organization"));
+      setAllPlans(plans);
       setNets(n);
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -440,6 +443,7 @@ export function AcademyClient() {
     if (!newPlayerDraft.name.trim()) { setNewPlayerError("Name is required."); return; }
     const newId = `p_${Date.now()}`;
     const now = new Date().toISOString().split("T")[0];
+    const freeSessionsLimit = sessionsLimitForPlan("Free", allPlans);
     const newPlayer: Player = {
       id: newId, name: newPlayerDraft.name.trim(), email: newPlayerDraft.email.trim(),
       phone: "", ageGroup: newPlayerDraft.ageGroup, bowlingStyle: newPlayerDraft.bowlingStyle,
@@ -450,7 +454,7 @@ export function AcademyClient() {
       subscription: {
         plan: "Free", startDate: now,
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        sessionsUsed: 0, sessionsLimit: 4,
+        sessionsUsed: 0, sessionsLimit: freeSessionsLimit,
       },
       biomechanics: { ballSpeedKmh: 0, frontKneeAngleDeg: 0, actionType: "Side-on", injuryRisk: "Low", lastSession: now },
       academy: { stage: "Foundation", completionPercent: 0, totalSessions: 0, xp: 0, articlesRead: 0 },
@@ -465,7 +469,7 @@ export function AcademyClient() {
       club: newPlayer.club, coach_id: null, guardian_consent_status: "Pending",
       added_date: now, sessions_count: 0, last_active: now, xp: 0,
       sub_plan: "Free", sub_start_date: now, sub_end_date: newPlayer.subscription.endDate,
-      sub_sessions_used: 0, sub_sessions_limit: 4,
+      sub_sessions_used: 0, sub_sessions_limit: freeSessionsLimit,
       bio_ball_speed_kmh: 0, bio_front_knee_angle_deg: 0, bio_action_type: "Side-on",
       bio_injury_risk: "Low", bio_last_session: now,
       acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
@@ -550,6 +554,7 @@ export function AcademyClient() {
     setCsvError("");
     try {
       const now = new Date().toISOString().split("T")[0];
+      const freeSessionsLimit = sessionsLimitForPlan("Free", allPlans);
       const newPlayers: Player[] = importable.map((row, i) => ({
         id: `p_${Date.now()}_${i}`, name: row.name, email: row.email,
         phone: row.phone, ageGroup: row.ageGroup, bowlingStyle: row.bowlingStyle,
@@ -560,7 +565,7 @@ export function AcademyClient() {
         subscription: {
           plan: "Free", startDate: now,
           endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          sessionsUsed: 0, sessionsLimit: 4,
+          sessionsUsed: 0, sessionsLimit: freeSessionsLimit,
         },
         biomechanics: { ballSpeedKmh: 0, frontKneeAngleDeg: 0, actionType: "Side-on", injuryRisk: "Low", lastSession: now },
         academy: { stage: "Foundation", completionPercent: 0, totalSessions: 0, xp: 0, articlesRead: 0 },
@@ -576,7 +581,7 @@ export function AcademyClient() {
         club: p.club, coach_id: null, guardian_consent_status: "Pending",
         added_date: now, sessions_count: 0, last_active: now, xp: 0,
         sub_plan: "Free", sub_start_date: now, sub_end_date: p.subscription.endDate,
-        sub_sessions_used: 0, sub_sessions_limit: 4,
+        sub_sessions_used: 0, sub_sessions_limit: freeSessionsLimit,
         bio_ball_speed_kmh: 0, bio_front_knee_angle_deg: 0, bio_action_type: "Side-on",
         bio_injury_risk: "Low", bio_last_session: now,
         acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,

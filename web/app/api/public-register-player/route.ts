@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { freeSessionsLimit } from "@/lib/server-plans";
 
 /** Simple shared access codes gating the public registration page at /register — intentionally
  * not a security boundary (no login, no per-parent identity), just enough to keep the form from
@@ -138,7 +139,7 @@ export async function POST(request: Request) {
     added_date: now, sessions_count: 0, last_active: now, xp: 0,
     sub_plan: "Free", sub_start_date: now,
     sub_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    sub_sessions_used: 0, sub_sessions_limit: 4,
+    sub_sessions_used: 0, sub_sessions_limit: await freeSessionsLimit(supabase),
     bio_ball_speed_kmh: 0, bio_front_knee_angle_deg: 0, bio_action_type: "Side-on",
     bio_injury_risk: "Low", bio_last_session: now,
     acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
