@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
+import { freeSessionsLimit } from "@/lib/server-plans";
 
 function serviceClient() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -10,13 +11,6 @@ function serviceClient() {
     serviceKey,
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
-}
-
-/** The Free plan's monthly session cap (admin-editable at /admin/plans) — looked up fresh here
- * rather than hardcoded, so a downgraded/cancelled subscriber gets whatever cap is currently set. */
-async function freeSessionsLimit(supabase: ReturnType<typeof serviceClient>): Promise<number | null> {
-  const { data } = await supabase.from("plans").select("sessions_per_month_limit").eq("slug", "free").maybeSingle();
-  return data ? (data.sessions_per_month_limit as number | null) : 4;
 }
 
 export async function POST(request: Request) {
