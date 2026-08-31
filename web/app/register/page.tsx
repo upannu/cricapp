@@ -8,8 +8,11 @@ const BOWLING_STYLES = [
   "Left Arm Fast-Medium", "Right Arm Medium", "Left Arm Medium",
 ] as const;
 
+// Age group and bowling style start blank (not a real default like "U10") — a parent has to
+// actively pick one so a record can never quietly reach "registered" carrying a value nobody
+// actually chose.
 const EMPTY_FORM = {
-  name: "", email: "", phone: "", ageGroup: "U10" as string, bowlingStyle: "Right Arm Fast" as string, club: "",
+  name: "", email: "", phone: "", ageGroup: "" as string, bowlingStyle: "" as string, club: "",
 };
 
 export default function RegisterPage() {
@@ -85,6 +88,8 @@ export default function RegisterPage() {
     if (!form.name.trim()) { setError("Player name is required."); return; }
     if (!form.email.trim()) { setError("Email is required."); return; }
     if (!form.phone.trim()) { setError("Phone is required."); return; }
+    if (!form.ageGroup) { setError("Please select an age group."); return; }
+    if (!form.bowlingStyle) { setError("Please select a bowling style."); return; }
     setError("");
     setSubmitting(true);
     try {
@@ -256,22 +261,26 @@ export default function RegisterPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Age Group</label>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Age Group *</label>
                 <select
                   value={form.ageGroup}
-                  onChange={(e) => setForm({ ...form, ageGroup: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, ageGroup: e.target.value }); setError(""); }}
                   className="w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                  required
                 >
+                  <option value="" disabled>— Select —</option>
                   {AGE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Bowling Style</label>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Bowling Style *</label>
                 <select
                   value={form.bowlingStyle}
-                  onChange={(e) => setForm({ ...form, bowlingStyle: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, bowlingStyle: e.target.value }); setError(""); }}
                   className="w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                  required
                 >
+                  <option value="" disabled>— Select —</option>
                   {BOWLING_STYLES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>

@@ -77,6 +77,14 @@ export async function POST(request: Request) {
   if (!phone?.trim()) {
     return NextResponse.json({ error: "Phone is required." }, { status: 400 });
   }
+  // No silent defaulting here — a record only counts as actually registered once a parent has
+  // deliberately picked both of these, not whatever the form happened to start on.
+  if (!AGE_GROUPS.includes(ageGroup ?? "")) {
+    return NextResponse.json({ error: "Please select a valid age group." }, { status: 400 });
+  }
+  if (!BOWLING_STYLES.includes(bowlingStyle ?? "")) {
+    return NextResponse.json({ error: "Please select a valid bowling style." }, { status: 400 });
+  }
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceKey) return NextResponse.json({ error: "Not configured." }, { status: 500 });
@@ -86,8 +94,8 @@ export async function POST(request: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  const resolvedAgeGroup = AGE_GROUPS.includes(ageGroup ?? "") ? ageGroup! : "U10";
-  const resolvedBowlingStyle = BOWLING_STYLES.includes(bowlingStyle ?? "") ? bowlingStyle! : "Right Arm Fast";
+  const resolvedAgeGroup = ageGroup!;
+  const resolvedBowlingStyle = bowlingStyle!;
 
   // Completing a pre-entered player (a coach handed us a roster of names ahead of time) — fill in
   // the rest rather than creating a duplicate row. Scoped to this same code so a parent can't
