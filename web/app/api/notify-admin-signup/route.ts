@@ -33,10 +33,17 @@ export async function POST(request: Request) {
     `${appUrl}/admin/approvals`,
   ].join("\n");
 
+  // Every new coach/academy_admin registration also goes to support — not just whoever
+  // PLATFORM_ADMIN_EMAIL happens to be configured as. Deduped in case they're ever the same
+  // address, so support never gets it twice.
+  const SUPPORT_EMAIL = "support@crichq.com.au";
+  const recipients = [adminEmail.trim(), SUPPORT_EMAIL]
+    .filter((e, i, arr) => arr.findIndex((other) => other.toLowerCase() === e.toLowerCase()) === i);
+
   try {
     await transporter.sendMail({
       from: `"CRIC HQ" <${gmailUser}>`,
-      to: adminEmail,
+      to: recipients.join(", "),
       subject,
       text,
     });
