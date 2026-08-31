@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 import type { Player, PlanTier, Plan } from "@/lib/types";
 import { formatDate, getPlayerStatus } from "@/lib/utils";
 import { isPaidPlan } from "@/lib/stripe-client";
@@ -33,6 +34,11 @@ function buildPlanCards(plans: Plan[], currency: Currency): { tier: PlanTier; pr
 }
 
 export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: Player; isAcademyPlayer?: boolean }) {
+  const { user } = useAuth();
+  // A player/parent viewing their own plan has no "profile" page of their own to go back to
+  // (AuthGuard only lets them reach this one page directly) — send them back to the portal
+  // instead of a staff page they'd just get bounced from.
+  const backHref = user?.role === "player" || user?.role === "parent" ? "/portal" : `/players/${player.id}`;
   const status = getPlayerStatus(player.subscription.endDate);
   const [selectedPlan, setSelectedPlan] = useState<PlanTier>(player.subscription.plan);
   const [redirecting, setRedirecting] = useState(false);
@@ -152,10 +158,10 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
       {/* Back */}
       <div className="flex items-center justify-between mb-6">
         <Link
-          href={`/players/${player.id}`}
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
         >
-          ← Back to Profile
+          ← Back{backHref === "/portal" ? "" : " to Profile"}
         </Link>
       </div>
 
@@ -372,7 +378,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
           </button>
         )}
         <Link
-          href={`/players/${player.id}`}
+          href={backHref}
           className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors"
         >
           Cancel

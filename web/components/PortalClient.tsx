@@ -106,7 +106,9 @@ export function PortalClient() {
         </div>
         <div className="ml-auto text-right">
           <div className="text-pace-green font-bold text-lg">⚡ {player.xp.toLocaleString()} XP</div>
-          <div className="text-xs text-zinc-500">{player.subscription.plan}</div>
+          <Link href={`/players/${player.id}/subscription`} className="text-xs text-zinc-500 hover:text-pace-green hover:underline transition-colors">
+            {player.subscription.plan} plan · Manage
+          </Link>
         </div>
       </div>
 
