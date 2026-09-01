@@ -21,7 +21,10 @@ export default defineConfig({
   },
   projects: [
     // Unauthenticated/public-page specs (e.g. login, signup, smoke tests).
-    { name: "public", testMatch: /tests\/e2e\/[^/]+\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
+    // Depends on "setup" even though these specs are themselves unauthenticated — one case in
+    // auth.spec.ts opens its own second, already-logged-in context via a seeded role's
+    // storageState file, which only exists once "setup" has run.
+    { name: "public", testMatch: /tests\/e2e\/[^/]+\.spec\.ts/, dependencies: ["setup"], use: { ...devices["Desktop Chrome"] } },
     // Logs in as each of the 5 seeded roles once and saves storageState — see auth.setup.ts.
     // fullyParallel: false — 5 concurrent real sign-ins against Supabase Auth
     // can trip its rate limiting (observed as spurious "Invalid email or

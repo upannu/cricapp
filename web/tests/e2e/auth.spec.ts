@@ -1,3 +1,4 @@
+import path from "node:path";
 import { test, expect } from "@playwright/test";
 
 // Pins down middleware.ts's redirect matrix (web/middleware.ts) — the single
@@ -16,6 +17,26 @@ test.describe("middleware redirect matrix", () => {
 
     await page.goto("/forgot-password");
     await expect(page.getByRole("heading", { name: "Reset your password" })).toBeVisible();
+
+    await page.goto("/reset-password");
+    await expect(page).toHaveURL(/\/reset-password/);
+    await expect(page.getByText("Verifying your link")).toBeVisible();
+  });
+
+  // Regression guard: a browser that still has a valid session cookie (a stale login, or someone
+  // testing while signed in) used to get redirected to /players the instant it hit
+  // /reset-password — before the page could ever read the recovery token out of the URL hash, so
+  // the password reset silently did nothing. /signup already had this exception; /reset-password
+  // needs the same one, for the same reason.
+  test("an already-logged-in browser can still reach /reset-password (its own session must not eat the recovery link)", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: path.resolve(__dirname, ".auth/coach.json") });
+    const page = await context.newPage();
+
+    await page.goto("/reset-password");
+    await expect(page).toHaveURL(/\/reset-password/);
+    await expect(page).not.toHaveURL(/\/players/);
+
+    await context.close();
   });
 
   test("wrong password on /login shows an error and does not navigate away", async ({ page }) => {
