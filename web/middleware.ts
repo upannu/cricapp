@@ -53,7 +53,10 @@ export async function middleware(request: NextRequest) {
     // Contact form can be submitted by a signed-out visitor.
     pathname.startsWith("/api/contact") ||
     // Public player-registration page (/register) — gated by its own shared code, not a session.
-    pathname.startsWith("/api/public-register-player");
+    pathname.startsWith("/api/public-register-player") ||
+    // Every auth email link (reset password, invite, etc.) lands here first, with no session yet
+    // — it verifies the link's own token and only then redirects into the app.
+    pathname.startsWith("/auth/confirm");
 
   const isPublicPage =
     pathname.startsWith("/login") ||
