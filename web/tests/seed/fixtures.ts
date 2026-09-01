@@ -7,6 +7,18 @@ export const PLAYER_ENTITY_ID = `${E2E_PREFIX}player`;
 /** A report with a flagged, drill-mapped issue — generate-action-plan's E2E smoke test needs one to exist. */
 export const FLAGGED_REPORT_ID = `${E2E_PREFIX}report-flagged`;
 
+/**
+ * A second, lightweight player under the same coach — used for tests that need to mutate
+ * pack/booking state (credit-to-pack, bulk messaging) without disturbing PLAYER_ENTITY_ID,
+ * which several other specs (find-coach.spec.ts, session-packs.spec.ts, video-pipeline.spec.ts)
+ * depend on staying in a specific plan/pack/credit state.
+ */
+export const PACK_TEST_PLAYER_ID = `${E2E_PREFIX}player-packtest`;
+export const PACK_TEST_PACK_ID = `${E2E_PREFIX}pack-packtest`;
+export const PACK_TEST_BOOKING_ID = `${E2E_PREFIX}booking-packtest`;
+/** A report seeded specifically not_reviewed, for testing the coach-review visibility gate without touching FLAGGED_REPORT_ID (used by generate-action-plan.spec.ts). */
+export const REVIEW_TEST_REPORT_ID = `${E2E_PREFIX}report-review-test`;
+
 export type E2eRole = "platform_admin" | "academy_admin" | "coach" | "player" | "parent";
 
 export interface RoleFixture {

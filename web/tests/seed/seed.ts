@@ -7,7 +7,10 @@
  *
  * Usage: npm run seed
  */
-import { ACADEMY_ID, COACH_ENTITY_ID, FLAGGED_REPORT_ID, PLAYER_ENTITY_ID, ROLE_FIXTURES } from "./fixtures";
+import {
+  ACADEMY_ID, COACH_ENTITY_ID, FLAGGED_REPORT_ID, PLAYER_ENTITY_ID, ROLE_FIXTURES,
+  PACK_TEST_PLAYER_ID, PACK_TEST_PACK_ID, PACK_TEST_BOOKING_ID, REVIEW_TEST_REPORT_ID,
+} from "./fixtures";
 import { E2E_TEST_PASSWORD, serviceClient } from "./client";
 
 async function upsertAuthUser(supabase: ReturnType<typeof serviceClient>, email: string, userMetadata: Record<string, string>) {
@@ -124,6 +127,77 @@ export async function runSeed() {
     { onConflict: "id" },
   );
   if (reportError) throw new Error(`Failed to seed flagged report: ${reportError.message}`);
+
+  console.log("Seeding a not_reviewed report (for the report-review-gate E2E test)...");
+  const { error: reviewReportError } = await supabase.from("reports").upsert(
+    {
+      id: REVIEW_TEST_REPORT_ID,
+      player_id: PLAYER_ENTITY_ID,
+      date: today,
+      type: "Biomechanics",
+      summary: "E2E fixture report seeded specifically not_reviewed, for testing the coach-review visibility gate.",
+      tags: [],
+      injury_risk: "Low",
+      action_type: "Side-on",
+      overall_score: 70,
+      review_status: "not_reviewed",
+    },
+    { onConflict: "id" },
+  );
+  if (reviewReportError) throw new Error(`Failed to seed review-test report: ${reviewReportError.message}`);
+
+  console.log("Seeding a second player (pack/booking test fixture)...");
+  const { error: packPlayerError } = await supabase.from("players").upsert(
+    {
+      id: PACK_TEST_PLAYER_ID,
+      name: "E2E Pack Test Player",
+      email: "e2e-player-packtest-entity@crichq-test.local",
+      added_date: today,
+      last_active: today,
+      sub_start_date: today,
+      sub_end_date: today,
+      coach_id: COACH_ENTITY_ID,
+    },
+    { onConflict: "id" },
+  );
+  if (packPlayerError) throw new Error(`Failed to seed pack-test player: ${packPlayerError.message}`);
+
+  console.log("Seeding an active session pack for the pack-test player (credit-to-pack E2E test)...");
+  const { error: packError } = await supabase.from("session_packs").upsert(
+    {
+      id: PACK_TEST_PACK_ID,
+      player_id: PACK_TEST_PLAYER_ID,
+      academy_id: ACADEMY_ID,
+      session_type: "Net Session",
+      purchase_date: today,
+      total_sessions: 10,
+      sessions_used: 2,
+      session_credits: 0,
+      fee_per_session: 20,
+      status: "Active",
+      payment_status: "Paid",
+      coach_id: COACH_ENTITY_ID,
+    },
+    { onConflict: "id" },
+  );
+  if (packError) throw new Error(`Failed to seed session pack: ${packError.message}`);
+
+  console.log("Seeding a cancelled booking for the pack-test player (credit-to-pack E2E test)...");
+  const { error: bookingError } = await supabase.from("bookings").upsert(
+    {
+      id: PACK_TEST_BOOKING_ID,
+      player_id: PACK_TEST_PLAYER_ID,
+      coach_id: COACH_ENTITY_ID,
+      date: today,
+      time: "09:00",
+      type: "Individual Coaching",
+      status: "Cancelled",
+      fee_aud: 0,
+      payment_status: "Pending",
+    },
+    { onConflict: "id" },
+  );
+  if (bookingError) throw new Error(`Failed to seed cancelled booking: ${bookingError.message}`);
 
   console.log("Seed complete.");
 }

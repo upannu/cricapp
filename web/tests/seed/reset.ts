@@ -15,7 +15,9 @@ import { runSeed } from "./seed";
 // (app-level reference only, per schema-notes.md), so its order relative to
 // coaches doesn't matter, but it's deleted first for clarity. reports
 // references players the same (app-level only) way, deleted first regardless.
-const TABLES_IN_DELETE_ORDER = ["reports", "players", "coaches", "academies"] as const;
+// bookings/session_packs were added for the credit-to-pack E2E fixture —
+// both carry a real player_id FK, so they must go before players.
+const TABLES_IN_DELETE_ORDER = ["reports", "bookings", "session_packs", "players", "coaches", "academies"] as const;
 
 async function main() {
   const supabase = serviceClient();
