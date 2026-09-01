@@ -94,10 +94,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           max_timeout: 600
+          vercel_protection_bypass_header: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       - name: Run Playwright tests
         run: npx playwright test --grep-invert @slow
         env:
           PLAYWRIGHT_BASE_URL: ${{ steps.wait-for-preview.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -152,8 +154,10 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           max_timeout: 600
+          vercel_protection_bypass_header: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
       - name: Run video pipeline E2E
         if: steps.filter.outputs.video == 'true'
         run: npx playwright test --grep @slow
         env:
           PLAYWRIGHT_BASE_URL: ${{ steps.wait-for-preview.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}

@@ -11,6 +11,13 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
+    // Vercel Deployment Protection sits in front of every Preview URL — without this header
+    // every request just redirects to Vercel's own SSO login wall. Only set against CI/preview
+    // runs (see the "Wait for Vercel preview" CI step, which needs the same secret to even
+    // detect the deployment is ready); local runs against localhost don't need it.
+    ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+      ? { extraHTTPHeaders: { "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET } }
+      : {}),
   },
   projects: [
     // Unauthenticated/public-page specs (e.g. login, signup, smoke tests).
