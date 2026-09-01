@@ -1,36 +1,61 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 
 type Stage = "waiting" | "ready" | "done" | "error";
 
+// How long to wait for a session before assuming the link is invalid/expired/already used and
+// telling the visitor rather than leaving them on an infinite spinner forever — see
+// app/auth/confirm/route.ts (the actual link target) for why a session should normally already
+// exist by the time this page even mounts; this is a defensive fallback, not the primary path.
+const LINK_VERIFY_TIMEOUT_MS = 10_000;
+
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const [stage, setStage] = useState<Stage>("waiting");
+  const searchParams = useSearchParams();
+  // app/auth/confirm/route.ts redirects here with this when the link's own token was
+  // missing/invalid/expired/already used — no session was ever established, so there's nothing
+  // to wait for. Read once at mount via a lazy initializer rather than an effect + setState.
+  const linkInvalid = useState(() => searchParams.get("error") === "invalid_link")[0];
+  const [stage, setStage] = useState<Stage>(linkInvalid ? "error" : "waiting");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const supabase = useRef(createClient()).current;
+  // createBrowserClient (@supabase/ssr) already caches a singleton internally — no need to wrap
+  // it in useRef ourselves, and doing so tripped the react-hooks/refs lint rule anyway.
+  const supabase = createClient();
 
   useEffect(() => {
-    // Supabase browser client automatically picks up the token from the URL hash
-    // and fires onAuthStateChange with PASSWORD_RECOVERY (reset) or SIGNED_IN (invite)
+    if (linkInvalid) return;
+
+    // By the time this page loads, /auth/confirm has already verified the link server-side and
+    // set a real session cookie — getSession() below should find it immediately. The
+    // onAuthStateChange listener is a fallback for any other flow that still lands here with a
+    // token to process client-side (e.g. an already-active session on mount).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
         setStage("ready");
       }
     });
 
-    // Also handle the case where the session is already active when the page mounts
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) setStage("ready");
     });
 
-    return () => subscription.unsubscribe();
-  }, [supabase]);
+    // Never leave the visitor on an infinite spinner — if nothing above resolved this within a
+    // reasonable window, say so instead of hanging silently forever.
+    const timeout = setTimeout(() => {
+      setStage((current) => (current === "waiting" ? "error" : current));
+    }, LINK_VERIFY_TIMEOUT_MS);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
+  }, [supabase, linkInvalid]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,6 +87,24 @@ export default function ResetPasswordPage() {
             <div className="text-center py-6">
               <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin mx-auto mb-4" />
               <p className="text-zinc-400 text-sm">Verifying your link…</p>
+            </div>
+          )}
+
+          {stage === "error" && (
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mx-auto mb-5">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-white mb-2">This link isn&apos;t working</h2>
+              <p className="text-zinc-400 text-sm leading-relaxed mb-6">
+                It may have expired, already been used, or been opened in a different browser than the one you requested it from.
+                Request a fresh link and open it in the same browser right away.
+              </p>
+              <a href="/forgot-password" className="inline-block w-full bg-pace-green text-black font-bold py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm uppercase tracking-wider text-center">
+                Request a New Link
+              </a>
             </div>
           )}
 
