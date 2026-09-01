@@ -90,7 +90,7 @@ jobs:
         run: npm run seed:reset
       - name: Wait for Vercel preview
         id: wait-for-preview
-        uses: patrickedqvist/wait-for-vercel-preview@v1.4.1
+        uses: patrickedqvist/wait-for-vercel-preview@v1.3.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           max_timeout: 600
@@ -148,7 +148,7 @@ jobs:
       - name: Wait for Vercel preview
         if: steps.filter.outputs.video == 'true'
         id: wait-for-preview
-        uses: patrickedqvist/wait-for-vercel-preview@v1.4.1
+        uses: patrickedqvist/wait-for-vercel-preview@v1.3.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           max_timeout: 600
