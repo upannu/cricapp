@@ -77,8 +77,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // An already-logged-in user can still visit /signup — that's how they request an additional
-  // role be linked to their existing account. Every other public page bounces them to /players.
-  if (user && isPublicPage && pathname !== "/signup") {
+  // role be linked to their existing account. /reset-password must also stay reachable while
+  // logged in: the recovery link's token lives in the URL hash, which a server redirect would
+  // silently drop before the page ever gets to read it — bouncing someone to /players here means
+  // their password reset link just silently does nothing if their browser still has an old
+  // session cookie. Every other public page bounces them to /players.
+  if (user && isPublicPage && pathname !== "/signup" && pathname !== "/reset-password") {
     return NextResponse.redirect(new URL("/players", request.url));
   }
 
