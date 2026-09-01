@@ -84,7 +84,7 @@ describe("POST /api/approve-user", () => {
     const client = routeMockState.lastServiceClient!;
     expect(client.auth.admin.updateUserById).toHaveBeenCalledWith(
       "auth-1",
-      expect.objectContaining({ user_metadata: expect.objectContaining({ approved: true }), email_confirm: true }),
+      expect.objectContaining({ app_metadata: expect.objectContaining({ approved: true }), email_confirm: true }),
     );
     expect(client.tables.user_requests.delete).toHaveBeenCalled();
     expect(sendMail).toHaveBeenCalledTimes(1);
@@ -112,7 +112,7 @@ describe("POST /api/approve-user", () => {
       user_requests: { data: { email: "existing@example.com", name: "Existing", role: "academy_admin", request_type: "link", existing_user_id: "auth-existing" }, error: null },
     };
     routeMockState.authAdminResponses = {
-      getUserById: { data: { user: { id: "auth-existing", user_metadata: { role: "coach", coach_id: "c1" } } }, error: null },
+      getUserById: { data: { user: { id: "auth-existing", app_metadata: { role: "coach", coach_id: "c1" } } }, error: null },
     };
 
     const res = await POST(jsonRequest(URL, { userId: "r1", academyId: "ac1" }));
@@ -125,7 +125,7 @@ describe("POST /api/approve-user", () => {
     expect(client.auth.admin.updateUserById).toHaveBeenCalledWith(
       "auth-existing",
       expect.objectContaining({
-        user_metadata: expect.objectContaining({
+        app_metadata: expect.objectContaining({
           linkedIdentities: [
             { role: "coach", academyId: undefined, coachId: "c1", playerId: undefined },
             { role: "academy_admin", academyId: "ac1" },

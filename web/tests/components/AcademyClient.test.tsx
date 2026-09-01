@@ -3,13 +3,14 @@ import { render, screen } from "@testing-library/react";
 import { AcademyClient } from "@/components/AcademyClient";
 import { makeAcademy, makeAuthUser } from "../mocks/fixtures";
 
-const { fetchAcademies, fetchPlayers, fetchCoaches, fetchActivePlans } = vi.hoisted(() => ({
-  fetchAcademies: vi.fn(), fetchPlayers: vi.fn(), fetchCoaches: vi.fn(), fetchActivePlans: vi.fn(),
+const { fetchAcademies, fetchPlayers, fetchCoaches, fetchActivePlans, fetchNets } = vi.hoisted(() => ({
+  fetchAcademies: vi.fn(), fetchPlayers: vi.fn(), fetchCoaches: vi.fn(), fetchActivePlans: vi.fn(), fetchNets: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
-  fetchAcademies, fetchPlayers, fetchCoaches, fetchActivePlans,
+  fetchAcademies, fetchPlayers, fetchCoaches, fetchActivePlans, fetchNets,
   upsertAcademy: vi.fn(), upsertCoach: vi.fn(), setCoachesAcademy: vi.fn(),
   insertPlayer: vi.fn(), insertPlayers: vi.fn(), updateAcademyFields: vi.fn(),
+  upsertNet: vi.fn(), deleteNet: vi.fn(),
 }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
@@ -20,6 +21,7 @@ function setupDefaults() {
   fetchCoaches.mockResolvedValue([]);
   fetchActivePlans.mockResolvedValue([]);
   fetchAcademies.mockResolvedValue([]);
+  fetchNets.mockResolvedValue([]);
 }
 
 describe("AcademyClient", () => {

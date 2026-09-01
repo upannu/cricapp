@@ -17,7 +17,9 @@ function signedRequest(eventBody: Record<string, unknown>): Request {
 }
 
 function event(type: string, object: Record<string, unknown>) {
-  return { id: "evt_test", type, data: { object } };
+  // `created` (Unix seconds) is now read by the pack_payment handler to stamp paid_date — a real
+  // Stripe event always has it; omitting it here produced `new Date(NaN)`.
+  return { id: "evt_test", type, created: Math.floor(Date.now() / 1000), data: { object } };
 }
 
 describe("POST /api/stripe/webhook", () => {
@@ -57,7 +59,12 @@ describe("POST /api/stripe/webhook", () => {
     const res = await POST(signedRequest(event("checkout.session.completed", { metadata: { type: "pack_payment", pack_id: "pack1" } })));
     expect(res.status).toBe(200);
     const client = routeMockState.lastServiceClient!;
-    expect(client.tables.session_packs.update).toHaveBeenCalledWith({ payment_status: "Paid" });
+    // paid_date is derived from the event's own `created` timestamp (not "today") — see
+    // app/api/stripe/webhook/route.ts.
+    expect(client.tables.session_packs.update).toHaveBeenCalledWith({
+      payment_status: "Paid",
+      paid_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+    });
     expect(client.tables.session_packs.eq).toHaveBeenCalledWith("id", "pack1");
   });
 

@@ -3,13 +3,14 @@ import { render, screen } from "@testing-library/react";
 import { SessionPacksClient } from "@/components/SessionPacksClient";
 import { makeAuthUser, makePlayer, makeSessionPack } from "../mocks/fixtures";
 
-const { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans } = vi.hoisted(() => ({
+const { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues } = vi.hoisted(() => ({
   fetchSessionPacks: vi.fn(), fetchPlayers: vi.fn(), fetchAcademies: vi.fn(),
-  fetchCoaches: vi.fn(), fetchBookings: vi.fn(), fetchActivePlans: vi.fn(),
+  fetchCoaches: vi.fn(), fetchBookings: vi.fn(), fetchActivePlans: vi.fn(), fetchPackFeeDues: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
-  fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans,
+  fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues,
   upsertSessionPack: vi.fn(), updatePackPaymentStatus: vi.fn(), updatePackAgreedDays: vi.fn(), markPackPaid: vi.fn(),
+  insertSessionPacks: vi.fn(),
 }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
@@ -23,6 +24,7 @@ function setupDefaults() {
   fetchBookings.mockResolvedValue([]);
   fetchActivePlans.mockResolvedValue([]);
   fetchSessionPacks.mockResolvedValue([]);
+  fetchPackFeeDues.mockResolvedValue([]);
 }
 
 describe("SessionPacksClient", () => {

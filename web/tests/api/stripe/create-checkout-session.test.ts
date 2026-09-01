@@ -6,7 +6,9 @@ import { rawUser, jsonRequest } from "../../mocks/caller";
 
 const URL = "http://localhost/api/stripe/create-checkout-session";
 const PLAYER = { id: "p1", name: "Test Player", email: "player@example.com", stripe_customer_id: null };
-const SETTINGS = { player_pro_price_aud: 9.99, coach_pro_price_aud: 29.99 };
+// Pricing now comes from the Plan Catalog (plans table, editable at /admin/plans), not the old
+// flat platform_settings row — the route looks this up by slug ("player-pro"/"coach-pro").
+const PLAN_ROW = { price_aud: 9.99, prices_by_currency: {}, billing_interval: "month" };
 
 describe("POST /api/stripe/create-checkout-session", () => {
   test("400 when playerId or a valid plan is missing", async () => {
@@ -32,16 +34,16 @@ describe("POST /api/stripe/create-checkout-session", () => {
     expect(res.status).toBe(404);
   });
 
-  test("500 when platform pricing isn't configured", async () => {
+  test("500 when the plan's pricing row isn't configured", async () => {
     routeMockState.cookieUser = rawUser({ role: "platform_admin" });
-    routeMockState.tableResponses = { players: { data: PLAYER, error: null }, platform_settings: { data: null, error: { message: "not found" } } };
+    routeMockState.tableResponses = { players: { data: PLAYER, error: null }, plans: { data: null, error: { message: "not found" } } };
     const res = await POST(jsonRequest(URL, { playerId: "p1", plan: "Player Pro" }));
     expect(res.status).toBe(500);
   });
 
   test("creates a real Stripe test-mode checkout session and returns its URL", async () => {
     routeMockState.cookieUser = rawUser({ role: "player", player_id: "p1" });
-    routeMockState.tableResponses = { players: { data: PLAYER, error: null }, platform_settings: { data: SETTINGS, error: null } };
+    routeMockState.tableResponses = { players: { data: PLAYER, error: null }, plans: { data: PLAN_ROW, error: null } };
 
     const res = await POST(jsonRequest(URL, { playerId: "p1", plan: "Player Pro" }));
     const body = await res.json();
@@ -59,7 +61,7 @@ describe("POST /api/stripe/create-checkout-session", () => {
     routeMockState.cookieUser = rawUser({ role: "platform_admin" });
     routeMockState.tableResponses = {
       players: { data: { ...PLAYER, stripe_customer_id: existingCustomer.id }, error: null },
-      platform_settings: { data: SETTINGS, error: null },
+      plans: { data: PLAN_ROW, error: null },
     };
 
     const res = await POST(jsonRequest(URL, { playerId: "p1", plan: "Coach Pro" }));

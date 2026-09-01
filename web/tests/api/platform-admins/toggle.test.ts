@@ -37,7 +37,7 @@ describe("POST /api/platform-admins/toggle", () => {
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
     const client = routeMockState.lastServiceClient!;
-    expect(client.auth.admin.updateUserById).toHaveBeenCalledWith("u2", { user_metadata: { role: "platform_admin" } });
+    expect(client.auth.admin.updateUserById).toHaveBeenCalledWith("u2", { app_metadata: { role: "platform_admin" } });
   });
 
   test("demotes a user to the given fallback role", async () => {
@@ -46,7 +46,7 @@ describe("POST /api/platform-admins/toggle", () => {
     expect(res.status).toBe(200);
 
     const client = routeMockState.lastServiceClient!;
-    expect(client.auth.admin.updateUserById).toHaveBeenCalledWith("u2", { user_metadata: { role: "academy_admin" } });
+    expect(client.auth.admin.updateUserById).toHaveBeenCalledWith("u2", { app_metadata: { role: "academy_admin" } });
   });
 
   test("500 when the update fails", async () => {

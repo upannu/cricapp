@@ -114,7 +114,7 @@ describe("POST /api/ai-report", () => {
     expect(client.tables.reports.insert).toHaveBeenCalledWith(expect.objectContaining({ speed_kmh: 132 }));
   });
 
-  test("saves the report, updates player/session snapshots, uploads a PDF, and emails it", async () => {
+  test("saves the report, updates player/session snapshots, and uploads a PDF", async () => {
     routeMockState.cookieUser = rawUser({ role: "platform_admin" });
     routeMockState.tableResponses = { players: { data: PLAYER, error: null }, sessions: { data: { created_at: "2026-08-01T10:00:00Z" }, error: null } };
     messagesCreate.mockResolvedValueOnce(anthropicNarrativeResponse(NARRATIVE));
@@ -131,7 +131,11 @@ describe("POST /api/ai-report", () => {
     expect(client.tables.players.update).toHaveBeenCalledWith(expect.objectContaining({ bio_action_type: "Side-on" }));
     expect(client.tables.sessions.update).toHaveBeenCalledWith(expect.objectContaining({ front_knee_angle_deg: 150 }));
     expect(client.buckets["session-reports"].upload).toHaveBeenCalled();
-    expect(sendMail).toHaveBeenCalledTimes(1);
+    // Emailing the report to the player/parent is no longer part of report generation — it's a
+    // separate, explicit step (POST /api/reports/send-email) gated behind the review workflow
+    // (a report starts "not_reviewed" and isn't emailable until a coach marks it reviewed). See
+    // tests/api/reports/send-email.test.ts for that route's own coverage.
+    expect(sendMail).not.toHaveBeenCalled();
   });
 
   test("500 when saving the report row fails", async () => {

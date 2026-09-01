@@ -49,6 +49,7 @@ export function makePlayer(overrides: Partial<Player> = {}): Player {
     loginDisabled: false,
     disabledAt: null,
     disabledReason: null,
+    currency: "aud",
     ...overrides,
   };
 }
@@ -70,6 +71,8 @@ export function makeCoach(overrides: Partial<Coach> = {}): Coach {
     marketplaceVisible: false,
     available: true,
     stripeConnectOnboarded: false,
+    currency: "aud",
+    subPlan: "Free",
     ...overrides,
   };
 }
@@ -92,6 +95,8 @@ export function makeAcademy(overrides: Partial<Academy> = {}): Academy {
     sessionTypeFees: {},
     ageFees: {},
     payoutModel: "head_coach",
+    country: "Australia",
+    currency: "aud",
     ...overrides,
   };
 }
@@ -106,6 +111,7 @@ export function makeReport(overrides: Partial<Report> = {}): Report {
     speedKmh: 120,
     frontKneeAngleDeg: 170,
     tags: [],
+    reviewStatus: "not_reviewed",
     ...overrides,
   };
 }

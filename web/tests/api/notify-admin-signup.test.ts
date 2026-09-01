@@ -32,7 +32,12 @@ describe("POST /api/notify-admin-signup", () => {
       expect(res.status).toBe(200);
       expect(body).toEqual({ success: true });
       expect(sendMail).toHaveBeenCalledTimes(1);
-      expect(sendMail.mock.calls[0][0]).toMatchObject({ to: "admin@example.com", subject: expect.stringContaining("New Coach registration") });
+      // Every new-registration email also goes to support, in addition to whoever
+      // PLATFORM_ADMIN_EMAIL is configured as (see app/api/notify-admin-signup/route.ts).
+      expect(sendMail.mock.calls[0][0]).toMatchObject({
+        to: "admin@example.com, support@crichq.com.au",
+        subject: expect.stringContaining("New Coach registration"),
+      });
     } finally {
       vi.unstubAllEnvs();
     }

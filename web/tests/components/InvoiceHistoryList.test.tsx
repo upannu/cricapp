@@ -11,7 +11,7 @@ function mockFetchOnce(response: unknown) {
 
 const INVOICE: NormalizedInvoice = {
   kind: "checkout_session", stripeId: "cs_1", invoiceNumber: "PACE-1", date: "2026-01-01T00:00:00.000Z",
-  amountAud: 40, currency: "aud", status: "paid", description: "Coaching session booking", paymentType: "booking_payment", customerId: "cus_1",
+  amount: 40, currency: "aud", status: "paid", description: "Coaching session booking", paymentType: "booking_payment", customerId: "cus_1",
 };
 
 describe("InvoiceHistoryList", () => {
@@ -21,7 +21,9 @@ describe("InvoiceHistoryList", () => {
     render(<InvoiceHistoryList scope="player" id="p1" />);
 
     expect(await screen.findByText("Coaching session booking")).toBeInTheDocument();
-    expect(screen.getByText("$40.00 AUD")).toBeInTheDocument();
+    // formatMoney (lib/currency.ts) uses Intl.NumberFormat("en-AU", { style: "currency" }), which
+    // renders AUD as a bare "$" with no trailing currency-code suffix.
+    expect(screen.getByText("$40.00")).toBeInTheDocument();
     expect(global.fetch).toHaveBeenCalledWith("/api/stripe/invoices?playerId=p1");
 
     global.fetch = originalFetch;

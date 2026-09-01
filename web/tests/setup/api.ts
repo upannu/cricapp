@@ -18,7 +18,7 @@ config({ path: path.resolve(__dirname, "../../.env.local") });
  * Reset before every test so cases don't leak into each other.
  */
 const routeMockState = vi.hoisted(() => ({
-  cookieUser: null as null | { id: string; user_metadata: Record<string, unknown> },
+  cookieUser: null as null | { id: string; app_metadata: Record<string, unknown> },
   tableResponses: {} as Record<string, { data?: unknown; error?: unknown }>,
   storageResponses: {} as Record<string, Record<string, unknown>>,
   authAdminResponses: {} as Record<string, unknown>,

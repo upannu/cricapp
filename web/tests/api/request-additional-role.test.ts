@@ -5,7 +5,7 @@ import { jsonRequest } from "../mocks/caller";
 
 const URL = "http://localhost/api/request-additional-role";
 const originalFetch = global.fetch;
-const EXISTING_USER = { id: "auth-1", email: "existing@example.com", user_metadata: { role: "coach", coach_id: "c1" } };
+const EXISTING_USER = { id: "auth-1", email: "existing@example.com", app_metadata: { role: "coach", coach_id: "c1" } };
 
 const VALID_BODY = { name: "Existing User", email: "existing@example.com", password: "correct-password", role: "academy_admin" };
 

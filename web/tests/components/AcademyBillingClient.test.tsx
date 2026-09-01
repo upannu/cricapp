@@ -17,9 +17,11 @@ const originalFetch = global.fetch;
 
 const ORG_PLAN: Plan = {
   id: "plan1", slug: "board-license", name: "Board License", audience: "organization",
-  billingType: "subscription", billingInterval: "year", priceAud: 500, seatCap: 50,
+  billingType: "subscription", billingInterval: "year", priceAud: 500, pricesByCurrency: {}, seatCap: 50,
   accessDurationMonths: null, includedNotes: null, waivesSessionFees: false, platformAdminOnly: false,
   platformFeePercent: 10, active: true, sortOrder: 0,
+  sessionsPerMonthLimit: null, chatMessagesPerDayLimit: null, aiReportsEnabled: false,
+  marketplaceEnabled: false, locked: false,
 };
 
 describe("AcademyBillingClient", () => {

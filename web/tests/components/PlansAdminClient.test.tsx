@@ -18,9 +18,11 @@ const originalFetch = global.fetch;
 
 const PLAN: Plan = {
   id: "plan1", slug: "board-license", name: "Board License", audience: "organization",
-  billingType: "subscription", billingInterval: "year", priceAud: 500, seatCap: null,
+  billingType: "subscription", billingInterval: "year", priceAud: 500, pricesByCurrency: {}, seatCap: null,
   accessDurationMonths: null, includedNotes: null, waivesSessionFees: true, platformAdminOnly: false,
   platformFeePercent: 10, active: true, sortOrder: 0,
+  sessionsPerMonthLimit: null, chatMessagesPerDayLimit: null, aiReportsEnabled: false,
+  marketplaceEnabled: false, locked: false,
 };
 
 describe("PlansAdminClient", () => {
@@ -63,7 +65,7 @@ describe("PlansAdminClient", () => {
     // No slug/name/price filled in — save should refuse without hitting the network.
     await user.click(screen.getByRole("button", { name: "Save" }));
 
-    expect(await screen.findByText("Slug, name, and a positive price are required.")).toBeInTheDocument();
+    expect(await screen.findByText("Slug, name, and a non-negative price are required.")).toBeInTheDocument();
     expect(global.fetch).not.toHaveBeenCalled();
     global.fetch = originalFetch;
   });

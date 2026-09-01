@@ -21,9 +21,9 @@ describe("GET /api/platform-admins/list", () => {
       listUsers: {
         data: {
           users: [
-            { id: "u1", email: "zoe@example.com", user_metadata: { name: "Zoe", role: "coach", approved: true } },
-            { id: "u2", email: "amy@example.com", user_metadata: { name: "Amy", role: "platform_admin", approved: true } },
-            { id: "u3", email: "pending@example.com", user_metadata: { role: "coach", approved: false } },
+            { id: "u1", email: "zoe@example.com", user_metadata: { name: "Zoe" }, app_metadata: { role: "coach", approved: true } },
+            { id: "u2", email: "amy@example.com", user_metadata: { name: "Amy" }, app_metadata: { role: "platform_admin", approved: true } },
+            { id: "u3", email: "pending@example.com", user_metadata: {}, app_metadata: { role: "coach", approved: false } },
           ],
         },
         error: null,

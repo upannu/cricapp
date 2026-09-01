@@ -18,6 +18,7 @@ const REPORT = {
   highlight: "Great follow-through.",
   date: "2026-08-01",
   session_date: null,
+  review_status: "completed",
 };
 const PLAYER = { name: "Test Player", email: "player@example.com" };
 

@@ -18,7 +18,7 @@ describe("GET /api/lookup-player", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toEqual({ found: true, playerName: "Alice Bowler" });
+    expect(body).toEqual({ found: true, playerName: "Alice Bowler", additionalCount: 0 });
   });
 
   test("returns found:false with no matching player, never leaking other data", async () => {
@@ -27,6 +27,17 @@ describe("GET /api/lookup-player", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body).toEqual({ found: false, playerName: null });
+    expect(body).toEqual({ found: false, playerName: null, additionalCount: 0 });
+  });
+
+  test("returns additionalCount when the same email matches more than one player (e.g. siblings)", async () => {
+    routeMockState.tableResponses = {
+      players: { data: [{ name: "Alice Bowler" }, { name: "Bobby Bowler" }, { name: "Cara Bowler" }], error: null },
+    };
+    const res = await GET(req("email=family@example.com"));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ found: true, playerName: "Alice Bowler", additionalCount: 2 });
   });
 });

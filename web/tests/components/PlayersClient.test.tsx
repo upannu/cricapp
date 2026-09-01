@@ -4,12 +4,15 @@ import userEvent from "@testing-library/user-event";
 import { PlayersClient } from "@/components/PlayersClient";
 import { makeAcademy, makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
 
-const { fetchPlayers, fetchAcademies, fetchCoaches } = vi.hoisted(() => ({
+const { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans } = vi.hoisted(() => ({
   fetchPlayers: vi.fn(),
   fetchAcademies: vi.fn(),
   fetchCoaches: vi.fn(),
+  // Not exercised by any assertion in this file — default it once here rather than in every
+  // test, unlike the others above which each test configures with scenario-specific data.
+  fetchActivePlans: vi.fn().mockResolvedValue([]),
 }));
-vi.mock("@/lib/db", () => ({ fetchPlayers, fetchAcademies, fetchCoaches }));
+vi.mock("@/lib/db", () => ({ fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer: vi.fn() }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));

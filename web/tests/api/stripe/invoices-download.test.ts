@@ -9,7 +9,7 @@ vi.mock("@/lib/stripe-invoices", () => ({ fetchSingleInvoice }));
 
 const SAMPLE_INVOICE: NormalizedInvoice = {
   kind: "checkout_session", stripeId: "cs_test1", invoiceNumber: "PACE-TEST1",
-  date: "2026-01-01T00:00:00.000Z", amountAud: 40, currency: "aud", status: "paid",
+  date: "2026-01-01T00:00:00.000Z", amount: 40, currency: "aud", status: "paid",
   description: "Coaching session booking", paymentType: "booking_payment", customerId: "cus_1",
 };
 
