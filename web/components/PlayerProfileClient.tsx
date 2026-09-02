@@ -3,14 +3,15 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts } from "@/lib/db";
+import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans } from "@/lib/db";
 import { formatDate, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
+import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { PlayerMessages } from "@/components/PlayerMessages";
 import { computeInjuryRiskTrend, computeRpeSummary, computeSCLoadSummary, type InjuryRiskTrend, type RpeSummary, type SCLoadSummary } from "@/lib/performance-trends";
 import { Sparkline } from "@/components/Sparkline";
 import { BadgeStrip } from "@/components/BadgeStrip";
 import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
-import type { Academy, Coach, Player, PlayerStatus } from "@/lib/types";
+import type { Academy, Coach, Player, PlayerStatus, Plan } from "@/lib/types";
 
 const DIRECTION_LABEL: Record<InjuryRiskTrend["direction"], string> = {
   worsening: "↑ Worsening",
@@ -30,10 +31,11 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
   const [scLoadSummary, setSCLoadSummary] = useState<SCLoadSummary | null>(null);
   const [reportCount, setReportCount] = useState(0);
   const [lastPayment, setLastPayment] = useState<{ date: string; source: "manual" | "pack" | "stripe" } | null | undefined>(undefined);
+  const [plans, setPlans] = useState<Plan[]>([]);
 
   useEffect(() => {
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
-    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches(academyId), fetchReports(playerId), fetchSessions(undefined, [playerId]), fetchSCWorkouts(playerId)]).then(([p, a, c, reports, sessions, scWorkouts]) => {
+    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches(academyId), fetchReports(playerId), fetchSessions(undefined, [playerId]), fetchSCWorkouts(playerId), fetchActivePlans()]).then(([p, a, c, reports, sessions, scWorkouts, pl]) => {
       if (!p) setNotFound(true);
       else setPlayer(p);
       setAcademies(a);
@@ -42,8 +44,15 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
       setRpeSummary(computeRpeSummary(sessions));
       setSCLoadSummary(computeSCLoadSummary(scWorkouts));
       setReportCount(reports.length);
+      setPlans(pl);
     });
   }, [playerId, user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The Plan Catalog's own session cap for this player's tier, read live rather than the
+  // possibly-stale sub_sessions_limit snapshotted onto the player's own row at creation time
+  // (see lib/plan-features.ts) — this is the same source NewSessionForm already uses to actually
+  // enforce the cap, so what's displayed here can never drift from what's really being enforced.
+  const liveSessionsLimit = player ? sessionsLimitForPlan(player.subscription.plan, plans) : null;
 
   // Staff-only, same as the field it replaces — pulls whichever of (manually recorded date, a
   // pack's own paid_date, Stripe's payment history) is most recent, so this doesn't just reflect
@@ -219,8 +228,8 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             <InfoRow
               label="Sessions used"
               value={
-                player.subscription.sessionsLimit
-                  ? `${player.subscription.sessionsUsed} / ${player.subscription.sessionsLimit}`
+                liveSessionsLimit
+                  ? `${player.subscription.sessionsUsed} / ${liveSessionsLimit}`
                   : `${player.subscription.sessionsUsed} (unlimited)`
               }
             />

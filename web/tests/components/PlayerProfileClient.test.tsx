@@ -2,16 +2,18 @@ import { describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PlayerProfileClient } from "@/components/PlayerProfileClient";
 import { makeAcademy, makeAuthUser, makePlayer } from "../mocks/fixtures";
+import type { Plan } from "@/lib/types";
 
-const { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts } = vi.hoisted(() => ({
+const { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans } = vi.hoisted(() => ({
   fetchPlayer: vi.fn(),
   fetchAcademies: vi.fn(),
   fetchCoaches: vi.fn(),
   fetchReports: vi.fn(),
   fetchSessions: vi.fn(),
   fetchSCWorkouts: vi.fn(),
+  fetchActivePlans: vi.fn(),
 }));
-vi.mock("@/lib/db", () => ({ fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts }));
+vi.mock("@/lib/db", () => ({ fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
@@ -29,7 +31,17 @@ function setupDefaults() {
   fetchReports.mockResolvedValue([]);
   fetchSessions.mockResolvedValue([]);
   fetchSCWorkouts.mockResolvedValue([]);
+  fetchActivePlans.mockResolvedValue([]);
 }
+
+const FREE_PLAN: Plan = {
+  id: "plan-free", slug: "free", name: "Free", audience: "individual",
+  billingType: "subscription", billingInterval: "month", priceAud: 0, pricesByCurrency: {}, seatCap: null,
+  accessDurationMonths: null, includedNotes: null, waivesSessionFees: false, platformAdminOnly: false,
+  platformFeePercent: 10, active: true, sortOrder: 0,
+  sessionsPerMonthLimit: 1, chatMessagesPerDayLimit: 1, aiReportsEnabled: false,
+  marketplaceEnabled: false, locked: true,
+};
 
 describe("PlayerProfileClient", () => {
   test("renders 'Player not found' when the player doesn't exist", async () => {
@@ -61,6 +73,24 @@ describe("PlayerProfileClient", () => {
     await screen.findByText("Alice Bowler");
 
     expect(screen.queryByText("Sessions used")).not.toBeInTheDocument();
+  });
+
+  test("shows the live Plan Catalog session cap, not the possibly-stale value stored on the player's own row", async () => {
+    setupDefaults();
+    // The player's own subscription.sessionsLimit (4) is what it was snapshotted to at creation
+    // time — the Plan Catalog's current Free-tier cap (1) has since been lowered by an admin.
+    // The displayed cap must track the Plan Catalog, the same source NewSessionForm already uses
+    // to actually enforce it, not this stale per-row snapshot.
+    fetchPlayer.mockResolvedValue(
+      makePlayer({ id: "p1", name: "Alice Bowler", subscription: { plan: "Free", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 1, sessionsLimit: 4 } }),
+    );
+    fetchActivePlans.mockResolvedValue([FREE_PLAN]);
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.getByText("1 / 1")).toBeInTheDocument();
+    expect(screen.queryByText("1 / 4")).not.toBeInTheDocument();
   });
 
   test("shows an injury-risk warning badge when risk is elevated", async () => {
