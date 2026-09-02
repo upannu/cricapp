@@ -88,6 +88,23 @@ function netsForCoachAtSlot(
   });
 }
 
+/** True when this coach already has some other non-cancelled booking overlapping this
+ * date/time/duration window. Unlike nets (optional — a session doesn't have to use one), a coach
+ * is always required here, so this check always runs rather than only when something's picked. */
+function isCoachBusyAtSlot(
+  coachId: string, date: string, time: string, durationMins: number,
+  bookings: Booking[], excludeBookingId?: string
+): boolean {
+  const start = timeToMinutes(time);
+  const end = start + durationMins;
+  return bookings.some((b) => {
+    if (b.id === excludeBookingId || b.coachId !== coachId || b.date !== date || b.status === "Cancelled") return false;
+    const bStart = timeToMinutes(b.time);
+    const bEnd = bStart + b.durationMins;
+    return start < bEnd && bStart < end;
+  });
+}
+
 function feeForCoachAndType(coachId: string, type: BookingType): number {
   return getSessionFee(_coaches.find((c) => c.id === coachId), _academies, type, _plans);
 }
@@ -251,6 +268,10 @@ export function BookingsClient() {
     if (!draft.coachId)  { setFormError("Please select a coach."); return; }
     if (!draft.playerId) { setFormError("Please select a player."); return; }
     if (!draft.date)     { setFormError("Please choose a date."); return; }
+    if (draft.status !== "Cancelled" && isCoachBusyAtSlot(draft.coachId, draft.date, draft.time, draft.durationMins, bookings, editingId ?? undefined)) {
+      setFormError("This coach already has another booking at this time — pick a different time or coach.");
+      return;
+    }
     if (draft.netId) {
       const slot = netsForCoachAtSlot(draft.coachId, draft.date, draft.time, draft.durationMins, bookings, editingId ?? undefined);
       if (slot.find((s) => s.net.id === draft.netId)?.busy) {
