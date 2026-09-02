@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { getCaller } from "@/lib/server-auth";
 import { fetchAcademyPlanInfo } from "@/lib/plan-email";
-import { buildPlanDetailsEmailHtml } from "@/lib/email-templates";
+import { buildPlanDetailsEmailHtml, emailFrom } from "@/lib/email-templates";
 
 /** On-demand resend of "what's included in your plan" — for when an academy asks again after the
  * one-time approval email. Reuses the exact same plan lookup (fetchAcademyPlanInfo) so the content
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   let sent = 0;
   for (const recipient of recipients) {
     await transporter.sendMail({
-      from: `"CRIC HQ" <${gmailUser}>`,
+      from: emailFrom(gmailUser),
       to: recipient.email!,
       subject: `Your CRIC HQ plan — ${academy.name}`,
       text,

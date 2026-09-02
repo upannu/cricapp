@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       const gmailPass = process.env.GMAIL_APP_PASSWORD;
       if (player.email && gmailUser && gmailPass) {
         const nodemailer = (await import("nodemailer")).default;
-        const { buildBookingEmailHtml } = await import("@/lib/email-templates");
+        const { buildBookingEmailHtml, emailFrom } = await import("@/lib/email-templates");
         const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://crichq.com.au";
         const rows = [
           { label: "Coach", value: coach?.name ?? "—" },
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
           rows,
         });
         const text = [`Hi ${player.name},`, ``, `Reminder — your session with ${coach?.name ?? "your coach"} is today at ${b.time}.`, ``, `${appUrl}/bookings`, ``, `— CRIC HQ`].join("\n");
-        await transporter.sendMail({ from: `"CRIC HQ" <${gmailUser}>`, to: player.email, subject: "Reminder: your CRIC HQ session is coming up", text, html }).catch(() => {});
+        await transporter.sendMail({ from: emailFrom(gmailUser), to: player.email, subject: "Reminder: your CRIC HQ session is coming up", text, html }).catch(() => {});
       }
 
       await supabase.from("booking_reminder_log").insert({ id: `brl_${b.id}`, booking_id: b.id });

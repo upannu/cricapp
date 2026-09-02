@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { sendSms } from "@/lib/sms";
+import { emailFrom } from "@/lib/email-templates";
 
 /** Days past the payment due date before login is disabled. A single constant rather than a
  * settings-UI field — cheap to change here later if it needs to become configurable. */
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
     if (daysToDue === 7 && !pk.reminder_7d_sent_at) {
       try {
         await transporter.sendMail({
-          from: `"CRIC HQ" <${gmailUser}>`, to: player.email,
+          from: emailFrom(gmailUser), to: player.email,
           subject: "Your session pack payment is due in 1 week",
           text: `Hi ${player.name},\n\n${dueText}\n\n— CRIC HQ`,
         });
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
     } else if (daysToDue === 2 && !pk.reminder_2d_sent_at) {
       try {
         await transporter.sendMail({
-          from: `"CRIC HQ" <${gmailUser}>`, to: player.email,
+          from: emailFrom(gmailUser), to: player.email,
           subject: "Your session pack payment is due in 2 days",
           text: `Hi ${player.name},\n\n${dueText}\n\n— CRIC HQ`,
         });
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
       const notifyTarget = await resolveNotifyTarget(player.coach_id, pk.academy_id);
       try {
         await transporter.sendMail({
-          from: `"CRIC HQ" <${gmailUser}>`, to: player.email,
+          from: emailFrom(gmailUser), to: player.email,
           cc: notifyTarget?.email || undefined,
           subject: "Your session pack payment is due today",
           text: `Hi ${player.name},\n\nYour session pack payment is due today (${pk.payment_due_date}). Please pay today to avoid losing access.\n\n— CRIC HQ`,
@@ -150,7 +151,7 @@ export async function POST(request: Request) {
       for (const to of notifyList) {
         try {
           await transporter.sendMail({
-            from: `"CRIC HQ" <${gmailUser}>`, to,
+            from: emailFrom(gmailUser), to,
             subject: `Account locked — overdue session pack payment (${player.name})`,
             text: lockText,
           });

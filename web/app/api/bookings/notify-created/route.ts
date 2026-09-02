@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { getCaller, callerCanAccessPlayer } from "@/lib/server-auth";
 import { sendSms } from "@/lib/sms";
-import { buildBookingEmailHtml } from "@/lib/email-templates";
+import { buildBookingEmailHtml, emailFrom } from "@/lib/email-templates";
 import { formatDate } from "@/lib/utils";
 
 /** Fired once, right after a brand-new booking is saved — never on an edit. Best-effort: a failed
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
         intro: `Hi ${player.name}, your session with ${coach?.name ?? "your coach"} is booked.`,
         rows,
       });
-      await transporter.sendMail({ from: `"CRIC HQ" <${gmailUser}>`, to: player.email, subject: "Your CRIC HQ booking is confirmed", text, html })
+      await transporter.sendMail({ from: emailFrom(gmailUser), to: player.email, subject: "Your CRIC HQ booking is confirmed", text, html })
         .then(() => { emailsSent++; }).catch(() => {});
     }
 
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
         intro: `Hi ${coach.name}, a new booking with ${player?.name ?? "a player"} has been added to your schedule.`,
         rows,
       });
-      await transporter.sendMail({ from: `"CRIC HQ" <${gmailUser}>`, to: coach.email, subject: "New CRIC HQ booking on your schedule", text, html })
+      await transporter.sendMail({ from: emailFrom(gmailUser), to: coach.email, subject: "New CRIC HQ booking on your schedule", text, html })
         .then(() => { emailsSent++; }).catch(() => {});
     }
   }

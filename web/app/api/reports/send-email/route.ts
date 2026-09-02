@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { getCaller, callerCanAccessPlayer } from "@/lib/server-auth";
 import { formatDateTime as formatSessionDateTime } from "@/lib/utils";
+import { emailFrom } from "@/lib/email-templates";
 
 const PDF_BUCKET = "session-reports";
 
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
 
   try {
     await transporter.sendMail({
-      from: `"CRIC HQ" <${gmailUser}>`,
+      from: emailFrom(gmailUser),
       to: player.email,
       subject: `Bowling Report — ${player.name} — ${report.date}`,
       text: [

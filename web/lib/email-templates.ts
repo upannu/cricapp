@@ -8,6 +8,17 @@ const BRAND_GREEN = "#00D4AA";
 const INK = "#0B1220";
 const MUTED = "#5B6572";
 
+/** Display name for every email this app sends directly via nodemailer (not Supabase Auth's own
+ * emails — confirm signup, invite, reset password — which each get their sender name from that
+ * Supabase project's own SMTP settings instead, independently of this). Defaults to "CRIC HQ"
+ * everywhere; set EMAIL_SENDER_NAME to something like "CRIC HQ DEV" on a non-production
+ * deployment so its test emails are visibly distinguishable from real production mail in an
+ * inbox, matching how Supabase's own dev-project emails already read. */
+export function emailFrom(gmailUser: string): string {
+  const senderName = process.env.EMAIL_SENDER_NAME ?? "CRIC HQ";
+  return `"${senderName}" <${gmailUser}>`;
+}
+
 function shell(opts: {
   appUrl: string;
   heading: string;

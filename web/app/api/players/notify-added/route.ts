@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
-import { buildWelcomeEmailHtml } from "@/lib/email-templates";
+import { buildWelcomeEmailHtml, emailFrom } from "@/lib/email-templates";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   });
 
   await transporter.sendMail({
-    from: `"CRIC HQ" <${gmailUser}>`,
+    from: emailFrom(gmailUser),
     to: player.email,
     subject: "You've been added to CRIC HQ",
     text: `Hi ${player.name},\n\n${bodyText}\n\nCreate your account:\n${signupUrl}\n\n— CRIC HQ`,
