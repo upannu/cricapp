@@ -1,15 +1,17 @@
 import { describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { AcademyClient } from "@/components/AcademyClient";
 import { makeAcademy, makeAuthUser } from "../mocks/fixtures";
 
-const { fetchAcademies, fetchPlayers, fetchCoaches, fetchActivePlans, fetchNets } = vi.hoisted(() => ({
+const { fetchAcademies, fetchPlayers, fetchCoaches, fetchActivePlans, fetchNets, insertPlayer, upsertCoach, updateAcademyFields } = vi.hoisted(() => ({
   fetchAcademies: vi.fn(), fetchPlayers: vi.fn(), fetchCoaches: vi.fn(), fetchActivePlans: vi.fn(), fetchNets: vi.fn(),
+  insertPlayer: vi.fn(), upsertCoach: vi.fn(), updateAcademyFields: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
   fetchAcademies, fetchPlayers, fetchCoaches, fetchActivePlans, fetchNets,
-  upsertAcademy: vi.fn(), upsertCoach: vi.fn(), setCoachesAcademy: vi.fn(),
-  insertPlayer: vi.fn(), insertPlayers: vi.fn(), updateAcademyFields: vi.fn(),
+  upsertAcademy: vi.fn(), upsertCoach, setCoachesAcademy: vi.fn(),
+  insertPlayer, insertPlayers: vi.fn(), updateAcademyFields,
   upsertNet: vi.fn(), deleteNet: vi.fn(),
 }));
 
@@ -22,6 +24,9 @@ function setupDefaults() {
   fetchActivePlans.mockResolvedValue([]);
   fetchAcademies.mockResolvedValue([]);
   fetchNets.mockResolvedValue([]);
+  insertPlayer.mockResolvedValue(undefined);
+  upsertCoach.mockResolvedValue(undefined);
+  updateAcademyFields.mockResolvedValue(undefined);
 }
 
 describe("AcademyClient", () => {
@@ -94,5 +99,48 @@ describe("AcademyClient", () => {
     expect(await screen.findByText("Academy One")).toBeInTheDocument();
     expect(screen.getByText("Academy Two")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "+ New Academy" })).toBeInTheDocument();
+  });
+
+  test("adds a player directly from the expanded Players tab, no Edit Academy round-trip", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", playerIds: [] })]);
+
+    render(<AcademyClient />);
+    // academy_admin starts expanded (see the auto-expand fix) — Players is the default tab.
+    await user.click(await screen.findByRole("button", { name: "+ Add Player" }));
+    await user.type(screen.getByPlaceholderText("Player name"), "New Kid");
+    await user.click(screen.getByRole("button", { name: "Create & Assign" }));
+
+    await screen.findByText("New Kid");
+    expect(insertPlayer).toHaveBeenCalledWith(expect.objectContaining({ name: "New Kid" }));
+    expect(updateAcademyFields).toHaveBeenCalledWith("ac1", expect.objectContaining({
+      player_ids: expect.arrayContaining([expect.stringMatching(/^p_/)]),
+    }));
+  });
+
+  test("adds a coach directly from the expanded Coaches tab and assigns them as head coach", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", coachIds: [], headCoachId: "" })]);
+
+    render(<AcademyClient />);
+    await screen.findByRole("button", { name: "Pricing" }); // confirms already expanded
+    await user.click(screen.getByRole("button", { name: "Coaches (0)" }));
+    await user.click(screen.getByRole("button", { name: "+ Add Coach" }));
+    await user.type(screen.getByPlaceholderText("Coach full name"), "Priya Sharma");
+    await user.click(screen.getByRole("button", { name: "Create & Assign" }));
+
+    // The new head coach's name legitimately renders twice once assigned — the Coaches tab's own
+    // list card, plus a small head-coach indicator elsewhere in the row — so this scenario
+    // deliberately uses findAllByText rather than the strict single-match findByText.
+    expect(await screen.findAllByText("Priya Sharma")).not.toHaveLength(0);
+    expect(upsertCoach).toHaveBeenCalledWith(expect.objectContaining({ name: "Priya Sharma" }));
+    expect(updateAcademyFields).toHaveBeenCalledWith("ac1", expect.objectContaining({
+      coach_ids: expect.arrayContaining([expect.stringMatching(/^c_/)]),
+      head_coach_id: expect.stringMatching(/^c_/),
+    }));
   });
 });

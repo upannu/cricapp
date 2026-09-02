@@ -161,6 +161,19 @@ export function AcademyClient() {
   const [newPlayerDraft,  setNewPlayerDraft]  = useState<NewPlayerDraft>(EMPTY_NEW_PLAYER);
   const [newPlayerError,  setNewPlayerError]  = useState("");
 
+  // Inline "add player"/"add coach" directly from an expanded academy row's Players/Coaches tab
+  // — separate state from the Edit Academy modal's own forms above, since these persist
+  // immediately against the real academy row (there's no surrounding "Save Changes" step here to
+  // defer to, same reasoning as the CSV import path below).
+  const [tabAddPlayerFor, setTabAddPlayerFor] = useState<string | null>(null); // holds academyId while open
+  const [tabPlayerDraft,  setTabPlayerDraft]  = useState<NewPlayerDraft>(EMPTY_NEW_PLAYER);
+  const [tabPlayerError,  setTabPlayerError]  = useState("");
+  const [tabSavingPlayer, setTabSavingPlayer] = useState(false);
+  const [tabAddCoachFor,  setTabAddCoachFor]  = useState<string | null>(null); // holds academyId while open
+  const [tabCoachDraft,   setTabCoachDraft]   = useState<NewCoachDraft>(EMPTY_NEW_COACH);
+  const [tabCoachError,   setTabCoachError]   = useState("");
+  const [tabSavingCoach,  setTabSavingCoach]  = useState(false);
+
   // CSV import
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvRows,       setCsvRows]       = useState<ParsedCsvRow[]>([]);
@@ -494,6 +507,128 @@ export function AcademyClient() {
     }
   }
 
+  // Same shape as handleAddNewPlayer above, but for the inline form in an expanded academy row's
+  // own Players tab — writes straight to the real academy row instead of staging into `draft`,
+  // since there's no modal/Save-Changes step wrapping this one.
+  async function handleTabAddPlayer(academyId: string) {
+    if (!tabPlayerDraft.name.trim()) { setTabPlayerError("Name is required."); return; }
+    const academy = academies.find((a) => a.id === academyId);
+    if (!academy) return;
+    setTabPlayerError(""); setTabSavingPlayer(true);
+    const newId = `p_${Date.now()}`;
+    const now = new Date().toISOString().split("T")[0];
+    const freeSessionsLimit = sessionsLimitForPlan("Free", allPlans);
+    const newPlayer: Player = {
+      id: newId, name: tabPlayerDraft.name.trim(), email: tabPlayerDraft.email.trim(),
+      phone: "", ageGroup: tabPlayerDraft.ageGroup, bowlingStyle: tabPlayerDraft.bowlingStyle,
+      battingHand: "Right Hand", playingLevel: "Club", heightCm: null, weightKg: null,
+      club: tabPlayerDraft.club.trim(), addedDate: now, coachId: "",
+      currency: academy.currency,
+      guardianConsentStatus: "Pending",
+      subscription: {
+        plan: "Free", startDate: now,
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        sessionsUsed: 0, sessionsLimit: freeSessionsLimit,
+      },
+      biomechanics: { ballSpeedKmh: 0, frontKneeAngleDeg: 0, actionType: "Side-on", injuryRisk: "Low", lastSession: now },
+      academy: { stage: "Foundation", completionPercent: 0, totalSessions: 0, xp: 0, articlesRead: 0 },
+      sessionsCount: 0, lastActive: now, xp: 0,
+      tipStreakCount: 0, tipBestStreak: 0,
+      assessmentCredits: 0,
+      loginDisabled: false, disabledAt: null, disabledReason: null,
+    };
+    try {
+      await insertPlayer({
+        id: newId, name: newPlayer.name, email: newPlayer.email, phone: "",
+        bowling_style: newPlayer.bowlingStyle, age_group: newPlayer.ageGroup,
+        club: newPlayer.club, coach_id: null, guardian_consent_status: "Pending",
+        added_date: now, sessions_count: 0, last_active: now, xp: 0,
+        sub_plan: "Free", sub_start_date: now, sub_end_date: newPlayer.subscription.endDate,
+        sub_sessions_used: 0, sub_sessions_limit: freeSessionsLimit,
+        bio_ball_speed_kmh: 0, bio_front_knee_angle_deg: 0, bio_action_type: "Side-on",
+        bio_injury_risk: "Low", bio_last_session: now,
+        acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
+        acad_xp: 0, acad_articles_read: 0,
+        currency: newPlayer.currency,
+      });
+
+      const mergedPlayerIds = [...new Set([...academy.playerIds, newId])];
+      const playerCounts: Partial<Record<AgeGroup, number>> = {};
+      const allForCount = [...allPlayers, newPlayer].filter((p) => mergedPlayerIds.includes(p.id));
+      for (const p of allForCount) playerCounts[p.ageGroup] = (playerCounts[p.ageGroup] ?? 0) + 1;
+      await updateAcademyFields(academyId, {
+        player_ids: mergedPlayerIds,
+        player_counts: playerCounts as Record<string, number>,
+      });
+
+      setAllPlayers((prev) => [...prev, newPlayer]);
+      setAcademies((prev) => prev.map((a) =>
+        a.id === academyId ? { ...a, playerIds: mergedPlayerIds, playerCounts: playerCounts as Partial<Record<AgeGroup, number>> } : a
+      ));
+      setTabPlayerDraft(EMPTY_NEW_PLAYER);
+      setTabAddPlayerFor(null);
+
+      if (newPlayer.email.trim()) {
+        fetch("/api/players/notify-added", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerId: newId, academyId }),
+        }).catch(() => {});
+      }
+    } catch (err) {
+      setTabPlayerError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setTabSavingPlayer(false);
+    }
+  }
+
+  // Same shape as handleAddNewCoach below, but for the inline form in an expanded academy row's
+  // own Coaches tab — writes straight to the real academy row instead of staging into `draft`.
+  async function handleTabAddCoach(academyId: string) {
+    if (!tabCoachDraft.name.trim()) { setTabCoachError("Name is required."); return; }
+    const academy = academies.find((a) => a.id === academyId);
+    if (!academy) return;
+    const email = tabCoachDraft.email.trim();
+    if (email && allCoaches.some((c) => c.email.toLowerCase() === email.toLowerCase())) {
+      setTabCoachError(`Another coach already uses ${email} — each coach needs a unique email.`);
+      return;
+    }
+    setTabCoachError(""); setTabSavingCoach(true);
+    const newId = `c_${Date.now()}`;
+    const now = new Date().toISOString().split("T")[0];
+    const newCoach: Coach = {
+      id: newId, name: tabCoachDraft.name.trim(), email, phone: tabCoachDraft.phone.trim(),
+      specialization: tabCoachDraft.specialization.trim(), ageGroupsFocus: [], location: "",
+      status: "Active", joinedDate: now, certificationLevel: tabCoachDraft.certificationLevel,
+      bio: "", academyId: "", marketplaceVisible: false, available: true,
+      stripeConnectOnboarded: false, currency: academy.currency, subPlan: "Free",
+    };
+    try {
+      await upsertCoach({
+        id: newId, name: newCoach.name, email: newCoach.email, phone: newCoach.phone,
+        specialization: newCoach.specialization, age_groups_focus: [],
+        location: "", status: "Active", joined_date: now,
+        certification_level: newCoach.certificationLevel, bio: "", academy_id: null,
+        marketplace_visible: false, currency: academy.currency,
+      });
+
+      // Auto-set as head coach, same as the Edit Academy modal's own "+ Create New Coach" does.
+      const mergedCoachIds = academy.coachIds.includes(newId) ? academy.coachIds : [...academy.coachIds, newId];
+      await updateAcademyFields(academyId, { coach_ids: mergedCoachIds, head_coach_id: newId });
+
+      setAllCoaches((prev) => [...prev, newCoach]);
+      setAcademies((prev) => prev.map((a) =>
+        a.id === academyId ? { ...a, coachIds: mergedCoachIds, headCoachId: newId } : a
+      ));
+      setTabCoachDraft(EMPTY_NEW_COACH);
+      setTabAddCoachFor(null);
+    } catch (err) {
+      setTabCoachError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setTabSavingCoach(false);
+    }
+  }
+
   function downloadCsvTemplate() {
     const blob = new Blob([CSV_TEMPLATE], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -805,6 +940,7 @@ export function AcademyClient() {
           {displayed.map((academy) => {
             const isExpanded      = expandedId === academy.id;
             const tab             = getTab(academy.id);
+            const canManage       = user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === academy.id);
             const assignedPlayers = allPlayers.filter((p) => academy.playerIds.includes(p.id));
             const assignedCoaches = allCoaches.filter((c) => (academy.coachIds ?? []).includes(c.id));
             const headCoach       = allCoaches.find((c) => c.id === academy.headCoachId);
@@ -967,10 +1103,66 @@ export function AcademyClient() {
 
                     {/* Players tab */}
                     {tab === "players" && (
-                      assignedPlayers.length === 0 ? (
-                        <p className="text-zinc-500 text-sm py-8 text-center">No players assigned. Edit the academy to assign players.</p>
-                      ) : (
-                        <>
+                      <>
+                        {canManage && (
+                          <div className="flex justify-end mb-3">
+                            <button type="button"
+                              onClick={() => { setTabAddPlayerFor(tabAddPlayerFor === academy.id ? null : academy.id); setTabPlayerError(""); }}
+                              className="text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer">
+                              {tabAddPlayerFor === academy.id ? "Cancel" : "+ Add Player"}
+                            </button>
+                          </div>
+                        )}
+                        {tabAddPlayerFor === academy.id && (
+                          <div className="bg-ink rounded-xl p-4 mb-3 border border-pace-green/30">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-3">New Player</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                              <div>
+                                <label className={lbl}>Full Name *</label>
+                                <input type="text" value={tabPlayerDraft.name}
+                                  onChange={(e) => setTabPlayerDraft({ ...tabPlayerDraft, name: e.target.value })}
+                                  className={inp} placeholder="Player name" />
+                              </div>
+                              <div>
+                                <label className={lbl}>Email</label>
+                                <input type="email" value={tabPlayerDraft.email}
+                                  onChange={(e) => setTabPlayerDraft({ ...tabPlayerDraft, email: e.target.value })}
+                                  className={inp} placeholder="player@email.com" />
+                              </div>
+                              <div>
+                                <label className={lbl}>Age Group</label>
+                                <select value={tabPlayerDraft.ageGroup}
+                                  onChange={(e) => setTabPlayerDraft({ ...tabPlayerDraft, ageGroup: e.target.value as AgeGroup })}
+                                  className={sel}>
+                                  {AGE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label className={lbl}>Bowling Style</label>
+                                <select value={tabPlayerDraft.bowlingStyle}
+                                  onChange={(e) => setTabPlayerDraft({ ...tabPlayerDraft, bowlingStyle: e.target.value as BowlingStyle })}
+                                  className={sel}>
+                                  {BOWLING_STYLES.map((s) => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className={lbl}>Club</label>
+                                <input type="text" value={tabPlayerDraft.club}
+                                  onChange={(e) => setTabPlayerDraft({ ...tabPlayerDraft, club: e.target.value })}
+                                  className={inp} placeholder="Club name" />
+                              </div>
+                            </div>
+                            {tabPlayerError && <p className="text-red-400 text-xs mb-2">{tabPlayerError}</p>}
+                            <button type="button" onClick={() => handleTabAddPlayer(academy.id)} disabled={tabSavingPlayer}
+                              className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-60">
+                              {tabSavingPlayer ? "Adding…" : "Create & Assign"}
+                            </button>
+                          </div>
+                        )}
+                        {assignedPlayers.length === 0 ? (
+                          <p className="text-zinc-500 text-sm py-8 text-center">No players assigned yet.</p>
+                        ) : (
+                          <>
                           {ageGroupsPresent.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-4">
                               {ageGroupsPresent.map((g) => {
@@ -1020,14 +1212,69 @@ export function AcademyClient() {
                               </div>
                             ))}
                           </div>
-                        </>
-                      )
+                          </>
+                        )}
+                      </>
                     )}
 
                     {/* Coaches tab */}
                     {tab === "coaches" && (
-                      assignedCoaches.length === 0 ? (
-                        <p className="text-zinc-500 text-sm py-8 text-center">No coaches assigned. Edit the academy to assign coaches.</p>
+                      <>
+                        {canManage && (
+                          <div className="flex justify-end mb-3">
+                            <button type="button"
+                              onClick={() => { setTabAddCoachFor(tabAddCoachFor === academy.id ? null : academy.id); setTabCoachError(""); }}
+                              className="text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer">
+                              {tabAddCoachFor === academy.id ? "Cancel" : "+ Add Coach"}
+                            </button>
+                          </div>
+                        )}
+                        {tabAddCoachFor === academy.id && (
+                          <div className="bg-ink rounded-xl p-4 mb-3 border border-pace-green/30">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-3">New Coach</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                              <div>
+                                <label className={lbl}>Full Name *</label>
+                                <input type="text" value={tabCoachDraft.name}
+                                  onChange={(e) => setTabCoachDraft({ ...tabCoachDraft, name: e.target.value })}
+                                  className={inp} placeholder="Coach full name" />
+                              </div>
+                              <div>
+                                <label className={lbl}>Email</label>
+                                <input type="email" value={tabCoachDraft.email}
+                                  onChange={(e) => setTabCoachDraft({ ...tabCoachDraft, email: e.target.value })}
+                                  className={inp} placeholder="coach@email.com" />
+                              </div>
+                              <div>
+                                <label className={lbl}>Phone</label>
+                                <input type="tel" value={tabCoachDraft.phone}
+                                  onChange={(e) => setTabCoachDraft({ ...tabCoachDraft, phone: e.target.value })}
+                                  className={inp} placeholder="04xx xxx xxx" />
+                              </div>
+                              <div>
+                                <label className={lbl}>Certification Level</label>
+                                <select value={tabCoachDraft.certificationLevel}
+                                  onChange={(e) => setTabCoachDraft({ ...tabCoachDraft, certificationLevel: e.target.value as CertificationLevel })}
+                                  className={sel}>
+                                  {CERT_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                                </select>
+                              </div>
+                              <div className="sm:col-span-2">
+                                <label className={lbl}>Specialization</label>
+                                <input type="text" value={tabCoachDraft.specialization}
+                                  onChange={(e) => setTabCoachDraft({ ...tabCoachDraft, specialization: e.target.value })}
+                                  className={inp} placeholder="e.g. Fast Bowling, Biomechanics" />
+                              </div>
+                            </div>
+                            {tabCoachError && <p className="text-red-400 text-xs mb-2">{tabCoachError}</p>}
+                            <button type="button" onClick={() => handleTabAddCoach(academy.id)} disabled={tabSavingCoach}
+                              className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-60">
+                              {tabSavingCoach ? "Adding…" : "Create & Assign"}
+                            </button>
+                          </div>
+                        )}
+                        {assignedCoaches.length === 0 ? (
+                        <p className="text-zinc-500 text-sm py-8 text-center">No coaches assigned yet.</p>
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {assignedCoaches.map((c) => {
@@ -1065,7 +1312,8 @@ export function AcademyClient() {
                             );
                           })}
                         </div>
-                      )
+                        )}
+                      </>
                     )}
 
                     {/* Pricing tab */}
