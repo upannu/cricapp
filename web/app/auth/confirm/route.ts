@@ -24,7 +24,13 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 // real session already exists, so the page's own getSession()/onAuthStateChange checks just see
 // it immediately.
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  // Deliberately NOT request.url's own origin — behind Hostinger's reverse proxy that resolves to
+  // the internal bind address (0.0.0.0:3000), not the public domain, sending every redirect from
+  // this route to an unreachable address. Every other route in this app already avoids this by
+  // building outbound URLs from NEXT_PUBLIC_APP_URL instead of the incoming request; this route
+  // just hadn't followed that convention yet.
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? "https://crichq.com.au";
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = searchParams.get("next") ?? "/reset-password";
