@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
-import { buildWelcomeEmailHtml, renderTemplate } from "@/lib/email-templates";
+import { buildWelcomeEmailHtml, renderTemplate, emailFrom } from "@/lib/email-templates";
 import { fetchAcademyPlanInfo } from "@/lib/plan-email";
 import { planFeatureLines } from "@/lib/plan-features";
 import { dbToPlan, type DbPlan } from "@/lib/db";
@@ -255,7 +255,7 @@ export async function POST(request: Request) {
     ].filter((l, i, arr) => !(l === `` && arr[i - 1] === ``)).join("\n");
 
     await transporter.sendMail({
-      from: `"CRIC HQ" <${gmailUser}>`,
+      from: emailFrom(gmailUser),
       to: reqData.email,
       subject,
       text,

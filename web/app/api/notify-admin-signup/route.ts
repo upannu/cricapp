@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { NextResponse } from "next/server";
+import { emailFrom } from "@/lib/email-templates";
 
 export async function POST(request: Request) {
   const { name, email, role } = await request.json();
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
 
   try {
     await transporter.sendMail({
-      from: `"CRIC HQ" <${gmailUser}>`,
+      from: emailFrom(gmailUser),
       to: recipients.join(", "),
       subject,
       text,

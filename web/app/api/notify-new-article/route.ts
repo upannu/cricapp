@@ -3,6 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { emailFrom } from "@/lib/email-templates";
 
 export async function POST(request: Request) {
   const { articleId } = await request.json();
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
 
   try {
     await transporter.sendMail({
-      from: `"CRIC HQ" <${gmailUser}>`,
+      from: emailFrom(gmailUser),
       to: gmailUser,
       bcc: recipients,
       subject: `New Academy Lesson: ${article.title}`,

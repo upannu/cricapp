@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import { NextResponse } from "next/server";
-import { buildContactFormEmailHtml } from "@/lib/email-templates";
+import { buildContactFormEmailHtml, emailFrom } from "@/lib/email-templates";
 
 /** Public contact form on /contact — no auth required. Delivers to support@crichq.com.au, CC'd to
  * PLATFORM_ADMIN_EMAIL (the same internal-notification address every other admin email in the app
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
   try {
     await transporter.sendMail({
-      from: `"CRIC HQ" <${gmailUser}>`,
+      from: emailFrom(gmailUser),
       to: "support@crichq.com.au",
       cc: adminEmail,
       replyTo: email,
