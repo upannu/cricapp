@@ -113,8 +113,13 @@ export function AcademyClient() {
   const [allPlans,    setAllPlans]    = useState<Plan[]>([]);
   const [nets,        setNets]        = useState<Net[]>([]);
 
-  // Accordion
-  const [expandedId,      setExpandedId]      = useState<string | null>(null);
+  // Accordion — an academy_admin only ever sees their own single academy in this list (filtered
+  // below), so there's no "which one" ambiguity to click through; start it expanded. A
+  // platform_admin sees every academy, where the same default would just open a random one of
+  // many, so that view keeps starting fully collapsed.
+  const [expandedId,      setExpandedId]      = useState<string | null>(
+    () => (user?.role === "academy_admin" ? user.academyId ?? null : null)
+  );
   const [tabMap,          setTabMap]          = useState<Record<string, "players" | "coaches" | "pricing" | "nets">>({});
   const [activeGroupView, setActiveGroupView] = useState<{ academyId: string; ageGroup: AgeGroup } | null>(null);
 
