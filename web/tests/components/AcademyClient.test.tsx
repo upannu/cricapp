@@ -145,4 +145,60 @@ describe("AcademyClient", () => {
       head_coach_id: expect.stringMatching(/^c_/),
     }));
   });
+
+  test("adds the signed-in admin as head coach with one click from the empty Coaches tab", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1", name: "Alex Morgan", email: "alex@bellavista.cricket" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", coachIds: [], headCoachId: "" })]);
+
+    render(<AcademyClient />);
+    await screen.findByRole("button", { name: "Pricing" }); // confirms already expanded
+    await user.click(screen.getByRole("button", { name: "Coaches (0)" }));
+    // No form to fill in — the shortcut uses the signed-in admin's own identity directly.
+    await user.click(screen.getByRole("button", { name: /Add Yourself as Head Coach/ }));
+
+    expect(await screen.findAllByText("Alex Morgan")).not.toHaveLength(0);
+    expect(upsertCoach).toHaveBeenCalledWith(expect.objectContaining({ name: "Alex Morgan", email: "alex@bellavista.cricket" }));
+    expect(updateAcademyFields).toHaveBeenCalledWith("ac1", expect.objectContaining({
+      coach_ids: expect.arrayContaining([expect.stringMatching(/^c_/)]),
+      head_coach_id: expect.stringMatching(/^c_/),
+    }));
+  });
+
+  test("still offers Create New Coach alongside Add Yourself, for hiring someone else", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1", name: "Alex Morgan", email: "alex@bellavista.cricket" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", coachIds: [], headCoachId: "" })]);
+
+    render(<AcademyClient />);
+    await screen.findByRole("button", { name: "Pricing" });
+    await user.click(screen.getByRole("button", { name: "Coaches (0)" }));
+    await user.click(screen.getByRole("button", { name: /Create New Coach/ }));
+    await user.type(screen.getByPlaceholderText("Coach full name"), "Priya Sharma");
+    await user.click(screen.getByRole("button", { name: "Create & Assign" }));
+
+    expect(await screen.findAllByText("Priya Sharma")).not.toHaveLength(0);
+    // Assert on the call this interaction actually produced, not "was ever called with" — mocks
+    // in this file accumulate call history across tests (no clearMocks), same convention every
+    // other test here already relies on.
+    expect(upsertCoach).toHaveBeenLastCalledWith(expect.objectContaining({ name: "Priya Sharma", email: "" }));
+  });
+
+  test("adds the signed-in admin as head coach from the New Academy modal's Owner field", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin", name: "Jordan Blake", email: "jordan@crichq.com.au" }) });
+
+    render(<AcademyClient />);
+    await user.click(await screen.findByRole("button", { name: "+ New Academy" }));
+    await user.type(screen.getByPlaceholderText("e.g. Brisbane Fast Bowling Foundation"), "Brand New Academy");
+    await user.click(screen.getByRole("button", { name: /Add Yourself as Head Coach/ }));
+
+    // The Owner picker only renders coach options once one exists — its appearance here is
+    // itself proof the shortcut created a coach and staged it as the draft's headCoachId.
+    await screen.findByText("★ Owner");
+    expect(upsertCoach).toHaveBeenCalledWith(expect.objectContaining({ name: "Jordan Blake", email: "jordan@crichq.com.au" }));
+  });
 });
