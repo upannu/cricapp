@@ -108,8 +108,10 @@ describe("AcademyClient", () => {
     fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", playerIds: [] })]);
 
     render(<AcademyClient />);
-    // academy_admin starts expanded (see the auto-expand fix) — Players is the default tab.
-    await user.click(await screen.findByRole("button", { name: "+ Add Player" }));
+    // academy_admin starts expanded (see the auto-expand fix), but on the Pricing tab by
+    // default (see the pricing-default-tab change) — switch to Players first.
+    await user.click(await screen.findByRole("button", { name: "Players (0)" }));
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
     await user.type(screen.getByPlaceholderText("Player name"), "New Kid");
     await user.click(screen.getByRole("button", { name: "Create & Assign" }));
 

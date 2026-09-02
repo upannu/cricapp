@@ -211,7 +211,13 @@ export function AcademyClient() {
   }, [openMenuId]);
 
   // ── Accordion ──────────────────────────────────────────────────────────────
-  function getTab(id: string) { return tabMap[id] ?? "players"; }
+  // An academy_admin's own academy auto-expands (see the expandedId initializer above) straight
+  // to Pricing rather than Players — the session-fee/age-group rates are what they open this page
+  // to check most often, and unlike Players/Coaches there's no other page that surfaces it.
+  function getTab(id: string) {
+    if (tabMap[id]) return tabMap[id];
+    return user?.role === "academy_admin" && user.academyId === id ? "pricing" : "players";
+  }
   function setTab(id: string, tab: "players" | "coaches" | "pricing" | "nets") {
     setTabMap((prev) => ({ ...prev, [id]: tab }));
   }

@@ -4,15 +4,18 @@ import userEvent from "@testing-library/user-event";
 import { PlayersClient } from "@/components/PlayersClient";
 import { makeAcademy, makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
 
-const { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans } = vi.hoisted(() => ({
+const { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields } = vi.hoisted(() => ({
   fetchPlayers: vi.fn(),
   fetchAcademies: vi.fn(),
   fetchCoaches: vi.fn(),
   // Not exercised by any assertion in this file — default it once here rather than in every
   // test, unlike the others above which each test configures with scenario-specific data.
   fetchActivePlans: vi.fn().mockResolvedValue([]),
+  insertPlayer: vi.fn().mockResolvedValue(undefined),
+  insertPlayers: vi.fn().mockResolvedValue(undefined),
+  updateAcademyFields: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("@/lib/db", () => ({ fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer: vi.fn() }));
+vi.mock("@/lib/db", () => ({ fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
@@ -189,6 +192,91 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Player 10");
     expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+  });
+
+  test("an academy_admin can add a player directly from /players, onto their own academy", async () => {
+    const user = userEvent.setup();
+    insertPlayer.mockClear(); insertPlayers.mockClear(); updateAcademyFields.mockClear();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
+    fetchPlayers.mockResolvedValue([]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", playerIds: [] })]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("No players in your scope.");
+
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
+    // No academy picker for academy_admin — their own academy is implicit.
+    expect(screen.queryByText("Assign to Academy (optional)")).not.toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText("Player name"), "New Kid");
+    await user.click(screen.getByRole("button", { name: "Add Player" }));
+
+    await screen.findByText("New Kid");
+    expect(insertPlayer).toHaveBeenCalledWith(expect.objectContaining({ name: "New Kid", coach_id: null }));
+    expect(updateAcademyFields).toHaveBeenCalledWith("ac1", expect.objectContaining({
+      player_ids: expect.arrayContaining([expect.stringMatching(/^p_/)]),
+    }));
+  });
+
+  test("a platform_admin can add a player and optionally assign an academy", async () => {
+    const user = userEvent.setup();
+    insertPlayer.mockClear(); insertPlayers.mockClear(); updateAcademyFields.mockClear();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", playerIds: [] })]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("No players in your scope.");
+
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
+    await user.type(screen.getByPlaceholderText("Player name"), "Unassigned Kid");
+    // Left as "— Unassigned —" (the default) — no academy update should happen.
+    await user.click(screen.getByRole("button", { name: "Add Player" }));
+
+    await screen.findByText("Unassigned Kid");
+    expect(insertPlayer).toHaveBeenCalledWith(expect.objectContaining({ name: "Unassigned Kid" }));
+    expect(updateAcademyFields).not.toHaveBeenCalled();
+
+    // Now add a second player, this time picking the academy.
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
+    await user.type(screen.getByPlaceholderText("Player name"), "Assigned Kid");
+    await user.selectOptions(screen.getByDisplayValue("— Unassigned —"), "Riverside Academy");
+    await user.click(screen.getByRole("button", { name: "Add Player" }));
+
+    await screen.findByText("Assigned Kid");
+    expect(updateAcademyFields).toHaveBeenCalledWith("ac1", expect.objectContaining({
+      player_ids: expect.arrayContaining([expect.stringMatching(/^p_/)]),
+    }));
+  });
+
+  test("imports players from a CSV file", async () => {
+    const user = userEvent.setup();
+    insertPlayer.mockClear(); insertPlayers.mockClear(); updateAcademyFields.mockClear();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
+    fetchPlayers.mockResolvedValue([]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", playerIds: [] })]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("No players in your scope.");
+
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
+    await user.click(screen.getByRole("button", { name: "Import CSV instead" }));
+
+    const csv = "name,email,ageGroup,bowlingStyle,club,phone\nCsv Kid,csvkid@example.com,U14,Right Arm Fast,Test Club,0412345678\n";
+    const file = new File([csv], "players.csv", { type: "text/csv" });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    await screen.findByText("✓ Ready");
+    await user.click(screen.getByRole("button", { name: "Import 1 Player" }));
+
+    await screen.findByText(/Imported 1 player from players\.csv/);
+    expect(insertPlayers).toHaveBeenCalledWith([expect.objectContaining({ name: "Csv Kid", email: "csvkid@example.com" })]);
+    expect(updateAcademyFields).toHaveBeenCalledWith("ac1", expect.objectContaining({
+      player_ids: expect.arrayContaining([expect.stringMatching(/^p_/)]),
+    }));
   });
 
   test("shows an empty state with no players", async () => {
