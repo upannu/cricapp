@@ -57,6 +57,30 @@ describe("AcademyClient", () => {
     expect(fetchCoaches).toHaveBeenCalledWith("ac1");
   });
 
+  test("starts expanded by default for an academy_admin viewing their own single academy", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy" })]);
+
+    render(<AcademyClient />);
+    await screen.findByText("My Academy");
+
+    // The tab strip (Players/Coaches/Pricing/Nets) only renders once a row is expanded — an
+    // academy_admin has nothing else to pick from, so there's no reason to make them click first.
+    expect(screen.getByRole("button", { name: "Pricing" })).toBeInTheDocument();
+  });
+
+  test("stays collapsed by default for a platform admin, even with only one academy", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Only Academy" })]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Only Academy");
+
+    expect(screen.queryByRole("button", { name: "Pricing" })).not.toBeInTheDocument();
+  });
+
   test("renders multiple academies for a platform admin", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
