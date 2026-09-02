@@ -58,11 +58,25 @@ export async function POST(request: Request) {
         const { data: academy } = await supabase.from("academies").select("country").eq("id", coach.academy_id).maybeSingle();
         country = academy?.country ?? "AU";
       }
-      const account = await stripe.accounts.create({
-        type: "express",
-        country,
-        email: coach.email,
-        capabilities: { transfers: { requested: true } },
+      // Accounts v1 (stripe.accounts.create) is no longer available for new Connect
+      // integrations on this Stripe account — see AGENTS.md-level finding. Accounts v2's
+      // "recipient" configuration is the replacement for a transfers-only Express-style
+      // account: stripe_balance.stripe_transfers is v2's name for v1's `transfers`
+      // capability. The resulting acct_... id is fully interoperable with v1 endpoints
+      // (transfers.create destination, accounts.createLoginLink, the account.updated
+      // webhook) per https://docs.stripe.com/connect/accounts-v2 — nothing downstream
+      // of this needs to change.
+      const account = await stripe.v2.core.accounts.create({
+        contact_email: coach.email,
+        dashboard: "express",
+        identity: { country },
+        configuration: {
+          recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
+        },
+        // Required by Stripe whenever dashboard is "express": the platform (not Stripe)
+        // bears Connect fees/losses on this account, matching v1 Express's actual
+        // liability model — Stripe still collects onboarding requirements by default.
+        defaults: { responsibilities: { fees_collector: "application", losses_collector: "application" } },
         metadata: { coach_id: coachId },
       });
       accountId = account.id;
@@ -71,12 +85,19 @@ export async function POST(request: Request) {
 
     // Payout management (Set up payouts / View Payouts) lives inline on the coaches list
     // itself — there's no dedicated per-coach payouts page, so send both links back there.
+    // Account Links is also a v2-only resource for a v2-created account (the v1
+    // accountLinks.create call rejects a v2 account id).
     const origin = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
-    const accountLink = await stripe.accountLinks.create({
+    const accountLink = await stripe.v2.core.accountLinks.create({
       account: accountId,
-      refresh_url: `${origin}/coaches?refresh=1`,
-      return_url: `${origin}/coaches?onboarding=return`,
-      type: "account_onboarding",
+      use_case: {
+        type: "account_onboarding",
+        account_onboarding: {
+          configurations: ["recipient"],
+          refresh_url: `${origin}/coaches?refresh=1`,
+          return_url: `${origin}/coaches?onboarding=return`,
+        },
+      },
     });
 
     return NextResponse.json({ url: accountLink.url });

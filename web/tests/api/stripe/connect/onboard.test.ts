@@ -36,22 +36,19 @@ describe("POST /api/stripe/connect/onboard", () => {
     expect(res.status).toBe(404);
   });
 
-  // KNOWN LIMITATION (not a test bug): this Stripe account/API version rejects
-  // Express Connect account creation entirely ("Accounts v1 support" must be
-  // enabled in the Stripe Dashboard, or the app needs to migrate to Accounts
-  // v2). That means /api/stripe/connect/onboard is currently broken in
-  // production against this Stripe account for ANY coach with no existing
-  // connect account — this test pins down that real behavior rather than
-  // masking it. Once the dashboard setting (or a v2 migration) fixes it,
-  // update this test to expect 200 + a real accountLinks URL.
-  test("surfaces Stripe's real rejection when creating a new Connect account", async () => {
+  // Real Stripe test-mode call (per AGENTS.md, Stripe routes hit the real test-mode API
+  // rather than being mocked) — creates a real v2 recipient account with the "recipient"
+  // configuration and returns a real hosted-onboarding accountLinks URL. This route used
+  // to call the now-unsupported Accounts v1 API here and get rejected; the v2 migration
+  // (see connect/onboard/route.ts) is what makes this a real 200 rather than a 502.
+  test("creates a real Connect account and returns a hosted onboarding link", async () => {
     routeMockState.cookieUser = rawUser({ role: "platform_admin" });
     routeMockState.tableResponses = { coaches: { data: COACH, error: null } };
 
     const res = await POST(jsonRequest(URL, { coachId: "coach1" }));
     const body = await res.json();
 
-    expect(res.status).toBe(502);
-    expect(body.error).toMatch(/Accounts v1|Connect/i);
+    expect(res.status).toBe(200);
+    expect(body.url).toMatch(/^https:\/\/connect\.stripe\.com\//);
   }, 15_000);
 });
