@@ -1,16 +1,18 @@
 import { describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { BookingsClient } from "@/components/BookingsClient";
 import { makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
 
-const { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchActivePlans, fetchSessionPacks, fetchBookingFeeDues, fetchNets } = vi.hoisted(() => ({
+const { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchActivePlans, fetchSessionPacks, fetchBookingFeeDues, fetchNets, upsertBooking } = vi.hoisted(() => ({
   fetchBookings: vi.fn(), fetchPlayers: vi.fn(), fetchCoaches: vi.fn(),
   fetchAcademies: vi.fn(), fetchActivePlans: vi.fn(), fetchSessionPacks: vi.fn(),
   fetchBookingFeeDues: vi.fn(), fetchNets: vi.fn(),
+  upsertBooking: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/lib/db", () => ({
   fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchActivePlans, fetchSessionPacks, fetchBookingFeeDues, fetchNets,
-  upsertBooking: vi.fn(), updateBookingStatus: vi.fn(), deleteBooking: vi.fn(), updatePackPaymentStatus: vi.fn(), markBookingPaid: vi.fn(),
+  upsertBooking, updateBookingStatus: vi.fn(), deleteBooking: vi.fn(), updatePackPaymentStatus: vi.fn(), markBookingPaid: vi.fn(),
 }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
@@ -57,5 +59,29 @@ describe("BookingsClient", () => {
 
     expect(fetchPlayers).toHaveBeenCalledWith("coach1", undefined);
     expect(fetchCoaches).toHaveBeenCalledWith(undefined);
+  });
+
+  test("blocks creating a second booking for the same coach at an overlapping time", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Batter" }),
+    ]);
+    // An existing 09:00-10:00 booking for coach1 — the form defaults to today at 09:00, so
+    // submitting without touching date/time collides with this directly.
+    fetchBookings.mockResolvedValue([
+      { id: "b1", playerId: "p1", coachId: "coach1", date: today, time: "09:00", durationMins: 60, type: "Net Session", status: "Confirmed", location: "", notes: "", feeAud: 0, paymentStatus: "Paid" },
+    ]);
+
+    render(<BookingsClient />);
+    await user.click((await screen.findAllByRole("button", { name: "+ New Booking" }))[0]);
+
+    await user.selectOptions(screen.getByDisplayValue("— Select coach —"), "coach1");
+    await user.selectOptions(screen.getByDisplayValue("— Select player —"), "p2");
+    await user.click(screen.getByRole("button", { name: "Create Booking" }));
+
+    expect(await screen.findByText(/already has another booking at this time/i)).toBeInTheDocument();
+    expect(upsertBooking).not.toHaveBeenCalled();
   });
 });
