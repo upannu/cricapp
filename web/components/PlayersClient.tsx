@@ -17,6 +17,7 @@ const BOWLING_STYLES: BowlingStyle[] = [
   "Left Arm Fast-Medium", "Right Arm Medium", "Left Arm Medium",
 ];
 const EMPTY_NEW_PLAYER = { name: "", email: "", ageGroup: "U14" as AgeGroup, bowlingStyle: "Right Arm Fast" as BowlingStyle, club: "" };
+const PLAYERS_PER_PAGE = 10;
 const inputCls = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
 const selectCls = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
 const labelCls = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
@@ -46,6 +47,8 @@ export function PlayersClient() {
   const [addPlayerError, setAddPlayerError] = useState("");
   const [savingPlayer, setSavingPlayer] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (!user) return;
@@ -143,8 +146,26 @@ export function PlayersClient() {
     }
   }
 
-  const allSelected = selectedIds.size === players.length && players.length > 0;
-  const someSelected = selectedIds.size > 0 && !allSelected;
+  // Name, email, and club — the three fields visible enough that "search" reasonably implies them.
+  const searchTerm = search.trim().toLowerCase();
+  const filteredPlayers = searchTerm
+    ? players.filter((p) =>
+        p.name.toLowerCase().includes(searchTerm) ||
+        p.email.toLowerCase().includes(searchTerm) ||
+        p.club.toLowerCase().includes(searchTerm)
+      )
+    : players;
+
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setPage(1); // A new search can easily land fewer results than the page you were on.
+  }
+
+  // "Select all" (and its indeterminate state) only ever covers what's currently visible under
+  // the active search — narrowing a search after selecting some players deliberately leaves the
+  // now-hidden selections alone rather than silently dropping them.
+  const allSelected = filteredPlayers.length > 0 && filteredPlayers.every((p) => selectedIds.has(p.id));
+  const someSelected = filteredPlayers.some((p) => selectedIds.has(p.id)) && !allSelected;
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -155,11 +176,15 @@ export function PlayersClient() {
   }
 
   function toggleAll() {
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(players.map((p) => p.id)));
-    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        filteredPlayers.forEach((p) => next.delete(p.id));
+      } else {
+        filteredPlayers.forEach((p) => next.add(p.id));
+      }
+      return next;
+    });
   }
 
   function clearSelection() {
@@ -167,6 +192,14 @@ export function PlayersClient() {
   }
 
   const selectedPlayers = players.filter((p) => selectedIds.has(p.id));
+
+  // The stats cards above the table still summarize the whole roster regardless of search — only
+  // the table itself (count, rows, pagination, select-all) reflects the filtered/searched list.
+  // Clamp rather than reset so a shrinking result set (or just switching between coaches while
+  // testing) can never strand the view on a now-nonexistent page.
+  const totalPages = Math.max(1, Math.ceil(filteredPlayers.length / PLAYERS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pagePlayers = filteredPlayers.slice((currentPage - 1) * PLAYERS_PER_PAGE, currentPage * PLAYERS_PER_PAGE);
 
   return (
     <>
@@ -204,6 +237,19 @@ export function PlayersClient() {
             </button>
           )
         )}
+      </div>
+
+      <div className="relative mb-6 max-w-md">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          placeholder="Search players by name, email, or club…"
+          className={`${inputCls} pl-10`}
+        />
       </div>
 
       {isIndependentCoach && showAddPlayer && !atRosterCap && (
@@ -288,7 +334,7 @@ export function PlayersClient() {
       <div className="bg-surface rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-700/60">
           <h2 className="text-base font-semibold text-white">
-            {players.length} Player{players.length !== 1 ? "s" : ""}
+            {filteredPlayers.length} Player{filteredPlayers.length !== 1 ? "s" : ""}
           </h2>
         </div>
         <div className="overflow-x-auto">
@@ -324,7 +370,7 @@ export function PlayersClient() {
               </tr>
             </thead>
             <tbody>
-              {players.map((player) => {
+              {pagePlayers.map((player) => {
                 const status = getPlayerStatus(player.subscription.endDate);
                 const isSelected = selectedIds.has(player.id);
                 return (
@@ -400,10 +446,38 @@ export function PlayersClient() {
               })}
             </tbody>
           </table>
-          {players.length === 0 && (
-            <div className="px-6 py-16 text-center text-zinc-400 text-sm">No players in your scope.</div>
+          {filteredPlayers.length === 0 && (
+            <div className="px-6 py-16 text-center text-zinc-400 text-sm">
+              {searchTerm ? `No players match "${search.trim()}".` : "No players in your scope."}
+            </div>
           )}
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-zinc-700/60">
+            <p className="text-xs text-zinc-400">
+              Showing {(currentPage - 1) * PLAYERS_PER_PAGE + 1}–{Math.min(currentPage * PLAYERS_PER_PAGE, filteredPlayers.length)} of {filteredPlayers.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                ← Prev
+              </button>
+              <span className="text-xs text-zinc-400 px-1">Page {currentPage} of {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
 

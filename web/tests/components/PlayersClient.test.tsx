@@ -88,6 +88,109 @@ describe("PlayersClient", () => {
     expect(screen.getByTestId("message-modal")).toHaveTextContent("Messaging Alice Bowler");
   });
 
+  test("searches players by name, email, and club", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", email: "alice@example.com", club: "Riverside CC" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", email: "bob@example.com", club: "Hillside CC" }),
+      makePlayer({ id: "p3", name: "Cara Spinner", email: "cara@riverside.example.com", club: "Oakwood CC" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+    expect(screen.getByText("3 Players")).toBeInTheDocument();
+
+    // Match by name.
+    await user.type(screen.getByPlaceholderText(/Search players/), "bob");
+    expect(await screen.findByText("1 Player")).toBeInTheDocument();
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+
+    // Match by email domain — case-insensitive, and matches a player whose name doesn't contain it.
+    await user.clear(screen.getByPlaceholderText(/Search players/));
+    await user.type(screen.getByPlaceholderText(/Search players/), "RIVERSIDE");
+    expect(await screen.findByText("2 Players")).toBeInTheDocument();
+    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
+    expect(screen.getByText("Cara Spinner")).toBeInTheDocument();
+
+    // No matches shows a search-specific empty state, not the generic "no players at all" one.
+    await user.clear(screen.getByPlaceholderText(/Search players/));
+    await user.type(screen.getByPlaceholderText(/Search players/), "nobody-like-this");
+    expect(await screen.findByText('No players match "nobody-like-this".')).toBeInTheDocument();
+  });
+
+  test("paginates the table at 10 players per page", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue(
+      Array.from({ length: 12 }, (_, i) => makePlayer({ id: `p${i + 1}`, name: `Player ${String(i + 1).padStart(2, "0")}` })),
+    );
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Player 01");
+
+    // Header count reflects the full roster, not just the current page.
+    expect(screen.getByText("12 Players")).toBeInTheDocument();
+
+    // Page 1: first 10 only.
+    expect(screen.getByText("Player 10")).toBeInTheDocument();
+    expect(screen.queryByText("Player 11")).not.toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "← Prev" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Next →" }));
+
+    // Page 2: the remaining 2.
+    expect(await screen.findByText("Player 11")).toBeInTheDocument();
+    expect(screen.getByText("Player 12")).toBeInTheDocument();
+    expect(screen.queryByText("Player 01")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next →" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "← Prev" }));
+    expect(await screen.findByText("Player 01")).toBeInTheDocument();
+  });
+
+  test("searching while on page 2 snaps back to page 1 instead of stranding an empty page", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      ...Array.from({ length: 11 }, (_, i) => makePlayer({ id: `p${i + 1}`, name: `Player ${String(i + 1).padStart(2, "0")}` })),
+      makePlayer({ id: "p12", name: "Zara Unique" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Player 01");
+    await user.click(screen.getByRole("button", { name: "Next →" }));
+    expect(await screen.findByText("Zara Unique")).toBeInTheDocument();
+
+    // Narrowing to a single match while on page 2 must not leave the view on a page 2 that no
+    // longer exists for the filtered set.
+    await user.type(screen.getByPlaceholderText(/Search players/), "Zara");
+    expect(await screen.findByText("1 Player")).toBeInTheDocument();
+    expect(screen.getByText("Zara Unique")).toBeInTheDocument();
+    expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+  });
+
+  test("shows no pagination controls at 10 players or fewer", async () => {
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue(
+      Array.from({ length: 10 }, (_, i) => makePlayer({ id: `p${i + 1}`, name: `Player ${String(i + 1).padStart(2, "0")}` })),
+    );
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Player 10");
+    expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+  });
+
   test("shows an empty state with no players", async () => {
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
     fetchPlayers.mockResolvedValue([]);
