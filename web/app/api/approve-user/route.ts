@@ -53,32 +53,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Request not found in queue." }, { status: 404 });
   }
 
-  // Player/parent accounts must link to an existing player record
+  // Player/parent accounts must link to an existing player record. Player emails aren't unique —
+  // siblings often share one family email, and the same real child can have more than one player
+  // row (this app ties one coach_id to each row, so "same kid, two academies" is two separate
+  // rows too) — so link ALL matches, not just the first, exactly like the self-serve signup path
+  // (complete-signup) already does. linkedPlayerId stays the first/primary match (used for the
+  // account's active player_id and the welcome email's plan lookup below); linkedPlayerIds holds
+  // every match, so the "link" branch further down can create one identity per child instead of
+  // silently dropping every sibling but the first.
   let linkedPlayerId: string | undefined;
+  let linkedPlayerIds: string[] = [];
   if ((reqData.role === "player" || reqData.role === "parent")) {
     if (!reqData.player_lookup_email) {
       return NextResponse.json({ error: "This request has no linked player email." }, { status: 400 });
     }
-    // Player emails aren't unique (e.g. a parent reusing one email for multiple kids),
-    // so don't use maybeSingle() — it errors out silently on multiple matches.
     const { data: playerMatches } = await supabase
       .from("players")
       .select("id")
-      .ilike("email", reqData.player_lookup_email)
-      .limit(1);
-    const playerMatch = playerMatches?.[0];
-    if (!playerMatch) {
+      .ilike("email", reqData.player_lookup_email);
+    if (!playerMatches || playerMatches.length === 0) {
       return NextResponse.json({ error: `No player found with email ${reqData.player_lookup_email}. Add the player first, then approve.` }, { status: 400 });
     }
-    linkedPlayerId = playerMatch.id;
+    linkedPlayerIds = playerMatches.map((p) => p.id);
+    linkedPlayerId = linkedPlayerIds[0];
   }
 
   // Coaches who self-signed-up (rather than being invited via the coaches admin UI, which
   // already links coach_id at invite time) still need linking to their own coaches row here —
   // by email match when staff already created one ahead of time. Coach emails aren't guaranteed
   // unique (nothing stops two coach rows sharing one by mistake) — maybeSingle() throws on more
-  // than one match, silently dropping the link entirely, so use limit(1) like the player lookup
-  // below already does.
+  // than one match, silently dropping the link entirely, so use limit(1) instead. Unlike the
+  // player lookup above, a coach with a duplicate email is a data mistake to clean up, not a
+  // legitimate multi-match case, so keeping just one here is the right call.
   //
   // A direct self-signup ("Coach" on /signup, no academy involved at all — this app supports
   // genuinely independent coaches on their own Coach Pro plan, not just academy staff) has no
@@ -132,18 +138,25 @@ export async function POST(request: Request) {
           playerId: meta.player_id as string | undefined,
         }];
 
-    const newIdentity: LinkedIdentity = { role: reqData.role };
-    if (reqData.role === "academy_admin" && academyId) newIdentity.academyId = academyId;
-    if (linkedCoachId) newIdentity.coachId = linkedCoachId;
-    if (linkedPlayerId) newIdentity.playerId = linkedPlayerId;
-
     // One identity per role for academy_admin/coach (a second one doesn't make sense), but a
-    // parent/player can legitimately have several — one per child — so dedup those by the full
-    // (role, playerId) pair instead, letting a newly-discovered sibling still get linked later.
-    const alreadyLinked = (newIdentity.role === "player" || newIdentity.role === "parent")
-      ? seeded.some((li) => li.role === newIdentity.role && li.playerId === newIdentity.playerId)
-      : seeded.some((li) => li.role === newIdentity.role);
-    const linkedIdentities = alreadyLinked ? seeded : [...seeded, newIdentity];
+    // parent/player can legitimately have several — one per child, per linkedPlayerIds above —
+    // so build one candidate identity per matched player instead of a single one, and dedup each
+    // by the full (role, playerId) pair, letting a newly-discovered sibling still get linked
+    // later without re-adding a child that's already there.
+    let candidateIdentities: LinkedIdentity[];
+    if (reqData.role === "player" || reqData.role === "parent") {
+      candidateIdentities = linkedPlayerIds.map((playerId) => ({ role: reqData.role, playerId }));
+    } else {
+      const identity: LinkedIdentity = { role: reqData.role };
+      if (reqData.role === "academy_admin" && academyId) identity.academyId = academyId;
+      if (linkedCoachId) identity.coachId = linkedCoachId;
+      candidateIdentities = [identity];
+    }
+
+    const linkedIdentities = seeded.concat(candidateIdentities.filter((identity) =>
+      !seeded.some((li) => li.role === identity.role &&
+        (identity.playerId === undefined || li.playerId === identity.playerId))
+    ));
 
     // Only linkedIdentities changes here — the account's currently-active role/links are left
     // untouched, so an approval never silently changes what a logged-in session sees mid-use.
@@ -173,6 +186,12 @@ export async function POST(request: Request) {
   if (academyId) extraMeta.academy_id = academyId;
   if (linkedPlayerId) extraMeta.player_id = linkedPlayerId;
   if (linkedCoachId) extraMeta.coach_id = linkedCoachId;
+  // Same "link every sibling" fix as above, for the (in practice rare — player/parent normally
+  // auto-approves via complete-signup and never reaches this branch) case of a brand-new
+  // player/parent request that ended up in the manual queue anyway.
+  if (linkedPlayerIds.length > 1) {
+    extraMeta.linkedIdentities = linkedPlayerIds.map((playerId) => ({ role: reqData.role, playerId }));
+  }
 
   const { error: updateError } = await supabase.auth.admin.updateUserById(authUser.id, {
     app_metadata: extraMeta,

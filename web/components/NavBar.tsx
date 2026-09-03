@@ -88,10 +88,16 @@ export function NavBar() {
       .catch(() => {});
   }, [user?.linkedIdentities]);
 
+  // A kid with no email of their own often ends up sharing a parent's — which can genuinely
+  // produce two identities for the *same* playerId (one role: "parent", one role: "player": the
+  // parent acting as the child, and the parent acting as themself). Naming both entries after
+  // just the player would make two legitimately different views look like an exact duplicate, so
+  // the role always comes first here — same convention as ROLE_LABELS everywhere else in this bar.
   function identityLabel(identity: { role: UserRole; playerId?: string }): string {
     if (identity.playerId && playerNames[identity.playerId]) {
       const p = playerNames[identity.playerId];
-      return p.academyName ? `${p.name} · ${p.academyName}` : p.name;
+      const name = p.academyName ? `${p.name} · ${p.academyName}` : p.name;
+      return `${ROLE_LABELS[identity.role]} · ${name}`;
     }
     return ROLE_LABELS[identity.role];
   }

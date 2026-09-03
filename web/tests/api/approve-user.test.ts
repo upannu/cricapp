@@ -137,6 +137,68 @@ describe("POST /api/approve-user", () => {
     expect(sendMail).not.toHaveBeenCalled();
   });
 
+  test("link request: links every matching player for a parent request, not just the first", async () => {
+    routeMockState.cookieUser = rawUser({ role: "platform_admin" });
+    routeMockState.tableResponses = {
+      user_requests: { data: { email: "existing@example.com", name: "Existing", role: "parent", player_lookup_email: "family@example.com", request_type: "link", existing_user_id: "auth-existing" }, error: null },
+      players: { data: [{ id: "p1" }, { id: "p2" }, { id: "p3" }], error: null },
+    };
+    routeMockState.authAdminResponses = {
+      getUserById: { data: { user: { id: "auth-existing", app_metadata: { role: "coach", coach_id: "c1" } } }, error: null },
+    };
+
+    const res = await POST(jsonRequest(URL, { userId: "r1" }));
+    expect(res.status).toBe(200);
+
+    const client = routeMockState.lastServiceClient!;
+    expect(client.auth.admin.updateUserById).toHaveBeenCalledWith(
+      "auth-existing",
+      expect.objectContaining({
+        app_metadata: expect.objectContaining({
+          linkedIdentities: [
+            { role: "coach", academyId: undefined, coachId: "c1", playerId: undefined },
+            { role: "parent", playerId: "p1" },
+            { role: "parent", playerId: "p2" },
+            { role: "parent", playerId: "p3" },
+          ],
+        }),
+      }),
+    );
+  });
+
+  test("link request: re-approving the same parent request doesn't duplicate an already-linked child", async () => {
+    routeMockState.cookieUser = rawUser({ role: "platform_admin" });
+    routeMockState.tableResponses = {
+      user_requests: { data: { email: "existing@example.com", name: "Existing", role: "parent", player_lookup_email: "family@example.com", request_type: "link", existing_user_id: "auth-existing" }, error: null },
+      players: { data: [{ id: "p1" }, { id: "p2" }], error: null },
+    };
+    routeMockState.authAdminResponses = {
+      getUserById: {
+        data: { user: { id: "auth-existing", app_metadata: {
+          role: "parent", player_id: "p1",
+          linkedIdentities: [{ role: "parent", playerId: "p1" }],
+        } } },
+        error: null,
+      },
+    };
+
+    const res = await POST(jsonRequest(URL, { userId: "r1" }));
+    expect(res.status).toBe(200);
+
+    const client = routeMockState.lastServiceClient!;
+    expect(client.auth.admin.updateUserById).toHaveBeenCalledWith(
+      "auth-existing",
+      expect.objectContaining({
+        app_metadata: expect.objectContaining({
+          linkedIdentities: [
+            { role: "parent", playerId: "p1" },
+            { role: "parent", playerId: "p2" },
+          ],
+        }),
+      }),
+    );
+  });
+
   test("link request: 404 and dequeues when the linked account no longer exists", async () => {
     routeMockState.cookieUser = rawUser({ role: "platform_admin" });
     routeMockState.tableResponses = {
