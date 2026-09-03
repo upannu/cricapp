@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, insertPlayers, updateAcademyFields, fetchActivePlans, fetchNets, upsertNet, deleteNet } from "@/lib/db";
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
-import { getPlatformFeePercent } from "@/lib/utils";
+import { getPlatformFeePercent, isValidEmail } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
 
@@ -520,6 +520,8 @@ export function AcademyClient() {
   // since there's no modal/Save-Changes step wrapping this one.
   async function handleTabAddPlayer(academyId: string) {
     if (!tabPlayerDraft.name.trim()) { setTabPlayerError("Name is required."); return; }
+    const email = tabPlayerDraft.email.trim();
+    if (email && !isValidEmail(email)) { setTabPlayerError("Enter a valid email address, or leave it blank."); return; }
     const academy = academies.find((a) => a.id === academyId);
     if (!academy) return;
     setTabPlayerError(""); setTabSavingPlayer(true);
@@ -527,7 +529,7 @@ export function AcademyClient() {
     const now = new Date().toISOString().split("T")[0];
     const freeSessionsLimit = sessionsLimitForPlan("Free", allPlans);
     const newPlayer: Player = {
-      id: newId, name: tabPlayerDraft.name.trim(), email: tabPlayerDraft.email.trim(),
+      id: newId, name: tabPlayerDraft.name.trim(), email,
       phone: "", ageGroup: tabPlayerDraft.ageGroup, bowlingStyle: tabPlayerDraft.bowlingStyle,
       battingHand: "Right Hand", playingLevel: "Club", heightCm: null, weightKg: null,
       club: tabPlayerDraft.club.trim(), addedDate: now, coachId: "",

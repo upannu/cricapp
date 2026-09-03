@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import Papa from "papaparse";
 import { useAuth } from "@/lib/auth";
 import { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields } from "@/lib/db";
-import { formatDate, getPlayerStatus, getInitials, getCoachOrAcademyLabel } from "@/lib/utils";
+import { formatDate, getPlayerStatus, getInitials, getCoachOrAcademyLabel, isValidEmail } from "@/lib/utils";
 import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, Plan } from "@/lib/types";
 import { MessageModal } from "@/components/MessageModal";
 import { BulkMessageModal } from "@/components/BulkMessageModal";
@@ -123,6 +123,10 @@ export function PlayersClient() {
     const name = newPlayerDraft.name.trim();
     if (!name) { setAddPlayerError("Name is required."); return; }
     const email = newPlayerDraft.email.trim();
+    if (email && !isValidEmail(email)) {
+      setAddPlayerError("Enter a valid email address, or leave it blank.");
+      return;
+    }
     if (email && players.some((p) => p.email.toLowerCase() === email.toLowerCase())) {
       setAddPlayerError(`Another player already uses ${email} — each player needs a unique email.`);
       return;
@@ -233,6 +237,7 @@ export function PlayersClient() {
           let status: CsvRowStatus = "ready";
           if (!name) { issues.push("Missing name"); status = "skipped"; }
           if (!email) { issues.push("Missing email"); status = "skipped"; }
+          else if (!isValidEmail(email)) { issues.push("Not a valid email address"); status = "skipped"; }
           if (status !== "skipped") {
             const emailKey = email.toLowerCase();
             if (existingEmails.has(emailKey) || seenInFile.has(emailKey)) {

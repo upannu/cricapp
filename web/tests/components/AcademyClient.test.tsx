@@ -122,6 +122,27 @@ describe("AcademyClient", () => {
     }));
   });
 
+  test("rejects a garbage email on the Coaches tab's inline Add Player, instead of silently saving an unreachable player", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", playerIds: [] })]);
+
+    render(<AcademyClient />);
+    // Mocks in this file accumulate call history across tests (no clearMocks) — same convention
+    // every other test here already relies on — so check this interaction didn't add a call,
+    // not that the mock has never been called at all.
+    const callsBefore = insertPlayer.mock.calls.length;
+    await user.click(await screen.findByRole("button", { name: "Players (0)" }));
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
+    await user.type(screen.getByPlaceholderText("Player name"), "Twisha");
+    await user.type(screen.getByPlaceholderText("player@email.com"), "Pannu");
+    await user.click(screen.getByRole("button", { name: "Create & Assign" }));
+
+    expect(await screen.findByText("Enter a valid email address, or leave it blank.")).toBeInTheDocument();
+    expect(insertPlayer.mock.calls.length).toBe(callsBefore);
+  });
+
   test("adds a coach directly from the expanded Coaches tab and assigns them as head coach", async () => {
     const user = userEvent.setup();
     setupDefaults();
