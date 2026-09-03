@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player } from "@/lib/types";
+import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, deleteCoach, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
+import { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, deleteCoach, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
+import { canUseMarketplaceForCoach } from "@/lib/plan-features";
 import { DateInput } from "@/components/DateInput";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 
@@ -78,6 +79,7 @@ export function CoachesClient() {
   const [confirmDeleteCoachId, setConfirmDeleteCoachId] = useState<string | null>(null);
   const [payoutLoading, setPayoutLoading] = useState<string | null>(null);
   const [payoutError, setPayoutError] = useState<{ coachId: string; message: string } | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
 
   const defaultAcademyId = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
 
@@ -87,10 +89,12 @@ export function CoachesClient() {
       fetchCoaches(defaultAcademyId || undefined),
       fetchAcademies(),
       fetchPlayers(coachId, defaultAcademyId || undefined),
-    ]).then(([c, a, p]) => {
+      fetchActivePlans(),
+    ]).then(([c, a, p, pl]) => {
       setCoaches(c);
       _coachAcademies = a;
       _coachPlayers = p;
+      setPlans(pl);
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -407,12 +411,16 @@ export function CoachesClient() {
       {/* Create / Edit form */}
       {showForm && (() => {
         const editingCoach = editingId ? coaches.find((c) => c.id === editingId) : undefined;
-        // A coach editing their own independent profile needs Coach Pro to turn marketplace
-        // visibility on — staff (who can also reach this form) aren't gated, since they're not
-        // the ones paying for it.
+        // A coach editing their own independent profile needs marketplace access unlocked on
+        // their tier to turn visibility on — staff (who can also reach this form) aren't gated,
+        // since they're not the ones paying for it. Reads the admin-editable Plan Catalog
+        // (marketplaceEnabled on coach-free/coach-pro) via canUseMarketplaceForCoach rather than
+        // hardcoding "must be Coach Pro", so an admin toggling that flag in /admin/plans actually
+        // changes this gate instead of being silently ignored.
         const marketplaceLocked =
           user?.role === "coach" && user.coachId === editingId && !editingCoach?.academyId &&
-          editingCoach?.subPlan !== "Coach Pro" && !draft.marketplaceVisible;
+          !canUseMarketplaceForCoach((editingCoach?.subPlan ?? "Free") as "Free" | "Coach Pro", plans) &&
+          !draft.marketplaceVisible;
         return (
         <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-6">

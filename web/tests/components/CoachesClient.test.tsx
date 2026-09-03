@@ -4,11 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { CoachesClient } from "@/components/CoachesClient";
 import { makeAuthUser, makeCoach } from "../mocks/fixtures";
 
-const { fetchCoaches, fetchAcademies, fetchPlayers } = vi.hoisted(() => ({
-  fetchCoaches: vi.fn(), fetchAcademies: vi.fn(), fetchPlayers: vi.fn(),
+const { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans } = vi.hoisted(() => ({
+  fetchCoaches: vi.fn(), fetchAcademies: vi.fn(), fetchPlayers: vi.fn(), fetchActivePlans: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
-  fetchCoaches, fetchAcademies, fetchPlayers,
+  fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans,
   upsertCoach: vi.fn(), deleteCoach: vi.fn(), reassignCoachPlayers: vi.fn(), updateAcademyFields: vi.fn(),
 }));
 
@@ -30,6 +30,7 @@ function setupDefaults() {
   fetchCoaches.mockResolvedValue([]);
   fetchAcademies.mockResolvedValue([]);
   fetchPlayers.mockResolvedValue([]);
+  fetchActivePlans.mockResolvedValue([]);
 }
 
 describe("CoachesClient", () => {
@@ -85,5 +86,42 @@ describe("CoachesClient", () => {
       expect.objectContaining({ method: "POST", body: JSON.stringify({ coachId: "c1" }) }),
     );
     global.fetch = originalFetch;
+  });
+
+  test("locks marketplace visibility for a Free independent coach editing their own profile, by default", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", academyId: "", subPlan: "Free" })]);
+
+    render(<CoachesClient />);
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+
+    expect(await screen.findByText(/Requires Coach Pro/)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Visible in the coach marketplace" })).toBeDisabled();
+  });
+
+  test("unlocks marketplace visibility for a Free coach when the Plan Catalog's coach-free row enables it", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", academyId: "", subPlan: "Free" })]);
+    // canUseMarketplaceForCoach reads this catalog row rather than hardcoding subPlan === "Coach
+    // Pro" — an admin enabling marketplaceEnabled on coach-free should actually unlock this,
+    // proving the fix reads the catalog instead of ignoring it.
+    fetchActivePlans.mockResolvedValue([{
+      id: "coach-free-plan", slug: "coach-free", name: "Coach Free", audience: "individual",
+      billingType: "subscription", billingInterval: "month", priceAud: 0, pricesByCurrency: {},
+      seatCap: 5, accessDurationMonths: null, includedNotes: null, waivesSessionFees: false,
+      platformAdminOnly: false, platformFeePercent: 10, active: true, sortOrder: -11,
+      sessionsPerMonthLimit: null, chatMessagesPerDayLimit: null, aiReportsEnabled: false,
+      marketplaceEnabled: true, locked: true,
+    }]);
+
+    render(<CoachesClient />);
+    await user.click(await screen.findByRole("button", { name: "Edit" }));
+
+    expect(await screen.findByRole("checkbox", { name: "Visible in the coach marketplace" })).not.toBeDisabled();
+    expect(screen.queryByText(/Requires Coach Pro/)).not.toBeInTheDocument();
   });
 });
