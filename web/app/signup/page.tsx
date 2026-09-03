@@ -44,7 +44,7 @@ function SignUpForm() {
   const [academyName, setAcademyName] = useState("");
   const [academyLocation, setAcademyLocation] = useState("");
   const [playerEmail, setPlayerEmail] = useState(prefillEmail);
-  const [playerLookup, setPlayerLookup] = useState<{ email: string; status: "checking" | "found" | "not-found"; name?: string; additionalCount?: number } | null>(null);
+  const [playerLookup, setPlayerLookup] = useState<{ email: string; status: "checking" | "found" | "not-found"; additionalCount?: number } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -95,7 +95,7 @@ function SignUpForm() {
       try {
         const res = await fetch(`/api/lookup-player?email=${encodeURIComponent(email)}`);
         const data = await res.json();
-        if (!cancelled) setPlayerLookup(data.found ? { email, status: "found", name: data.playerName, additionalCount: data.additionalCount ?? 0 } : { email, status: "not-found" });
+        if (!cancelled) setPlayerLookup(data.found ? { email, status: "found", additionalCount: data.additionalCount ?? 0 } : { email, status: "not-found" });
       } catch {
         if (!cancelled) setPlayerLookup({ email, status: "not-found" });
       }
@@ -243,8 +243,9 @@ function SignUpForm() {
                   )}
                   {lookupForCurrentEmail?.status === "found" && (
                     <p className="text-pace-green text-xs mt-1.5">
-                      ✓ Found: {lookupForCurrentEmail.name}
-                      {!!lookupForCurrentEmail.additionalCount && ` (+${lookupForCurrentEmail.additionalCount} more child${lookupForCurrentEmail.additionalCount === 1 ? "" : "ren"} at this email — you'll get access to all of them)`}
+                      {lookupForCurrentEmail.additionalCount
+                        ? `✓ Found ${lookupForCurrentEmail.additionalCount + 1} player records at this email — you'll get access to all of them.`
+                        : "✓ Found a matching player record — you'll get access to it."}
                     </p>
                   )}
                   {lookupForCurrentEmail?.status === "not-found" && (
