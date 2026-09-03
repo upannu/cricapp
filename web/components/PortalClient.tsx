@@ -3,11 +3,22 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayer, fetchSessions, fetchReports, fetchTodaysTip, recordTipView, fetchSessionPacks } from "@/lib/db";
+import {
+  fetchPlayer, fetchSessions, fetchReports, fetchTodaysTip, recordTipView, fetchSessionPacks,
+  fetchActivePlans, fetchAcademies, fetchCoach, fetchBookings, fetchActionPlans,
+} from "@/lib/db";
 import { formatDate, getReportPdfUrl, getInitials } from "@/lib/utils";
 import { formatMoney, type Currency } from "@/lib/currency";
+import { aiReportsIncludedForPlayer } from "@/lib/plan-features";
 import { BadgeStrip } from "@/components/BadgeStrip";
-import type { Player, Session, Report, DailyTip, SessionPack } from "@/lib/types";
+import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
+import type { Player, Session, Report, DailyTip, SessionPack, Plan, Academy, Coach, Booking, ActionPlan } from "@/lib/types";
+
+const PRIORITY_STYLES: Record<string, string> = {
+  High: "bg-fire/10 text-fire border-fire/30",
+  Medium: "bg-amber/10 text-amber border-amber/30",
+  Low: "bg-zinc-700 text-zinc-400 border-zinc-600",
+};
 
 const CATEGORY_STYLES: Record<string, string> = {
   Biomechanical: "bg-pace-green/10 text-pace-green border-pace-green/30",
@@ -24,6 +35,11 @@ export function PortalClient() {
   const [reports, setReports] = useState<Report[]>([]);
   const [tip, setTip] = useState<DailyTip | null>(null);
   const [packs, setPacks] = useState<SessionPack[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [academies, setAcademies] = useState<Academy[]>([]);
+  const [coach, setCoach] = useState<Coach | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [actionPlans, setActionPlans] = useState<ActionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [consentError, setConsentError] = useState("");
@@ -36,15 +52,25 @@ export function PortalClient() {
       fetchReports(user.playerId),
       fetchTodaysTip(),
       fetchSessionPacks([user.playerId]),
-    ]).then(([p, s, r, t, pk]) => {
+      fetchActivePlans(),
+      fetchAcademies(),
+      fetchBookings(undefined, user.playerId),
+      fetchActionPlans(user.playerId),
+    ]).then(([p, s, r, t, pk, pl, ac, bk, aps]) => {
       setPlayer(p);
       setSessions(s);
       // A report only becomes visible to the player/parent once a coach has completed reviewing it.
       setReports(r.filter((rep) => rep.reviewStatus === "completed"));
       setTip(t);
       setPacks(pk);
+      setPlans(pl);
+      setAcademies(ac);
+      setBookings(bk);
+      setActionPlans(aps);
       setLoading(false);
       recordTipView(user.playerId!);
+      // Separate from the batch above — we don't know which coach until the player itself loads.
+      if (p?.coachId) fetchCoach(p.coachId).then(setCoach);
     });
   }, [user]);
 
@@ -114,6 +140,44 @@ export function PortalClient() {
 
       <div className="bg-surface rounded-2xl p-5">
         <BadgeStrip player={player} reportCount={reports.length} />
+      </div>
+
+      {/* Coach + next session — the two things a parent/player actually opens this page to check */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-surface rounded-2xl p-5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Your Coach</p>
+          {coach ? (
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-sm font-bold flex-shrink-0">
+                {getInitials(coach.name)}
+              </div>
+              <div className="min-w-0">
+                <div className="text-white font-semibold text-sm truncate">{coach.name}</div>
+                <div className="text-zinc-500 text-xs truncate">{coach.specialization || coach.certificationLevel}</div>
+                {coach.email && <a href={`mailto:${coach.email}`} className="text-pace-green text-xs hover:underline">{coach.email}</a>}
+                {coach.phone && <div className="text-zinc-500 text-xs">{coach.phone}</div>}
+              </div>
+            </div>
+          ) : (
+            <p className="text-zinc-500 text-sm">No coach assigned yet.</p>
+          )}
+        </div>
+        <div className="bg-surface rounded-2xl p-5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Next Session</p>
+          {(() => {
+            const upcoming = bookings
+              .filter((b) => b.status !== "Cancelled" && b.date >= new Date().toISOString().split("T")[0])
+              .sort((a, b) => (a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date)))[0];
+            if (!upcoming) return <p className="text-zinc-500 text-sm">No upcoming sessions scheduled.</p>;
+            return (
+              <div className="text-sm">
+                <div className="text-white font-semibold">{upcoming.type}</div>
+                <div className="text-zinc-400 text-xs mt-0.5">{formatDate(upcoming.date)} · {upcoming.time}</div>
+                {upcoming.location && <div className="text-zinc-500 text-xs mt-0.5">{upcoming.location}</div>}
+              </div>
+            );
+          })()}
+        </div>
       </div>
 
       {/* Daily tip */}
@@ -199,12 +263,42 @@ export function PortalClient() {
             <Row label="Completion" value={`${player.academy.completionPercent}%`} />
             <Row label="Total sessions" value={String(player.academy.totalSessions)} />
             <Row label="Articles read" value={String(player.academy.articlesRead)} />
+            <Row label="Tip streak" value={`🔥 ${player.tipStreakCount} day${player.tipStreakCount === 1 ? "" : "s"}${player.tipBestStreak > player.tipStreakCount ? ` (best ${player.tipBestStreak})` : ""}`} />
           </div>
           <Link href="/portal/learn" className="inline-block mt-3 text-xs font-semibold text-pace-green hover:opacity-80">
             Continue learning →
           </Link>
         </div>
       </div>
+
+      {/* Action Plans — coach-assigned drills/priorities. Never plan-gated: this is coach labor,
+          not AI-generated analysis, so blocking it behind a subscription would undermine the
+          coaching relationship itself rather than protect anything the app spent compute on. */}
+      {actionPlans.length > 0 && (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Action Plans</p>
+          <div className="space-y-3">
+            {actionPlans.map((ap) => (
+              <div key={ap.id} className="bg-surface rounded-2xl p-4">
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <span className="text-white font-semibold text-sm">{ap.title}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${PRIORITY_STYLES[ap.priority] ?? ""}`}>
+                    {ap.priority}
+                  </span>
+                  <span className="text-zinc-500 text-xs">{ap.status}</span>
+                  {ap.dueDate && <span className="text-zinc-500 text-xs">· Due {formatDate(ap.dueDate)}</span>}
+                </div>
+                {ap.drills.length > 0 && (
+                  <ul className="text-zinc-300 text-sm list-disc list-inside space-y-0.5 mb-1.5">
+                    {ap.drills.map((d, i) => <li key={i}>{d}</li>)}
+                  </ul>
+                )}
+                {ap.notes && <p className="text-zinc-500 text-xs">{ap.notes}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent sessions */}
       <div>
@@ -230,7 +324,21 @@ export function PortalClient() {
       <div>
         <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Reports</p>
         {reports.length === 0 ? (
-          <div className="bg-surface rounded-2xl p-8 text-center text-zinc-500 text-sm">No reports yet.</div>
+          aiReportsIncludedForPlayer(player, plans, academies, coach ? [coach] : []) ? (
+            <div className="bg-surface rounded-2xl p-8 text-center text-zinc-500 text-sm">
+              No reports yet — one will appear here after your next session with video.
+            </div>
+          ) : (
+            <div className="bg-surface rounded-2xl p-8 text-center">
+              <p className="text-zinc-400 text-sm mb-3">🔒 AI biomechanics reports require Player Pro or higher.</p>
+              <Link
+                href={`/players/${player.id}/subscription`}
+                className="inline-block px-4 py-2 text-xs font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity"
+              >
+                Upgrade to unlock
+              </Link>
+            </div>
+          )
         ) : (
           <div className="space-y-3">
             {reports.slice(0, 10).map((r) => (
@@ -267,6 +375,8 @@ export function PortalClient() {
           </div>
         )}
       </div>
+
+      <InvoiceHistoryList scope="player" id={player.id} />
     </div>
   );
 }

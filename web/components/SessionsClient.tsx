@@ -15,7 +15,7 @@ import { CameraCalibrationModal } from "@/components/CameraCalibrationModal";
 import { VideoAnnotator } from "@/components/VideoAnnotator";
 import { VoiceNoteRecorder } from "@/components/VoiceNoteRecorder";
 import { AssessmentForm } from "@/components/AssessmentForm";
-import { canGenerateAiReports, canGenerateAiReportsForCoach } from "@/lib/plan-features";
+import { aiReportsIncludedForPlayer } from "@/lib/plan-features";
 
 const SESSION_TYPES: BookingType[] = [
   "Net Session",
@@ -40,33 +40,6 @@ let _sessCoaches: Coach[] = [];
 let _sessAcademies: Academy[] = [];
 let _sessPlans: Plan[] = [];
 function playerById(id: string) { return _sessPlayers.find((p) => p.id === id); }
-/** AI reports are normally gated by the player's own subscription tier — but an academy
- * player on a fees-waived academy plan (e.g. a cricket board license) gets them included too,
- * same as they already get booking/pack session fees waived. Unlike fee-waiving (which lasts the
- * whole paid billing cycle), a plan with accessDurationMonths set only grants this for that
- * shorter "AI monitoring window" per cycle (see academy.accessExpiresAt, set by the webhook on
- * subscribe) — once it lapses, reports stop being included until the academy renews, even though
- * the subscription itself, and its session-fee waiver, are still active. An independent coach's
- * own Coach Pro plan covers AI reports for every player on their roster the same way — the coach
- * is the one paying for the capability, not each individual player. */
-function aiReportsIncludedForPlayer(player: Player): boolean {
-  if (canGenerateAiReports(player.subscription.plan, _sessPlans)) return true;
-  const academy = _sessAcademies.find((a) => a.playerIds.includes(player.id));
-  if (academy?.planId) {
-    const plan = _sessPlans.find((p) => p.id === academy.planId);
-    if (plan?.waivesSessionFees) {
-      const withinMonitoringWindow =
-        plan.accessDurationMonths == null ||
-        (!!academy.accessExpiresAt && new Date(academy.accessExpiresAt) > new Date());
-      if (withinMonitoringWindow) return true;
-    }
-  }
-  if (player.coachId) {
-    const coach = _sessCoaches.find((c) => c.id === player.coachId);
-    if (coach && !coach.academyId && canGenerateAiReportsForCoach(coach.subPlan as "Free" | "Coach Pro", _sessPlans)) return true;
-  }
-  return false;
-}
 
 function thisWeekCount(sessions: Session[]): number {
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
@@ -773,7 +746,7 @@ export function SessionsClient() {
                               {generatingId === session.id ? (generatingStage || "Analyzing…") : "🔄 Regenerate"}
                             </button>
                           </>
-                        ) : player && !aiReportsIncludedForPlayer(player) && player.assessmentCredits > 0 ? (
+                        ) : player && !aiReportsIncludedForPlayer(player, _sessPlans, _sessAcademies, _sessCoaches) && player.assessmentCredits > 0 ? (
                           <button
                             type="button"
                             onClick={() => handleGenerateReport(session, true)}
@@ -783,7 +756,7 @@ export function SessionsClient() {
                           >
                             {generatingId === session.id ? (generatingStage || "Analyzing…") : `🎫 Use Assessment Credit (${player.assessmentCredits} left)`}
                           </button>
-                        ) : player && !aiReportsIncludedForPlayer(player) ? (
+                        ) : player && !aiReportsIncludedForPlayer(player, _sessPlans, _sessAcademies, _sessCoaches) ? (
                           <Link
                             href={`/players/${player.id}/subscription`}
                             className="px-4 py-2 text-xs font-semibold bg-zinc-700/50 text-zinc-400 border border-zinc-600 rounded-lg hover:text-white hover:border-zinc-500 transition-colors"
