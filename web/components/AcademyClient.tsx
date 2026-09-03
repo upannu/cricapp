@@ -173,6 +173,8 @@ export function AcademyClient() {
   const [tabCoachDraft,   setTabCoachDraft]   = useState<NewCoachDraft>(EMPTY_NEW_COACH);
   const [tabCoachError,   setTabCoachError]   = useState("");
   const [tabSavingCoach,  setTabSavingCoach]  = useState(false);
+  const [addingSelfFor,   setAddingSelfFor]   = useState<string | null>(null); // holds academyId while "Add Yourself as Head Coach" is in flight
+  const [addSelfError,    setAddSelfError]    = useState("");
 
   // CSV import
   const [showCsvImport, setShowCsvImport] = useState(false);
@@ -635,6 +637,52 @@ export function AcademyClient() {
     }
   }
 
+  // One-click alternative to handleTabAddCoach for the common case: the person setting up the
+  // academy IS the head coach. Creates a coaches row from the signed-in user's own name/email —
+  // no separate form, nothing to re-type — and sets it as owner exactly like handleTabAddCoach
+  // does. Only ever offered while the roster is empty (see the render below), so there's no
+  // existing owner this could accidentally displace.
+  async function handleAddSelfAsCoach(academyId: string) {
+    if (!user) return;
+    const academy = academies.find((a) => a.id === academyId);
+    if (!academy) return;
+    if (allCoaches.some((c) => c.email.toLowerCase() === user.email.toLowerCase())) {
+      setAddSelfError(`You already have a coach profile (${user.email}) — assign it as owner from the dropdown in Edit Academy instead.`);
+      return;
+    }
+    setAddSelfError(""); setAddingSelfFor(academyId);
+    const newId = `c_${Date.now()}`;
+    const now = new Date().toISOString().split("T")[0];
+    const newCoach: Coach = {
+      id: newId, name: user.name, email: user.email, phone: "",
+      specialization: "", ageGroupsFocus: [], location: "",
+      status: "Active", joinedDate: now, certificationLevel: "Level 1",
+      bio: "", academyId: "", marketplaceVisible: false, available: true,
+      stripeConnectOnboarded: false, currency: academy.currency, subPlan: "Free",
+    };
+    try {
+      await upsertCoach({
+        id: newId, name: newCoach.name, email: newCoach.email, phone: newCoach.phone,
+        specialization: newCoach.specialization, age_groups_focus: [],
+        location: "", status: "Active", joined_date: now,
+        certification_level: newCoach.certificationLevel, bio: "", academy_id: null,
+        marketplace_visible: false, currency: academy.currency,
+      });
+
+      const mergedCoachIds = academy.coachIds.includes(newId) ? academy.coachIds : [...academy.coachIds, newId];
+      await updateAcademyFields(academyId, { coach_ids: mergedCoachIds, head_coach_id: newId });
+
+      setAllCoaches((prev) => [...prev, newCoach]);
+      setAcademies((prev) => prev.map((a) =>
+        a.id === academyId ? { ...a, coachIds: mergedCoachIds, headCoachId: newId } : a
+      ));
+    } catch (err) {
+      setAddSelfError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setAddingSelfFor(null);
+    }
+  }
+
   function downloadCsvTemplate() {
     const blob = new Blob([CSV_TEMPLATE], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -814,6 +862,47 @@ export function AcademyClient() {
     }));
     setOwnerMissing(false); setOwnerSuggested(false);
     setNewCoachDraft(EMPTY_NEW_COACH); setSavingCoach(false); setShowNewCoach(false);
+  }
+
+  // Draft-scoped analog of handleAddSelfAsCoach (above) for the Edit/New Academy modal's Owner
+  // picker: same one-click self-as-coach shortcut, but stages into `draft` the same way
+  // handleAddNewCoach does rather than writing to the academy row directly — this modal is used
+  // for brand-new academies too, where there's no saved row yet to write to.
+  async function handleAddSelfAsCoachToDraft() {
+    if (!user) return;
+    if (allCoaches.some((c) => c.email.toLowerCase() === user.email.toLowerCase())) {
+      setNewCoachError(`You already have a coach profile (${user.email}) — select it from the dropdown instead.`);
+      return;
+    }
+    setNewCoachError(""); setSavingCoach(true);
+    const newId = `c_${Date.now()}`;
+    const now = new Date().toISOString().split("T")[0];
+    const newCoach: Coach = {
+      id: newId, name: user.name, email: user.email, phone: "",
+      specialization: "", ageGroupsFocus: [], location: "", status: "Active", joinedDate: now,
+      certificationLevel: "Level 1", bio: "", academyId: "",
+      marketplaceVisible: false, available: true, stripeConnectOnboarded: false,
+      currency: currencyForCountry(draft.country), subPlan: "Free",
+    };
+    try {
+      await upsertCoach({
+        id: newId, name: newCoach.name, email: newCoach.email, phone: newCoach.phone,
+        specialization: newCoach.specialization, age_groups_focus: [],
+        location: "", status: "Active", joined_date: now,
+        certification_level: newCoach.certificationLevel, bio: "", academy_id: null,
+        marketplace_visible: false, currency: newCoach.currency,
+      });
+    } catch (err) {
+      setNewCoachError((err as { message?: string })?.message ?? String(err));
+      setSavingCoach(false); return;
+    }
+    setAllCoaches((prev) => [...prev, newCoach]);
+    setDraft((prev) => ({
+      ...prev,
+      headCoachId: newId,
+      coachIds: prev.coachIds.includes(newId) ? prev.coachIds : [...prev.coachIds, newId],
+    }));
+    setOwnerMissing(false); setOwnerSuggested(false); setSavingCoach(false);
   }
 
   // ── Filter / sort ──────────────────────────────────────────────────────────
@@ -1280,7 +1369,34 @@ export function AcademyClient() {
                           </div>
                         )}
                         {assignedCoaches.length === 0 ? (
-                        <p className="text-zinc-500 text-sm py-8 text-center">No coaches assigned yet.</p>
+                          canManage && tabAddCoachFor !== academy.id ? (
+                            <div className="space-y-2">
+                              {addSelfError && <p className="text-red-400 text-xs">{addSelfError}</p>}
+                              <button type="button"
+                                onClick={() => handleAddSelfAsCoach(academy.id)}
+                                disabled={addingSelfFor === academy.id}
+                                className="w-full flex items-center gap-3 px-4 py-3 bg-ink border border-zinc-700 rounded-xl hover:border-pace-green transition-colors cursor-pointer disabled:opacity-60 text-left">
+                                <span className="w-8 h-8 rounded-lg bg-pace-green/15 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">★</span>
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-semibold text-white">
+                                    {addingSelfFor === academy.id ? "Adding…" : "Add Yourself as Head Coach"}
+                                  </span>
+                                  <span className="block text-xs text-zinc-500">Uses your own name &amp; email — one click</span>
+                                </span>
+                              </button>
+                              <button type="button"
+                                onClick={() => { setTabAddCoachFor(academy.id); setTabCoachError(""); }}
+                                className="w-full flex items-center gap-3 px-4 py-3 bg-ink border border-zinc-700 rounded-xl hover:border-pace-green transition-colors cursor-pointer text-left">
+                                <span className="w-8 h-8 rounded-lg bg-zinc-700/60 text-zinc-400 flex items-center justify-center text-sm font-bold flex-shrink-0">+</span>
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-semibold text-white">Create New Coach</span>
+                                  <span className="block text-xs text-zinc-500">For someone you&apos;ve hired to coach here</span>
+                                </span>
+                              </button>
+                            </div>
+                          ) : !canManage ? (
+                            <p className="text-zinc-500 text-sm py-8 text-center">No coaches assigned yet.</p>
+                          ) : null
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {assignedCoaches.map((c) => {
@@ -1668,7 +1784,28 @@ export function AcademyClient() {
                 )}
 
                 {allCoaches.length === 0 && !showNewCoach ? (
-                  <p className="text-zinc-500 text-sm">No coaches yet — use "Create New Coach" above to add one.</p>
+                  <div className="space-y-2">
+                    {newCoachError && <p className="text-red-400 text-xs">{newCoachError}</p>}
+                    <button type="button"
+                      onClick={handleAddSelfAsCoachToDraft}
+                      disabled={savingCoach}
+                      className="w-full flex items-center gap-3 px-4 py-3 bg-ink border border-zinc-700 rounded-xl hover:border-pace-green transition-colors cursor-pointer disabled:opacity-60 text-left">
+                      <span className="w-8 h-8 rounded-lg bg-pace-green/15 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">★</span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-white">{savingCoach ? "Adding…" : "Add Yourself as Head Coach"}</span>
+                        <span className="block text-xs text-zinc-500">Uses your own name &amp; email — one click</span>
+                      </span>
+                    </button>
+                    <button type="button"
+                      onClick={() => { setShowNewCoach(true); setNewCoachError(""); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 bg-ink border border-zinc-700 rounded-xl hover:border-pace-green transition-colors cursor-pointer text-left">
+                      <span className="w-8 h-8 rounded-lg bg-zinc-700/60 text-zinc-400 flex items-center justify-center text-sm font-bold flex-shrink-0">+</span>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-white">Create New Coach</span>
+                        <span className="block text-xs text-zinc-500">For someone you&apos;ve hired to coach here</span>
+                      </span>
+                    </button>
+                  </div>
                 ) : allCoaches.length > 0 ? (
                   <>
                     {/* Step 1 — Academy Owner (always visible, required) */}
