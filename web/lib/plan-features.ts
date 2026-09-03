@@ -10,7 +10,7 @@
 // independent coach's Free roster cap is, and vice versa. `coach-pro` is shared as-is since it
 // only ever means one thing (a coach's own paid plan).
 
-import type { Plan, PlanTier } from "./types";
+import type { Academy, Coach, Player, Plan, PlanTier } from "./types";
 
 const PLAYER_TIER_SLUGS: Record<PlanTier, string> = {
   Free: "free",
@@ -85,6 +85,40 @@ export function canGenerateAiReportsForCoach(tier: "Free" | "Coach Pro", plans: 
 export function rosterCapForCoachPlan(tier: "Free" | "Coach Pro", plans: Plan[]): number | null {
   const plan = findCoachTierPlan(tier, plans);
   return plan ? plan.seatCap : (tier === "Free" ? 5 : null);
+}
+
+/** Whether AI biomechanics reports are included for this player right now — shared by
+ * SessionsClient (deciding whether to show a paywall on the generate-report button) and
+ * PortalClient (deciding whether to show the same paywall on the player/parent's own Reports
+ * section, so the person who'd actually choose to upgrade sees the same prompt staff does).
+ * Checked in order: the player's own plan; their academy's plan if it waives session fees (e.g. a
+ * cricket board license) and, when that plan has a limited access window, only while that window
+ * is still open (see academy.accessExpiresAt, set by the webhook on subscribe); an independent
+ * coach's own Coach Pro plan, which covers every player on their roster the same way — the coach
+ * is the one paying for the capability, not each individual player. An academy-employed coach's
+ * own Pro status never extends to their players — only the academy's own plan can do that. */
+export function aiReportsIncludedForPlayer(
+  player: Player,
+  plans: Plan[],
+  academies: Academy[],
+  coaches: Coach[],
+): boolean {
+  if (canGenerateAiReports(player.subscription.plan, plans)) return true;
+  const academy = academies.find((a) => a.playerIds.includes(player.id));
+  if (academy?.planId) {
+    const plan = plans.find((p) => p.id === academy.planId);
+    if (plan?.waivesSessionFees) {
+      const withinMonitoringWindow =
+        plan.accessDurationMonths == null ||
+        (!!academy.accessExpiresAt && new Date(academy.accessExpiresAt) > new Date());
+      if (withinMonitoringWindow) return true;
+    }
+  }
+  if (player.coachId) {
+    const coach = coaches.find((c) => c.id === player.coachId);
+    if (coach && !coach.academyId && canGenerateAiReportsForCoach(coach.subPlan as "Free" | "Coach Pro", plans)) return true;
+  }
+  return false;
 }
 
 /** Coach-facing equivalent of planFeatureLines — same three admin-editable Plan Catalog toggles
