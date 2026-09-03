@@ -17,16 +17,19 @@ export async function GET(request: Request) {
   // Player emails aren't unique (e.g. a parent reusing one email for multiple kids), so don't use
   // maybeSingle() — it errors out silently on multiple matches. Signing up now links every match
   // (see /api/complete-signup), so surface the count here too rather than silently picking one.
+  //
+  // This route is unauthenticated by necessity — it runs pre-signup, before there's any account
+  // to check ownership against — so it must never return anything that identifies a real person.
+  // It used to also return the matched player's name; that let anyone who merely knew (or
+  // guessed) a guardian's email learn a real child's full name and how many siblings share it,
+  // with no login and no rate limit. Existence + count only, nothing that names anyone.
   const { data } = await supabase
     .from("players")
-    .select("name")
+    .select("id")
     .ilike("email", email);
 
-  const match = data?.[0];
-  // Only return existence + first name — never leak other player data pre-signup
   return NextResponse.json({
-    found: !!match,
-    playerName: match?.name ?? null,
+    found: !!data && data.length > 0,
     additionalCount: data && data.length > 1 ? data.length - 1 : 0,
   });
 }
