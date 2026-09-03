@@ -27,6 +27,17 @@ describe("POST /api/stripe/create-checkout-session", () => {
     expect(res.status).toBe(403);
   });
 
+  // Confirmed bug, now fixed: the check above only ever rejected a *mismatched* player/parent —
+  // any account with no role at all (unset/malformed app_metadata, never meant to reach this
+  // route) fell straight through with no check and could start a real checkout for an arbitrary
+  // playerId. Legitimate staff roles (coach/academy_admin/platform_admin) are still allowed
+  // through, unchanged — same broad-trust convention every sibling Stripe route already uses.
+  test("403 for an account with no recognized role at all", async () => {
+    routeMockState.cookieUser = rawUser({ role: "" });
+    const res = await POST(jsonRequest(URL, { playerId: "p1", plan: "Player Pro" }));
+    expect(res.status).toBe(403);
+  });
+
   test("404 when the player is not found", async () => {
     routeMockState.cookieUser = rawUser({ role: "platform_admin" });
     routeMockState.tableResponses = { players: { data: null, error: null } };

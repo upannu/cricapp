@@ -24,6 +24,15 @@ describe("POST /api/stripe/create-assessment-checkout-session", () => {
     expect(res.status).toBe(403);
   });
 
+  // Confirmed bug, now fixed: an account with no recognized role at all used to fall straight
+  // through with no check and could start a real checkout for an arbitrary playerId. Legitimate
+  // staff roles are still allowed through unchanged.
+  test("403 for an account with no recognized role at all", async () => {
+    routeMockState.cookieUser = rawUser({ role: "" });
+    const res = await POST(jsonRequest(URL, { playerId: "p1" }));
+    expect(res.status).toBe(403);
+  });
+
   test("500 when the individual-assessment plan isn't active", async () => {
     routeMockState.cookieUser = rawUser({ role: "platform_admin" });
     routeMockState.tableResponses = { players: { data: PLAYER, error: null }, plans: { data: { ...PLAN, active: false }, error: null } };
