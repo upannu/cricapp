@@ -110,3 +110,13 @@ export function matchPlayerByNameOrEmail(players: Player[], value: string): Play
   return players.find((p) => p.email.trim().toLowerCase() === v)
       ?? players.find((p) => p.name.trim().toLowerCase() === v);
 }
+
+/** Deliberately loose shape check (something@something.something), not full RFC 5322 — the point
+ * isn't to reject every technically-invalid address, it's to catch the case that actually happens
+ * (a name or fragment typed into the email field by mistake, with no "@" at all) before it saves a
+ * player record that self-serve signup's exact-match player lookup can then never find. Every
+ * player-creation entry point (the Players page quick-add, an academy's inline "+ Add Player", and
+ * CSV import row validation) shares this one check so none of them can drift out of sync with it. */
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}

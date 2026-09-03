@@ -250,6 +250,27 @@ describe("PlayersClient", () => {
     }));
   });
 
+  test("rejects a garbage email on quick-add instead of silently saving an unreachable player", async () => {
+    const user = userEvent.setup();
+    insertPlayer.mockClear();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
+    fetchPlayers.mockResolvedValue([]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", playerIds: [] })]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("No players in your scope.");
+
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
+    await user.type(screen.getByPlaceholderText("Player name"), "Twisha");
+    // A name fragment with no "@" — exactly what got typed into the email field in practice.
+    await user.type(screen.getByPlaceholderText("player@email.com"), "Pannu");
+    await user.click(screen.getByRole("button", { name: "Add Player" }));
+
+    expect(await screen.findByText("Enter a valid email address, or leave it blank.")).toBeInTheDocument();
+    expect(insertPlayer).not.toHaveBeenCalled();
+  });
+
   test("imports players from a CSV file", async () => {
     const user = userEvent.setup();
     insertPlayer.mockClear(); insertPlayers.mockClear(); updateAcademyFields.mockClear();
@@ -277,6 +298,31 @@ describe("PlayersClient", () => {
     expect(updateAcademyFields).toHaveBeenCalledWith("ac1", expect.objectContaining({
       player_ids: expect.arrayContaining([expect.stringMatching(/^p_/)]),
     }));
+  });
+
+  test("CSV import skips a row whose email isn't shaped like an email, instead of saving it", async () => {
+    const user = userEvent.setup();
+    insertPlayer.mockClear(); insertPlayers.mockClear(); updateAcademyFields.mockClear();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
+    fetchPlayers.mockResolvedValue([]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", playerIds: [] })]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("No players in your scope.");
+
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
+    await user.click(screen.getByRole("button", { name: "Import CSV instead" }));
+
+    const csv = "name,email,ageGroup,bowlingStyle,club,phone\nTwisha,Pannu,U10,Right Arm Fast,,\n";
+    const file = new File([csv], "players.csv", { type: "text/csv" });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, file);
+
+    const statusCell = await screen.findByText("✗ Skipped");
+    expect(statusCell).toBeInTheDocument();
+    expect(statusCell).toHaveAttribute("title", "Not a valid email address");
+    expect(screen.getByRole("button", { name: "Import 0 Players" })).toBeDisabled();
   });
 
   test("shows an empty state with no players", async () => {
