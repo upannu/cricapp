@@ -22,8 +22,16 @@ export async function POST(request: Request) {
 
   const role = user.app_metadata?.role;
   const ownCoachId = user.app_metadata?.coach_id as string | undefined;
+  const isStaff = role === "platform_admin" || role === "academy_admin";
   if (role === "coach" && ownCoachId !== coachId) {
     return NextResponse.json({ error: "You can only view your own payout account." }, { status: 403 });
+  }
+  // The check above only rejects a *mismatched* coach — without this, a player or parent (or any
+  // other role) falls straight through with no check at all and gets a real login link into that
+  // coach's live Stripe Express dashboard: balance, payout history, banking details. Mirrors the
+  // same guard connect/onboard/route.ts already has.
+  if (!isStaff && role !== "coach") {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

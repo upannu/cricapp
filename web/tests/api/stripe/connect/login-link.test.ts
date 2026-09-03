@@ -22,6 +22,21 @@ describe("POST /api/stripe/connect/login-link", () => {
     expect(res.status).toBe(403);
   });
 
+  // Confirmed bug, now fixed: this role check only rejected a *mismatched* coach — a player or
+  // parent (or anyone else with no relationship to this coach at all) fell straight through with
+  // no check and got a real login link into that coach's live Stripe Express dashboard.
+  test("403 when a player (no coach relationship at all) requests a coach's login link", async () => {
+    routeMockState.cookieUser = rawUser({ role: "player", player_id: "p1" });
+    const res = await POST(jsonRequest(URL, { coachId: "coach1" }));
+    expect(res.status).toBe(403);
+  });
+
+  test("403 when a parent requests a coach's login link", async () => {
+    routeMockState.cookieUser = rawUser({ role: "parent", player_id: "p1" });
+    const res = await POST(jsonRequest(URL, { coachId: "coach1" }));
+    expect(res.status).toBe(403);
+  });
+
   test("400 when the coach hasn't set up payouts at all", async () => {
     routeMockState.cookieUser = rawUser({ role: "platform_admin" });
     routeMockState.tableResponses = { coaches: { data: { stripe_connect_account_id: null }, error: null } };

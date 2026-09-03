@@ -19,8 +19,15 @@ export async function POST(request: Request) {
 
   const role = user.app_metadata?.role;
   const ownPlayerId = user.app_metadata?.player_id as string | undefined;
+  const isStaff = role === "platform_admin" || role === "academy_admin" || role === "coach";
   if ((role === "player" || role === "parent") && ownPlayerId !== playerId) {
     return NextResponse.json({ error: "You can only manage your own subscription." }, { status: 403 });
+  }
+  // The check above only rejects a *mismatched* player/parent — without this, any other role
+  // falls straight through with no check and can open a real Stripe billing portal session for
+  // an arbitrary playerId. Matches the same isStaff allow-list used across the other Stripe routes.
+  if (!isStaff && role !== "player" && role !== "parent") {
+    return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
