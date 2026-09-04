@@ -250,6 +250,31 @@ describe("PlayersClient", () => {
     }));
   });
 
+  test("adding a player with an email fires a best-effort guardian-relink call", async () => {
+    const user = userEvent.setup();
+    insertPlayer.mockClear();
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}"));
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("No players in your scope.");
+
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
+    await user.type(screen.getByPlaceholderText("Player name"), "Emailed Kid");
+    await user.type(screen.getByPlaceholderText("player@email.com"), "kid@example.com");
+    await user.click(screen.getByRole("button", { name: "Add Player" }));
+
+    await screen.findByText("Emailed Kid");
+    const relinkCall = fetchSpy.mock.calls.find(([url]) => url === "/api/players/relink-guardians");
+    expect(relinkCall).toBeTruthy();
+    expect(JSON.parse(relinkCall![1]!.body as string)).toEqual({ playerIds: [expect.stringMatching(/^p_/)] });
+
+    fetchSpy.mockRestore();
+  });
+
   test("rejects a garbage email on quick-add instead of silently saving an unreachable player", async () => {
     const user = userEvent.setup();
     insertPlayer.mockClear();

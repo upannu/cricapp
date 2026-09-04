@@ -512,6 +512,14 @@ export function AcademyClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: newId, academyId: editingId }),
       }).catch(() => {});
+      // A guardian who already has a parent/player account under this same email — signed up
+      // before this player existed — never gets linked to them automatically otherwise; nothing
+      // re-checks after the initial signup/approval. Best-effort, never blocks the add itself.
+      fetch("/api/players/relink-guardians", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerIds: [newId] }),
+      }).catch(() => {});
     }
   }
 
@@ -583,6 +591,12 @@ export function AcademyClient() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ playerId: newId, academyId }),
+        }).catch(() => {});
+        // See handleAddNewPlayer above for why this exists.
+        fetch("/api/players/relink-guardians", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerIds: [newId] }),
         }).catch(() => {});
       }
     } catch (err) {
@@ -806,12 +820,22 @@ export function AcademyClient() {
       setCsvRows([]);
       setCsvFileName("");
 
+      const emailedIds: string[] = [];
       for (const p of newPlayers) {
         if (!p.email.trim()) continue;
+        emailedIds.push(p.id);
         fetch("/api/players/notify-added", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ playerId: p.id, academyId: editingId }),
+        }).catch(() => {});
+      }
+      // One batched call for the whole CSV import — see handleAddNewPlayer above for why this exists.
+      if (emailedIds.length > 0) {
+        fetch("/api/players/relink-guardians", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerIds: emailedIds }),
         }).catch(() => {});
       }
     } catch (err) {
