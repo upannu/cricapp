@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { findAuthUserByEmail } from "@/lib/server-auth";
 
 interface LinkedIdentity {
   role: string;
@@ -22,9 +23,8 @@ export async function POST(request: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  const { data: listData, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-  if (listError) return NextResponse.json({ error: listError.message }, { status: 500 });
-  const existingUser = listData.users.find((u) => u.email?.toLowerCase() === String(email).toLowerCase());
+  const { user: existingUser, error: listError } = await findAuthUserByEmail(supabase, String(email));
+  if (listError) return NextResponse.json({ error: listError }, { status: 500 });
   if (!existingUser) {
     return NextResponse.json({ error: "No existing account found for this email." }, { status: 404 });
   }

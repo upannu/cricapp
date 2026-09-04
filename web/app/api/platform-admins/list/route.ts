@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { getCaller } from "@/lib/server-auth";
+import { getCaller, listAllAuthUsers } from "@/lib/server-auth";
 
 export async function GET() {
   const caller = await getCaller();
@@ -16,10 +16,10 @@ export async function GET() {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  const { data, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { users: allUsers, error } = await listAllAuthUsers(supabase);
+  if (error) return NextResponse.json({ error }, { status: 500 });
 
-  const users = data.users
+  const users = allUsers
     .filter((u) => u.app_metadata?.approved !== false)
     .map((u) => ({
       id: u.id,

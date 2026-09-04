@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
-import { getCaller } from "@/lib/server-auth";
+import { getCaller, listAllAuthUsers } from "@/lib/server-auth";
 import { fetchAcademyPlanInfo } from "@/lib/plan-email";
 import { buildPlanDetailsEmailHtml, emailFrom } from "@/lib/email-templates";
 
@@ -45,9 +45,9 @@ export async function POST(request: Request) {
 
   // Every academy_admin on file for this academy — usually one person, but a platform admin
   // triggering this on a customer's behalf shouldn't have to know exactly who that is.
-  const { data: listData, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-  if (listError) return NextResponse.json({ error: listError.message }, { status: 500 });
-  const recipients = listData.users.filter(
+  const { users: allUsers, error: listError } = await listAllAuthUsers(supabase);
+  if (listError) return NextResponse.json({ error: listError }, { status: 500 });
+  const recipients = allUsers.filter(
     (u) => u.app_metadata?.role === "academy_admin" && u.app_metadata?.academy_id === academyId && u.email,
   );
   if (recipients.length === 0) {

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { findAuthUserByEmail } from "@/lib/server-auth";
 
 export async function POST(request: Request) {
   const { email } = await request.json();
@@ -15,9 +16,8 @@ export async function POST(request: Request) {
 
   // Only tells the caller whether *some* account exists for this email — no other details,
   // since this is called from the public signup form before any session exists.
-  const { data, error } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { user, error } = await findAuthUserByEmail(supabase, String(email));
+  if (error) return NextResponse.json({ error }, { status: 500 });
 
-  const exists = data.users.some((u) => u.email?.toLowerCase() === String(email).toLowerCase());
-  return NextResponse.json({ exists });
+  return NextResponse.json({ exists: !!user });
 }
