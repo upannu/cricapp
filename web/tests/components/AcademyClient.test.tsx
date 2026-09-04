@@ -122,6 +122,28 @@ describe("AcademyClient", () => {
     }));
   });
 
+  test("adding a player with an email from the Players tab fires a best-effort guardian-relink call", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}"));
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", playerIds: [] })]);
+
+    render(<AcademyClient />);
+    await user.click(await screen.findByRole("button", { name: "Players (0)" }));
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
+    await user.type(screen.getByPlaceholderText("Player name"), "Emailed Kid");
+    await user.type(screen.getByPlaceholderText("player@email.com"), "kid@example.com");
+    await user.click(screen.getByRole("button", { name: "Create & Assign" }));
+
+    await screen.findByText("Emailed Kid");
+    const relinkCall = fetchSpy.mock.calls.find(([url]) => url === "/api/players/relink-guardians");
+    expect(relinkCall).toBeTruthy();
+    expect(JSON.parse(relinkCall![1]!.body as string)).toEqual({ playerIds: [expect.stringMatching(/^p_/)] });
+
+    fetchSpy.mockRestore();
+  });
+
   test("rejects a garbage email on the Coaches tab's inline Add Player, instead of silently saving an unreachable player", async () => {
     const user = userEvent.setup();
     setupDefaults();

@@ -198,6 +198,14 @@ export function PlayersClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: newId, academyId: targetAcademy?.id }),
       }).catch(() => {});
+      // A guardian who already has a parent/player account under this same email — signed up
+      // before this player existed — never gets linked to them automatically otherwise; nothing
+      // re-checks after the initial signup/approval. Best-effort, never blocks the add itself.
+      fetch("/api/players/relink-guardians", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerIds: [newId] }),
+      }).catch(() => {});
     }
   }
 
@@ -325,12 +333,23 @@ export function PlayersClient() {
       // which file was imported; clearing it first (as a near-identical AcademyClient.tsx code
       // path does) always shows a blank filename.
 
+      const emailedIds: string[] = [];
       for (const p of newPlayers) {
         if (!p.email.trim()) continue;
+        emailedIds.push(p.id);
         fetch("/api/players/notify-added", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ playerId: p.id, academyId: targetAcademy?.id }),
+        }).catch(() => {});
+      }
+      // See the single-add path above for why this exists — one batched call for the whole CSV
+      // import rather than one per row.
+      if (emailedIds.length > 0) {
+        fetch("/api/players/relink-guardians", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerIds: emailedIds }),
         }).catch(() => {});
       }
     } catch (err) {
