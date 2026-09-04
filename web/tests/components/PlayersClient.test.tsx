@@ -87,7 +87,8 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByTitle("Send message"));
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Send Message"));
     expect(screen.getByTestId("message-modal")).toHaveTextContent("Messaging Alice Bowler");
   });
 

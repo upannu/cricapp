@@ -9,6 +9,7 @@ import { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoa
 import { canUseMarketplaceForCoach } from "@/lib/plan-features";
 import { DateInput } from "@/components/DateInput";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
+import { RowActionsMenu } from "@/components/RowActionsMenu";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const CERT_LEVELS: CertificationLevel[] = ["Level 1", "Level 2", "Level 3", "Elite"];
@@ -157,6 +158,15 @@ export function CoachesClient() {
     setInviteStatus("idle");
     setInviteError("");
     setShowForm(true);
+    scrollToForm();
+  }
+
+  // Reachable directly from the row's ⋮ menu, without a separate "find Delete Coach among the
+  // form fields" step first — lands straight on the same confirm-delete prompt the Edit form
+  // already has, so this doesn't invent a second delete UI to keep in sync with the first.
+  function openEditWithDeleteConfirm(coach: Coach) {
+    openEdit(coach);
+    setConfirmDeleteCoachId(coach.id);
     scrollToForm();
   }
 
@@ -746,6 +756,14 @@ export function CoachesClient() {
                       className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors cursor-pointer flex-shrink-0">
                       Edit
                     </button>
+                  )}
+                  {/* Delete stays staff-only (never on a coach's own card, matching the confirm-
+                      delete gating in the Edit form itself) — reachable in one click instead of
+                      having to open Edit first and find it among the form's own fields. */}
+                  {user?.role !== "coach" && (
+                    <RowActionsMenu items={[
+                      { label: "Delete Coach", variant: "danger", onClick: () => openEditWithDeleteConfirm(coach) },
+                    ]} />
                   )}
                 </div>
 

@@ -88,6 +88,32 @@ describe("CoachesClient", () => {
     global.fetch = originalFetch;
   });
 
+  test("reaches the delete-confirm prompt directly from the row's ⋮ menu, skipping the edit form's own fields", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Delete Coach"));
+
+    expect(await screen.findByText("Delete this coach?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
+  });
+
+  test("hides the ⋮ delete menu from a coach viewing their own card", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
+  });
+
   test("locks marketplace visibility for a Free independent coach editing their own profile, by default", async () => {
     const user = userEvent.setup();
     setupDefaults();

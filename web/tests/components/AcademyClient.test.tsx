@@ -51,6 +51,24 @@ describe("AcademyClient", () => {
     expect(screen.queryByRole("button", { name: "+ New Academy" })).not.toBeInTheDocument();
   });
 
+  test("a platform admin reaches Edit Academy and Deactivate through the row's ⋮ menu", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" })]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    // Not a direct row button — reachable only via the ⋮ menu for platform_admin.
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Deactivate"));
+
+    expect(await screen.findByText("Deactivate Academy?")).toBeInTheDocument();
+  });
+
   test("scopes the players/coaches fetch to the academy_admin's own academy", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
