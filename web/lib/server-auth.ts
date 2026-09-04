@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 export interface Caller {
   userId: string;
@@ -52,4 +52,50 @@ export async function callerCanAccessPlayer(
     return !!(data?.player_ids as string[] | undefined)?.includes(targetPlayerId);
   }
   return false;
+}
+
+/**
+ * Finds a Supabase Auth user by email — the Admin API has no server-side "search by email"
+ * endpoint, so paging through listUsers() is the standard way to do this. Every call site that
+ * needed this used to fetch a single page (perPage: 1000) and stop there, meaning any account
+ * created after the 1000th signup would silently fail every one of those lookups (approve-user,
+ * check-existing-account, reject-user, request-additional-role) with no error explaining why —
+ * this app is meant to grow well past 1000 users. Pages through the full list (1000 per page,
+ * matching the existing call sites) until found or exhausted.
+ */
+export async function findAuthUserByEmail(
+  supabase: SupabaseClient,
+  email: string,
+): Promise<{ user: User | null; error: string | null }> {
+  const target = email.trim().toLowerCase();
+  let page = 1;
+  for (;;) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) return { user: null, error: error.message };
+    const match = data.users.find((u) => u.email?.toLowerCase() === target);
+    if (match) return { user: match, error: null };
+    if (!data.nextPage) return { user: null, error: null };
+    page = data.nextPage;
+  }
+}
+
+/**
+ * Every Auth user, across all pages — the same underlying truncation risk as
+ * findAuthUserByEmail above, but for call sites that need to scan/filter the whole user base
+ * (send-plan-email finds every academy_admin for an academy; platform-admins/list finds every
+ * platform_admin) rather than find one match and stop. 1000 per page, same as the rest of this
+ * app's listUsers() calls.
+ */
+export async function listAllAuthUsers(
+  supabase: SupabaseClient,
+): Promise<{ users: User[]; error: string | null }> {
+  const users: User[] = [];
+  let page = 1;
+  for (;;) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) return { users, error: error.message };
+    users.push(...data.users);
+    if (!data.nextPage) return { users, error: null };
+    page = data.nextPage;
+  }
 }

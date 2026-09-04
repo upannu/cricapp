@@ -8,6 +8,7 @@ import { fetchAcademyPlanInfo } from "@/lib/plan-email";
 import { planFeatureLines } from "@/lib/plan-features";
 import { dbToPlan, type DbPlan } from "@/lib/db";
 import type { PlanTier } from "@/lib/types";
+import { findAuthUserByEmail } from "@/lib/server-auth";
 
 interface LinkedIdentity {
   role: string;
@@ -171,10 +172,8 @@ export async function POST(request: Request) {
 
   // Find the auth user by email — the stored ID can be a ghost UUID
   // if the email was already registered when they signed up
-  const { data: listData, error: listError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-  if (listError) return NextResponse.json({ error: listError.message }, { status: 500 });
-
-  const authUser = listData.users.find((u) => u.email?.toLowerCase() === reqData.email?.toLowerCase());
+  const { user: authUser, error: listError } = await findAuthUserByEmail(supabase, reqData.email ?? "");
+  if (listError) return NextResponse.json({ error: listError }, { status: 500 });
 
   if (!authUser) {
     await supabase.from("user_requests").delete().eq("id", userId);

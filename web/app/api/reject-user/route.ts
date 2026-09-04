@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { findAuthUserByEmail } from "@/lib/server-auth";
 
 export async function POST(request: Request) {
   const { userId } = await request.json();
@@ -41,8 +42,7 @@ export async function POST(request: Request) {
   // of this request. Only a brand-new signup's account should be removed when rejected.
   if (reqData?.email && reqData.request_type !== "link") {
     // Find and delete the auth user by email
-    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    const authUser = listData?.users.find((u) => u.email === reqData.email);
+    const { user: authUser } = await findAuthUserByEmail(supabase, reqData.email);
     if (authUser) {
       const { error: deleteError } = await supabase.auth.admin.deleteUser(authUser.id);
       if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 400 });
