@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Papa from "papaparse";
 import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan, Net } from "@/lib/types";
@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, insertPlayers, updateAcademyFields, fetchActivePlans, fetchNets, upsertNet, deleteNet } from "@/lib/db";
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
+import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { getPlatformFeePercent, isValidEmail } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
@@ -130,10 +131,6 @@ export function AcademyClient() {
   const [netError,     setNetError]     = useState("");
   const [confirmDeleteNetId, setConfirmDeleteNetId] = useState<string | null>(null);
 
-  // 3-dot menu
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const menuRef                     = useRef<HTMLDivElement>(null);
-
   // Confirm status toggle
   const [confirmToggle, setConfirmToggle] = useState<ConfirmToggle | null>(null);
   const [toggling,      setToggling]      = useState(false);
@@ -201,17 +198,6 @@ export function AcademyClient() {
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close 3-dot menu on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpenMenuId(null);
-      }
-    }
-    if (openMenuId) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [openMenuId]);
-
   // ── Accordion ──────────────────────────────────────────────────────────────
   // An academy_admin's own academy auto-expands (see the expandedId initializer above) straight
   // to Pricing rather than Players — the session-fee/age-group rates are what they open this page
@@ -272,7 +258,6 @@ export function AcademyClient() {
 
   // ── 3-dot actions ──────────────────────────────────────────────────────────
   function handleMenuAction(action: "edit" | "toggleStatus", academy: Academy) {
-    setOpenMenuId(null);
     if (action === "edit") { openEdit(academy); return; }
     setConfirmToggle({
       id: academy.id,
@@ -1057,7 +1042,7 @@ export function AcademyClient() {
           )}
         </div>
       ) : (
-        <div className="space-y-2" ref={menuRef}>
+        <div className="space-y-2">
           {displayed.map((academy) => {
             const isExpanded      = expandedId === academy.id;
             const tab             = getTab(academy.id);
@@ -1070,7 +1055,6 @@ export function AcademyClient() {
             }, {} as Partial<Record<AgeGroup, number>>);
             const ageGroupsPresent = AGE_GROUPS.filter((g) => (countsByGroup[g] ?? 0) > 0);
             const groupViewActive  = activeGroupView?.academyId === academy.id ? activeGroupView.ageGroup : null;
-            const isMenuOpen       = openMenuId === academy.id;
 
             return (
               <div key={academy.id}
@@ -1148,59 +1132,38 @@ export function AcademyClient() {
                     </button>
                   )}
 
-                  {/* ⋮ menu */}
+                  {/* ⋮ menu — the infrequent, platform_admin-only actions (a direct Billing/Edit
+                      button above already covers what gets clicked most). */}
                   {user?.role === "platform_admin" && (
-                    <div className="relative flex-shrink-0">
-                      <button type="button"
-                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(isMenuOpen ? null : academy.id); }}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${
-                          isMenuOpen
-                            ? "border-zinc-500 bg-zinc-700 text-white"
-                            : "border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500"
-                        }`}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                        </svg>
-                      </button>
-
-                      {isMenuOpen && (
-                        <div className="absolute right-0 top-10 z-30 w-44 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
-                          <button type="button"
-                            onClick={() => handleMenuAction("edit", academy)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer text-left">
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <RowActionsMenu items={[
+                        {
+                          label: "Edit Academy",
+                          icon: (
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                             </svg>
-                            Edit Academy
-                          </button>
-                          <div className="h-px bg-zinc-700 mx-3 my-1" />
-                          <button type="button"
-                            onClick={() => handleMenuAction("toggleStatus", academy)}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer text-left ${
-                              academy.status === "Active"
-                                ? "text-amber hover:bg-amber/10"
-                                : "text-pace-green hover:bg-pace-green/10"
-                            }`}>
-                            {academy.status === "Active" ? (
-                              <>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
-                                </svg>
-                                Deactivate
-                              </>
-                            ) : (
-                              <>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <circle cx="12" cy="12" r="10"/>
-                                  <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
-                                </svg>
-                                Activate
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
+                          ),
+                          onClick: () => handleMenuAction("edit", academy),
+                        },
+                        {
+                          label: academy.status === "Active" ? "Deactivate" : "Activate",
+                          dividerBefore: true,
+                          variant: academy.status === "Active" ? "warning" : "success",
+                          icon: academy.status === "Active" ? (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" /><line x1="8" y1="12" x2="16" y2="12" />
+                            </svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
+                            </svg>
+                          ),
+                          onClick: () => handleMenuAction("toggleStatus", academy),
+                        },
+                      ]} />
                     </div>
                   )}
                 </div>

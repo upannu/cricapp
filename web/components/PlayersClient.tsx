@@ -9,6 +9,7 @@ import { formatDate, getPlayerStatus, getInitials, getCoachOrAcademyLabel, isVal
 import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, Plan } from "@/lib/types";
 import { MessageModal } from "@/components/MessageModal";
 import { BulkMessageModal } from "@/components/BulkMessageModal";
+import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { rosterCapForCoachPlan, sessionsLimitForPlan } from "@/lib/plan-features";
 
@@ -736,14 +737,12 @@ export function PlayersClient() {
                         >
                           View
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() => setMessagingPlayer(player)}
-                          className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
-                          title="Send message"
-                        >
-                          ✉
-                        </button>
+                        {/* Message moved behind ⋮ — there's already a bulk "Message Selected"
+                            flow for the common case, so a per-row send is the secondary action
+                            here, not the primary one (unlike View). */}
+                        <RowActionsMenu items={[
+                          { label: "Send Message", onClick: () => setMessagingPlayer(player) },
+                        ]} />
                       </div>
                     </td>
                     <td className="px-4 py-4 pr-6 text-center">
