@@ -97,4 +97,32 @@ describe("AttendanceClient", () => {
       [{ playerId: "p1", status: "Present" }],
     );
   });
+
+  test("collapses a long past-attendance history behind Show all", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", playerIds: [] })]);
+    // 18 weekly occurrences, all safely in the past — spaced far enough apart that their
+    // formatted labels ("dd Mon yyyy") can never collide with each other.
+    const past = Array.from({ length: 18 }, (_, i) => {
+      const d = new Date(Date.now() - (i + 1) * 7 * 86400000);
+      const date = d.toISOString().split("T")[0];
+      const label = new Date(date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+      return { id: `o${i}`, date, label };
+    });
+    fetchPastOccurrences.mockResolvedValue(past.map(({ id, date }) => ({ id, date })));
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByText("U14 Nets"));
+
+    expect(await screen.findByText(`${past[0].label} ✓`)).toBeInTheDocument();
+    expect(screen.queryByText(`${past[17].label} ✓`)).not.toBeInTheDocument();
+    const showAll = screen.getByRole("button", { name: "Show all 18" });
+
+    await user.click(showAll);
+    expect(await screen.findByText(`${past[17].label} ✓`)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show less" }));
+    expect(screen.queryByText(`${past[17].label} ✓`)).not.toBeInTheDocument();
+  });
 });

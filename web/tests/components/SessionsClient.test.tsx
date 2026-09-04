@@ -63,7 +63,7 @@ describe("SessionsClient", () => {
 
     render(<SessionsClient />);
 
-    await screen.findByText("Showing 2 of 2 sessions");
+    await screen.findByText("Showing 1–2 of 2 sessions");
     expect(screen.getAllByText("Net Session").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Match Practice").length).toBeGreaterThan(0);
     expect(screen.getByText("125.0 km/h")).toBeInTheDocument(); // avg of 120/130
@@ -78,11 +78,37 @@ describe("SessionsClient", () => {
     ]);
 
     render(<SessionsClient />);
-    await screen.findByText("Showing 2 of 2 sessions");
+    await screen.findByText("Showing 1–2 of 2 sessions");
 
     await user.selectOptions(screen.getByDisplayValue("All Types"), "Match Practice");
 
-    expect(await screen.findByText("Showing 1 of 2 sessions")).toBeInTheDocument();
+    expect(await screen.findByText("Showing 1–1 of 1 sessions")).toBeInTheDocument();
     expect(screen.getAllByText("Match Practice").length).toBeGreaterThan(0);
+  });
+
+  test("paginates past the first 10 sessions and resets to page 1 on search", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchSessions.mockResolvedValue(
+      Array.from({ length: 12 }, (_, i) =>
+        makeSession({ id: `s${i}`, playerId: "p1", type: "Net Session", notes: `session-${i}` })
+      )
+    );
+
+    render(<SessionsClient />);
+    await screen.findByText("Showing 1–10 of 12 sessions");
+    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    expect(screen.getByText("session-0")).toBeInTheDocument();
+    expect(screen.queryByText("session-11")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Next →" }));
+
+    expect(await screen.findByText("Showing 11–12 of 12 sessions")).toBeInTheDocument();
+    expect(screen.getByText("session-11")).toBeInTheDocument();
+    expect(screen.queryByText("session-0")).not.toBeInTheDocument();
+
+    // A new search can land fewer results than the page you were on — search resets to page 1.
+    await user.type(screen.getByPlaceholderText("Search player, notes or type…"), "session-11");
+    expect(await screen.findByText("Showing 1–1 of 1 sessions")).toBeInTheDocument();
   });
 });

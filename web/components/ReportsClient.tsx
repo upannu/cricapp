@@ -10,6 +10,9 @@ import { ReportActions } from "@/components/ReportActions";
 import { ReportReview, ReportStatusBadge } from "@/components/ReportReview";
 
 const REPORT_TYPES: ReportType[] = ["Biomechanics", "Session Review", "Progress Report", "Action Plan"];
+// Individual reports stay collapsed by default, so the row count that actually matters for a
+// large roster is the player list within whichever coach group is open.
+const REPORT_PLAYERS_PER_PAGE = 10;
 
 const TYPE_STYLES: Record<ReportType, string> = {
   "Biomechanics":    "bg-pace-green/10 text-pace-green border-pace-green/20",
@@ -75,6 +78,14 @@ export function ReportsClient() {
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  // A different coach's roster starts back on page 1 — reset during render (React's documented
+  // pattern for "adjust state when a value changes") rather than an effect.
+  const [pageResetCoach, setPageResetCoach] = useState(expandedCoach);
+  if (expandedCoach !== pageResetCoach) {
+    setPageResetCoach(expandedCoach);
+    setPage(1);
+  }
 
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
@@ -298,9 +309,16 @@ export function ReportsClient() {
                   </button>
                 )}
 
-                {isCoachOpen && (
+                {isCoachOpen && (() => {
+                  const totalGroupPages = Math.max(1, Math.ceil(group.groups.length / REPORT_PLAYERS_PER_PAGE));
+                  const currentGroupPage = Math.min(page, totalGroupPages);
+                  const pagedGroups = group.groups.slice(
+                    (currentGroupPage - 1) * REPORT_PLAYERS_PER_PAGE,
+                    currentGroupPage * REPORT_PLAYERS_PER_PAGE,
+                  );
+                  return (
                   <div className={isSingleCoachView ? "px-2 pb-2 pt-2 space-y-2" : "px-5 pb-4 space-y-2"}>
-                    {group.groups.map(({ player, reports: pReports }) => {
+                    {pagedGroups.map(({ player, reports: pReports }) => {
                       const isPlayerOpen = expandedPlayer === player.id;
 
                       return (
@@ -346,8 +364,32 @@ export function ReportsClient() {
                         </div>
                       );
                     })}
+                    {totalGroupPages > 1 && (
+                      <div className="flex items-center justify-between pt-2">
+                        <p className="text-xs text-zinc-500">Page {currentGroupPage} of {totalGroupPages}</p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            disabled={currentGroupPage === 1}
+                            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            ← Prev
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPage((p) => Math.min(totalGroupPages, p + 1))}
+                            disabled={currentGroupPage === totalGroupPages}
+                            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                          >
+                            Next →
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
+                  );
+                })()}
               </div>
             );
           })}

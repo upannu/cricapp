@@ -18,6 +18,9 @@ const SESSION_TYPES: BookingType[] = [
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const WEEKS_AHEAD = 8;
+// A weekly recurring group can accumulate years of past occurrences — collapse to a preview
+// rather than rendering every chip for a group that's been running a long time.
+const PAST_DATES_PREVIEW_COUNT = 16;
 
 const ROSTER_CSV_TEMPLATE = "name,email\nJohn Smith,john@example.com\n";
 const ATTENDANCE_CSV_TEMPLATE = "date,player,status\n2026-08-04,John Smith,Present\n2026-08-04,jane@example.com,Absent\n";
@@ -89,6 +92,7 @@ export function AttendanceClient() {
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pastDates, setPastDates] = useState<Record<string, { id: string; date: string }[]>>({});
+  const [showAllPast, setShowAllPast] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState<DraftGroup>(EMPTY_DRAFT);
@@ -285,6 +289,7 @@ export function AttendanceClient() {
   async function toggleExpand(group: GroupSession) {
     if (expandedId === group.id) { setExpandedId(null); return; }
     setExpandedId(group.id);
+    setShowAllPast(false);
     if (!pastDates[group.id]) {
       const occ = await fetchPastOccurrences(group.id);
       setPastDates((prev) => ({ ...prev, [group.id]: occ }));
@@ -513,19 +518,30 @@ export function AttendanceClient() {
                       })}
                     </div>
                   </div>
-                  {past.filter((o) => !upcoming.includes(o.date)).length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Past attendance</p>
-                      <div className="flex flex-wrap gap-2">
-                        {past.filter((o) => !upcoming.includes(o.date)).map((o) => (
-                          <button key={o.id} type="button" onClick={() => openAttendance(g, o.date)}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-pace-green/50 bg-pace-green/10 text-pace-green cursor-pointer">
-                            {new Date(o.date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} ✓
-                          </button>
-                        ))}
+                  {(() => {
+                    const pastOnly = past.filter((o) => !upcoming.includes(o.date));
+                    if (pastOnly.length === 0) return null;
+                    const visiblePast = showAllPast ? pastOnly : pastOnly.slice(0, PAST_DATES_PREVIEW_COUNT);
+                    return (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Past attendance</p>
+                        <div className="flex flex-wrap gap-2">
+                          {visiblePast.map((o) => (
+                            <button key={o.id} type="button" onClick={() => openAttendance(g, o.date)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-pace-green/50 bg-pace-green/10 text-pace-green cursor-pointer">
+                              {new Date(o.date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} ✓
+                            </button>
+                          ))}
+                          {pastOnly.length > PAST_DATES_PREVIEW_COUNT && (
+                            <button type="button" onClick={(e) => { e.stopPropagation(); setShowAllPast((v) => !v); }}
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-zinc-700 text-zinc-400 hover:border-zinc-500 transition-colors cursor-pointer">
+                              {showAllPast ? "Show less" : `Show all ${pastOnly.length}`}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               )}
             </div>
