@@ -104,6 +104,18 @@ export function EditPlayerForm({ player }: { player: Player }) {
       ...(isStaff ? { sub_last_payment_date: lastPaymentDate || null } : {}),
     }).then(() => {
       setSaved(true);
+      // Creating a player already checks for a guardian account to auto-link (see
+      // insertPlayer's call sites), but an edit here is the one place a player's email can
+      // change afterward — e.g. correcting a typo — which the same check needs to catch too.
+      // Fire-and-forget: never blocks the save, and only ever extends a role the matching
+      // account already holds (see api/players/relink-guardians's own comment).
+      if (email.trim()) {
+        fetch("/api/players/relink-guardians", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerIds: [player.id] }),
+        }).catch(() => {});
+      }
       setTimeout(() => router.push(`/players/${player.id}`), 1200);
     });
   }
