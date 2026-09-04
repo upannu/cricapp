@@ -31,6 +31,9 @@ function dowOfDate(dateStr: string): number {
 }
 
 const DURATIONS = [30, 45, 60, 90, 120];
+// Only the flat (Past / All) tabs paginate — Upcoming/Pending are grouped by date and stay
+// naturally small (a handful of sessions ahead), while Past accumulates forever.
+const BOOKINGS_PER_PAGE = 10;
 
 const STATUS_STYLES: Record<BookingStatus, string> = {
   Confirmed:  "bg-pace-green/20 text-pace-green border-pace-green/30",
@@ -205,6 +208,15 @@ export function BookingsClient() {
     fetchBookingFeeDues().then(setFeeDues).catch(() => {});
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   const [tab, setTab] = useState<FilterTab>("Upcoming");
+  const [page, setPage] = useState(1);
+  // Switching tabs can easily land fewer results than the page you were on — reset during render
+  // (React's documented pattern for "adjust state when a value changes") rather than an effect,
+  // which would flash the stale page for one frame first.
+  const [pageResetTab, setPageResetTab] = useState(tab);
+  if (tab !== pageResetTab) {
+    setPageResetTab(tab);
+    setPage(1);
+  }
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftBooking>(EMPTY_DRAFT);
@@ -233,6 +245,11 @@ export function BookingsClient() {
   const grouped = tab === "Past" || tab === "All"
     ? null
     : groupByDate(filtered);
+
+  // Pagination for the flat (ungrouped) Past/All lists only — see BOOKINGS_PER_PAGE above.
+  const totalPages = grouped ? 1 : Math.max(1, Math.ceil(filtered.length / BOOKINGS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedFiltered = grouped ? filtered : filtered.slice((currentPage - 1) * BOOKINGS_PER_PAGE, currentPage * BOOKINGS_PER_PAGE);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
   function scrollToForm() {
@@ -724,8 +741,9 @@ export function BookingsClient() {
         </div>
       ) : (
         // Flat list (Past / All)
+        <>
         <div className="space-y-3">
-          {filtered.map((b) => (
+          {pagedFiltered.map((b) => (
             <BookingCard
               key={b.id}
               booking={b}
@@ -737,6 +755,33 @@ export function BookingsClient() {
             />
           ))}
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-xs text-zinc-500">
+              Showing {(currentPage - 1) * BOOKINGS_PER_PAGE + 1}–{Math.min(currentPage * BOOKINGS_PER_PAGE, filtered.length)} of {filtered.length}
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                ← Prev
+              </button>
+              <span className="text-xs text-zinc-400 px-1">Page {currentPage} of {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   );

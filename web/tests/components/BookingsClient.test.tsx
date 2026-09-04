@@ -84,4 +84,35 @@ describe("BookingsClient", () => {
     expect(await screen.findByText(/already has another booking at this time/i)).toBeInTheDocument();
     expect(upsertBooking).not.toHaveBeenCalled();
   });
+
+  test("paginates the Past tab's flat list and resets to page 1 on tab switch", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    const pastDate = (daysAgo: number) => new Date(Date.now() - daysAgo * 86400000).toISOString().split("T")[0];
+    fetchBookings.mockResolvedValue(
+      Array.from({ length: 12 }, (_, i) => ({
+        id: `b${i}`, playerId: "p1", coachId: "coach1", date: pastDate(i + 1), time: "09:00",
+        durationMins: 60, type: "Net Session", status: "Confirmed", location: `loc-${i}`, notes: "",
+        feeAud: 0, paymentStatus: "Paid",
+      }))
+    );
+
+    render(<BookingsClient />);
+    await user.click(await screen.findByRole("button", { name: "Past" }));
+
+    expect(await screen.findByText("Page 1 of 2")).toBeInTheDocument();
+    // Sorted most-recent-first — page 1 holds days-ago 1..10, i.e. loc-0..loc-9.
+    expect(screen.getByText("loc-0")).toBeInTheDocument();
+    expect(screen.queryByText("loc-11")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Next →" }));
+    expect(await screen.findByText("loc-11")).toBeInTheDocument();
+    expect(screen.queryByText("loc-0")).not.toBeInTheDocument();
+
+    // Switching tabs away and back resets pagination rather than stranding page 2.
+    await user.click(screen.getByRole("button", { name: "All" }));
+    await user.click(screen.getByRole("button", { name: "Past" }));
+    expect(await screen.findByText("Page 1 of 2")).toBeInTheDocument();
+    expect(screen.getByText("loc-0")).toBeInTheDocument();
+  });
 });

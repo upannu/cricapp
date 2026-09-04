@@ -17,6 +17,8 @@ import { VoiceNoteRecorder } from "@/components/VoiceNoteRecorder";
 import { AssessmentForm } from "@/components/AssessmentForm";
 import { aiReportsIncludedForPlayer } from "@/lib/plan-features";
 
+const SESSIONS_PER_PAGE = 10;
+
 const SESSION_TYPES: BookingType[] = [
   "Net Session",
   "Individual Coaching",
@@ -161,6 +163,7 @@ export function SessionsClient() {
   const [coachFilter, setCoachFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState<BookingType | "all">("all");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const visibleCoaches = _sessCoaches;
 
@@ -340,6 +343,12 @@ export function SessionsClient() {
     return true;
   });
 
+  // Clamp rather than reset so a shrinking result set can never strand the view on a
+  // now-nonexistent page (mirrors PlayersClient's pagination — see there for rationale).
+  const totalPages = Math.max(1, Math.ceil(filtered.length / SESSIONS_PER_PAGE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedSessions = filtered.slice((currentPage - 1) * SESSIONS_PER_PAGE, currentPage * SESSIONS_PER_PAGE);
+
   return (
     <>
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -364,7 +373,7 @@ export function SessionsClient() {
         <input
           type="text"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Search player, notes or type…"
           className="flex-1 min-w-48 bg-surface rounded-xl px-4 py-2.5 text-white placeholder-zinc-500 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
         />
@@ -407,7 +416,7 @@ export function SessionsClient() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((session) => {
+          {pagedSessions.map((session) => {
             const player = playerById(session.playerId);
             const isExpanded = expandedId === session.id;
             const initials = player?.name.split(" ").map((n) => n[0]).join("") ?? "?";
@@ -836,11 +845,34 @@ export function SessionsClient() {
         </div>
       )}
 
-      {/* Results count */}
+      {/* Results count + pagination */}
       {filtered.length > 0 && (
-        <p className="text-xs text-zinc-500 text-center mt-6">
-          Showing {filtered.length} of {sessions.length} sessions
-        </p>
+        <div className="flex items-center justify-between mt-6">
+          <p className="text-xs text-zinc-500">
+            Showing {(currentPage - 1) * SESSIONS_PER_PAGE + 1}–{Math.min(currentPage * SESSIONS_PER_PAGE, filtered.length)} of {filtered.length} sessions
+          </p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                ← Prev
+              </button>
+              <span className="text-xs text-zinc-400 px-1">Page {currentPage} of {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Next →
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
 
