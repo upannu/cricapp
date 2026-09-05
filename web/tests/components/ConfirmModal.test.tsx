@@ -51,6 +51,24 @@ describe("ConfirmModal", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
+  test("renders extra content between the message and the button row", () => {
+    render(
+      <ConfirmModal
+        icon={<span />}
+        iconBg="bg-blue-500/20"
+        title="Reassign All Players?"
+        message="Choose who picks up their roster."
+        confirmLabel="Reassign"
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      >
+        <label>Target coach</label>
+      </ConfirmModal>
+    );
+
+    expect(screen.getByText("Target coach")).toBeInTheDocument();
+  });
+
   test("shows the busy label and disables both buttons while loading", () => {
     render(
       <ConfirmModal
