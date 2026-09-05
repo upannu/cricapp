@@ -91,6 +91,9 @@ export function CoachesClient() {
   const [reassignAllTarget, setReassignAllTarget] = useState<{ coachId: string; name: string; playerCount: number } | null>(null);
   const [reassignAllToCoachId, setReassignAllToCoachId] = useState("");
   const [reassigningAll, setReassigningAll] = useState(false);
+  const [confirmResendInvite, setConfirmResendInvite] = useState<{ coachId: string; name: string } | null>(null);
+  const [resendingInvite, setResendingInvite] = useState(false);
+  const [resendInviteSent, setResendInviteSent] = useState<string | null>(null);
 
   const defaultAcademyId = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
 
@@ -231,6 +234,27 @@ export function CoachesClient() {
       setFormError((err as { message?: string })?.message ?? String(err));
     } finally {
       setReassigningAll(false);
+    }
+  }
+
+  async function handleConfirmResendInvite() {
+    if (!confirmResendInvite) return;
+    setResendingInvite(true);
+    try {
+      const res = await fetch("/api/resend-coach-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coachId: confirmResendInvite.coachId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not resend the invite.");
+      setResendInviteSent(confirmResendInvite.coachId);
+      setTimeout(() => setResendInviteSent(null), 3000);
+      setConfirmResendInvite(null);
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setResendingInvite(false);
     }
   }
 
@@ -840,6 +864,10 @@ export function CoachesClient() {
                           coachId: coach.id, name: coach.name, newValue: !coach.marketplaceVisible,
                         }),
                       },
+                      ...(coach.email ? [{
+                        label: "Resend Invite",
+                        onClick: () => setConfirmResendInvite({ coachId: coach.id, name: coach.name }),
+                      }] : []),
                       ...(playerCount > 0 ? [{
                         label: "Reassign All Players",
                         onClick: () => { setReassignAllTarget({ coachId: coach.id, name: coach.name, playerCount }); setReassignAllToCoachId(""); },
@@ -875,6 +903,9 @@ export function CoachesClient() {
                   <div>
                     <div className="text-xs text-zinc-500 mb-0.5">Email</div>
                     <div className="text-xs text-zinc-300 truncate">{coach.email}</div>
+                    {resendInviteSent === coach.id && (
+                      <div className="text-xs text-pace-green mt-0.5">✓ Invite sent</div>
+                    )}
                   </div>
                   <div>
                     <div className="text-xs text-zinc-500 mb-0.5">Phone</div>
@@ -1022,6 +1053,24 @@ export function CoachesClient() {
             ))}
           </select>
         </ConfirmModal>
+      )}
+
+      {confirmResendInvite && (
+        <ConfirmModal
+          icon={
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2">
+              <path d="M22 2 11 13" /><path d="M22 2 15 22l-4-9-9-4 20-7z" />
+            </svg>
+          }
+          iconBg="bg-blue-500/20"
+          title="Resend Invite?"
+          message={`Sends a fresh sign-in link to "${confirmResendInvite.name}"'s email.`}
+          confirmLabel="Yes, Resend"
+          confirmBusyLabel="Sending…"
+          loading={resendingInvite}
+          onConfirm={handleConfirmResendInvite}
+          onCancel={() => setConfirmResendInvite(null)}
+        />
       )}
     </div>
   );

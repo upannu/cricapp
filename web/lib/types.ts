@@ -2,14 +2,20 @@ import type { Currency } from '@/lib/currency';
 
 export type PlanTier = 'Coach Pro' | 'Player Pro' | 'Free';
 
-/** The four roles a signup approval can be for — also the fixed set of editable welcome-email
- * templates at /admin/email-templates (one row per role, never user-created/deleted). */
+/** The four roles a signup approval can be for. */
 export type WelcomeEmailRole = 'player' | 'coach' | 'academy_admin' | 'parent';
 
-/** Admin-editable welcome-email copy sent by /api/approve-user. `subject` and `heading` support a
- * `{{name}}` placeholder; `body` supports `{{name}}` too and may use blank lines for paragraphs. */
+/** Every admin-editable template id at /admin/email-templates: the four welcome-email roles
+ * above, sent by /api/approve-user, plus coach_invite, sent by /api/resend-coach-invite. Each is
+ * a fixed, code-defined slot — never user-created/deleted — though the underlying DB row is
+ * created on first save (see /api/email-templates/update's upsert) rather than needing to be
+ * seeded ahead of time. */
+export type SystemEmailId = WelcomeEmailRole | 'coach_invite';
+
+/** Admin-editable email copy. `subject` and `heading` support a `{{name}}` placeholder; `body`
+ * supports `{{name}}` too and may use blank lines for paragraphs. */
 export interface EmailTemplate {
-  id: WelcomeEmailRole;
+  id: SystemEmailId;
   subject: string;
   heading: string;
   body: string;

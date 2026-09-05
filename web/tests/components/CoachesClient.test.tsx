@@ -222,6 +222,42 @@ describe("CoachesClient", () => {
     expect(reassignCoachPlayers).not.toHaveBeenCalled();
   });
 
+  test("resending an invite requires confirmation, then shows a sent indicator", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", email: "dan@example.com" })]);
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({ success: true })));
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Resend Invite"));
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText("Resend Invite?")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Yes, Resend" }));
+    expect(fetchSpy).toHaveBeenCalledWith("/api/resend-coach-invite", expect.objectContaining({
+      method: "POST", body: JSON.stringify({ coachId: "c1" }),
+    }));
+    expect(await screen.findByText("✓ Invite sent")).toBeInTheDocument();
+
+    fetchSpy.mockRestore();
+  });
+
+  test("hides Resend Invite for a coach with no email on file", async () => {
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", email: "" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+    // No ⋮ items left to trigger it, but the button itself still renders (Deactivate/Delete
+    // always apply) — check the item specifically isn't offered.
+    await userEvent.setup().click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.queryByText("Resend Invite")).not.toBeInTheDocument();
+  });
+
   test("hides the ⋮ delete menu from a coach viewing their own card", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });

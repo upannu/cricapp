@@ -6,16 +6,18 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import { fetchEmailTemplates } from "@/lib/db";
 import { renderTemplate } from "@/lib/email-templates";
-import type { EmailTemplate, WelcomeEmailRole } from "@/lib/types";
+import type { EmailTemplate, SystemEmailId } from "@/lib/types";
 
-const ROLES: { id: WelcomeEmailRole; label: string }[] = [
+const ROLES: { id: SystemEmailId; label: string }[] = [
   { id: "player", label: "Player" },
   { id: "coach", label: "Coach" },
   { id: "academy_admin", label: "Academy" },
   { id: "parent", label: "Parent" },
+  { id: "coach_invite", label: "Coach Invite" },
 ];
 
 type Draft = { subject: string; heading: string; body: string };
+const EMPTY_DRAFT: Draft = { subject: "", heading: "", body: "" };
 
 const PREVIEW_VARS = { name: "Alex Smith" };
 
@@ -24,7 +26,7 @@ export function EmailTemplatesAdminClient() {
   const router = useRouter();
   const [templates, setTemplates] = useState<Record<string, EmailTemplate>>({});
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
-  const [activeRole, setActiveRole] = useState<WelcomeEmailRole>("player");
+  const [activeRole, setActiveRole] = useState<SystemEmailId>("player");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -42,6 +44,12 @@ export function EmailTemplatesAdminClient() {
         byId[row.id] = row;
         draftById[row.id] = { subject: row.subject, heading: row.heading, body: row.body };
       }
+      // A template id can be defined in code (ROLES above) before its row exists in the DB —
+      // /api/email-templates/update upserts, so saving here creates it on first use. Without this,
+      // a brand-new id like coach_invite would render a blank panel with nothing to type into.
+      for (const role of ROLES) {
+        if (!draftById[role.id]) draftById[role.id] = { ...EMPTY_DRAFT };
+      }
       setTemplates(byId);
       setDrafts(draftById);
       setLoading(false);
@@ -52,8 +60,13 @@ export function EmailTemplatesAdminClient() {
 
   const draft = drafts[activeRole];
   const saved_ = templates[activeRole];
-  const dirty = !!draft && !!saved_ && (
-    draft.subject !== saved_.subject || draft.heading !== saved_.heading || draft.body !== saved_.body
+  // No saved_ means this template has never been saved yet (e.g. a brand-new id like
+  // coach_invite whose DB row doesn't exist until the first save) — treat that as an implicit
+  // empty template rather than requiring one to already exist before Save can ever be enabled.
+  const dirty = !!draft && (
+    draft.subject !== (saved_?.subject ?? "") ||
+    draft.heading !== (saved_?.heading ?? "") ||
+    draft.body !== (saved_?.body ?? "")
   );
 
   function setDraft(patch: Partial<Draft>) {
