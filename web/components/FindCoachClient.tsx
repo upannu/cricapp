@@ -101,7 +101,15 @@ export function FindCoachClient() {
   }
 
   const myAcademy = academies.find((a) => a.playerIds.includes(player.id));
-  const marketplaceCoaches = coaches.filter((c) => c.marketplaceVisible && (!myAcademy || c.academyId === myAcademy.id));
+  // The whole point of this page (see the upgrade-prompt copy above) is finding coaches *beyond*
+  // your own academy assignment — a player already has full access to their own academy's coaches
+  // through the normal relationship, so re-surfacing them here isn't useful and used to be the only
+  // thing this filter did (it required an *exact* academy match, inverted from the intent). Also
+  // excludes an Inactive coach — not bookable, so not discoverable either, matching how the
+  // Bookings "select coach" picker already treats Inactive the same way.
+  const marketplaceCoaches = coaches.filter((c) =>
+    c.marketplaceVisible && c.status === "Active" && (!myAcademy || c.academyId !== myAcademy.id)
+  );
   const filtered = marketplaceCoaches
     .filter((c) => {
       if (specFilter && !c.specialization.toLowerCase().includes(specFilter.toLowerCase()) && !c.bio.toLowerCase().includes(specFilter.toLowerCase())) return false;
