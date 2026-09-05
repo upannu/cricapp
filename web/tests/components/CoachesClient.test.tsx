@@ -1,15 +1,15 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CoachesClient } from "@/components/CoachesClient";
 import { makeAuthUser, makeCoach } from "../mocks/fixtures";
 
-const { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans } = vi.hoisted(() => ({
-  fetchCoaches: vi.fn(), fetchAcademies: vi.fn(), fetchPlayers: vi.fn(), fetchActivePlans: vi.fn(),
+const { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach } = vi.hoisted(() => ({
+  fetchCoaches: vi.fn(), fetchAcademies: vi.fn(), fetchPlayers: vi.fn(), fetchActivePlans: vi.fn(), upsertCoach: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
-  fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans,
-  upsertCoach: vi.fn(), deleteCoach: vi.fn(), reassignCoachPlayers: vi.fn(), updateAcademyFields: vi.fn(),
+  fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach,
+  deleteCoach: vi.fn(), reassignCoachPlayers: vi.fn(), updateAcademyFields: vi.fn(),
 }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
@@ -31,6 +31,8 @@ function setupDefaults() {
   fetchAcademies.mockResolvedValue([]);
   fetchPlayers.mockResolvedValue([]);
   fetchActivePlans.mockResolvedValue([]);
+  upsertCoach.mockClear();
+  upsertCoach.mockResolvedValue(undefined);
 }
 
 describe("CoachesClient", () => {
@@ -101,6 +103,61 @@ describe("CoachesClient", () => {
 
     expect(await screen.findByText("Delete this coach?")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
+  });
+
+  test("deactivating a coach requires confirmation before it actually happens", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", status: "Active" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Deactivate"));
+
+    // Not applied yet — still just a confirm prompt.
+    expect(upsertCoach).not.toHaveBeenCalled();
+    expect(await screen.findByText("Deactivate Coach?")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Yes, Deactivate" }));
+    expect(upsertCoach).toHaveBeenCalledWith({ id: "c1", status: "Inactive" });
+    // "Inactive" also names one of the filter tabs — scope to the card itself, not the whole page.
+    const card = screen.getByText("Coach Dan").closest(".bg-surface") as HTMLElement;
+    expect(await within(card).findByText("Inactive")).toBeInTheDocument();
+  });
+
+  test("cancelling the deactivate confirm leaves the coach untouched", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", status: "Active" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Deactivate"));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByText("Deactivate Coach?")).not.toBeInTheDocument();
+    expect(upsertCoach).not.toHaveBeenCalled();
+  });
+
+  test("toggling marketplace visibility also requires confirmation first", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", marketplaceVisible: false })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Show in Marketplace"));
+
+    expect(await screen.findByText("Show in Marketplace?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Yes, Show" }));
+
+    expect(upsertCoach).toHaveBeenCalledWith({ id: "c1", marketplace_visible: true });
   });
 
   test("hides the ⋮ delete menu from a coach viewing their own card", async () => {

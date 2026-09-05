@@ -9,6 +9,7 @@ import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach,
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { getPlatformFeePercent, isValidEmail } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
@@ -1557,46 +1558,27 @@ export function AcademyClient() {
 
       {/* ── Confirm status toggle ── */}
       {confirmToggle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setConfirmToggle(null)} />
-          <div className="relative bg-surface rounded-2xl w-full max-w-sm shadow-2xl border border-zinc-700/60 p-6">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
-              confirmToggle.newStatus === "Inactive" ? "bg-amber/20" : "bg-pace-green/20"
-            }`}>
-              {confirmToggle.newStatus === "Inactive" ? (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
-                </svg>
-              ) : (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-              )}
-            </div>
-            <h3 className="text-white font-bold text-center mb-1">
-              {confirmToggle.newStatus === "Inactive" ? "Deactivate Academy?" : "Activate Academy?"}
-            </h3>
-            <p className="text-zinc-400 text-sm text-center mb-6">
-              {confirmToggle.newStatus === "Inactive"
-                ? `"${confirmToggle.name}" will be marked Inactive. All players and data are preserved.`
-                : `"${confirmToggle.name}" will be set back to Active.`}
-            </p>
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setConfirmToggle(null)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
-                Cancel
-              </button>
-              <button type="button" onClick={handleConfirmToggle} disabled={toggling}
-                className={`flex-1 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors cursor-pointer disabled:opacity-60 ${
-                  confirmToggle.newStatus === "Inactive"
-                    ? "bg-amber/20 text-amber border border-amber/40 hover:bg-amber/30"
-                    : "bg-pace-green text-black hover:opacity-90"
-                }`}>
-                {toggling ? "Saving…" : confirmToggle.newStatus === "Inactive" ? "Yes, Deactivate" : "Yes, Activate"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          icon={confirmToggle.newStatus === "Inactive" ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" /><line x1="8" y1="12" x2="16" y2="12" />
+            </svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+          iconBg={confirmToggle.newStatus === "Inactive" ? "bg-amber/20" : "bg-pace-green/20"}
+          title={confirmToggle.newStatus === "Inactive" ? "Deactivate Academy?" : "Activate Academy?"}
+          message={confirmToggle.newStatus === "Inactive"
+            ? `"${confirmToggle.name}" will be marked Inactive. All players and data are preserved.`
+            : `"${confirmToggle.name}" will be set back to Active.`}
+          confirmLabel={confirmToggle.newStatus === "Inactive" ? "Yes, Deactivate" : "Yes, Activate"}
+          confirmVariant={confirmToggle.newStatus === "Inactive" ? "warning" : "default"}
+          loading={toggling}
+          onConfirm={handleConfirmToggle}
+          onCancel={() => setConfirmToggle(null)}
+        />
       )}
 
       {/* ── Owner missing popup ── */}
