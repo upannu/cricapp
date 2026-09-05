@@ -262,4 +262,18 @@ describe("AcademyClient", () => {
     await screen.findByText("★ Owner");
     expect(upsertCoach).toHaveBeenCalledWith(expect.objectContaining({ name: "Jordan Blake", email: "jordan@crichq.com.au" }));
   });
+
+  test("shows a shown/total/active summary line under the page title", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([
+      makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" }),
+      makeAcademy({ id: "ac2", name: "Retired Academy", status: "Inactive" }),
+    ]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    expect(screen.getByText("2 shown · 2 total · 1 active")).toBeInTheDocument();
+  });
 });
