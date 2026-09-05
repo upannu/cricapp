@@ -10,6 +10,7 @@ import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { ListSummary } from "@/components/ListSummary";
 import { getPlatformFeePercent, isValidEmail } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
@@ -968,6 +969,7 @@ export function AcademyClient() {
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Academies</h1>
           <p className="text-zinc-400 text-sm">Manage your fast bowling programs and cohorts</p>
+          <ListSummary parts={[`${displayed.length} shown`, `${academies.length} total`, `${activeCount} active`]} />
         </div>
         {user?.role === "platform_admin" && (
           <button type="button" onClick={openAdd}

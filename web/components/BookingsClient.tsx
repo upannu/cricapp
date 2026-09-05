@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchActivePlans, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus, markBookingPaid, fetchBookingFeeDues, fetchNets } from "@/lib/db";
 import { formatDate, getSessionFee, getPlatformFeePercent } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
+import { ListSummary } from "@/components/ListSummary";
 import { DEFAULT_CURRENCY, formatMoney, sumMoneyByCurrency, type Currency } from "@/lib/currency";
 
 const BOOKING_TYPES: BookingType[] = [
@@ -205,6 +206,7 @@ export function BookingsClient() {
     fetchBookingFeeDues().then(setFeeDues).catch(() => {});
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   const [tab, setTab] = useState<FilterTab>("Upcoming");
+  const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftBooking>(EMPTY_DRAFT);
@@ -220,7 +222,7 @@ export function BookingsClient() {
     return diff <= 7;
   });
 
-  const filtered = (() => {
+  const tabFiltered = (() => {
     switch (tab) {
       case "Upcoming":  return bookings.filter((b) => isUpcoming(b) && b.status !== "Pending");
       case "Pending":   return bookings.filter((b) => b.status === "Pending");
@@ -229,6 +231,13 @@ export function BookingsClient() {
       default:          return [...bookings].sort((a, b) => b.date.localeCompare(a.date));
     }
   })();
+  const searchTerm = search.trim().toLowerCase();
+  const filtered = searchTerm
+    ? tabFiltered.filter((b) =>
+        (playerById(b.playerId)?.name ?? "").toLowerCase().includes(searchTerm) ||
+        (coachById(b.coachId)?.name ?? "").toLowerCase().includes(searchTerm)
+      )
+    : tabFiltered;
 
   const grouped = tab === "Past" || tab === "All"
     ? null
@@ -376,6 +385,7 @@ export function BookingsClient() {
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Bookings</h1>
           <p className="text-zinc-400 text-sm">Manage coaching sessions and player appointments</p>
+          <ListSummary parts={[`${filtered.length} shown`, `${bookings.length} total`, `${pendingAll.length} pending`]} />
         </div>
         <button type="button" onClick={openAdd}
           className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
@@ -594,6 +604,18 @@ export function BookingsClient() {
       {saved && !showForm && (
         <div className="mb-5 px-5 py-3 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
           ✓ Booking saved
+        </div>
+      )}
+
+      {/* Search */}
+      {tab !== "Platform Fees" && (
+        <div className="relative max-w-md mb-4">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by player or coach…"
+            className="w-full bg-surface rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
         </div>
       )}
 
