@@ -423,7 +423,7 @@ export function BookingsClient() {
               >
                 <option value="">— Select coach —</option>
                 {_coaches
-                  .filter((c) => c.status === "Active")
+                  .filter((c) => c.status === "Active" && !c.loginDisabled)
                   .map((c) => (
                     <option key={c.id} value={c.id}>{c.name} · {c.specialization}</option>
                   ))}

@@ -612,6 +612,7 @@ export function AcademyClient() {
       status: "Active", joinedDate: now, certificationLevel: tabCoachDraft.certificationLevel,
       bio: "", academyId: "", marketplaceVisible: false, available: true,
       stripeConnectOnboarded: false, currency: academy.currency, subPlan: "Free",
+      loginDisabled: false, disabledAt: null, disabledReason: null,
     };
     try {
       await upsertCoach({
@@ -661,6 +662,7 @@ export function AcademyClient() {
       status: "Active", joinedDate: now, certificationLevel: "Level 1",
       bio: "", academyId: "", marketplaceVisible: false, available: true,
       stripeConnectOnboarded: false, currency: academy.currency, subPlan: "Free",
+      loginDisabled: false, disabledAt: null, disabledReason: null,
     };
     try {
       await upsertCoach({
@@ -852,6 +854,7 @@ export function AcademyClient() {
       marketplaceVisible: false, available: true, stripeConnectOnboarded: false,
       currency: currencyForCountry(draft.country),
       subPlan: "Free",
+      loginDisabled: false, disabledAt: null, disabledReason: null,
     };
     try {
       await upsertCoach({
@@ -895,6 +898,7 @@ export function AcademyClient() {
       certificationLevel: "Level 1", bio: "", academyId: "",
       marketplaceVisible: false, available: true, stripeConnectOnboarded: false,
       currency: currencyForCountry(draft.country), subPlan: "Free",
+      loginDisabled: false, disabledAt: null, disabledReason: null,
     };
     try {
       await upsertCoach({
@@ -956,8 +960,14 @@ export function AcademyClient() {
     return !q || p.name.toLowerCase().includes(q) || p.club.toLowerCase().includes(q);
   });
 
-  // additional coaches = all coaches except the current owner
-  const additionalCoaches = allCoaches.filter((c) => c.id !== draft.headCoachId);
+  // additional coaches = all coaches except the current owner — excludes a removed coach too,
+  // unless they're already toggled on (editing an academy that already has one shouldn't
+  // silently drop them from view).
+  const additionalCoaches = allCoaches.filter((c) =>
+    c.id !== draft.headCoachId && (!c.loginDisabled || draft.coachIds.includes(c.id))
+  );
+  // Same idea for the head-coach/owner picker just below.
+  const assignableCoaches = allCoaches.filter((c) => !c.loginDisabled || c.id === draft.headCoachId);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -1799,7 +1809,7 @@ export function AcademyClient() {
                         onChange={(e) => setOwner(e.target.value)}
                         className={sel}>
                         <option value="">— Select owner —</option>
-                        {allCoaches.map((c) => (
+                        {assignableCoaches.map((c) => (
                           <option key={c.id} value={c.id}>{c.name} · {c.certificationLevel}</option>
                         ))}
                       </select>

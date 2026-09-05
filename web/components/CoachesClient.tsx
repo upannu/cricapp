@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, deleteCoach, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
+import { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
 import { canUseMarketplaceForCoach } from "@/lib/plan-features";
 import { DateInput } from "@/components/DateInput";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
@@ -24,7 +24,10 @@ const CERT_STYLES: Record<CertificationLevel, string> = {
 
 // Billing fields (subPlan/stripe*) are managed by the subscription flow and webhook, never
 // through this edit form — excluded from the draft entirely rather than carried around unused.
-type DraftCoach = Omit<Coach, "id" | "stripeConnectAccountId" | "stripeConnectOnboarded" | "subPlan" | "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus">;
+// loginDisabled/disabledAt/disabledReason are managed exclusively via the ⋮ menu's Remove/
+// Reinstate actions (see handleDelete/handleConfirmReinstate) — never part of the regular
+// create/edit form, same as the Stripe fields already excluded here.
+type DraftCoach = Omit<Coach, "id" | "stripeConnectAccountId" | "stripeConnectOnboarded" | "subPlan" | "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "loginDisabled" | "disabledAt" | "disabledReason">;
 
 const EMPTY_DRAFT: DraftCoach = {
   name: "",
@@ -66,7 +69,9 @@ export function CoachesClient() {
   const [draft, setDraft] = useState<DraftCoach>(EMPTY_DRAFT);
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"All" | "Active" | "Inactive">("All");
+  // "All" deliberately excludes Removed — a soft-deleted coach is meant to be out of normal view
+  // by default, with its own tab as the only way back to them (see the filtered/filter tabs below).
+  const [filter, setFilter] = useState<"All" | "Active" | "Inactive" | "Removed">("All");
   const [sendInvite, setSendInvite] = useState(true);
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [inviteError, setInviteError] = useState("");
@@ -94,6 +99,8 @@ export function CoachesClient() {
   const [confirmResendInvite, setConfirmResendInvite] = useState<{ coachId: string; name: string } | null>(null);
   const [resendingInvite, setResendingInvite] = useState(false);
   const [resendInviteSent, setResendInviteSent] = useState<string | null>(null);
+  const [confirmReinstate, setConfirmReinstate] = useState<{ coachId: string; name: string } | null>(null);
+  const [reinstatingCoach, setReinstatingCoach] = useState(false);
 
   const defaultAcademyId = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
 
@@ -174,9 +181,9 @@ export function CoachesClient() {
     scrollToForm();
   }
 
-  // Reachable directly from the row's ⋮ menu, without a separate "find Delete Coach among the
-  // form fields" step first — lands straight on the same confirm-delete prompt the Edit form
-  // already has, so this doesn't invent a second delete UI to keep in sync with the first.
+  // Reachable directly from the row's ⋮ menu, without a separate "find Remove Coach among the
+  // form fields" step first — lands straight on the same confirm-removal prompt the Edit form
+  // already has, so this doesn't invent a second removal UI to keep in sync with the first.
   function openEditWithDeleteConfirm(coach: Coach) {
     openEdit(coach);
     setConfirmDeleteCoachId(coach.id);
@@ -258,6 +265,28 @@ export function CoachesClient() {
     }
   }
 
+  async function handleConfirmReinstate() {
+    if (!confirmReinstate) return;
+    setReinstatingCoach(true);
+    try {
+      const res = await fetch("/api/reactivate-coach", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coachId: confirmReinstate.coachId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not reinstate this coach.");
+      setCoaches((prev) => prev.map((c) =>
+        c.id === confirmReinstate.coachId ? { ...c, loginDisabled: false, disabledAt: null, disabledReason: null } : c
+      ));
+      setConfirmReinstate(null);
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setReinstatingCoach(false);
+    }
+  }
+
   function openEdit(coach: Coach) {
     setEditingId(coach.id);
     setDraft({
@@ -314,6 +343,10 @@ export function CoachesClient() {
       stripeCustomerId: existing?.stripeCustomerId,
       stripeSubscriptionId: existing?.stripeSubscriptionId,
       subscriptionStatus: existing?.subscriptionStatus,
+      // Never touched by this form — preserved from whatever Remove/Reinstate last set.
+      loginDisabled: existing?.loginDisabled ?? false,
+      disabledAt: existing?.disabledAt ?? null,
+      disabledReason: existing?.disabledReason ?? null,
     };
 
     // Re-geocode whenever the location text changes — best-effort, never blocks the save.
@@ -378,10 +411,15 @@ export function CoachesClient() {
     setTimeout(() => setSaved(null), 2500);
   }
 
+  // Soft delete — sets login_disabled instead of actually deleting the row, so history (past
+  // sessions/reports/bookings) stays intact and a mistaken removal is reversible via Reinstate.
+  // Still a real state change worth a fixed, trackable reason rather than none at all.
+  const REMOVED_REASON = "Removed by staff via Coaches page";
+
   function handleDelete(id: string) {
-    // A coach who's still an academy's head coach can't be safely deleted — the DB blocks it too
-    // (payouts for that academy would otherwise silently break), but resolve it here first so the
-    // person gets a clear reassignment step instead of a raw error.
+    // A coach who's still an academy's head coach can't be safely removed while they hold that
+    // role — resolve it here first so the person gets a clear reassignment step instead of a raw
+    // error the moment they try to log in and find themselves locked out mid-responsibility.
     const headCoachAcademy = _coachAcademies.find((a) => a.headCoachId === id);
     const otherCoachIds = headCoachAcademy ? headCoachAcademy.coachIds.filter((cid) => cid !== id) : [];
     if (headCoachAcademy && otherCoachIds.length === 0) {
@@ -400,15 +438,16 @@ export function CoachesClient() {
       setNewHeadCoachId("");
       return;
     }
-    deleteCoach(id);
-    setCoaches((prev) => prev.filter((c) => c.id !== id));
+    const disabledAt = new Date().toISOString();
+    upsertCoach({ id, login_disabled: true, disabled_at: disabledAt, disabled_reason: REMOVED_REASON });
+    setCoaches((prev) => prev.map((c) => (c.id === id ? { ...c, loginDisabled: true, disabledAt, disabledReason: REMOVED_REASON } : c)));
     closeForm();
   }
 
   async function confirmReassignAndDelete() {
     if (!reassignTarget) return;
     if (reassignTarget.headCoachAcademy && !newHeadCoachId) {
-      setFormError("Choose a new head coach before deleting.");
+      setFormError("Choose a new head coach before removing them.");
       return;
     }
     setReassigning(true);
@@ -425,11 +464,14 @@ export function CoachesClient() {
         );
       }
       await reassignCoachPlayers(reassignTarget.coachId, reassignToCoachId || null);
-      await deleteCoach(reassignTarget.coachId);
+      const disabledAt = new Date().toISOString();
+      await upsertCoach({ id: reassignTarget.coachId, login_disabled: true, disabled_at: disabledAt, disabled_reason: REMOVED_REASON });
       _coachPlayers = _coachPlayers.map((p) =>
         p.coachId === reassignTarget.coachId ? { ...p, coachId: reassignToCoachId } : p
       );
-      setCoaches((prev) => prev.filter((c) => c.id !== reassignTarget.coachId));
+      setCoaches((prev) => prev.map((c) =>
+        c.id === reassignTarget.coachId ? { ...c, loginDisabled: true, disabledAt, disabledReason: REMOVED_REASON } : c
+      ));
       setReassignTarget(null);
       closeForm();
     } catch (err) {
@@ -448,8 +490,13 @@ export function CoachesClient() {
     }));
   }
 
-  const filtered = filter === "All" ? coaches : coaches.filter((c) => c.status === filter);
-  const activeCount = coaches.filter((c) => c.status === "Active").length;
+  const removedCount = coaches.filter((c) => c.loginDisabled).length;
+  const filtered = filter === "Removed"
+    ? coaches.filter((c) => c.loginDisabled)
+    : filter === "All"
+      ? coaches.filter((c) => !c.loginDisabled)
+      : coaches.filter((c) => c.status === filter && !c.loginDisabled);
+  const activeCount = coaches.filter((c) => c.status === "Active" && !c.loginDisabled).length;
   const totalPlayers = coaches.reduce((s, c) => s + playerCountForCoach(c.id), 0);
 
   return (
@@ -490,7 +537,7 @@ export function CoachesClient() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="bg-surface rounded-2xl p-5 text-center">
-          <div className="text-2xl font-bold text-white mb-1">{coaches.length}</div>
+          <div className="text-2xl font-bold text-white mb-1">{coaches.length - removedCount}</div>
           <div className="text-xs text-zinc-400">Total coaches</div>
         </div>
         <div className="bg-surface rounded-2xl p-5 text-center">
@@ -694,13 +741,13 @@ export function CoachesClient() {
               className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
               Cancel
             </button>
-            {editingId && user?.role !== "coach" && !(reassignTarget?.coachId === editingId) && (
+            {editingId && user?.role !== "coach" && !(reassignTarget?.coachId === editingId) && !coaches.find((c) => c.id === editingId)?.loginDisabled && (
               confirmDeleteCoachId === editingId ? (
                 <div className="ml-auto flex items-center gap-2">
-                  <span className="text-xs text-zinc-400">Delete this coach?</span>
+                  <span className="text-xs text-zinc-400">Remove this coach?</span>
                   <button type="button" onClick={() => { handleDelete(editingId); setConfirmDeleteCoachId(null); }}
                     className="px-3 py-1.5 text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors cursor-pointer">
-                    Confirm delete
+                    Confirm removal
                   </button>
                   <button type="button" onClick={() => setConfirmDeleteCoachId(null)}
                     className="px-3 py-1.5 text-xs font-semibold text-zinc-400 border border-zinc-700 rounded-lg hover:text-white transition-colors cursor-pointer">
@@ -710,7 +757,7 @@ export function CoachesClient() {
               ) : (
                 <button type="button" onClick={() => setConfirmDeleteCoachId(editingId)}
                   className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer">
-                  Delete Coach
+                  Remove Coach
                 </button>
               )
             )}
@@ -745,7 +792,7 @@ export function CoachesClient() {
                     {reassignTarget.playerCount} player{reassignTarget.playerCount !== 1 ? "s are" : " is"} still assigned to this coach
                   </p>
                   <p className="text-xs text-zinc-400 mb-2">
-                    Choose where to move them before deleting — this coach can&apos;t be deleted while players still point to it.
+                    Choose where to move them before removing this coach — they can&apos;t be removed while players still point to them.
                   </p>
                   <select
                     value={reassignToCoachId}
@@ -762,7 +809,7 @@ export function CoachesClient() {
               <div className="flex items-center gap-3">
                 <button type="button" onClick={confirmReassignAndDelete} disabled={reassigning}
                   className="px-4 py-2.5 text-sm font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer">
-                  {reassigning ? "Saving…" : "Reassign & Delete Coach"}
+                  {reassigning ? "Saving…" : "Reassign & Remove Coach"}
                 </button>
                 <button type="button" onClick={() => { setReassignTarget(null); setFormError(""); }} disabled={reassigning}
                   className="text-xs text-zinc-500 hover:text-white cursor-pointer">
@@ -782,14 +829,20 @@ export function CoachesClient() {
         </div>
       )}
 
-      {/* Filter tabs */}
+      {/* Filter tabs — Removed only shows a count when there's actually anyone there, same as
+          the badge pattern used for Bookings' Pending tab. */}
       <div className="flex gap-2 mb-6">
-        {(["All", "Active", "Inactive"] as const).map((f) => (
+        {(["All", "Active", "Inactive", "Removed"] as const).map((f) => (
           <button key={f} type="button" onClick={() => setFilter(f)}
             className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               filter === f ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
             }`}>
             {f}
+            {f === "Removed" && removedCount > 0 && (
+              <span className="ml-1.5 bg-zinc-700 text-zinc-300 text-xs font-bold px-1.5 py-0.5 rounded-full">
+                {removedCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -836,7 +889,18 @@ export function CoachesClient() {
                         }`}>
                           {coach.status}
                         </span>
+                        {coach.loginDisabled && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">
+                            Removed
+                          </span>
+                        )}
                       </div>
+                      {coach.loginDisabled && (
+                        <p className="text-zinc-500 text-xs mt-1">
+                          {coach.disabledReason || "Removed by staff"}
+                          {coach.disabledAt && ` · ${new Date(coach.disabledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
+                        </p>
+                      )}
                     </div>
                   </div>
                   {(user?.role !== "coach" || user.coachId === coach.id) && (
@@ -847,9 +911,17 @@ export function CoachesClient() {
                   )}
                   {/* Every action here stays staff-only (never on a coach's own card) — same
                       gating the confirm-delete already had. Each opens a confirm step rather than
-                      acting immediately; Delete is visually separated as the destructive one. */}
+                      acting immediately; Remove is visually separated as the destructive one. A
+                      removed coach only ever gets Reinstate — every other action here assumes an
+                      active login/roster spot, neither of which a removed coach has right now. */}
                   {user?.role !== "coach" && (
-                    <RowActionsMenu items={[
+                    <RowActionsMenu items={coach.loginDisabled ? [
+                      {
+                        label: "Reinstate Coach",
+                        variant: "success",
+                        onClick: () => setConfirmReinstate({ coachId: coach.id, name: coach.name }),
+                      },
+                    ] : [
                       {
                         label: coach.status === "Active" ? "Deactivate" : "Activate",
                         variant: coach.status === "Active" ? "warning" : "success",
@@ -872,7 +944,7 @@ export function CoachesClient() {
                         label: "Reassign All Players",
                         onClick: () => { setReassignAllTarget({ coachId: coach.id, name: coach.name, playerCount }); setReassignAllToCoachId(""); },
                       }] : []),
-                      { label: "Delete Coach", variant: "danger" as const, dividerBefore: true, onClick: () => openEditWithDeleteConfirm(coach) },
+                      { label: "Remove Coach", variant: "danger" as const, dividerBefore: true, onClick: () => openEditWithDeleteConfirm(coach) },
                     ]} />
                   )}
                 </div>
@@ -1070,6 +1142,25 @@ export function CoachesClient() {
           loading={resendingInvite}
           onConfirm={handleConfirmResendInvite}
           onCancel={() => setConfirmResendInvite(null)}
+        />
+      )}
+
+      {confirmReinstate && (
+        <ConfirmModal
+          icon={
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          }
+          iconBg="bg-pace-green/20"
+          title="Reinstate Coach?"
+          message={`Restores "${confirmReinstate.name}"'s login and brings them back into normal view — nothing else about their profile changes.`}
+          confirmLabel="Yes, Reinstate"
+          confirmBusyLabel="Reinstating…"
+          confirmVariant="default"
+          loading={reinstatingCoach}
+          onConfirm={handleConfirmReinstate}
+          onCancel={() => setConfirmReinstate(null)}
         />
       )}
     </div>

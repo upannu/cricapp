@@ -577,7 +577,9 @@ export function AttendanceClient() {
                 <label className={lbl}>Coach *</label>
                 <select value={draft.coachId} onChange={(e) => setDraft({ ...draft, coachId: e.target.value })} className={inp}>
                   <option value="">— Select coach —</option>
-                  {coaches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {/* Still includes the currently-selected coach even if since removed — editing an
+                      existing group whose coach was later removed shouldn't silently blank the field. */}
+                  {coaches.filter((c) => !c.loginDisabled || c.id === draft.coachId).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
