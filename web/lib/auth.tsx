@@ -98,6 +98,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Same story for a coach removed via CoachesClient's ⋮ menu ("Remove Coach") — a soft delete
+    // that keeps their row (and every session/report/booking pointing at it) intact rather than
+    // destroying it, but blocks login just like a disabled player.
+    const coachId = data.user?.app_metadata?.coach_id as string | undefined;
+    if (coachId) {
+      const { data: coach } = await supabase
+        .from("coaches")
+        .select("login_disabled, disabled_reason")
+        .eq("id", coachId)
+        .maybeSingle();
+      if (coach?.login_disabled) {
+        await supabase.auth.signOut();
+        return `ACCOUNT_DISABLED::${coach.disabled_reason || "Your account has been removed — contact your academy or platform admin."}`;
+      }
+    }
+
     return null;
   }
 

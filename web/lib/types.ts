@@ -408,6 +408,15 @@ export interface Coach {
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
   subscriptionStatus?: string;
+  /** Soft delete — distinct from `status` (Active/Inactive, a temporary/reversible business
+   * state that still shows everywhere). This is "removed for good," set by staff via the ⋮
+   * menu's "Remove Coach": blocks login (see lib/auth.tsx), hides the coach from the default
+   * Coaches list and every assignment picker, and force-excludes them from the marketplace —
+   * but never deletes the row, so their session/report/booking history stays intact. Mirrors
+   * the identical player login_disabled/disabled_at/disabled_reason pattern exactly. */
+  loginDisabled: boolean;
+  disabledAt: string | null;
+  disabledReason: string | null;
 }
 
 export type BookingStatus = 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed';

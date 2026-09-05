@@ -93,7 +93,7 @@ describe("CoachesClient", () => {
     global.fetch = originalFetch;
   });
 
-  test("reaches the delete-confirm prompt directly from the row's ⋮ menu, skipping the edit form's own fields", async () => {
+  test("reaches the removal-confirm prompt directly from the row's ⋮ menu, skipping the edit form's own fields", async () => {
     const user = userEvent.setup();
     setupDefaults();
     fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
@@ -102,10 +102,77 @@ describe("CoachesClient", () => {
     await screen.findByText("Coach Dan");
 
     await user.click(screen.getByRole("button", { name: "More actions" }));
-    await user.click(screen.getByText("Delete Coach"));
+    await user.click(screen.getByText("Remove Coach"));
 
-    expect(await screen.findByText("Delete this coach?")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Confirm delete" })).toBeInTheDocument();
+    expect(await screen.findByText("Remove this coach?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm removal" })).toBeInTheDocument();
+  });
+
+  test("removing a coach with no dependents soft-deletes — sets login_disabled, never actually deletes the row", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Remove Coach"));
+    await user.click(screen.getByRole("button", { name: "Confirm removal" }));
+
+    expect(upsertCoach).toHaveBeenCalledWith(expect.objectContaining({ id: "c1", login_disabled: true, disabled_reason: "Removed by staff via Coaches page" }));
+    // Immediately drops out of the default "All" view (excludes Removed) — but the row itself
+    // was never deleted, just flagged; see the Removed-tab test below for where it went.
+    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+  });
+
+  test("a removed coach shows under the Removed tab with a Reinstate action, and nothing else", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({
+      id: "c1", name: "Coach Dan", loginDisabled: true, disabledAt: "2026-01-01T00:00:00.000Z", disabledReason: "Left the academy",
+    })]);
+
+    render(<CoachesClient />);
+    expect(await screen.findByText("No coaches found.")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Removed/ }));
+    expect(await screen.findByText("Coach Dan")).toBeInTheDocument();
+    expect(screen.getByText("Left the academy · 01 Jan 2026")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByText("Reinstate Coach")).toBeInTheDocument();
+    expect(screen.queryByText("Deactivate")).not.toBeInTheDocument();
+    expect(screen.queryByText("Remove Coach")).not.toBeInTheDocument();
+  });
+
+  test("reinstating a removed coach requires confirmation, then restores their login", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", loginDisabled: true })]);
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({ success: true })));
+
+    render(<CoachesClient />);
+    await user.click(await screen.findByRole("button", { name: /Removed/ }));
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Reinstate Coach"));
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText("Reinstate Coach?")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Yes, Reinstate" }));
+    expect(fetchSpy).toHaveBeenCalledWith("/api/reactivate-coach", expect.objectContaining({
+      method: "POST", body: JSON.stringify({ coachId: "c1" }),
+    }));
+
+    // Back in the default "All" view now that it's reinstated.
+    await user.click(screen.getByRole("button", { name: "All" }));
+    expect(await screen.findByText("Coach Dan")).toBeInTheDocument();
+
+    fetchSpy.mockRestore();
   });
 
   test("deactivating a coach requires confirmation before it actually happens", async () => {

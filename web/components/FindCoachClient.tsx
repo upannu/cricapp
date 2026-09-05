@@ -108,7 +108,7 @@ export function FindCoachClient() {
   // excludes an Inactive coach — not bookable, so not discoverable either, matching how the
   // Bookings "select coach" picker already treats Inactive the same way.
   const marketplaceCoaches = coaches.filter((c) =>
-    c.marketplaceVisible && c.status === "Active" && (!myAcademy || c.academyId !== myAcademy.id)
+    c.marketplaceVisible && c.status === "Active" && !c.loginDisabled && (!myAcademy || c.academyId !== myAcademy.id)
   );
   const filtered = marketplaceCoaches
     .filter((c) => {
