@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { SessionPacksClient } from "@/components/SessionPacksClient";
 import { makeAuthUser, makePlayer, makeSessionPack } from "../mocks/fixtures";
 
@@ -55,5 +56,24 @@ describe("SessionPacksClient", () => {
     await screen.findByRole("heading", { name: "Session Packs" });
 
     expect(fetchPlayers).toHaveBeenCalledWith(undefined, "academy-9");
+  });
+
+  test("searches by player name and shows a shown/total/active-packs summary line", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer" }),
+    ]);
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({ playerId: "p1", totalSessions: 10, sessionsUsed: 3 })]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+    expect(screen.getByText("2 shown · 2 total · 1 active packs")).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText("Search by player name…"), "Bob");
+    expect(await screen.findByText("1 shown · 2 total · 1 active packs")).toBeInTheDocument();
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
   });
 });

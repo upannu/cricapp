@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired, matchPlayerByNameOrEmail } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
+import { ListSummary } from "@/components/ListSummary";
 import { DEFAULT_CURRENCY, formatMoney, sumMoneyByCurrency } from "@/lib/currency";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -92,6 +93,7 @@ export function SessionPacksClient() {
   const [feeDues, setFeeDues] = useState<PackFeeDue[]>([]);
   const [pageTab, setPageTab] = useState<PageTab>("Packs");
   const [filter, setFilter] = useState<FilterType>("All");
+  const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState<DraftPack>(EMPTY_DRAFT);
   const [formError, setFormError] = useState("");
@@ -190,15 +192,17 @@ export function SessionPacksClient() {
   // ── Filtered view ─────────────────────────────────────────────────────────
   const playersWithPack = new Set(scopedPacks.map((pk) => pk.playerId));
 
+  const searchTerm = search.trim().toLowerCase();
   const filteredPlayers = useMemo(() => {
     return scopedPlayers.filter((p) => {
       const pack = scopedPacks.find((pk) => pk.playerId === p.id);
-      if (filter === "Active")   return pack?.status === "Active";
-      if (filter === "Exhausted") return pack?.status === "Exhausted";
-      if (filter === "No Pack")  return !pack;
+      if (filter === "Active")   { if (pack?.status !== "Active") return false; }
+      else if (filter === "Exhausted") { if (pack?.status !== "Exhausted") return false; }
+      else if (filter === "No Pack")  { if (pack) return false; }
+      if (searchTerm && !p.name.toLowerCase().includes(searchTerm)) return false;
       return true;
     });
-  }, [filter, scopedPlayers, scopedPacks]);
+  }, [filter, scopedPlayers, scopedPacks, searchTerm]);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
   function openAdd() {
@@ -439,6 +443,9 @@ export function SessionPacksClient() {
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Session Packs</h1>
           <p className="text-zinc-400 text-sm">Track upfront session purchases, scheduled dates, and credits</p>
+          {pageTab === "Packs" && (
+            <ListSummary parts={[`${filteredPlayers.length} shown`, `${scopedPlayers.length} total`, `${activePacks.length} active packs`]} />
+          )}
         </div>
         {canAddPack && (
           <div className="flex gap-3">
@@ -968,6 +975,16 @@ export function SessionPacksClient() {
 
       {/* ── PACKS TAB ───────────────────────────────────────────────────────── */}
       {pageTab === "Packs" && <>
+      {/* Search */}
+      <div className="relative mb-4 max-w-md">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by player name…"
+          className="w-full bg-surface rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
+      </div>
+
       {/* Filter tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
         {(["All", "Active", "Exhausted", "No Pack"] as FilterType[]).map((f) => (
