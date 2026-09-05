@@ -14,6 +14,9 @@ export interface ConfirmModalProps {
   loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Extra content between the message and the button row — e.g. Reassign All Players' target-
+   * coach picker. Most confirms don't need this. */
+  children?: React.ReactNode;
 }
 
 const CONFIRM_BUTTON_CLASSES: Record<NonNullable<ConfirmModalProps["confirmVariant"]>, string> = {
@@ -29,7 +32,7 @@ const CONFIRM_BUTTON_CLASSES: Record<NonNullable<ConfirmModalProps["confirmVaria
  */
 export function ConfirmModal({
   icon, iconBg, title, message, confirmLabel, confirmBusyLabel, cancelLabel = "Cancel",
-  confirmVariant = "default", loading = false, onConfirm, onCancel,
+  confirmVariant = "default", loading = false, onConfirm, onCancel, children,
 }: ConfirmModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -39,7 +42,8 @@ export function ConfirmModal({
           {icon}
         </div>
         <h3 className="text-white font-bold text-center mb-1">{title}</h3>
-        <p className="text-zinc-400 text-sm text-center mb-6">{message}</p>
+        <p className={`text-zinc-400 text-sm text-center ${children ? "mb-4" : "mb-6"}`}>{message}</p>
+        {children && <div className="mb-6">{children}</div>}
         <div className="flex gap-3">
           <button type="button" onClick={onCancel} disabled={loading}
             className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer disabled:opacity-60">

@@ -85,6 +85,12 @@ export function CoachesClient() {
   const [confirmStatusToggle, setConfirmStatusToggle] = useState<{ coachId: string; name: string; newStatus: CoachStatus } | null>(null);
   const [confirmMarketplaceToggle, setConfirmMarketplaceToggle] = useState<{ coachId: string; name: string; newValue: boolean } | null>(null);
   const [togglingCoach, setTogglingCoach] = useState(false);
+  // Standalone reassignment — deliberately separate from reassignTarget above, which only exists
+  // as a side-effect of deleting a coach (and additionally handles head-coach succession, which
+  // this doesn't need to touch: it only moves players' coach_id, nothing about academy structure).
+  const [reassignAllTarget, setReassignAllTarget] = useState<{ coachId: string; name: string; playerCount: number } | null>(null);
+  const [reassignAllToCoachId, setReassignAllToCoachId] = useState("");
+  const [reassigningAll, setReassigningAll] = useState(false);
 
   const defaultAcademyId = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
 
@@ -205,6 +211,26 @@ export function CoachesClient() {
       setFormError((err as { message?: string })?.message ?? String(err));
     } finally {
       setTogglingCoach(false);
+    }
+  }
+
+  // Only moves players' coach_id — deliberately doesn't touch academy head-coach succession
+  // (unlike confirmReassignAndDelete above), since that's a different concern from "who directly
+  // coaches these players" and this action doesn't remove the coach.
+  async function handleConfirmReassignAll() {
+    if (!reassignAllTarget) return;
+    setReassigningAll(true);
+    try {
+      await reassignCoachPlayers(reassignAllTarget.coachId, reassignAllToCoachId || null);
+      _coachPlayers = _coachPlayers.map((p) =>
+        p.coachId === reassignAllTarget.coachId ? { ...p, coachId: reassignAllToCoachId } : p
+      );
+      setCoaches((prev) => [...prev]); // _coachPlayers is module-level, not state — force a re-render
+      setReassignAllTarget(null);
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setReassigningAll(false);
     }
   }
 
@@ -814,7 +840,11 @@ export function CoachesClient() {
                           coachId: coach.id, name: coach.name, newValue: !coach.marketplaceVisible,
                         }),
                       },
-                      { label: "Delete Coach", variant: "danger", dividerBefore: true, onClick: () => openEditWithDeleteConfirm(coach) },
+                      ...(playerCount > 0 ? [{
+                        label: "Reassign All Players",
+                        onClick: () => { setReassignAllTarget({ coachId: coach.id, name: coach.name, playerCount }); setReassignAllToCoachId(""); },
+                      }] : []),
+                      { label: "Delete Coach", variant: "danger" as const, dividerBefore: true, onClick: () => openEditWithDeleteConfirm(coach) },
                     ]} />
                   )}
                 </div>
@@ -962,6 +992,36 @@ export function CoachesClient() {
           onConfirm={handleConfirmMarketplaceToggle}
           onCancel={() => setConfirmMarketplaceToggle(null)}
         />
+      )}
+
+      {reassignAllTarget && (
+        <ConfirmModal
+          icon={
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          }
+          iconBg="bg-blue-500/20"
+          title="Reassign All Players?"
+          message={`${reassignAllTarget.playerCount} player${reassignAllTarget.playerCount !== 1 ? "s" : ""} currently assigned to "${reassignAllTarget.name}" will move to whoever you pick below — ${reassignAllTarget.name} keeps their own account, just no players.`}
+          confirmLabel="Reassign"
+          confirmBusyLabel="Reassigning…"
+          loading={reassigningAll}
+          onConfirm={handleConfirmReassignAll}
+          onCancel={() => setReassignAllTarget(null)}
+        >
+          <select
+            value={reassignAllToCoachId}
+            onChange={(e) => setReassignAllToCoachId(e.target.value)}
+            className="w-full bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+          >
+            <option value="">— Leave unassigned —</option>
+            {coaches.filter((c) => c.id !== reassignAllTarget.coachId).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </ConfirmModal>
       )}
     </div>
   );

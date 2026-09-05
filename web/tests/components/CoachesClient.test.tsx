@@ -2,14 +2,15 @@ import { describe, expect, test, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CoachesClient } from "@/components/CoachesClient";
-import { makeAuthUser, makeCoach } from "../mocks/fixtures";
+import { makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
 
-const { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach } = vi.hoisted(() => ({
-  fetchCoaches: vi.fn(), fetchAcademies: vi.fn(), fetchPlayers: vi.fn(), fetchActivePlans: vi.fn(), upsertCoach: vi.fn(),
+const { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, reassignCoachPlayers } = vi.hoisted(() => ({
+  fetchCoaches: vi.fn(), fetchAcademies: vi.fn(), fetchPlayers: vi.fn(), fetchActivePlans: vi.fn(),
+  upsertCoach: vi.fn(), reassignCoachPlayers: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
-  fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach,
-  deleteCoach: vi.fn(), reassignCoachPlayers: vi.fn(), updateAcademyFields: vi.fn(),
+  fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, reassignCoachPlayers,
+  deleteCoach: vi.fn(), updateAcademyFields: vi.fn(),
 }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
@@ -33,6 +34,8 @@ function setupDefaults() {
   fetchActivePlans.mockResolvedValue([]);
   upsertCoach.mockClear();
   upsertCoach.mockResolvedValue(undefined);
+  reassignCoachPlayers.mockClear();
+  reassignCoachPlayers.mockResolvedValue(undefined);
 }
 
 describe("CoachesClient", () => {
@@ -158,6 +161,65 @@ describe("CoachesClient", () => {
     await user.click(screen.getByRole("button", { name: "Yes, Show" }));
 
     expect(upsertCoach).toHaveBeenCalledWith({ id: "c1", marketplace_visible: true });
+  });
+
+  test("offers Reassign All Players only when the coach actually has players, and requires confirmation", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan" }),
+      makeCoach({ id: "c2", name: "Coach Sam" }),
+    ]);
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice", coachId: "c1" }),
+      makePlayer({ id: "p2", name: "Bob", coachId: "c1" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    const [coach1Menu] = screen.getAllByRole("button", { name: "More actions" });
+    await user.click(coach1Menu);
+    await user.click(screen.getByText("Reassign All Players"));
+
+    expect(reassignCoachPlayers).not.toHaveBeenCalled();
+    expect(await screen.findByText("Reassign All Players?")).toBeInTheDocument();
+    expect(screen.getByText(/2 players currently assigned to "Coach Dan"/)).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByDisplayValue("— Leave unassigned —"), "Coach Sam");
+    await user.click(screen.getByRole("button", { name: "Reassign" }));
+
+    expect(reassignCoachPlayers).toHaveBeenCalledWith("c1", "c2");
+  });
+
+  test("hides Reassign All Players from a coach with no players assigned", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+    fetchPlayers.mockResolvedValue([]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.queryByText("Reassign All Players")).not.toBeInTheDocument();
+  });
+
+  test("cancelling Reassign All Players calls nothing", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice", coachId: "c1" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Reassign All Players"));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByText("Reassign All Players?")).not.toBeInTheDocument();
+    expect(reassignCoachPlayers).not.toHaveBeenCalled();
   });
 
   test("hides the ⋮ delete menu from a coach viewing their own card", async () => {
