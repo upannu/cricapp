@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlayersClient } from "@/components/PlayersClient";
 import { makeAcademy, makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
@@ -451,5 +451,72 @@ describe("PlayersClient", () => {
     await user.click(screen.getAllByLabelText("Select all")[0]); // the U14 group's header checkbox
 
     expect(screen.getByText("2 players selected")).toBeInTheDocument();
+  });
+
+  test("clicking a column header sorts the table by that column, and clicking it again reverses the order", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Zara Last" }),
+      makePlayer({ id: "p2", name: "Amy First" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Zara Last");
+
+    const rowNames = () => screen.getAllByRole("row").slice(1).map((r) => r.textContent);
+
+    // Default sort is already by name ascending.
+    expect(rowNames()[0]).toContain("Amy First");
+
+    const playerHeader = screen.getByRole("columnheader", { name: /Player/ });
+    await user.click(within(playerHeader).getByRole("button"));
+    expect(rowNames()[0]).toContain("Zara Last");
+
+    // Clicking the same header again flips it back.
+    await user.click(within(playerHeader).getByRole("button"));
+    expect(rowNames()[0]).toContain("Amy First");
+  });
+
+  test("filters the table by subscription status via the status pills", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    const farFuture = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const past = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", subscription: { plan: "Free", startDate: "2026-01-01", endDate: farFuture, sessionsUsed: 0, sessionsLimit: 4 } }),
+      makePlayer({ id: "p2", name: "Bob Seamer", subscription: { plan: "Free", startDate: "2026-01-01", endDate: soon, sessionsUsed: 0, sessionsLimit: 4 } }),
+      makePlayer({ id: "p3", name: "Cara Spinner", subscription: { plan: "Free", startDate: "2026-01-01", endDate: past, sessionsUsed: 0, sessionsLimit: 4 } }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "Expiring" }));
+
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cara Spinner")).not.toBeInTheDocument();
+  });
+
+  test("shows a shown/total/expiring summary line under the page title", async () => {
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    // Both default (makePlayer) subscriptions run well past the "expiring soon" window.
+    expect(screen.getByText("2 shown · 2 total · 0 expiring soon")).toBeInTheDocument();
   });
 });

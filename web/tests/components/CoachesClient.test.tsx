@@ -305,4 +305,56 @@ describe("CoachesClient", () => {
     expect(await screen.findByRole("checkbox", { name: "Visible in the coach marketplace" })).not.toBeDisabled();
     expect(screen.queryByText(/Requires Coach Pro/)).not.toBeInTheDocument();
   });
+
+  test("searches coaches by name or email", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", email: "dan@example.com" }),
+      makeCoach({ id: "c2", name: "Coach Sam", email: "sam@riverside.example.com" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.type(screen.getByPlaceholderText(/Search coaches/), "riverside");
+    expect(await screen.findByText("Coach Sam")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+  });
+
+  test("sorts coaches by most players when that sort is selected", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Ant" }),
+      makeCoach({ id: "c2", name: "Coach Zed" }),
+    ]);
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", coachId: "c2" }),
+      makePlayer({ id: "p2", coachId: "c2" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Ant");
+
+    const cardNames = () => screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    // Default sort is Name (A–Z) — Ant before Zed.
+    expect(cardNames()).toEqual(["Coach Ant", "Coach Zed"]);
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Sort by" }), "Most Players");
+    expect(cardNames()).toEqual(["Coach Zed", "Coach Ant"]);
+  });
+
+  test("shows a shown/total/active summary line under the page title", async () => {
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", status: "Active" }),
+      makeCoach({ id: "c2", name: "Coach Sam", status: "Inactive" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    expect(screen.getByText("2 shown · 2 total · 1 active")).toBeInTheDocument();
+  });
 });

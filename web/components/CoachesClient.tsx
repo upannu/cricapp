@@ -11,6 +11,10 @@ import { DateInput } from "@/components/DateInput";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { ListSummary } from "@/components/ListSummary";
+import { PowerIcon, PowerOffIcon, EyeIcon, EyeOffIcon, MailIcon, RepeatIcon, TrashIcon } from "@/components/icons";
+
+type CoachSortBy = "name" | "players" | "status";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const CERT_LEVELS: CertificationLevel[] = ["Level 1", "Level 2", "Level 3", "Elite"];
@@ -67,6 +71,8 @@ export function CoachesClient() {
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
   const [filter, setFilter] = useState<"All" | "Active" | "Inactive">("All");
+  const [search, setSearch] = useState("");
+  const [coachSortBy, setCoachSortBy] = useState<CoachSortBy>("name");
   const [sendInvite, setSendInvite] = useState(true);
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [inviteError, setInviteError] = useState("");
@@ -448,7 +454,18 @@ export function CoachesClient() {
     }));
   }
 
-  const filtered = filter === "All" ? coaches : coaches.filter((c) => c.status === filter);
+  const statusFiltered = filter === "All" ? coaches : coaches.filter((c) => c.status === filter);
+  const searchTerm = search.trim().toLowerCase();
+  const filtered = searchTerm
+    ? statusFiltered.filter((c) => c.name.toLowerCase().includes(searchTerm) || c.email.toLowerCase().includes(searchTerm))
+    : statusFiltered;
+  const sorted = [...filtered].sort((a, b) => {
+    const cmp =
+      coachSortBy === "players" ? playerCountForCoach(b.id) - playerCountForCoach(a.id) // most players first, not alphabetical
+      : coachSortBy === "status" ? a.status.localeCompare(b.status)
+      : a.name.localeCompare(b.name);
+    return cmp;
+  });
   const activeCount = coaches.filter((c) => c.status === "Active").length;
   const totalPlayers = coaches.reduce((s, c) => s + playerCountForCoach(c.id), 0);
 
@@ -459,6 +476,7 @@ export function CoachesClient() {
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Coaches</h1>
           <p className="text-zinc-400 text-sm">Manage your coaching team and their player assignments</p>
+          <ListSummary parts={[`${filtered.length} shown`, `${coaches.length} total`, `${activeCount} active`]} />
         </div>
         {user?.role !== "coach" && (
           <button type="button" onClick={openAdd}
@@ -782,6 +800,25 @@ export function CoachesClient() {
         </div>
       )}
 
+      {/* Search + sort */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="relative max-w-md w-full">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search coaches by name or email…" className={`${inp} pl-10`} />
+        </div>
+        <label className="flex items-center gap-2 sm:flex-shrink-0">
+          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider whitespace-nowrap">Sort by</span>
+          <select value={coachSortBy} onChange={(e) => setCoachSortBy(e.target.value as CoachSortBy)} className={`${sel} sm:w-44`}>
+            <option value="name">Name (A–Z)</option>
+            <option value="players">Most Players</option>
+            <option value="status">Status</option>
+          </select>
+        </label>
+      </div>
+
       {/* Filter tabs */}
       <div className="flex gap-2 mb-6">
         {(["All", "Active", "Inactive"] as const).map((f) => (
@@ -805,7 +842,7 @@ export function CoachesClient() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map((coach) => {
+          {sorted.map((coach) => {
             const playerCount = playerCountForCoach(coach.id);
             const initials = coach.name.split(" ").map((n) => n[0]).join("");
 
@@ -853,6 +890,7 @@ export function CoachesClient() {
                       {
                         label: coach.status === "Active" ? "Deactivate" : "Activate",
                         variant: coach.status === "Active" ? "warning" : "success",
+                        icon: coach.status === "Active" ? <PowerOffIcon /> : <PowerIcon />,
                         onClick: () => setConfirmStatusToggle({
                           coachId: coach.id, name: coach.name,
                           newStatus: coach.status === "Active" ? "Inactive" : "Active",
@@ -860,19 +898,22 @@ export function CoachesClient() {
                       },
                       {
                         label: coach.marketplaceVisible ? "Hide from Marketplace" : "Show in Marketplace",
+                        icon: coach.marketplaceVisible ? <EyeOffIcon /> : <EyeIcon />,
                         onClick: () => setConfirmMarketplaceToggle({
                           coachId: coach.id, name: coach.name, newValue: !coach.marketplaceVisible,
                         }),
                       },
                       ...(coach.email ? [{
                         label: "Resend Invite",
+                        icon: <MailIcon />,
                         onClick: () => setConfirmResendInvite({ coachId: coach.id, name: coach.name }),
                       }] : []),
                       ...(playerCount > 0 ? [{
                         label: "Reassign All Players",
+                        icon: <RepeatIcon />,
                         onClick: () => { setReassignAllTarget({ coachId: coach.id, name: coach.name, playerCount }); setReassignAllToCoachId(""); },
                       }] : []),
-                      { label: "Delete Coach", variant: "danger" as const, dividerBefore: true, onClick: () => openEditWithDeleteConfirm(coach) },
+                      { label: "Delete Coach", variant: "danger" as const, dividerBefore: true, icon: <TrashIcon />, onClick: () => openEditWithDeleteConfirm(coach) },
                     ]} />
                   )}
                 </div>

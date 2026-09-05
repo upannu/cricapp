@@ -9,6 +9,7 @@ import {
   fetchAttendanceForDate, saveAttendance,
 } from "@/lib/db";
 import { matchPlayerByNameOrEmail } from "@/lib/utils";
+import { ListSummary } from "@/components/ListSummary";
 import type { GroupSession, Player, Coach, SessionPack, BookingType, AttendanceStatus, AttendanceRecord } from "@/lib/types";
 
 const SESSION_TYPES: BookingType[] = [
@@ -83,6 +84,7 @@ function occurrenceDatesInRange(dayOfWeek: number, fromIso: string, toIso: strin
 export function AttendanceClient() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<GroupSession[]>([]);
+  const [groupSearch, setGroupSearch] = useState("");
   const [players, setPlayers] = useState<Player[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [loading, setLoading] = useState(true);
@@ -445,12 +447,18 @@ export function AttendanceClient() {
     );
   }
 
+  const groupSearchTerm = groupSearch.trim().toLowerCase();
+  const filteredGroups = groupSearchTerm
+    ? groups.filter((g) => g.name.toLowerCase().includes(groupSearchTerm))
+    : groups;
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-white mb-1">Attendance</h1>
           <p className="text-zinc-400 text-sm">Recurring group sessions — take attendance and draw down each player&apos;s own pack.</p>
+          <ListSummary parts={[`${filteredGroups.length} shown`, `${groups.length} total`]} />
         </div>
         <button type="button" onClick={openAdd}
           className="px-4 py-2 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer flex-shrink-0">
@@ -458,14 +466,29 @@ export function AttendanceClient() {
         </button>
       </div>
 
-      {groups.length === 0 && (
+      {groups.length > 0 && (
+        <div className="relative mb-6 max-w-md">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input type="text" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)}
+            placeholder="Search groups by name…"
+            className="w-full bg-surface rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
+        </div>
+      )}
+
+      {groups.length === 0 ? (
         <div className="bg-surface rounded-2xl p-16 text-center">
           <p className="text-zinc-400 text-sm">No recurring group sessions yet.</p>
+        </div>
+      ) : filteredGroups.length === 0 && (
+        <div className="bg-surface rounded-2xl p-16 text-center">
+          <p className="text-zinc-400 text-sm">No groups match &quot;{groupSearch.trim()}&quot;.</p>
         </div>
       )}
 
       <div className="space-y-3">
-        {groups.map((g) => {
+        {filteredGroups.map((g) => {
           const isExpanded = expandedId === g.id;
           const upcoming = upcomingByGroup[g.id] ?? [];
           const past = pastDates[g.id] ?? [];

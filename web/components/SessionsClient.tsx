@@ -15,6 +15,7 @@ import { CameraCalibrationModal } from "@/components/CameraCalibrationModal";
 import { VideoAnnotator } from "@/components/VideoAnnotator";
 import { VoiceNoteRecorder } from "@/components/VoiceNoteRecorder";
 import { AssessmentForm } from "@/components/AssessmentForm";
+import { ListSummary } from "@/components/ListSummary";
 import { aiReportsIncludedForPlayer } from "@/lib/plan-features";
 
 const SESSION_TYPES: BookingType[] = [
@@ -161,6 +162,7 @@ export function SessionsClient() {
   const [coachFilter, setCoachFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState<BookingType | "all">("all");
   const [search, setSearch] = useState("");
+  const [sessionSortBy, setSessionSortBy] = useState<"dateDesc" | "dateAsc" | "speedDesc">("dateDesc");
 
   const visibleCoaches = _sessCoaches;
 
@@ -340,6 +342,14 @@ export function SessionsClient() {
     return true;
   });
 
+  const sortedSessions = [...filtered].sort((a, b) => {
+    switch (sessionSortBy) {
+      case "dateAsc":   return a.date.localeCompare(b.date);
+      case "speedDesc": return (b.ballSpeedKmh ?? -1) - (a.ballSpeedKmh ?? -1);
+      default:          return b.date.localeCompare(a.date);
+    }
+  });
+
   return (
     <>
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -348,6 +358,7 @@ export function SessionsClient() {
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Sessions</h1>
           <p className="text-zinc-400 text-sm">All bowling sessions across your players</p>
+          <ListSummary parts={[`${filtered.length} shown`, `${sessions.length} total`, `${thisWeekCount(sessions)} this week`]} />
         </div>
       </div>
 
@@ -398,6 +409,15 @@ export function SessionsClient() {
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
+        <select
+          value={sessionSortBy}
+          onChange={(e) => setSessionSortBy(e.target.value as "dateDesc" | "dateAsc" | "speedDesc")}
+          className={selectCls}
+        >
+          <option value="dateDesc">Sort: Newest First</option>
+          <option value="dateAsc">Sort: Oldest First</option>
+          <option value="speedDesc">Sort: Fastest Ball Speed</option>
+        </select>
       </div>
 
       {/* Session list */}
@@ -407,7 +427,7 @@ export function SessionsClient() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((session) => {
+          {sortedSessions.map((session) => {
             const player = playerById(session.playerId);
             const isExpanded = expandedId === session.id;
             const initials = player?.name.split(" ").map((n) => n[0]).join("") ?? "?";

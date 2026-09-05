@@ -85,4 +85,39 @@ describe("SessionsClient", () => {
     expect(await screen.findByText("Showing 1 of 2 sessions")).toBeInTheDocument();
     expect(screen.getAllByText("Match Practice").length).toBeGreaterThan(0);
   });
+
+  test("shows a shown/total/this-week summary line under the page title", async () => {
+    setupDefaults();
+    fetchSessions.mockResolvedValue([
+      makeSession({ id: "s1", playerId: "p1" }),
+      makeSession({ id: "s2", playerId: "p1" }),
+    ]);
+
+    render(<SessionsClient />);
+    await screen.findByText("Showing 2 of 2 sessions");
+
+    // Both fixture sessions date back to 2026-01-01 — well outside "this week".
+    expect(screen.getByText("2 shown · 2 total · 0 this week")).toBeInTheDocument();
+  });
+
+  test("sorting by fastest ball speed reorders the session list", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchSessions.mockResolvedValue([
+      makeSession({ id: "s1", playerId: "p1", type: "Net Session", ballSpeedKmh: 100 }),
+      makeSession({ id: "s2", playerId: "p1", type: "Match Practice", ballSpeedKmh: 140 }),
+    ]);
+
+    render(<SessionsClient />);
+    await screen.findByText("Showing 2 of 2 sessions");
+
+    // Per-card speed badges are plain integers ("100 km/h") — excludes the "Avg ball speed" stat
+    // card above the list, which always renders with one decimal place ("120.0 km/h").
+    const speedOrder = () => screen.getAllByText(/^\d+ km\/h$/).map((el) => el.textContent);
+    // Default sort (Newest First) — same date on both, so insertion order is preserved.
+    expect(speedOrder()[0]).toBe("100 km/h");
+
+    await user.selectOptions(screen.getByDisplayValue("Sort: Newest First"), "Sort: Fastest Ball Speed");
+    expect(speedOrder()[0]).toBe("140 km/h");
+  });
 });

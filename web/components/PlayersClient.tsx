@@ -10,8 +10,12 @@ import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, Play
 import { MessageModal } from "@/components/MessageModal";
 import { BulkMessageModal } from "@/components/BulkMessageModal";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
+import { SortableHeader } from "@/components/SortableHeader";
+import { ListSummary } from "@/components/ListSummary";
+import { MessageIcon } from "@/components/icons";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { rosterCapForCoachPlan, sessionsLimitForPlan } from "@/lib/plan-features";
+import { useSort } from "@/lib/useSort";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const PLAYING_LEVELS: PlayingLevel[] = ["Beginner", "Club", "Representative", "State", "National", "International"];
@@ -35,6 +39,21 @@ interface PlayerGroup {
   key: string;
   label: string;
   players: Player[];
+}
+
+type PlayerSortKey = "name" | "coach" | "plan" | "status" | "startDate" | "endDate" | "sessions" | "lastActive";
+
+function comparePlayers(a: Player, b: Player, sortKey: PlayerSortKey, coaches: Coach[], academies: Academy[]): number {
+  switch (sortKey) {
+    case "name": return a.name.localeCompare(b.name);
+    case "coach": return getCoachOrAcademyLabel(a, coaches, academies).localeCompare(getCoachOrAcademyLabel(b, coaches, academies));
+    case "plan": return a.subscription.plan.localeCompare(b.subscription.plan);
+    case "status": return getPlayerStatus(a.subscription.endDate).localeCompare(getPlayerStatus(b.subscription.endDate));
+    case "startDate": return a.subscription.startDate.localeCompare(b.subscription.startDate);
+    case "endDate": return a.subscription.endDate.localeCompare(b.subscription.endDate);
+    case "sessions": return a.sessionsCount - b.sessionsCount;
+    case "lastActive": return a.lastActive.localeCompare(b.lastActive);
+  }
 }
 
 function coachNameForPlayer(player: Player, coaches: Coach[]): string {
@@ -131,6 +150,8 @@ export function PlayersClient() {
   const [search, setSearch] = useState("");
   const [groupBy, setGroupBy] = useState<GroupByOption>("none");
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<"All" | PlayerStatus>("All");
+  const { sortKey, sortDir, handleSort } = useSort<PlayerSortKey>("name");
   const [assignAcademyId, setAssignAcademyId] = useState(""); // platform_admin only — "" = unassigned
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvRows, setCsvRows] = useState<ParsedCsvRow[]>([]);
@@ -421,17 +442,29 @@ export function PlayersClient() {
 
   // Name, email, and club — the three fields visible enough that "search" reasonably implies them.
   const searchTerm = search.trim().toLowerCase();
-  const filteredPlayers = searchTerm
+  const searchedPlayers = searchTerm
     ? players.filter((p) =>
         p.name.toLowerCase().includes(searchTerm) ||
         p.email.toLowerCase().includes(searchTerm) ||
         p.club.toLowerCase().includes(searchTerm)
       )
     : players;
+  const filteredPlayers = statusFilter === "All"
+    ? searchedPlayers
+    : searchedPlayers.filter((p) => getPlayerStatus(p.subscription.endDate) === statusFilter);
+  const sortedPlayers = [...filteredPlayers].sort((a, b) => {
+    const cmp = comparePlayers(a, b, sortKey, coaches, academies);
+    return sortDir === "asc" ? cmp : -cmp;
+  });
 
   function handleSearchChange(value: string) {
     setSearch(value);
     setPage(1); // A new search can easily land fewer results than the page you were on.
+  }
+
+  function handleStatusFilterChange(value: "All" | PlayerStatus) {
+    setStatusFilter(value);
+    setPage(1); // Same reasoning as handleSearchChange — a narrower filter can strand a later page.
   }
 
   // "Select all" (and its indeterminate state) only ever covers what's currently visible under
@@ -495,7 +528,7 @@ export function PlayersClient() {
   // testing) can never strand the view on a now-nonexistent page.
   const totalPages = Math.max(1, Math.ceil(filteredPlayers.length / PLAYERS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
-  const pagePlayers = filteredPlayers.slice((currentPage - 1) * PLAYERS_PER_PAGE, currentPage * PLAYERS_PER_PAGE);
+  const pagePlayers = sortedPlayers.slice((currentPage - 1) * PLAYERS_PER_PAGE, currentPage * PLAYERS_PER_PAGE);
 
   // Academy/Coach are only offered when a caller's own roster could actually span more than one —
   // an academy_admin only ever sees their own academy, and a coach (this page's own fetch is
@@ -508,7 +541,7 @@ export function PlayersClient() {
     { value: "ageGroup", label: "Age Group" },
     { value: "playingLevel", label: "Playing Level" },
   ];
-  const groups = groupBy === "none" ? [] : groupPlayers(filteredPlayers, groupBy, coaches, academies);
+  const groups = groupBy === "none" ? [] : groupPlayers(sortedPlayers, groupBy, coaches, academies);
 
   function renderPlayerRow(player: Player) {
     const status = getPlayerStatus(player.subscription.endDate);
@@ -566,7 +599,7 @@ export function PlayersClient() {
                 flow for the common case, so a per-row send is the secondary action
                 here, not the primary one (unlike View). */}
             <RowActionsMenu items={[
-              { label: "Send Message", onClick: () => setMessagingPlayer(player) },
+              { label: "Send Message", icon: <MessageIcon />, onClick: () => setMessagingPlayer(player) },
             ]} />
           </div>
         </td>
@@ -625,6 +658,7 @@ export function PlayersClient() {
         <div>
           <h1 className="text-2xl font-bold text-white">Players</h1>
           <p className="text-zinc-400 text-sm mt-1">Manage your players and their subscriptions</p>
+          <ListSummary parts={[`${filteredPlayers.length} shown`, `${players.length} total`, `${expiring} expiring soon`]} />
         </div>
         <button
           type="button"
@@ -679,6 +713,17 @@ export function PlayersClient() {
             {groupByOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </label>
+      </div>
+
+      <div className="flex gap-2 mb-6">
+        {(["All", "Active", "Expiring", "Expired"] as const).map((s) => (
+          <button key={s} type="button" onClick={() => handleStatusFilterChange(s)}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+              statusFilter === s ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
+            }`}>
+            {s}
+          </button>
+        ))}
       </div>
 
       {canAddPlayers && showAddPlayer && !atRosterCap && (
@@ -871,16 +916,14 @@ export function PlayersClient() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-700/60">
-                {["Player", "Coach", "Plan", "Status", "Start Date", "End / Renewal", "Sessions", "Last Active"].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider px-4 py-3 first:pl-6 whitespace-nowrap"
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
+                <SortableHeader label="Player" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} className="pl-6" />
+                <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="Plan" sortKey="plan" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="Start Date" sortKey="startDate" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="End / Renewal" sortKey="endDate" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="Sessions" sortKey="sessions" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="Last Active" sortKey="lastActive" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <th className="text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider px-4 py-3 whitespace-nowrap">
                   Actions
                 </th>
