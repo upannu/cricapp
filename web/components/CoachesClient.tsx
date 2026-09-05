@@ -292,7 +292,12 @@ export function CoachesClient() {
   async function handleSave() {
     if (!draft.name.trim()) { setFormError("Coach name is required."); return; }
     if (!draft.email.trim()) { setFormError("Email is required."); return; }
-    if (!draft.academyId) { setFormError("Please assign this coach to an academy."); return; }
+    // Deliberately no "academy required" check here — an independent coach (Coach Pro, no
+    // academy) is a fully legitimate state already relied on elsewhere (marketplaceLocked's own
+    // !academyId check, the "Your plan" section on a coach's own card). An academy_admin's field
+    // is always pre-filled to their own academy and disabled anyway, so this never needed
+    // enforcing for that role either — it was only ever blocking platform_admin/independent-coach
+    // saves that have every right to leave this blank.
     // Nothing in the schema stops two coach rows sharing an email — and when that happens, every
     // email-based lookup elsewhere (invite approval, login linking) can only ever resolve to one
     // of them, silently orphaning whichever wasn't picked. Catch it here instead.
@@ -339,7 +344,11 @@ export function CoachesClient() {
         id: newId, name: coach.name, email: coach.email, phone: coach.phone,
         specialization: coach.specialization, age_groups_focus: coach.ageGroupsFocus,
         location: coach.location, status: coach.status, joined_date: coach.joinedDate,
-        certification_level: coach.certificationLevel, bio: coach.bio, academy_id: coach.academyId,
+        certification_level: coach.certificationLevel, bio: coach.bio,
+        // academy_id is a nullable FK — an empty string isn't a valid value for it (every other
+        // coach-creation path in this file already sends null for "no academy"; this is the one
+        // save path that didn't).
+        academy_id: coach.academyId || null,
         marketplace_visible: coach.marketplaceVisible, available: coach.available,
         lat: coach.lat ?? null, lng: coach.lng ?? null,
       });
@@ -575,14 +584,14 @@ export function CoachesClient() {
               </select>
             </div>
             <div className="sm:col-span-2">
-              <label className={lbl}>Academy *</label>
+              <label className={lbl}>Academy</label>
               <select
                 value={draft.academyId}
                 onChange={(e) => setDraft({ ...draft, academyId: e.target.value })}
                 className={sel}
                 disabled={user?.role === "academy_admin" || user?.role === "coach"}
               >
-                <option value="">— Select academy —</option>
+                <option value="">— None (independent coach) —</option>
                 {_coachAcademies.map((a) => (
                   <option key={a.id} value={a.id}>{a.name} · {a.location}</option>
                 ))}

@@ -305,4 +305,28 @@ describe("CoachesClient", () => {
     expect(await screen.findByRole("checkbox", { name: "Visible in the coach marketplace" })).not.toBeDisabled();
     expect(screen.queryByText(/Requires Coach Pro/)).not.toBeInTheDocument();
   });
+
+  test("lets a platform_admin save a new coach with no academy assigned (independent Coach Pro coach)", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+
+    render(<CoachesClient />);
+    await user.click(await screen.findByRole("button", { name: "+ New Coach" }));
+
+    await user.type(screen.getByPlaceholderText("e.g. Arjun Sharma"), "Priya Iyer");
+    await user.type(screen.getByPlaceholderText("coach@email.com"), "priya@example.com");
+    // Skip the invite email so the save doesn't also need a fetch mock — irrelevant to this fix.
+    await user.click(screen.getByRole("checkbox", { name: /Send login invite email/ }));
+    // Academy field is deliberately left on its default "— None (independent coach) —" option.
+
+    await user.click(screen.getByRole("button", { name: "Create Coach" }));
+
+    // The old blanket "Please assign this coach to an academy." validation must not appear —
+    // an independent Coach Pro coach with no academy is a legitimate, supported state.
+    expect(screen.queryByText("Please assign this coach to an academy.")).not.toBeInTheDocument();
+    await screen.findByText("Priya Iyer");
+    expect(upsertCoach).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Priya Iyer", academy_id: null }),
+    );
+  });
 });
