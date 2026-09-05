@@ -360,4 +360,96 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     expect(await screen.findByText("No players in your scope.")).toBeInTheDocument();
   });
+
+  test("groups players by academy, with an 'Unassigned' section for those on no academy roster", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer" }),
+      makePlayer({ id: "p3", name: "Cara Spinner" }),
+    ]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", playerIds: ["p1", "p2"] })]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.selectOptions(screen.getByRole("combobox"), "Academy");
+
+    // One "Riverside Academy" (2)-count group header, plus another for the 1 player on no
+    // academy roster — a coach-less player's own Coach column also reads the academy/"Unassigned"
+    // fallback, so these group headers aren't the only place either string appears on the page.
+    expect(await screen.findByText("(2)")).toBeInTheDocument();
+    expect(screen.getByText("(1)")).toBeInTheDocument();
+    expect(screen.getAllByText("Riverside Academy").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unassigned").length).toBeGreaterThan(0);
+    // Both group sections' rows still render, no pagination gating a grouped view.
+    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
+    expect(screen.getByText("Cara Spinner")).toBeInTheDocument();
+    expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+  });
+
+  test("doesn't offer Academy/Coach grouping to a coach viewing their own single-coach roster", async () => {
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "coach-1" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["No grouping", "Age Group", "Playing Level"]);
+  });
+
+  test("collapsing a group hides its rows without losing their selection", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", ageGroup: "U14" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", ageGroup: "U16" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+    await user.selectOptions(screen.getByRole("combobox"), "Age Group");
+    await screen.findByText("U14");
+
+    // Alice's row (U14, listed first) — the group header's own checkbox shares no accessible
+    // name with this one, so index 0 here is unambiguously her row's own selection box.
+    await user.click(screen.getAllByRole("checkbox", { name: "Select for bulk message" })[0]);
+    await user.click(screen.getByText("U14")); // collapse the group Alice is in
+
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+
+    await user.click(screen.getByText("U14")); // expand again
+    expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
+    // Selection made before collapsing is still in effect.
+    expect(screen.getAllByRole("checkbox", { name: "Select for bulk message" })[0]).toBeChecked();
+  });
+
+  test("a group's 'Select all' checkbox only selects players within that group", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", ageGroup: "U14" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", ageGroup: "U14" }),
+      makePlayer({ id: "p3", name: "Cara Spinner", ageGroup: "U16" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+    await user.selectOptions(screen.getByRole("combobox"), "Age Group");
+    await screen.findByText("U14");
+
+    await user.click(screen.getAllByLabelText("Select all")[0]); // the U14 group's header checkbox
+
+    expect(screen.getByText("2 players selected")).toBeInTheDocument();
+  });
 });

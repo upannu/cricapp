@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import Papa from "papaparse";
 import { useAuth } from "@/lib/auth";
 import { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields } from "@/lib/db";
 import { formatDate, getPlayerStatus, getInitials, getCoachOrAcademyLabel, isValidEmail } from "@/lib/utils";
-import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, Plan } from "@/lib/types";
+import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, PlayingLevel, Plan } from "@/lib/types";
 import { MessageModal } from "@/components/MessageModal";
 import { BulkMessageModal } from "@/components/BulkMessageModal";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
@@ -14,12 +14,69 @@ import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { rosterCapForCoachPlan, sessionsLimitForPlan } from "@/lib/plan-features";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
+const PLAYING_LEVELS: PlayingLevel[] = ["Beginner", "Club", "Representative", "State", "National", "International"];
 const BOWLING_STYLES: BowlingStyle[] = [
   "Right Arm Fast", "Left Arm Fast", "Right Arm Fast-Medium",
   "Left Arm Fast-Medium", "Right Arm Medium", "Left Arm Medium",
 ];
 const EMPTY_NEW_PLAYER = { name: "", email: "", ageGroup: "U14" as AgeGroup, bowlingStyle: "Right Arm Fast" as BowlingStyle, club: "" };
 const PLAYERS_PER_PAGE = 10;
+const NO_COACH_LABEL = "No Coach Assigned";
+const UNASSIGNED_ACADEMY_LABEL = "Unassigned";
+
+// A large roster is easier to scan sectioned than as one long flat list — "None" keeps today's
+// plain paginated table; each other option buckets filteredPlayers into named, orderable groups.
+// "academy"/"coach" are only offered when they'd actually vary (see groupByOptions below) — an
+// academy_admin's own roster is all one academy, and a coach's own roster is all one coach, so
+// grouping by either would always produce a single group.
+type GroupByOption = "none" | "academy" | "coach" | "ageGroup" | "playingLevel";
+
+interface PlayerGroup {
+  key: string;
+  label: string;
+  players: Player[];
+}
+
+function coachNameForPlayer(player: Player, coaches: Coach[]): string {
+  const coach = player.coachId ? coaches.find((c) => c.id === player.coachId) : undefined;
+  return coach ? coach.name : NO_COACH_LABEL;
+}
+
+function academyNameForPlayer(player: Player, academies: Academy[]): string {
+  const academy = academies.find((a) => a.playerIds.includes(player.id));
+  return academy ? academy.name : UNASSIGNED_ACADEMY_LABEL;
+}
+
+function groupPlayers(list: Player[], groupBy: GroupByOption, coaches: Coach[], academies: Academy[]): PlayerGroup[] {
+  if (groupBy === "none") return [{ key: "all", label: "", players: list }];
+
+  const keyFn: (p: Player) => string =
+    groupBy === "ageGroup" ? (p) => p.ageGroup :
+    groupBy === "playingLevel" ? (p) => p.playingLevel :
+    groupBy === "coach" ? (p) => coachNameForPlayer(p, coaches) :
+    (p) => academyNameForPlayer(p, academies);
+
+  const buckets = new Map<string, Player[]>();
+  for (const p of list) {
+    const key = keyFn(p);
+    const bucket = buckets.get(key);
+    if (bucket) bucket.push(p);
+    else buckets.set(key, [p]);
+  }
+
+  let orderedKeys: string[];
+  if (groupBy === "ageGroup") orderedKeys = AGE_GROUPS.filter((g) => buckets.has(g));
+  else if (groupBy === "playingLevel") orderedKeys = PLAYING_LEVELS.filter((g) => buckets.has(g));
+  else {
+    // Alphabetical, but the "nobody's assigned this" bucket always reads last rather than
+    // wherever it happens to sort — it's the exception case, not a normal group.
+    const fallback = groupBy === "coach" ? NO_COACH_LABEL : UNASSIGNED_ACADEMY_LABEL;
+    orderedKeys = [...buckets.keys()].filter((k) => k !== fallback).sort((a, b) => a.localeCompare(b));
+    if (buckets.has(fallback)) orderedKeys.push(fallback);
+  }
+
+  return orderedKeys.map((key) => ({ key, label: key, players: buckets.get(key)! }));
+}
 
 // CSV import — same shape/behavior as AcademyClient's own (not shared as a module yet; ported
 // deliberately rather than refactored, to avoid touching that already-shipped file for this).
@@ -72,6 +129,8 @@ export function PlayersClient() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [groupBy, setGroupBy] = useState<GroupByOption>("none");
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [assignAcademyId, setAssignAcademyId] = useState(""); // platform_admin only — "" = unassigned
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvRows, setCsvRows] = useState<ParsedCsvRow[]>([]);
@@ -405,6 +464,29 @@ export function PlayersClient() {
     setSelectedIds(new Set());
   }
 
+  function toggleGroupSelection(groupPlayerList: Player[]) {
+    const allSelectedInGroup = groupPlayerList.length > 0 && groupPlayerList.every((p) => selectedIds.has(p.id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      groupPlayerList.forEach((p) => (allSelectedInGroup ? next.delete(p.id) : next.add(p.id)));
+      return next;
+    });
+  }
+
+  function toggleGroupCollapsed(key: string) {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function handleGroupByChange(value: GroupByOption) {
+    setGroupBy(value);
+    setCollapsedGroups(new Set()); // stale keys from the previous grouping don't carry any meaning here
+  }
+
   const selectedPlayers = players.filter((p) => selectedIds.has(p.id));
 
   // The stats cards above the table still summarize the whole roster regardless of search — only
@@ -414,6 +496,127 @@ export function PlayersClient() {
   const totalPages = Math.max(1, Math.ceil(filteredPlayers.length / PLAYERS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
   const pagePlayers = filteredPlayers.slice((currentPage - 1) * PLAYERS_PER_PAGE, currentPage * PLAYERS_PER_PAGE);
+
+  // Academy/Coach are only offered when a caller's own roster could actually span more than one —
+  // an academy_admin only ever sees their own academy, and a coach (this page's own fetch is
+  // already scoped to just them) only ever sees themselves, so either would always render as one
+  // group with nothing gained by grouping.
+  const groupByOptions: { value: GroupByOption; label: string }[] = [
+    { value: "none", label: "No grouping" },
+    ...(user?.role === "platform_admin" ? [{ value: "academy" as const, label: "Academy" }] : []),
+    ...(user?.role !== "coach" ? [{ value: "coach" as const, label: "Coach" }] : []),
+    { value: "ageGroup", label: "Age Group" },
+    { value: "playingLevel", label: "Playing Level" },
+  ];
+  const groups = groupBy === "none" ? [] : groupPlayers(filteredPlayers, groupBy, coaches, academies);
+
+  function renderPlayerRow(player: Player) {
+    const status = getPlayerStatus(player.subscription.endDate);
+    const isSelected = selectedIds.has(player.id);
+    return (
+      <tr
+        key={player.id}
+        className={`border-b border-zinc-700/40 last:border-0 transition-colors ${
+          isSelected
+            ? "bg-blue-500/5"
+            : status === "Expired"
+              ? "opacity-60 hover:bg-surface/80"
+              : "hover:bg-surface/80"
+        }`}
+      >
+        <td className="px-4 py-4 pl-6">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-pace-green/20 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">
+              {getInitials(player.name)}
+            </div>
+            <div>
+              <p className="text-white text-sm font-medium whitespace-nowrap">{player.name}</p>
+              <p className="text-zinc-400 text-xs">{player.bowlingStyle}</p>
+            </div>
+          </div>
+        </td>
+        <td className="px-4 py-4 text-zinc-300 text-xs whitespace-nowrap">{getCoachOrAcademyLabel(player, coaches, academies)}</td>
+        <td className="px-4 py-4">
+          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${planStyles[player.subscription.plan] ?? planStyles["Free"]}`}>
+            {player.subscription.plan}
+          </span>
+        </td>
+        <td className="px-4 py-4">
+          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyles[status]}`}>
+            {status}
+          </span>
+        </td>
+        <td className="px-4 py-4 text-sm text-zinc-300 whitespace-nowrap">{formatDate(player.subscription.startDate)}</td>
+        <td className="px-4 py-4 whitespace-nowrap">
+          <span className={`text-sm font-medium ${status === "Expiring" ? "text-amber" : status === "Expired" ? "text-red-400" : "text-zinc-300"}`}>
+            {formatDate(player.subscription.endDate)}
+          </span>
+        </td>
+        <td className="px-4 py-4 text-sm text-zinc-300 font-mono">{player.sessionsCount}</td>
+        <td className="px-4 py-4 text-sm text-zinc-400 whitespace-nowrap">{formatDate(player.lastActive)}</td>
+        <td className="px-4 py-4">
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/players/${player.id}`}
+              className="px-3 py-1.5 text-xs font-semibold text-pace-green border border-pace-green/40 rounded-lg hover:bg-pace-green/10 transition-colors"
+            >
+              View
+            </Link>
+            {/* Message moved behind ⋮ — there's already a bulk "Message Selected"
+                flow for the common case, so a per-row send is the secondary action
+                here, not the primary one (unlike View). */}
+            <RowActionsMenu items={[
+              { label: "Send Message", onClick: () => setMessagingPlayer(player) },
+            ]} />
+          </div>
+        </td>
+        <td className="px-4 py-4 pr-6 text-center">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => toggleSelect(player.id)}
+            className="w-4 h-4 accent-pace-green cursor-pointer"
+            title="Select for bulk message"
+          />
+        </td>
+      </tr>
+    );
+  }
+
+  function renderGroupHeaderRow(group: PlayerGroup) {
+    const isCollapsed = collapsedGroups.has(group.key);
+    const allSelectedInGroup = group.players.length > 0 && group.players.every((p) => selectedIds.has(p.id));
+    const someSelectedInGroup = group.players.some((p) => selectedIds.has(p.id)) && !allSelectedInGroup;
+    return (
+      <tr key={`group-${group.key}`} className="border-b border-zinc-700/40 bg-ink/60">
+        <td colSpan={10} className="px-4 py-2.5">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => toggleGroupCollapsed(group.key)}
+              className="flex items-center gap-2 text-sm font-semibold text-white cursor-pointer flex-1 text-left"
+            >
+              <span className={`text-zinc-400 text-xs transition-transform duration-200 ${isCollapsed ? "" : "rotate-180"}`}>
+                ▾
+              </span>
+              {group.label}
+              <span className="text-zinc-500 font-normal">({group.players.length})</span>
+            </button>
+            <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer flex-shrink-0">
+              Select all
+              <input
+                type="checkbox"
+                checked={allSelectedInGroup}
+                ref={(el) => { if (el) el.indeterminate = someSelectedInGroup; }}
+                onChange={() => toggleGroupSelection(group.players)}
+                className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+              />
+            </label>
+          </div>
+        </td>
+      </tr>
+    );
+  }
 
   return (
     <>
@@ -453,17 +656,29 @@ export function PlayersClient() {
         )}
       </div>
 
-      <div className="relative mb-6 max-w-md">
-        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          placeholder="Search players by name, email, or club…"
-          className={`${inputCls} pl-10`}
-        />
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative max-w-md w-full">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search players by name, email, or club…"
+            className={`${inputCls} pl-10`}
+          />
+        </div>
+        <label className="flex items-center gap-2 sm:flex-shrink-0">
+          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider whitespace-nowrap">Group by</span>
+          <select
+            value={groupBy}
+            onChange={(e) => handleGroupByChange(e.target.value as GroupByOption)}
+            className={`${selectCls} sm:w-44`}
+          >
+            {groupByOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
       </div>
 
       {canAddPlayers && showAddPlayer && !atRosterCap && (
@@ -685,78 +900,14 @@ export function PlayersClient() {
               </tr>
             </thead>
             <tbody>
-              {pagePlayers.map((player) => {
-                const status = getPlayerStatus(player.subscription.endDate);
-                const isSelected = selectedIds.has(player.id);
-                return (
-                  <tr
-                    key={player.id}
-                    className={`border-b border-zinc-700/40 last:border-0 transition-colors ${
-                      isSelected
-                        ? "bg-blue-500/5"
-                        : status === "Expired"
-                          ? "opacity-60 hover:bg-surface/80"
-                          : "hover:bg-surface/80"
-                    }`}
-                  >
-                    <td className="px-4 py-4 pl-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-pace-green/20 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">
-                          {getInitials(player.name)}
-                        </div>
-                        <div>
-                          <p className="text-white text-sm font-medium whitespace-nowrap">{player.name}</p>
-                          <p className="text-zinc-400 text-xs">{player.bowlingStyle}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 text-zinc-300 text-xs whitespace-nowrap">{getCoachOrAcademyLabel(player, coaches, academies)}</td>
-                    <td className="px-4 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${planStyles[player.subscription.plan] ?? planStyles["Free"]}`}>
-                        {player.subscription.plan}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyles[status]}`}>
-                        {status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-zinc-300 whitespace-nowrap">{formatDate(player.subscription.startDate)}</td>
-                    <td className="px-4 py-4 whitespace-nowrap">
-                      <span className={`text-sm font-medium ${status === "Expiring" ? "text-amber" : status === "Expired" ? "text-red-400" : "text-zinc-300"}`}>
-                        {formatDate(player.subscription.endDate)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-zinc-300 font-mono">{player.sessionsCount}</td>
-                    <td className="px-4 py-4 text-sm text-zinc-400 whitespace-nowrap">{formatDate(player.lastActive)}</td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/players/${player.id}`}
-                          className="px-3 py-1.5 text-xs font-semibold text-pace-green border border-pace-green/40 rounded-lg hover:bg-pace-green/10 transition-colors"
-                        >
-                          View
-                        </Link>
-                        {/* Message moved behind ⋮ — there's already a bulk "Message Selected"
-                            flow for the common case, so a per-row send is the secondary action
-                            here, not the primary one (unlike View). */}
-                        <RowActionsMenu items={[
-                          { label: "Send Message", onClick: () => setMessagingPlayer(player) },
-                        ]} />
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 pr-6 text-center">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelect(player.id)}
-                        className="w-4 h-4 accent-pace-green cursor-pointer"
-                        title="Select for bulk message"
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
+              {groupBy === "none"
+                ? pagePlayers.map((player) => renderPlayerRow(player))
+                : groups.map((group) => (
+                    <Fragment key={group.key}>
+                      {renderGroupHeaderRow(group)}
+                      {!collapsedGroups.has(group.key) && group.players.map((player) => renderPlayerRow(player))}
+                    </Fragment>
+                  ))}
             </tbody>
           </table>
           {filteredPlayers.length === 0 && (
@@ -765,7 +916,7 @@ export function PlayersClient() {
             </div>
           )}
         </div>
-        {totalPages > 1 && (
+        {groupBy === "none" && totalPages > 1 && (
           <div className="flex items-center justify-between px-6 py-3 border-t border-zinc-700/60">
             <p className="text-xs text-zinc-400">
               Showing {(currentPage - 1) * PLAYERS_PER_PAGE + 1}–{Math.min(currentPage * PLAYERS_PER_PAGE, filteredPlayers.length)} of {filteredPlayers.length}
