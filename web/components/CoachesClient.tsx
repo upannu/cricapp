@@ -10,6 +10,7 @@ import { canUseMarketplaceForCoach } from "@/lib/plan-features";
 import { DateInput } from "@/components/DateInput";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const CERT_LEVELS: CertificationLevel[] = ["Level 1", "Level 2", "Level 3", "Elite"];
@@ -81,6 +82,9 @@ export function CoachesClient() {
   const [payoutLoading, setPayoutLoading] = useState<string | null>(null);
   const [payoutError, setPayoutError] = useState<{ coachId: string; message: string } | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [confirmStatusToggle, setConfirmStatusToggle] = useState<{ coachId: string; name: string; newStatus: CoachStatus } | null>(null);
+  const [confirmMarketplaceToggle, setConfirmMarketplaceToggle] = useState<{ coachId: string; name: string; newValue: boolean } | null>(null);
+  const [togglingCoach, setTogglingCoach] = useState(false);
 
   const defaultAcademyId = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
 
@@ -168,6 +172,40 @@ export function CoachesClient() {
     openEdit(coach);
     setConfirmDeleteCoachId(coach.id);
     scrollToForm();
+  }
+
+  // Quick status toggle — same shape as Academy's, previously only reachable by opening Edit and
+  // finding the status dropdown among all the other fields.
+  async function handleConfirmStatusToggle() {
+    if (!confirmStatusToggle) return;
+    setTogglingCoach(true);
+    try {
+      await upsertCoach({ id: confirmStatusToggle.coachId, status: confirmStatusToggle.newStatus });
+      setCoaches((prev) => prev.map((c) => (c.id === confirmStatusToggle.coachId ? { ...c, status: confirmStatusToggle.newStatus } : c)));
+      setConfirmStatusToggle(null);
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setTogglingCoach(false);
+    }
+  }
+
+  // Same idea for marketplace visibility — staff aren't gated by a coach's own plan eligibility
+  // here (see the Edit form's marketplaceLocked comment; that lock only protects a *coach* from
+  // turning on something they haven't paid for on their own profile), so this is always offered
+  // to staff regardless of the coach's plan, matching how the Edit form already treats staff.
+  async function handleConfirmMarketplaceToggle() {
+    if (!confirmMarketplaceToggle) return;
+    setTogglingCoach(true);
+    try {
+      await upsertCoach({ id: confirmMarketplaceToggle.coachId, marketplace_visible: confirmMarketplaceToggle.newValue });
+      setCoaches((prev) => prev.map((c) => (c.id === confirmMarketplaceToggle.coachId ? { ...c, marketplaceVisible: confirmMarketplaceToggle.newValue } : c)));
+      setConfirmMarketplaceToggle(null);
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setTogglingCoach(false);
+    }
   }
 
   function openEdit(coach: Coach) {
@@ -757,12 +795,26 @@ export function CoachesClient() {
                       Edit
                     </button>
                   )}
-                  {/* Delete stays staff-only (never on a coach's own card, matching the confirm-
-                      delete gating in the Edit form itself) — reachable in one click instead of
-                      having to open Edit first and find it among the form's own fields. */}
+                  {/* Every action here stays staff-only (never on a coach's own card) — same
+                      gating the confirm-delete already had. Each opens a confirm step rather than
+                      acting immediately; Delete is visually separated as the destructive one. */}
                   {user?.role !== "coach" && (
                     <RowActionsMenu items={[
-                      { label: "Delete Coach", variant: "danger", onClick: () => openEditWithDeleteConfirm(coach) },
+                      {
+                        label: coach.status === "Active" ? "Deactivate" : "Activate",
+                        variant: coach.status === "Active" ? "warning" : "success",
+                        onClick: () => setConfirmStatusToggle({
+                          coachId: coach.id, name: coach.name,
+                          newStatus: coach.status === "Active" ? "Inactive" : "Active",
+                        }),
+                      },
+                      {
+                        label: coach.marketplaceVisible ? "Hide from Marketplace" : "Show in Marketplace",
+                        onClick: () => setConfirmMarketplaceToggle({
+                          coachId: coach.id, name: coach.name, newValue: !coach.marketplaceVisible,
+                        }),
+                      },
+                      { label: "Delete Coach", variant: "danger", dividerBefore: true, onClick: () => openEditWithDeleteConfirm(coach) },
                     ]} />
                   )}
                 </div>
@@ -866,6 +918,50 @@ export function CoachesClient() {
             );
           })}
         </div>
+      )}
+
+      {confirmStatusToggle && (
+        <ConfirmModal
+          icon={confirmStatusToggle.newStatus === "Inactive" ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" /><line x1="8" y1="12" x2="16" y2="12" />
+            </svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+          iconBg={confirmStatusToggle.newStatus === "Inactive" ? "bg-amber/20" : "bg-pace-green/20"}
+          title={confirmStatusToggle.newStatus === "Inactive" ? "Deactivate Coach?" : "Activate Coach?"}
+          message={confirmStatusToggle.newStatus === "Inactive"
+            ? `"${confirmStatusToggle.name}" will be marked Inactive. Their players and history are preserved.`
+            : `"${confirmStatusToggle.name}" will be set back to Active.`}
+          confirmLabel={confirmStatusToggle.newStatus === "Inactive" ? "Yes, Deactivate" : "Yes, Activate"}
+          confirmVariant={confirmStatusToggle.newStatus === "Inactive" ? "warning" : "default"}
+          loading={togglingCoach}
+          onConfirm={handleConfirmStatusToggle}
+          onCancel={() => setConfirmStatusToggle(null)}
+        />
+      )}
+
+      {confirmMarketplaceToggle && (
+        <ConfirmModal
+          icon={
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          }
+          iconBg="bg-blue-500/20"
+          title={confirmMarketplaceToggle.newValue ? "Show in Marketplace?" : "Hide from Marketplace?"}
+          message={confirmMarketplaceToggle.newValue
+            ? `"${confirmMarketplaceToggle.name}" will become visible to parents/players browsing Find a Coach.`
+            : `"${confirmMarketplaceToggle.name}" will no longer appear in Find a Coach.`}
+          confirmLabel={confirmMarketplaceToggle.newValue ? "Yes, Show" : "Yes, Hide"}
+          loading={togglingCoach}
+          onConfirm={handleConfirmMarketplaceToggle}
+          onCancel={() => setConfirmMarketplaceToggle(null)}
+        />
       )}
     </div>
   );
