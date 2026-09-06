@@ -563,16 +563,6 @@ export function CoachesClient() {
         </div>
       )}
 
-      {/* Stats */}
-      <StatsGrid columns={4}>
-        <StatCard label="Total coaches" value={coaches.length - removedCount} />
-        <StatCard label="Active" value={activeCount} color="text-pace-green"
-          onClick={() => setFilter("Active")} active={filter === "Active"} />
-        <StatCard label="Players assigned" value={totalPlayers} color="text-amber" />
-        <StatCard label="Removed" value={removedCount} color="text-zinc-400"
-          onClick={() => setFilter("Removed")} active={filter === "Removed"} />
-      </StatsGrid>
-
       {/* Form anchor */}
       <div ref={formRef} />
 
@@ -888,6 +878,16 @@ export function CoachesClient() {
           </button>
         ))}
       </div>
+
+      {/* Stats */}
+      <StatsGrid columns={4}>
+        <StatCard label="Total coaches" value={coaches.length - removedCount} />
+        <StatCard label="Active" value={activeCount} color="text-pace-green"
+          onClick={() => setFilter("Active")} active={filter === "Active"} />
+        <StatCard label="Players assigned" value={totalPlayers} color="text-amber" />
+        <StatCard label="Removed" value={removedCount} color="text-zinc-400"
+          onClick={() => setFilter("Removed")} active={filter === "Removed"} />
+      </StatsGrid>
 
       {/* Coach cards */}
       {filtered.length === 0 ? (

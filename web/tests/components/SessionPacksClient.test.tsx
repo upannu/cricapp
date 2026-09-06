@@ -89,8 +89,7 @@ describe("SessionPacksClient", () => {
     render(<SessionPacksClient />);
     await screen.findByText("Alice Bowler");
 
-    // The stat card's own accessible name leads with the count ("1 Active packs").
-    await user.click(screen.getByRole("button", { name: /^1 Active packs$/ }));
+    await user.click(screen.getByRole("button", { name: /^Active packs 1$/ }));
 
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.queryByText("Bob Seamer")).not.toBeInTheDocument();
