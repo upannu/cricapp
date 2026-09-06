@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { insertMessage } from "@/lib/db";
 import type { Player, MessageChannel } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { MessageIcon } from "@/components/icons";
 
@@ -12,42 +13,83 @@ interface Props {
 }
 
 export function BulkMessageModal({ players, onClose }: Props) {
+  const { user } = useAuth();
   const [channel, setChannel] = useState<MessageChannel>("email");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sent, setSent] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [sending, setSending] = useState(false);
+  const [deliveredCount, setDeliveredCount] = useState(0);
+  const [failedCount, setFailedCount] = useState(0);
+  const [sendError, setSendError] = useState("");
 
   const smsEligible = players.filter((p) => p.phone);
   const smsBlocked = players.filter((p) => !p.phone);
-  const recipientCount = channel === "sms" ? smsEligible.length : players.length;
+  const emailEligible = players.filter((p) => p.email);
+  const emailBlocked = players.filter((p) => !p.email);
+  const eligible = channel === "sms" ? smsEligible : emailEligible;
+  const blocked = channel === "sms" ? smsBlocked : emailBlocked;
+  const recipientCount = eligible.length;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setShowConfirm(true);
   }
 
-  function handleConfirmSend() {
+  // Actually calls the real delivery API per recipient (previously this only ever wrote to the
+  // message-history table — the UI claimed "Sent" without anything being delivered). Mirrors
+  // MessageModal's single-recipient flow: the delivery call must succeed before that player's
+  // insertMessage log is written. One recipient's failure doesn't block the others.
+  async function handleConfirmSend() {
     setSending(true);
-    const targets = channel === "sms" ? smsEligible : players;
+    setSendError("");
     const now = new Date().toISOString();
-    Promise.all(
-      targets.map((p) =>
-        insertMessage({
+    const fromName = user?.name ?? "CRIC HQ";
+
+    const results = await Promise.allSettled(
+      eligible.map(async (p) => {
+        if (channel === "email") {
+          const res = await fetch("/api/send-message", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: p.email, subject, body, fromName }),
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+        } else {
+          const res = await fetch("/api/send-sms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ to: p.phone, body, fromName }),
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+        }
+        await insertMessage({
           player_id: p.id,
-          from_name: "Coach",
+          from_name: fromName,
           date: now,
           channel,
           subject: channel === "email" ? subject : "SMS",
           body,
-        })
-      )
-    ).then(() => {
-      setSending(false);
-      setShowConfirm(false);
+        });
+      })
+    );
+
+    const succeeded = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.length - succeeded;
+    const firstFailure = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
+
+    setSending(false);
+    setShowConfirm(false);
+    setDeliveredCount(succeeded);
+    setFailedCount(failed);
+    if (succeeded > 0) {
       setSent(true);
-    });
+    } else {
+      setSendError((firstFailure?.reason as Error)?.message || "Delivery failed — nothing was sent.");
+    }
   }
 
   const previewNames = players.slice(0, 3).map((p) => p.name.split(" ")[0]);
@@ -83,11 +125,16 @@ export function BulkMessageModal({ players, onClose }: Props) {
               ✓
             </div>
             <p className="text-white font-semibold text-sm mb-1">
-              Sent to {recipientCount} player{recipientCount !== 1 ? "s" : ""}
+              Sent to {deliveredCount} player{deliveredCount !== 1 ? "s" : ""}
             </p>
             <p className="text-zinc-400 text-xs">
               via {channel === "email" ? "Email" : "SMS"}
             </p>
+            {failedCount > 0 && (
+              <p className="text-amber text-xs mt-2">
+                ⚠ {failedCount} {failedCount === 1 ? "delivery" : "deliveries"} failed — try again for {failedCount === 1 ? "that player" : "those players"}.
+              </p>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -126,19 +173,12 @@ export function BulkMessageModal({ players, onClose }: Props) {
 
             {/* Recipients summary */}
             <div className="bg-ink rounded-xl px-4 py-3 text-xs">
-              {channel === "email" ? (
-                <span className="text-zinc-300">
-                  Sending to{" "}
-                  <span className="text-white font-semibold">
-                    {players.length} player{players.length !== 1 ? "s" : ""}
-                  </span>
-                </span>
-              ) : smsBlocked.length > 0 ? (
+              {blocked.length > 0 ? (
                 <span className="text-amber">
-                  ⚠ {smsEligible.length} of {players.length} players have a
-                  mobile number.{" "}
+                  ⚠ {eligible.length} of {players.length} players have{" "}
+                  {channel === "email" ? "an email address" : "a mobile number"}.{" "}
                   <span className="text-zinc-400">
-                    {smsBlocked.map((p) => p.name.split(" ")[0]).join(", ")}{" "}
+                    {blocked.map((p) => p.name.split(" ")[0]).join(", ")}{" "}
                     will be skipped.
                   </span>
                 </span>
@@ -147,8 +187,8 @@ export function BulkMessageModal({ players, onClose }: Props) {
                   Sending to{" "}
                   <span className="text-white font-semibold">
                     {players.length} player{players.length !== 1 ? "s" : ""}
-                  </span>{" "}
-                  via SMS
+                  </span>
+                  {channel === "sms" && " via SMS"}
                 </span>
               )}
             </div>
@@ -203,11 +243,13 @@ export function BulkMessageModal({ players, onClose }: Props) {
               )}
             </div>
 
+            {sendError && <p className="text-red-400 text-xs">{sendError}</p>}
+
             {/* Actions */}
             <div className="flex gap-3 pt-1">
               <button
                 type="submit"
-                disabled={channel === "sms" && smsEligible.length === 0}
+                disabled={eligible.length === 0}
                 className="flex-1 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-pace-green text-black hover:opacity-90"
               >
                 Send to {recipientCount} player{recipientCount !== 1 ? "s" : ""}
