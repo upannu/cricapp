@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { insertMessage } from "@/lib/db";
 import type { Player, MessageChannel } from "@/lib/types";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { MessageIcon } from "@/components/icons";
 
 interface Props {
   players: Player[];
@@ -14,13 +16,20 @@ export function BulkMessageModal({ players, onClose }: Props) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [sent, setSent] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const smsEligible = players.filter((p) => p.phone);
   const smsBlocked = players.filter((p) => !p.phone);
   const recipientCount = channel === "sms" ? smsEligible.length : players.length;
 
-  function handleSend(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setShowConfirm(true);
+  }
+
+  function handleConfirmSend() {
+    setSending(true);
     const targets = channel === "sms" ? smsEligible : players;
     const now = new Date().toISOString();
     Promise.all(
@@ -34,13 +43,18 @@ export function BulkMessageModal({ players, onClose }: Props) {
           body,
         })
       )
-    ).then(() => setSent(true));
+    ).then(() => {
+      setSending(false);
+      setShowConfirm(false);
+      setSent(true);
+    });
   }
 
   const previewNames = players.slice(0, 3).map((p) => p.name.split(" ")[0]);
   const overflowCount = players.length - previewNames.length;
 
   return (
+    <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div className="bg-surface rounded-2xl w-full max-w-lg shadow-2xl border border-zinc-700/60">
         {/* Header */}
@@ -83,7 +97,7 @@ export function BulkMessageModal({ players, onClose }: Props) {
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSend} className="p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="p-6 space-y-4">
             {/* Channel toggle */}
             <div className="flex gap-2">
               <button
@@ -210,5 +224,21 @@ export function BulkMessageModal({ players, onClose }: Props) {
         )}
       </div>
     </div>
+
+    {showConfirm && (
+      <ConfirmModal
+        icon={<MessageIcon width={22} height={22} className="text-blue-400" />}
+        iconBg="bg-blue-500/20"
+        title={`Send ${channel === "email" ? "Email" : "SMS"}?`}
+        message={`This will send to ${recipientCount} player${recipientCount !== 1 ? "s" : ""} right away. This can't be undone.`}
+        confirmLabel="Yes, Send"
+        confirmBusyLabel="Sending…"
+        confirmVariant="warning"
+        loading={sending}
+        onConfirm={handleConfirmSend}
+        onCancel={() => setShowConfirm(false)}
+      />
+    )}
+    </>
   );
 }
