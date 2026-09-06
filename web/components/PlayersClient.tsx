@@ -44,7 +44,7 @@ interface PlayerGroup {
   players: Player[];
 }
 
-type PlayerSortKey = "name" | "coach" | "plan" | "status" | "startDate" | "endDate" | "sessions" | "lastActive";
+type PlayerSortKey = "name" | "coach" | "plan" | "status" | "endDate" | "sessions";
 
 function comparePlayers(a: Player, b: Player, sortKey: PlayerSortKey, coaches: Coach[], academies: Academy[]): number {
   switch (sortKey) {
@@ -52,10 +52,8 @@ function comparePlayers(a: Player, b: Player, sortKey: PlayerSortKey, coaches: C
     case "coach": return getCoachOrAcademyLabel(a, coaches, academies).localeCompare(getCoachOrAcademyLabel(b, coaches, academies));
     case "plan": return a.subscription.plan.localeCompare(b.subscription.plan);
     case "status": return getPlayerStatus(a.subscription.endDate).localeCompare(getPlayerStatus(b.subscription.endDate));
-    case "startDate": return a.subscription.startDate.localeCompare(b.subscription.startDate);
     case "endDate": return a.subscription.endDate.localeCompare(b.subscription.endDate);
     case "sessions": return a.sessionsCount - b.sessionsCount;
-    case "lastActive": return a.lastActive.localeCompare(b.lastActive);
   }
 }
 
@@ -585,14 +583,12 @@ export function PlayersClient() {
             {status}
           </span>
         </td>
-        <td className="px-4 py-4 text-sm text-zinc-300 whitespace-nowrap">{formatDate(player.subscription.startDate)}</td>
         <td className="px-4 py-4 whitespace-nowrap">
           <span className={`text-sm font-medium ${status === "Expiring" ? "text-amber" : status === "Expired" ? "text-red-400" : "text-zinc-300"}`}>
             {formatDate(player.subscription.endDate)}
           </span>
         </td>
         <td className="px-4 py-4 text-sm text-zinc-300 font-mono">{player.sessionsCount}</td>
-        <td className="px-4 py-4 text-sm text-zinc-400 whitespace-nowrap">{formatDate(player.lastActive)}</td>
         <td className="px-4 py-4">
           {/* Both View and Message live under one ⋮ now — a wide table with 10 columns already
               needed horizontal scroll to reach a separate View button out here, so folding it in
@@ -924,10 +920,8 @@ export function PlayersClient() {
                 <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Plan" sortKey="plan" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Start Date" sortKey="startDate" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="End / Renewal" sortKey="endDate" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Sessions" sortKey="sessions" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Last Active" sortKey="lastActive" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <th className="text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider px-4 py-3 whitespace-nowrap">
                   Actions
                 </th>
