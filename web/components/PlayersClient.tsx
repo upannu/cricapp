@@ -694,7 +694,16 @@ export function PlayersClient() {
               : "hover:bg-surface/80"
         }`}
       >
-        <td className="px-4 py-4 pl-6">
+        <td className="px-4 py-4 pl-6 text-center">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => toggleSelect(player.id)}
+            className="w-4 h-4 accent-pace-green cursor-pointer"
+            title="Select for bulk message"
+          />
+        </td>
+        <td className="px-4 py-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-pace-green/20 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">
               {getInitials(player.name)}
@@ -732,7 +741,7 @@ export function PlayersClient() {
           </span>
         </td>
         <td className="px-4 py-4 text-sm text-zinc-300 font-mono">{player.sessionsCount}</td>
-        <td className="px-4 py-4">
+        <td className="px-4 py-4 pr-6">
           {/* Both View and Message live under one ⋮ now — a wide table with 10 columns already
               needed horizontal scroll to reach a separate View button out here, so folding it in
               keeps every row's actions in one place instead of splitting them across a visible
@@ -759,15 +768,6 @@ export function PlayersClient() {
               onClick: () => setRemoveTarget({ playerId: player.id, playerName: player.name }),
             }] : []),
           ]} />
-        </td>
-        <td className="px-4 py-4 pr-6 text-center">
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() => toggleSelect(player.id)}
-            className="w-4 h-4 accent-pace-green cursor-pointer"
-            title="Select for bulk message"
-          />
         </td>
       </tr>
     );
@@ -811,20 +811,8 @@ export function PlayersClient() {
   return (
     <>
     <div className="max-w-5xl mx-auto px-6 py-8">
-      <div className="mb-8 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Players</h1>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            setSelectedIds(new Set(players.map((p) => p.id)));
-            setBulkMessaging(true);
-          }}
-          className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-blue-400 border border-blue-500/30 rounded-xl hover:bg-blue-500/10 transition-colors cursor-pointer"
-        >
-          ✉ Message All
-        </button>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-white">Players</h1>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -1090,27 +1078,24 @@ export function PlayersClient() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-700/60">
-                <SortableHeader label="Player" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} className="pl-6" />
+                <th className="text-center px-4 py-3 pl-6 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                    onChange={toggleAll}
+                    className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+                    title="Select all"
+                  />
+                </th>
+                <SortableHeader label="Player" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Plan" sortKey="plan" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="End / Renewal" sortKey="endDate" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Sessions" sortKey="sessions" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <th className="text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider px-4 py-3 whitespace-nowrap">
+                <th className="text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">
                   Actions
-                </th>
-                <th className="text-center text-xs font-semibold text-zinc-400 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
-                    <span>Select</span>
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      ref={(el) => { if (el) el.indeterminate = someSelected; }}
-                      onChange={toggleAll}
-                      className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
-                      title="Select all"
-                    />
-                  </div>
                 </th>
               </tr>
             </thead>

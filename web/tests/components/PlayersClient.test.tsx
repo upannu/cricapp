@@ -56,8 +56,9 @@ describe("PlayersClient", () => {
     expect(screen.getByText("Bob Bowler")).toBeInTheDocument();
     expect(screen.getByText("2 Players")).toBeInTheDocument();
     expect(screen.getByText("Total Players")).toBeInTheDocument();
-    // Renamed from "Msg/Sms" — the same checkbox now drives every bulk action, not just messaging.
-    expect(screen.getByText("Select")).toBeInTheDocument();
+    // No visible "Select"/"Msg/Sms" label on the header checkbox — just the checkbox itself,
+    // findable by its own title, same as every row's own selection checkbox.
+    expect(screen.getByTitle("Select all")).toBeInTheDocument();
   });
 
   test("scopes the fetch to the coach's own players when the caller is a coach", async () => {
