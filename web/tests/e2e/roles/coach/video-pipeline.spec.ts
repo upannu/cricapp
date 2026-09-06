@@ -53,6 +53,11 @@ test("uploading a session video and generating a report surfaces the pose pipeli
 
   await page.goto("/sessions");
 
+  // /sessions paginates (10/page) — the seeded e2e-player can easily have accumulated more
+  // than that from prior runs, so the new session isn't guaranteed to land on page 1. Search
+  // by the unique marker (matches session notes) rather than assume it's on the first page.
+  await page.getByPlaceholder("Search player, notes or type…").fill(marker);
+
   const sessionRow = page.getByText(marker).locator("xpath=ancestor::button[1]");
   await sessionRow.click();
 
