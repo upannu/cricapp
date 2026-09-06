@@ -369,7 +369,7 @@ export function SessionsClient() {
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Sessions</h1>
           <p className="text-zinc-400 text-sm">All bowling sessions across your players</p>
-          <ListSummary parts={[`${filtered.length} shown`, `${sessions.length} total`, `${thisWeekCount(sessions)} this week`]} />
+          <ListSummary parts={[`${filtered.length} shown`, `${sessions.length} total`]} />
         </div>
       </div>
 

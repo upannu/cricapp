@@ -404,7 +404,7 @@ export function BookingsClient() {
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Bookings</h1>
           <p className="text-zinc-400 text-sm">Manage coaching sessions and player appointments</p>
-          <ListSummary parts={[`${filtered.length} shown`, `${bookings.length} total`, `${pendingAll.length} pending`]} />
+          <ListSummary parts={[`${filtered.length} shown`, `${bookings.length} total`]} />
         </div>
         <button type="button" onClick={openAdd}
           className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
