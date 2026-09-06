@@ -668,24 +668,6 @@ export function PlayersClient() {
         >
           ✉ Message All
         </button>
-        {canAddPlayers && (
-          atRosterCap ? (
-            <Link
-              href="/coach/subscription"
-              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-amber border border-amber/40 rounded-xl hover:bg-amber/10 transition-colors"
-            >
-              Roster full ({rosterCap}) — Upgrade
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={() => { setShowAddPlayer((v) => !v); setAddPlayerError(""); }}
-              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer"
-            >
-              {showAddPlayer ? "Cancel" : "+ Add Player"}
-            </button>
-          )
-        )}
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -702,6 +684,24 @@ export function PlayersClient() {
           />
         </div>
         <SelectPill value={groupBy} options={groupByOptions} onChange={handleGroupByChange} ariaLabel="Group by" />
+        {canAddPlayers && (
+          atRosterCap ? (
+            <Link
+              href="/coach/subscription"
+              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-amber border border-amber/40 rounded-xl hover:bg-amber/10 transition-colors text-center"
+            >
+              Roster full ({rosterCap}) — Upgrade
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setShowAddPlayer((v) => !v); setAddPlayerError(""); }}
+              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer"
+            >
+              {showAddPlayer ? "Cancel" : "+ Add Player"}
+            </button>
+          )
+        )}
       </div>
 
       {canAddPlayers && showAddPlayer && !atRosterCap && (
