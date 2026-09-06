@@ -126,7 +126,7 @@ describe("AttendanceClient", () => {
     expect(screen.queryByText(`${past[17].label} ✓`)).not.toBeInTheDocument();
   });
 
-  test("searches groups by name and shows a shown/total summary line", async () => {
+  test("searches groups by name", async () => {
     const user = userEvent.setup();
     setupDefaults();
     fetchGroupSessions.mockResolvedValue([
@@ -136,11 +136,9 @@ describe("AttendanceClient", () => {
 
     render(<AttendanceClient />);
     await screen.findByText("U14 Tuesday Nets");
-    expect(screen.getByText("2 shown · 2 total")).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText("Search groups by name…"), "Friday");
-    expect(await screen.findByText("1 shown · 2 total")).toBeInTheDocument();
-    expect(screen.getByText("U16 Friday Nets")).toBeInTheDocument();
+    expect(await screen.findByText("U16 Friday Nets")).toBeInTheDocument();
     expect(screen.queryByText("U14 Tuesday Nets")).not.toBeInTheDocument();
   });
 });

@@ -464,20 +464,6 @@ describe("CoachesClient", () => {
     expect(rowNames()[0]).toContain("Coach Zed");
   });
 
-  test("shows a shown/total summary line under the page title", async () => {
-    setupDefaults();
-    fetchCoaches.mockResolvedValue([
-      makeCoach({ id: "c1", name: "Coach Dan", status: "Active" }),
-      makeCoach({ id: "c2", name: "Coach Sam", status: "Inactive" }),
-    ]);
-
-    render(<CoachesClient />);
-    await screen.findByText("Coach Dan");
-
-    // No third "active" segment — that number is already the Active stat card right below.
-    expect(screen.getByText("2 shown · 2 total")).toBeInTheDocument();
-  });
-
   test("clicking the Active stat card filters the list to Active coaches", async () => {
     const user = userEvent.setup();
     setupDefaults();

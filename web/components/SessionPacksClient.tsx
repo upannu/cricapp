@@ -8,7 +8,6 @@ import { useAuth } from "@/lib/auth";
 import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired, matchPlayerByNameOrEmail } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
-import { ListSummary } from "@/components/ListSummary";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
 import { DEFAULT_CURRENCY, formatMoney, sumMoneyByCurrency } from "@/lib/currency";
@@ -444,9 +443,6 @@ export function SessionPacksClient() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Session Packs</h1>
-          {pageTab === "Packs" && (
-            <ListSummary parts={[`${filteredPlayers.length} shown`, `${scopedPlayers.length} total`]} />
-          )}
         </div>
         {canAddPack && (
           <div className="flex gap-3">

@@ -11,7 +11,6 @@ import { DateInput } from "@/components/DateInput";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
-import { ListSummary } from "@/components/ListSummary";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
 import { SortableHeader } from "@/components/SortableHeader";
@@ -542,7 +541,6 @@ export function CoachesClient() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Coaches</h1>
-          <ListSummary parts={[`${filtered.length} shown`, `${coaches.length} total`]} />
         </div>
         {user?.role !== "coach" && (
           <button type="button" onClick={openAdd}
