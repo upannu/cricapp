@@ -295,4 +295,22 @@ describe("AcademyClient", () => {
     expect(screen.getByText("Riverside Academy")).toBeInTheDocument();
     expect(screen.queryByText("Retired Academy")).not.toBeInTheDocument();
   });
+
+  test("clicking the Inactive stat card filters the list to Inactive academies", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([
+      makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" }),
+      makeAcademy({ id: "ac2", name: "Retired Academy", status: "Inactive" }),
+    ]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    await user.click(screen.getByRole("button", { name: /^1 Inactive$/ }));
+
+    expect(screen.getByText("Retired Academy")).toBeInTheDocument();
+    expect(screen.queryByText("Riverside Academy")).not.toBeInTheDocument();
+  });
 });
