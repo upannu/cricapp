@@ -404,7 +404,7 @@ describe("PlayersClient", () => {
     await screen.findByText("Alice Bowler");
 
     const options = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(options).toEqual(["No grouping", "Age Group", "Playing Level"]);
+    expect(options).toEqual(["Group by", "Age Group", "Playing Level"]);
   });
 
   test("collapsing a group hides its rows without losing their selection", async () => {
