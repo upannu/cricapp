@@ -50,9 +50,47 @@ describe("NavBar", () => {
     }) as unknown as typeof fetch;
 
     render(<NavBar />);
-    await user.click(screen.getByTitle("Switch role"));
+    await user.click(screen.getByTitle("Account menu"));
 
     expect(await screen.findByText("Parent / Guardian · Kingshuk Pannu")).toBeInTheDocument();
     expect(screen.getByText("Player · Kingshuk Pannu")).toBeInTheDocument();
+  });
+
+  test("a single-identity user's Sign out lives inside the account menu, not as a separate always-visible button", async () => {
+    const logout = vi.fn();
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({
+      user: makeAuthUser({ role: "platform_admin" }),
+      logout,
+      refreshUser: vi.fn(),
+    });
+
+    render(<NavBar />);
+
+    // Not visible until the account menu is opened.
+    expect(screen.queryByText("Sign out")).not.toBeInTheDocument();
+    // No "Switch role" section for a single-identity user.
+    await user.click(screen.getByTitle("Account menu"));
+    expect(screen.queryByText("Switch role")).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("Sign out"));
+    expect(logout).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith("/login");
+  });
+
+  test("clicking outside the account menu closes it", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({
+      user: makeAuthUser({ role: "platform_admin" }),
+      logout: vi.fn(),
+      refreshUser: vi.fn(),
+    });
+
+    render(<NavBar />);
+    await user.click(screen.getByTitle("Account menu"));
+    expect(screen.getByText("Sign out")).toBeInTheDocument();
+
+    await user.click(document.body);
+    expect(screen.queryByText("Sign out")).not.toBeInTheDocument();
   });
 });
