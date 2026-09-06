@@ -137,7 +137,9 @@ describe("CoachesClient", () => {
     expect(await screen.findByText("No coaches found.")).toBeInTheDocument();
     expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Removed/ }));
+    // Anchored — the new "Removed" stat card is also a button now, but its accessible name
+    // leads with the count ("1 Removed"), not the label; the filter tab is the one starting with it.
+    await user.click(screen.getByRole("button", { name: /^Removed/ }));
     expect(await screen.findByText("Coach Dan")).toBeInTheDocument();
     expect(screen.getByText("Left the academy · 01 Jan 2026")).toBeInTheDocument();
 
@@ -154,7 +156,7 @@ describe("CoachesClient", () => {
     const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({ success: true })));
 
     render(<CoachesClient />);
-    await user.click(await screen.findByRole("button", { name: /Removed/ }));
+    await user.click(await screen.findByRole("button", { name: /^Removed/ }));
     await screen.findByText("Coach Dan");
 
     await user.click(screen.getByRole("button", { name: "More actions" }));
@@ -447,5 +449,41 @@ describe("CoachesClient", () => {
     await screen.findByText("Coach Dan");
 
     expect(screen.getByText("2 shown · 2 total · 1 active")).toBeInTheDocument();
+  });
+
+  test("clicking the Active stat card filters the list to Active coaches", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", status: "Active" }),
+      makeCoach({ id: "c2", name: "Coach Sam", status: "Inactive" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    // The stat card's own accessible name leads with the count ("1 Active"), not the label.
+    await user.click(screen.getByRole("button", { name: /^1 Active$/ }));
+
+    expect(screen.getByText("Coach Dan")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Sam")).not.toBeInTheDocument();
+  });
+
+  test("clicking the Removed stat card jumps straight to the Removed tab", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", status: "Active" }),
+      makeCoach({ id: "c2", name: "Coach Sam", loginDisabled: true }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+    expect(screen.queryByText("Coach Sam")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^1 Removed$/ }));
+
+    expect(screen.getByText("Coach Sam")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
   });
 });

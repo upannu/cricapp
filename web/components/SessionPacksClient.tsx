@@ -9,6 +9,8 @@ import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBoo
 import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired, matchPlayerByNameOrEmail } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 import { ListSummary } from "@/components/ListSummary";
+import { StatsGrid } from "@/components/StatsGrid";
+import { StatCard } from "@/components/StatCard";
 import { DEFAULT_CURRENCY, formatMoney, sumMoneyByCurrency } from "@/lib/currency";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
@@ -462,12 +464,14 @@ export function SessionPacksClient() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Active packs" value={String(activePacks.length)} color="text-pace-green" />
+      <StatsGrid columns={4}>
+        <StatCard label="Active packs" value={String(activePacks.length)} color="text-pace-green"
+          onClick={() => { setPageTab("Packs"); setFilter("Active"); }}
+          active={pageTab === "Packs" && filter === "Active"} />
         <StatCard label="Sessions remaining" value={String(totalRemain)} color="text-white" />
         <StatCard label="Fees outstanding" value={sumMoneyByCurrency(feesDuePacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))} color={totalOutstanding > 0 ? "text-red-400" : "text-zinc-500"} />
         <StatCard label="Gross revenue" value={sumMoneyByCurrency(scopedPacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))} color="text-amber" />
-      </div>
+      </StatsGrid>
 
       {/* Page tabs */}
       <div className="flex gap-2 mb-6">
@@ -1467,15 +1471,6 @@ function PackStat({ label, value, sub, color }: { label: string; value: string; 
       <div className={`text-xl font-bold font-mono mb-0.5 ${color}`}>{value}</div>
       <div className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wide leading-tight">{label}</div>
       <div className="text-[10px] text-zinc-600">{sub}</div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div className="bg-surface rounded-2xl p-5 text-center">
-      <div className={`text-2xl font-bold mb-1 ${color}`}>{value}</div>
-      <div className="text-xs text-zinc-400">{label}</div>
     </div>
   );
 }

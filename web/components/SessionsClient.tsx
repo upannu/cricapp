@@ -16,6 +16,8 @@ import { VideoAnnotator } from "@/components/VideoAnnotator";
 import { VoiceNoteRecorder } from "@/components/VoiceNoteRecorder";
 import { AssessmentForm } from "@/components/AssessmentForm";
 import { ListSummary } from "@/components/ListSummary";
+import { StatsGrid } from "@/components/StatsGrid";
+import { StatCard } from "@/components/StatCard";
 import { aiReportsIncludedForPlayer } from "@/lib/plan-features";
 
 const SESSION_TYPES: BookingType[] = [
@@ -363,12 +365,12 @@ export function SessionsClient() {
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <StatsGrid columns={4}>
         <StatCard label="Total sessions" value={sessions.length} color="text-white" />
         <StatCard label="This week" value={thisWeekCount(sessions)} color="text-pace-green" />
         <StatCard label="Videos uploaded" value={totalVideos(sessions)} color="text-amber" />
         <StatCard label="Avg ball speed" value={avgSpeed(sessions)} color="text-fire" />
-      </div>
+      </StatsGrid>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
@@ -934,22 +936,6 @@ export function SessionsClient() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string | number;
-  color: string;
-}) {
-  return (
-    <div className="bg-surface rounded-2xl p-5 text-center">
-      <div className={`text-2xl font-bold mb-1 ${color}`}>{value}</div>
-      <div className="text-xs text-zinc-400">{label}</div>
-    </div>
-  );
-}
 
 function MetricRow({
   label,

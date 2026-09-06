@@ -76,4 +76,23 @@ describe("SessionPacksClient", () => {
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
   });
+
+  test("clicking the Active packs stat card filters the list to players with an active pack", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer" }),
+    ]);
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({ playerId: "p1", totalSessions: 10, sessionsUsed: 3 })]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+
+    // The stat card's own accessible name leads with the count ("1 Active packs").
+    await user.click(screen.getByRole("button", { name: /^1 Active packs$/ }));
+
+    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
+    expect(screen.queryByText("Bob Seamer")).not.toBeInTheDocument();
+  });
 });

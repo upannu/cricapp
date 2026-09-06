@@ -11,6 +11,8 @@ import { DateInput } from "@/components/DateInput";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { ListSummary } from "@/components/ListSummary";
+import { StatsGrid } from "@/components/StatsGrid";
+import { StatCard } from "@/components/StatCard";
 import { getPlatformFeePercent, isValidEmail } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
@@ -990,20 +992,12 @@ export function AcademyClient() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-surface rounded-2xl p-5 text-center">
-          <div className="text-2xl font-bold text-white mb-1">{academies.length}</div>
-          <div className="text-xs text-zinc-400">Total academies</div>
-        </div>
-        <div className="bg-surface rounded-2xl p-5 text-center">
-          <div className="text-2xl font-bold text-pace-green mb-1">{activeCount}</div>
-          <div className="text-xs text-zinc-400">Active programs</div>
-        </div>
-        <div className="bg-surface rounded-2xl p-5 text-center">
-          <div className="text-2xl font-bold text-amber mb-1">{grandTotal}</div>
-          <div className="text-xs text-zinc-400">Total players</div>
-        </div>
-      </div>
+      <StatsGrid columns={3}>
+        <StatCard label="Total academies" value={academies.length} />
+        <StatCard label="Active programs" value={activeCount} color="text-pace-green"
+          onClick={() => setStatusFilter("Active")} active={statusFilter === "Active"} />
+        <StatCard label="Total players" value={grandTotal} color="text-amber" />
+      </StatsGrid>
 
       {/* Filter bar */}
       <div className="bg-surface rounded-2xl p-4 mb-6 flex flex-wrap gap-3 items-center">

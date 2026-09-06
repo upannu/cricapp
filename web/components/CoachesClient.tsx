@@ -12,6 +12,8 @@ import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { ListSummary } from "@/components/ListSummary";
+import { StatsGrid } from "@/components/StatsGrid";
+import { StatCard } from "@/components/StatCard";
 import { PowerIcon, PowerOffIcon, EyeIcon, EyeOffIcon, MailIcon, RepeatIcon, TrashIcon } from "@/components/icons";
 
 type CoachSortBy = "name" | "players" | "status";
@@ -562,20 +564,14 @@ export function CoachesClient() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-surface rounded-2xl p-5 text-center">
-          <div className="text-2xl font-bold text-white mb-1">{coaches.length - removedCount}</div>
-          <div className="text-xs text-zinc-400">Total coaches</div>
-        </div>
-        <div className="bg-surface rounded-2xl p-5 text-center">
-          <div className="text-2xl font-bold text-pace-green mb-1">{activeCount}</div>
-          <div className="text-xs text-zinc-400">Active</div>
-        </div>
-        <div className="bg-surface rounded-2xl p-5 text-center">
-          <div className="text-2xl font-bold text-amber mb-1">{totalPlayers}</div>
-          <div className="text-xs text-zinc-400">Players assigned</div>
-        </div>
-      </div>
+      <StatsGrid columns={4}>
+        <StatCard label="Total coaches" value={coaches.length - removedCount} />
+        <StatCard label="Active" value={activeCount} color="text-pace-green"
+          onClick={() => setFilter("Active")} active={filter === "Active"} />
+        <StatCard label="Players assigned" value={totalPlayers} color="text-amber" />
+        <StatCard label="Removed" value={removedCount} color="text-zinc-400"
+          onClick={() => setFilter("Removed")} active={filter === "Removed"} />
+      </StatsGrid>
 
       {/* Form anchor */}
       <div ref={formRef} />
