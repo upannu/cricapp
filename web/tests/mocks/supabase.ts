@@ -37,6 +37,7 @@ export interface AuthAdminMock {
   updateUserById: ReturnType<typeof vi.fn>;
   deleteUser: ReturnType<typeof vi.fn>;
   inviteUserByEmail: ReturnType<typeof vi.fn>;
+  generateLink: ReturnType<typeof vi.fn>;
 }
 
 type AuthAdminResponses = Partial<Record<keyof AuthAdminMock, unknown>>;
@@ -119,6 +120,10 @@ export function createSupabaseMock(
         updateUserById: vi.fn(async () => authAdminResponses.updateUserById ?? { data: { user: null }, error: null }),
         deleteUser: vi.fn(async () => authAdminResponses.deleteUser ?? { data: null, error: null }),
         inviteUserByEmail: vi.fn(async () => authAdminResponses.inviteUserByEmail ?? { data: {}, error: null }),
+        generateLink: vi.fn(async () => authAdminResponses.generateLink ?? {
+          data: { properties: { hashed_token: "mock-hashed-token", verification_type: "signup" }, user: { id: "mock-user-id" } },
+          error: null,
+        }),
       } satisfies AuthAdminMock,
     },
     storage: {

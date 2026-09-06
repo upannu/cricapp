@@ -8,14 +8,8 @@ import { fetchAcademyPlanInfo } from "@/lib/plan-email";
 import { planFeatureLines } from "@/lib/plan-features";
 import { dbToPlan, type DbPlan } from "@/lib/db";
 import type { PlanTier } from "@/lib/types";
-import { findAuthUserByEmail } from "@/lib/server-auth";
-
-interface LinkedIdentity {
-  role: string;
-  academyId?: string;
-  coachId?: string;
-  playerId?: string;
-}
+import { findAuthUserByEmail, mergeLinkedIdentities } from "@/lib/server-auth";
+import type { LinkedIdentity } from "@/lib/types";
 
 export async function POST(request: Request) {
   const { userId, academyId } = await request.json();
@@ -129,35 +123,24 @@ export async function POST(request: Request) {
     }
 
     const meta = existingUserData.user.app_metadata ?? {};
-    const currentIdentities = (meta.linkedIdentities as LinkedIdentity[] | undefined) ?? [];
-    const seeded = currentIdentities.length > 0
-      ? currentIdentities
-      : [{
-          role: meta.role as string,
-          academyId: meta.academy_id as string | undefined,
-          coachId: meta.coach_id as string | undefined,
-          playerId: meta.player_id as string | undefined,
-        }];
+    const role = reqData.role as LinkedIdentity["role"];
 
     // One identity per role for academy_admin/coach (a second one doesn't make sense), but a
     // parent/player can legitimately have several — one per child, per linkedPlayerIds above —
-    // so build one candidate identity per matched player instead of a single one, and dedup each
-    // by the full (role, playerId) pair, letting a newly-discovered sibling still get linked
-    // later without re-adding a child that's already there.
+    // so build one candidate identity per matched player instead of a single one; mergeLinkedIdentities
+    // dedups each by the full (role, playerId) pair, letting a newly-discovered sibling still get
+    // linked later without re-adding a child that's already there.
     let candidateIdentities: LinkedIdentity[];
-    if (reqData.role === "player" || reqData.role === "parent") {
-      candidateIdentities = linkedPlayerIds.map((playerId) => ({ role: reqData.role, playerId }));
+    if (role === "player" || role === "parent") {
+      candidateIdentities = linkedPlayerIds.map((playerId) => ({ role, playerId }));
     } else {
-      const identity: LinkedIdentity = { role: reqData.role };
-      if (reqData.role === "academy_admin" && academyId) identity.academyId = academyId;
+      const identity: LinkedIdentity = { role };
+      if (role === "academy_admin" && academyId) identity.academyId = academyId;
       if (linkedCoachId) identity.coachId = linkedCoachId;
       candidateIdentities = [identity];
     }
 
-    const linkedIdentities = seeded.concat(candidateIdentities.filter((identity) =>
-      !seeded.some((li) => li.role === identity.role &&
-        (identity.playerId === undefined || li.playerId === identity.playerId))
-    ));
+    const linkedIdentities = mergeLinkedIdentities(meta, candidateIdentities);
 
     // Only linkedIdentities changes here — the account's currently-active role/links are left
     // untouched, so an approval never silently changes what a logged-in session sees mid-use.

@@ -28,6 +28,24 @@ describe("EditPlayerForm", () => {
     expect(await screen.findByRole("button", { name: "✓ Saved" })).toBeInTheDocument();
   });
 
+  test("saving with an email fires a best-effort guardian-relink call", async () => {
+    const user = userEvent.setup();
+    updatePlayer.mockResolvedValue(undefined);
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}"));
+    const player = makePlayer({ id: "p1", name: "Alice Bowler", email: "alice@example.com" });
+
+    render(<EditPlayerForm player={player} />);
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    expect(await screen.findByRole("button", { name: "✓ Saved" })).toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledWith("/api/players/relink-guardians", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ playerIds: ["p1"] }),
+    }));
+
+    fetchSpy.mockRestore();
+  });
+
   test("auto-computes the end date from start date, total sessions and weekly frequency", async () => {
     const user = userEvent.setup();
     const player = makePlayer({

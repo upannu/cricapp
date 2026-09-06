@@ -1,15 +1,16 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CoachesClient } from "@/components/CoachesClient";
-import { makeAuthUser, makeCoach } from "../mocks/fixtures";
+import { makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
 
-const { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans } = vi.hoisted(() => ({
+const { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, reassignCoachPlayers } = vi.hoisted(() => ({
   fetchCoaches: vi.fn(), fetchAcademies: vi.fn(), fetchPlayers: vi.fn(), fetchActivePlans: vi.fn(),
+  upsertCoach: vi.fn(), reassignCoachPlayers: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
-  fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans,
-  upsertCoach: vi.fn(), deleteCoach: vi.fn(), reassignCoachPlayers: vi.fn(), updateAcademyFields: vi.fn(),
+  fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, reassignCoachPlayers,
+  deleteCoach: vi.fn(), updateAcademyFields: vi.fn(),
 }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
@@ -31,6 +32,10 @@ function setupDefaults() {
   fetchAcademies.mockResolvedValue([]);
   fetchPlayers.mockResolvedValue([]);
   fetchActivePlans.mockResolvedValue([]);
+  upsertCoach.mockClear();
+  upsertCoach.mockResolvedValue(undefined);
+  reassignCoachPlayers.mockClear();
+  reassignCoachPlayers.mockResolvedValue(undefined);
 }
 
 describe("CoachesClient", () => {
@@ -88,6 +93,252 @@ describe("CoachesClient", () => {
     global.fetch = originalFetch;
   });
 
+  test("reaches the removal-confirm prompt directly from the row's ⋮ menu, skipping the edit form's own fields", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Remove Coach"));
+
+    expect(await screen.findByText("Remove this coach?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirm removal" })).toBeInTheDocument();
+  });
+
+  test("removing a coach with no dependents soft-deletes — sets login_disabled, never actually deletes the row", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Remove Coach"));
+    await user.click(screen.getByRole("button", { name: "Confirm removal" }));
+
+    expect(upsertCoach).toHaveBeenCalledWith(expect.objectContaining({ id: "c1", login_disabled: true, disabled_reason: "Removed by staff via Coaches page" }));
+    // Immediately drops out of the default "All" view (excludes Removed) — but the row itself
+    // was never deleted, just flagged; see the Removed-tab test below for where it went.
+    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+  });
+
+  test("a removed coach shows under the Removed tab with a Reinstate action, and nothing else", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({
+      id: "c1", name: "Coach Dan", loginDisabled: true, disabledAt: "2026-01-01T00:00:00.000Z", disabledReason: "Left the academy",
+    })]);
+
+    render(<CoachesClient />);
+    expect(await screen.findByText("No coaches found.")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+
+    // Anchored — the "Removed" stat card is also a button with an accessible name starting
+    // "Removed", but its count is a separate block element ("Removed 1", with a space); the
+    // filter tab's own count badge has no separating space ("Removed1").
+    await user.click(screen.getByRole("button", { name: /^Removed\d/ }));
+    expect(await screen.findByText("Coach Dan")).toBeInTheDocument();
+    expect(screen.getByText("Left the academy · 01 Jan 2026")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByText("Reinstate Coach")).toBeInTheDocument();
+    expect(screen.queryByText("Deactivate")).not.toBeInTheDocument();
+    expect(screen.queryByText("Remove Coach")).not.toBeInTheDocument();
+  });
+
+  test("reinstating a removed coach requires confirmation, then restores their login", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", loginDisabled: true })]);
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({ success: true })));
+
+    render(<CoachesClient />);
+    await user.click(await screen.findByRole("button", { name: /^Removed\d/ }));
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Reinstate Coach"));
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText("Reinstate Coach?")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Yes, Reinstate" }));
+    expect(fetchSpy).toHaveBeenCalledWith("/api/reactivate-coach", expect.objectContaining({
+      method: "POST", body: JSON.stringify({ coachId: "c1" }),
+    }));
+
+    // Back in the default "All" view now that it's reinstated.
+    await user.click(screen.getByRole("button", { name: "All" }));
+    expect(await screen.findByText("Coach Dan")).toBeInTheDocument();
+
+    fetchSpy.mockRestore();
+  });
+
+  test("deactivating a coach requires confirmation before it actually happens", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", status: "Active" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Deactivate"));
+
+    // Not applied yet — still just a confirm prompt.
+    expect(upsertCoach).not.toHaveBeenCalled();
+    expect(await screen.findByText("Deactivate Coach?")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Yes, Deactivate" }));
+    expect(upsertCoach).toHaveBeenCalledWith({ id: "c1", status: "Inactive" });
+    // "Inactive" also names one of the filter tabs — scope to the card itself, not the whole page.
+    const card = screen.getByText("Coach Dan").closest(".bg-surface") as HTMLElement;
+    expect(await within(card).findByText("Inactive")).toBeInTheDocument();
+  });
+
+  test("cancelling the deactivate confirm leaves the coach untouched", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", status: "Active" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Deactivate"));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByText("Deactivate Coach?")).not.toBeInTheDocument();
+    expect(upsertCoach).not.toHaveBeenCalled();
+  });
+
+  test("toggling marketplace visibility also requires confirmation first", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", marketplaceVisible: false })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Show in Marketplace"));
+
+    expect(await screen.findByText("Show in Marketplace?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Yes, Show" }));
+
+    expect(upsertCoach).toHaveBeenCalledWith({ id: "c1", marketplace_visible: true });
+  });
+
+  test("offers Reassign All Players only when the coach actually has players, and requires confirmation", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan" }),
+      makeCoach({ id: "c2", name: "Coach Sam" }),
+    ]);
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice", coachId: "c1" }),
+      makePlayer({ id: "p2", name: "Bob", coachId: "c1" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    const [coach1Menu] = screen.getAllByRole("button", { name: "More actions" });
+    await user.click(coach1Menu);
+    await user.click(screen.getByText("Reassign All Players"));
+
+    expect(reassignCoachPlayers).not.toHaveBeenCalled();
+    expect(await screen.findByText("Reassign All Players?")).toBeInTheDocument();
+    expect(screen.getByText(/2 players currently assigned to "Coach Dan"/)).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByDisplayValue("— Leave unassigned —"), "Coach Sam");
+    await user.click(screen.getByRole("button", { name: "Reassign" }));
+
+    expect(reassignCoachPlayers).toHaveBeenCalledWith("c1", "c2");
+  });
+
+  test("hides Reassign All Players from a coach with no players assigned", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+    fetchPlayers.mockResolvedValue([]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.queryByText("Reassign All Players")).not.toBeInTheDocument();
+  });
+
+  test("cancelling Reassign All Players calls nothing", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice", coachId: "c1" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Reassign All Players"));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByText("Reassign All Players?")).not.toBeInTheDocument();
+    expect(reassignCoachPlayers).not.toHaveBeenCalled();
+  });
+
+  test("resending an invite requires confirmation, then shows a sent indicator", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", email: "dan@example.com" })]);
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify({ success: true })));
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Resend Invite"));
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(await screen.findByText("Resend Invite?")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Yes, Resend" }));
+    expect(fetchSpy).toHaveBeenCalledWith("/api/resend-coach-invite", expect.objectContaining({
+      method: "POST", body: JSON.stringify({ coachId: "c1" }),
+    }));
+    expect(await screen.findByText("✓ Invite sent")).toBeInTheDocument();
+
+    fetchSpy.mockRestore();
+  });
+
+  test("hides Resend Invite for a coach with no email on file", async () => {
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", email: "" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+    // No ⋮ items left to trigger it, but the button itself still renders (Deactivate/Delete
+    // always apply) — check the item specifically isn't offered.
+    await userEvent.setup().click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.queryByText("Resend Invite")).not.toBeInTheDocument();
+  });
+
+  test("hides the ⋮ delete menu from a coach viewing their own card", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
+  });
+
   test("locks marketplace visibility for a Free independent coach editing their own profile, by default", async () => {
     const user = userEvent.setup();
     setupDefaults();
@@ -123,5 +374,120 @@ describe("CoachesClient", () => {
 
     expect(await screen.findByRole("checkbox", { name: "Visible in the coach marketplace" })).not.toBeDisabled();
     expect(screen.queryByText(/Requires Coach Pro/)).not.toBeInTheDocument();
+  });
+
+  test("lets a platform_admin save a new coach with no academy assigned (independent Coach Pro coach)", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+
+    render(<CoachesClient />);
+    await user.click(await screen.findByRole("button", { name: "+ New Coach" }));
+
+    await user.type(screen.getByPlaceholderText("e.g. Arjun Sharma"), "Priya Iyer");
+    await user.type(screen.getByPlaceholderText("coach@email.com"), "priya@example.com");
+    // Skip the invite email so the save doesn't also need a fetch mock — irrelevant to this fix.
+    await user.click(screen.getByRole("checkbox", { name: /Send login invite email/ }));
+    // Academy field is deliberately left on its default "— None (independent coach) —" option.
+
+    await user.click(screen.getByRole("button", { name: "Create Coach" }));
+
+    // The old blanket "Please assign this coach to an academy." validation must not appear —
+    // an independent Coach Pro coach with no academy is a legitimate, supported state.
+    expect(screen.queryByText("Please assign this coach to an academy.")).not.toBeInTheDocument();
+    await screen.findByText("Priya Iyer");
+    expect(upsertCoach).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Priya Iyer", academy_id: null }),
+    );
+  });
+
+  test("searches coaches by name or email", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", email: "dan@example.com" }),
+      makeCoach({ id: "c2", name: "Coach Sam", email: "sam@riverside.example.com" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.type(screen.getByPlaceholderText(/Search coaches/), "riverside");
+    expect(await screen.findByText("Coach Sam")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+  });
+
+  test("sorts coaches by most players when that sort is selected", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Ant" }),
+      makeCoach({ id: "c2", name: "Coach Zed" }),
+    ]);
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", coachId: "c2" }),
+      makePlayer({ id: "p2", coachId: "c2" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Ant");
+
+    const cardNames = () => screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+    // Default sort is Name (A–Z) — Ant before Zed.
+    expect(cardNames()).toEqual(["Coach Ant", "Coach Zed"]);
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Sort by" }), "Most Players");
+    expect(cardNames()).toEqual(["Coach Zed", "Coach Ant"]);
+  });
+
+  test("shows a shown/total/active summary line under the page title", async () => {
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", status: "Active" }),
+      makeCoach({ id: "c2", name: "Coach Sam", status: "Inactive" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    expect(screen.getByText("2 shown · 2 total · 1 active")).toBeInTheDocument();
+  });
+
+  test("clicking the Active stat card filters the list to Active coaches", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", status: "Active" }),
+      makeCoach({ id: "c2", name: "Coach Sam", status: "Inactive" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    // The stat card's own accessible name is "Active 1" (label then count); the filter tab's is
+    // plain "Active" with no count — anchored so this can't match the tab instead.
+    await user.click(screen.getByRole("button", { name: /^Active 1$/ }));
+
+    expect(screen.getByText("Coach Dan")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Sam")).not.toBeInTheDocument();
+  });
+
+  test("clicking the Removed stat card jumps straight to the Removed tab", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", status: "Active" }),
+      makeCoach({ id: "c2", name: "Coach Sam", loginDisabled: true }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+    expect(screen.queryByText("Coach Sam")).not.toBeInTheDocument();
+
+    // The stat card's own accessible name is "Removed 1" (with a space); the filter tab's own
+    // count badge has no separating space ("Removed1") — anchored so these can't collide.
+    await user.click(screen.getByRole("button", { name: /^Removed 1$/ }));
+
+    expect(screen.getByText("Coach Sam")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
   });
 });

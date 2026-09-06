@@ -44,16 +44,18 @@ function SignUpForm() {
   const [academyName, setAcademyName] = useState("");
   const [academyLocation, setAcademyLocation] = useState("");
   const [playerEmail, setPlayerEmail] = useState(prefillEmail);
-  const [playerLookup, setPlayerLookup] = useState<{ email: string; status: "checking" | "found" | "not-found"; additionalCount?: number } | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [linked, setLinked] = useState(false);
   const [autoApproved, setAutoApproved] = useState(false);
   const [needsEmailConfirm, setNeedsEmailConfirm] = useState(false);
-
-  // Only trust playerLookup if it was computed for the email currently in the field
-  const lookupForCurrentEmail = playerLookup?.email === playerEmail.trim() ? playerLookup : null;
+  // Set only for the player/parent path — see api/request-signup-link's own comment for why this
+  // has no live equivalent of the old "✓ Found a matching player record" check: revealing that
+  // live, to anyone typing any email with no signup commitment at all, was an account/PII
+  // enumeration oracle. The only place the real answer becomes visible now is an email sent to
+  // this address, not this response.
+  const [checkEmailAddress, setCheckEmailAddress] = useState("");
 
   // Live "does this email already have an account" check on the account-email field itself —
   // catches the case that actually caused real damage: someone submitting a second signup for
@@ -85,29 +87,11 @@ function SignUpForm() {
     return () => { cancelled = true; clearTimeout(handle); };
   }, [email]);
 
-  useEffect(() => {
-    if (!NEEDS_PLAYER_LOOKUP.includes(role) || !playerEmail.trim()) return;
-    const email = playerEmail.trim();
-    let cancelled = false;
-    const handle = setTimeout(async () => {
-      if (cancelled) return;
-      setPlayerLookup({ email, status: "checking" });
-      try {
-        const res = await fetch(`/api/lookup-player?email=${encodeURIComponent(email)}`);
-        const data = await res.json();
-        if (!cancelled) setPlayerLookup(data.found ? { email, status: "found", additionalCount: data.additionalCount ?? 0 } : { email, status: "not-found" });
-      } catch {
-        if (!cancelled) setPlayerLookup({ email, status: "not-found" });
-      }
-    }, 500);
-    return () => { cancelled = true; clearTimeout(handle); };
-  }, [playerEmail, role]);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password !== confirm) { setError("Passwords do not match."); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
-    if (NEEDS_PLAYER_LOOKUP.includes(role) && lookupForCurrentEmail?.status !== "found") {
+    if (NEEDS_PLAYER_LOOKUP.includes(role) && !playerEmail.trim()) {
       setError("Enter the player's registered email so we can link your account — ask your coach if you're not sure.");
       return;
     }
@@ -117,7 +101,7 @@ function SignUpForm() {
     }
     setLoading(true);
     setError("");
-    const { error: err, linked: wasLinked, approved, needsConfirmation } = await signup(
+    const { error: err, linked: wasLinked, approved, needsConfirmation, checkEmail } = await signup(
       name.trim(), email.trim(), password, role,
       NEEDS_PLAYER_LOOKUP.includes(role) ? playerEmail.trim() : undefined,
       role === "academy_admin" ? academyName.trim() : undefined,
@@ -131,6 +115,7 @@ function SignUpForm() {
     setLinked(!!wasLinked);
     setAutoApproved(!!approved);
     setNeedsEmailConfirm(needsConfirmation);
+    setCheckEmailAddress(checkEmail ?? "");
     setDone(true);
   }
 
@@ -157,8 +142,20 @@ function SignUpForm() {
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">{autoApproved ? "You're all set" : "Request submitted"}</h2>
-            {linked ? (
+            <h2 className="text-xl font-bold text-white mb-2">
+              {checkEmailAddress ? "Check your email" : autoApproved ? "You're all set" : "Request submitted"}
+            </h2>
+            {checkEmailAddress ? (
+              <>
+                <p className="text-zinc-400 text-sm leading-relaxed mb-2">
+                  If <span className="text-white font-semibold">{checkEmailAddress}</span> matches a player on file,
+                  we&apos;ve sent instructions there to finish creating your account.
+                </p>
+                <p className="text-zinc-500 text-xs leading-relaxed mb-6">
+                  Didn&apos;t get anything after a few minutes? Double check the email your coach has on file, or ask them to add the player first.
+                </p>
+              </>
+            ) : linked ? (
               <>
                 <p className="text-zinc-400 text-sm leading-relaxed mb-2">
                   This email already has a CRIC HQ account — your request to link a{" "}
@@ -238,19 +235,9 @@ function SignUpForm() {
                     placeholder="The email your coach has on file"
                     required
                   />
-                  {lookupForCurrentEmail?.status === "checking" && (
-                    <p className="text-zinc-500 text-xs mt-1.5">Checking…</p>
-                  )}
-                  {lookupForCurrentEmail?.status === "found" && (
-                    <p className="text-pace-green text-xs mt-1.5">
-                      {lookupForCurrentEmail.additionalCount
-                        ? `✓ Found ${lookupForCurrentEmail.additionalCount + 1} player records at this email — you'll get access to all of them.`
-                        : "✓ Found a matching player record — you'll get access to it."}
-                    </p>
-                  )}
-                  {lookupForCurrentEmail?.status === "not-found" && (
-                    <p className="text-red-400 text-xs mt-1.5">No player found with this email — ask your coach to add the player first.</p>
-                  )}
+                  {/* Deliberately no live "found"/"not found" feedback here — see
+                      api/request-signup-link's own comment for why. Whether this email matches
+                      anything is only ever revealed by an email sent to it, after submitting. */}
                 </div>
               )}
 

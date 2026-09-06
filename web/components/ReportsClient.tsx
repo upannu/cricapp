@@ -8,6 +8,8 @@ import { fetchReports, fetchPlayers, fetchAcademies, fetchCoaches } from "@/lib/
 import { formatDate, formatDateTime, getCoachOrAcademyLabel } from "@/lib/utils";
 import { ReportActions } from "@/components/ReportActions";
 import { ReportReview, ReportStatusBadge } from "@/components/ReportReview";
+import { StatsGrid } from "@/components/StatsGrid";
+import { StatCard } from "@/components/StatCard";
 
 const REPORT_TYPES: ReportType[] = ["Biomechanics", "Session Review", "Progress Report", "Action Plan"];
 // Individual reports stay collapsed by default, so the row count that actually matters for a
@@ -183,12 +185,12 @@ export function ReportsClient() {
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <StatsGrid columns={4}>
         <StatCard label="Total reports" value={String(reports.length)} color="text-white" />
         <StatCard label="This month" value={String(reportsThisMonth)} color="text-pace-green" />
         <StatCard label="Players covered" value={String(playersWithReports)} color="text-blue-400" />
         <StatCard label="Peak speed" value={`${maxSpeed} km/h`} color="text-amber" />
-      </div>
+      </StatsGrid>
 
       {/* Player quick-filter */}
       <div className="flex flex-wrap gap-2 mb-6">
@@ -704,11 +706,3 @@ function ReportCard({
   );
 }
 
-function StatCard({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div className="bg-surface rounded-2xl p-5 text-center">
-      <div className={`text-2xl font-bold mb-1 ${color}`}>{value}</div>
-      <div className="text-xs text-zinc-400">{label}</div>
-    </div>
-  );
-}

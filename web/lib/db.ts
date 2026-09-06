@@ -60,6 +60,9 @@ export interface DbCoach {
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
   subscription_status?: string | null;
+  login_disabled?: boolean;
+  disabled_at?: string | null;
+  disabled_reason?: string | null;
 }
 
 export interface DbAcademy {
@@ -214,6 +217,9 @@ export function dbToCoach(r: DbCoach): Coach {
     stripeCustomerId: r.stripe_customer_id ?? undefined,
     stripeSubscriptionId: r.stripe_subscription_id ?? undefined,
     subscriptionStatus: r.subscription_status ?? undefined,
+    loginDisabled: r.login_disabled ?? false,
+    disabledAt: r.disabled_at ?? null,
+    disabledReason: r.disabled_reason ?? null,
   };
 }
 

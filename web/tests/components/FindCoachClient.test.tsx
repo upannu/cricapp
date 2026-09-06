@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FindCoachClient } from "@/components/FindCoachClient";
-import { makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
+import { makeAcademy, makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
 
 const { fetchPlayer, fetchCoaches, fetchAcademies, fetchActivePlans, upsertBooking } = vi.hoisted(() => ({
   fetchPlayer: vi.fn(), fetchCoaches: vi.fn(), fetchAcademies: vi.fn(), fetchActivePlans: vi.fn(), upsertBooking: vi.fn(),
@@ -29,6 +29,29 @@ describe("FindCoachClient", () => {
 
     render(<FindCoachClient />);
     expect(await screen.findByText("Coach Dan")).toBeInTheDocument();
+  });
+
+  test("excludes a marketplace-visible coach at the player's own academy — they already have access to those", async () => {
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", subscription: { plan: "Player Pro", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 0, sessionsLimit: null } }));
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", playerIds: ["p1"] })]);
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Own Academy Coach", marketplaceVisible: true, academyId: "ac1" }),
+      makeCoach({ id: "c2", name: "Other Academy Coach", marketplaceVisible: true, academyId: "ac2" }),
+    ]);
+
+    render(<FindCoachClient />);
+    expect(await screen.findByText("Other Academy Coach")).toBeInTheDocument();
+    expect(screen.queryByText("Own Academy Coach")).not.toBeInTheDocument();
+  });
+
+  test("excludes an Inactive coach even if marketplace-visible — not bookable, so not discoverable", async () => {
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Inactive Coach", marketplaceVisible: true, status: "Inactive" })]);
+
+    render(<FindCoachClient />);
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByText("Inactive Coach")).not.toBeInTheDocument();
   });
 
   test("location search geocodes via the API and shows an error on failure", async () => {

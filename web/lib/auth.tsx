@@ -13,7 +13,7 @@ interface AuthContextValue {
   loaded: boolean;
   login: (email: string, password: string) => Promise<string | null>;
   resendConfirmation: (email: string) => Promise<string | null>;
-  signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string, academyName?: string, academyLocation?: string) => Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean; approved?: boolean }>;
+  signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string, academyName?: string, academyLocation?: string) => Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean; approved?: boolean; checkEmail?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -98,6 +98,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    // Same story for a coach removed via CoachesClient's ⋮ menu ("Remove Coach") — a soft delete
+    // that keeps their row (and every session/report/booking pointing at it) intact rather than
+    // destroying it, but blocks login just like a disabled player.
+    const coachId = data.user?.app_metadata?.coach_id as string | undefined;
+    if (coachId) {
+      const { data: coach } = await supabase
+        .from("coaches")
+        .select("login_disabled, disabled_reason")
+        .eq("id", coachId)
+        .maybeSingle();
+      if (coach?.login_disabled) {
+        await supabase.auth.signOut();
+        return `ACCOUNT_DISABLED::${coach.disabled_reason || "Your account has been removed — contact your academy or platform admin."}`;
+      }
+    }
+
     return null;
   }
 
@@ -109,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     playerLookupEmail?: string,
     academyName?: string,
     academyLocation?: string,
-  ): Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean; approved?: boolean }> {
+  ): Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean; approved?: boolean; checkEmail?: string }> {
     // An email that already has an account can't go through signUp() again (Supabase returns an
     // ambiguous "ghost" response for a duplicate email rather than a clean error) — check first
     // and route into the "link an additional role" request instead of creating a new account.
@@ -128,6 +144,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const linkData = await linkRes.json().catch(() => ({}));
       if (!linkRes.ok) return { error: linkData?.error ?? "Could not submit request.", needsConfirmation: false };
       return { error: null, needsConfirmation: false, linked: true };
+    }
+
+    // player/parent both require typing someone else's (a child's) already-registered email to
+    // link against — that lookup must never reveal whether an arbitrary email matches anything
+    // (see api/request-signup-link's own comment), so it goes through a dedicated route that
+    // always responds the same way and only actually reveals a match via an email sent to that
+    // address, not to this response.
+    if (role === "player" || role === "parent") {
+      const res = await fetch("/api/request-signup-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, role, playerLookupEmail }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data?.error ?? "Could not submit signup.", needsConfirmation: false };
+      return { error: null, needsConfirmation: false, checkEmail: playerLookupEmail };
     }
 
     // options.data only ever sets user_metadata (client-writable, so never trust it for

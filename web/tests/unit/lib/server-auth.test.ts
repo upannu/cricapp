@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { callerCanAccessPlayer, findAuthUserByEmail, listAllAuthUsers, type Caller } from "@/lib/server-auth";
+import { callerCanAccessPlayer, findAuthUserByEmail, listAllAuthUsers, mergeLinkedIdentities, type Caller } from "@/lib/server-auth";
 import { createSupabaseMock } from "../../mocks/supabase";
 
 const TARGET_PLAYER = "player-123";
@@ -148,5 +148,46 @@ describe("findAuthUserByEmail / listAllAuthUsers", () => {
     const { users, error } = await listAllAuthUsers(supabase as never);
     expect(error).toBeNull();
     expect(users.map((u) => u.email)).toEqual(["a@example.com", "b@example.com"]);
+  });
+});
+
+describe("mergeLinkedIdentities", () => {
+  test("seeds from the account's own current role when it has no linkedIdentities yet", () => {
+    const meta = { role: "coach", coach_id: "c1" };
+    const result = mergeLinkedIdentities(meta, [{ role: "parent", playerId: "p1" }]);
+    expect(result).toEqual([
+      { role: "coach", academyId: undefined, coachId: "c1", playerId: undefined },
+      { role: "parent", playerId: "p1" },
+    ]);
+  });
+
+  test("appends a new sibling without touching an existing one", () => {
+    const meta = { role: "parent", player_id: "p1", linkedIdentities: [{ role: "parent", playerId: "p1" }] };
+    const result = mergeLinkedIdentities(meta, [{ role: "parent", playerId: "p2" }]);
+    expect(result).toEqual([
+      { role: "parent", playerId: "p1" },
+      { role: "parent", playerId: "p2" },
+    ]);
+  });
+
+  test("skips a candidate that's already linked — same role and playerId", () => {
+    const meta = { role: "parent", player_id: "p1", linkedIdentities: [{ role: "parent", playerId: "p1" }] };
+    const result = mergeLinkedIdentities(meta, [{ role: "parent", playerId: "p1" }]);
+    expect(result).toEqual([{ role: "parent", playerId: "p1" }]);
+  });
+
+  test("skips a second identity for a role with no playerId (academy_admin/coach) — one is enough", () => {
+    const meta = { role: "coach", coach_id: "c1" };
+    const result = mergeLinkedIdentities(meta, [{ role: "coach", coachId: "c1" }]);
+    expect(result).toEqual([{ role: "coach", academyId: undefined, coachId: "c1", playerId: undefined }]);
+  });
+
+  test("a player and a parent identity for the same playerId coexist — a kid with no email of their own sharing a guardian's", () => {
+    const meta = { role: "player", player_id: "p1", linkedIdentities: [{ role: "player", playerId: "p1" }] };
+    const result = mergeLinkedIdentities(meta, [{ role: "parent", playerId: "p1" }]);
+    expect(result).toEqual([
+      { role: "player", playerId: "p1" },
+      { role: "parent", playerId: "p1" },
+    ]);
   });
 });

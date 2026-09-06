@@ -15,6 +15,9 @@ import { CameraCalibrationModal } from "@/components/CameraCalibrationModal";
 import { VideoAnnotator } from "@/components/VideoAnnotator";
 import { VoiceNoteRecorder } from "@/components/VoiceNoteRecorder";
 import { AssessmentForm } from "@/components/AssessmentForm";
+import { ListSummary } from "@/components/ListSummary";
+import { StatsGrid } from "@/components/StatsGrid";
+import { StatCard } from "@/components/StatCard";
 import { aiReportsIncludedForPlayer } from "@/lib/plan-features";
 
 const SESSIONS_PER_PAGE = 10;
@@ -164,6 +167,7 @@ export function SessionsClient() {
   const [typeFilter, setTypeFilter] = useState<BookingType | "all">("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [sessionSortBy, setSessionSortBy] = useState<"dateDesc" | "dateAsc" | "speedDesc">("dateDesc");
 
   const visibleCoaches = _sessCoaches;
 
@@ -343,11 +347,19 @@ export function SessionsClient() {
     return true;
   });
 
+  const sortedSessions = [...filtered].sort((a, b) => {
+    switch (sessionSortBy) {
+      case "dateAsc":   return a.date.localeCompare(b.date);
+      case "speedDesc": return (b.ballSpeedKmh ?? -1) - (a.ballSpeedKmh ?? -1);
+      default:          return b.date.localeCompare(a.date);
+    }
+  });
+
   // Clamp rather than reset so a shrinking result set can never strand the view on a
   // now-nonexistent page (mirrors PlayersClient's pagination — see there for rationale).
   const totalPages = Math.max(1, Math.ceil(filtered.length / SESSIONS_PER_PAGE));
   const currentPage = Math.min(page, totalPages);
-  const pagedSessions = filtered.slice((currentPage - 1) * SESSIONS_PER_PAGE, currentPage * SESSIONS_PER_PAGE);
+  const pagedSessions = sortedSessions.slice((currentPage - 1) * SESSIONS_PER_PAGE, currentPage * SESSIONS_PER_PAGE);
 
   return (
     <>
@@ -357,16 +369,17 @@ export function SessionsClient() {
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Sessions</h1>
           <p className="text-zinc-400 text-sm">All bowling sessions across your players</p>
+          <ListSummary parts={[`${filtered.length} shown`, `${sessions.length} total`, `${thisWeekCount(sessions)} this week`]} />
         </div>
       </div>
 
       {/* Stats strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <StatsGrid columns={4}>
         <StatCard label="Total sessions" value={sessions.length} color="text-white" />
         <StatCard label="This week" value={thisWeekCount(sessions)} color="text-pace-green" />
         <StatCard label="Videos uploaded" value={totalVideos(sessions)} color="text-amber" />
         <StatCard label="Avg ball speed" value={avgSpeed(sessions)} color="text-fire" />
-      </div>
+      </StatsGrid>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mb-6">
@@ -406,6 +419,15 @@ export function SessionsClient() {
           {SESSION_TYPES.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
+        </select>
+        <select
+          value={sessionSortBy}
+          onChange={(e) => setSessionSortBy(e.target.value as "dateDesc" | "dateAsc" | "speedDesc")}
+          className={selectCls}
+        >
+          <option value="dateDesc">Sort: Newest First</option>
+          <option value="dateAsc">Sort: Oldest First</option>
+          <option value="speedDesc">Sort: Fastest Ball Speed</option>
         </select>
       </div>
 
@@ -946,22 +968,6 @@ export function SessionsClient() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string | number;
-  color: string;
-}) {
-  return (
-    <div className="bg-surface rounded-2xl p-5 text-center">
-      <div className={`text-2xl font-bold mb-1 ${color}`}>{value}</div>
-      <div className="text-xs text-zinc-400">{label}</div>
-    </div>
-  );
-}
 
 function MetricRow({
   label,

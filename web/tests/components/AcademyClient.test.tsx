@@ -51,6 +51,24 @@ describe("AcademyClient", () => {
     expect(screen.queryByRole("button", { name: "+ New Academy" })).not.toBeInTheDocument();
   });
 
+  test("a platform admin reaches Edit Academy and Deactivate through the row's ⋮ menu", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" })]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    // Not a direct row button — reachable only via the ⋮ menu for platform_admin.
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Deactivate"));
+
+    expect(await screen.findByText("Deactivate Academy?")).toBeInTheDocument();
+  });
+
   test("scopes the players/coaches fetch to the academy_admin's own academy", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
@@ -120,6 +138,28 @@ describe("AcademyClient", () => {
     expect(updateAcademyFields).toHaveBeenCalledWith("ac1", expect.objectContaining({
       player_ids: expect.arrayContaining([expect.stringMatching(/^p_/)]),
     }));
+  });
+
+  test("adding a player with an email from the Players tab fires a best-effort guardian-relink call", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}"));
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy", playerIds: [] })]);
+
+    render(<AcademyClient />);
+    await user.click(await screen.findByRole("button", { name: "Players (0)" }));
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
+    await user.type(screen.getByPlaceholderText("Player name"), "Emailed Kid");
+    await user.type(screen.getByPlaceholderText("player@email.com"), "kid@example.com");
+    await user.click(screen.getByRole("button", { name: "Create & Assign" }));
+
+    await screen.findByText("Emailed Kid");
+    const relinkCall = fetchSpy.mock.calls.find(([url]) => url === "/api/players/relink-guardians");
+    expect(relinkCall).toBeTruthy();
+    expect(JSON.parse(relinkCall![1]!.body as string)).toEqual({ playerIds: [expect.stringMatching(/^p_/)] });
+
+    fetchSpy.mockRestore();
   });
 
   test("rejects a garbage email on the Coaches tab's inline Add Player, instead of silently saving an unreachable player", async () => {
@@ -221,5 +261,57 @@ describe("AcademyClient", () => {
     // itself proof the shortcut created a coach and staged it as the draft's headCoachId.
     await screen.findByText("★ Owner");
     expect(upsertCoach).toHaveBeenCalledWith(expect.objectContaining({ name: "Jordan Blake", email: "jordan@crichq.com.au" }));
+  });
+
+  test("shows a shown/total/active summary line under the page title", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([
+      makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" }),
+      makeAcademy({ id: "ac2", name: "Retired Academy", status: "Inactive" }),
+    ]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    expect(screen.getByText("2 shown · 2 total · 1 active")).toBeInTheDocument();
+  });
+
+  test("clicking the Active programs stat card filters the list to Active academies", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([
+      makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" }),
+      makeAcademy({ id: "ac2", name: "Retired Academy", status: "Inactive" }),
+    ]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    await user.click(screen.getByRole("button", { name: /^Active programs 1$/ }));
+
+    expect(screen.getByText("Riverside Academy")).toBeInTheDocument();
+    expect(screen.queryByText("Retired Academy")).not.toBeInTheDocument();
+  });
+
+  test("clicking the Inactive stat card filters the list to Inactive academies", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([
+      makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" }),
+      makeAcademy({ id: "ac2", name: "Retired Academy", status: "Inactive" }),
+    ]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    // Anchored — the plain "Inactive" filter tab shares this label; the stat card's own
+    // accessible name has its count appended after it ("Inactive 1").
+    await user.click(screen.getByRole("button", { name: /^Inactive 1$/ }));
+
+    expect(screen.getByText("Retired Academy")).toBeInTheDocument();
+    expect(screen.queryByText("Riverside Academy")).not.toBeInTheDocument();
   });
 });

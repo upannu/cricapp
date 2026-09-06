@@ -162,6 +162,26 @@ export function buildBookingEmailHtml(opts: {
   });
 }
 
+/** Sent to a *player's* registered email (not the account email the signer-upper typed for
+ * themselves) when a player/parent signup's lookup email matches an existing player record — see
+ * api/request-signup-link/route.ts. The account already exists (unconfirmed) by the time this
+ * goes out; clicking through is what actually activates it. Deliberately says nothing about
+ * whether other lookups succeed or fail — this email itself IS the "yes, this matched" signal,
+ * and only reaches someone who already has access to that inbox. */
+export function buildSignupConfirmEmailHtml(opts: {
+  appUrl: string;
+  name: string;
+  confirmUrl: string;
+}): string {
+  return shell({
+    appUrl: opts.appUrl,
+    heading: "Confirm your CRIC HQ account",
+    intro: `${escapeHtml(opts.name)} wants to create a CRIC HQ account linked to the player(s) registered at this email address. If that's you, confirm below to finish setting it up.`,
+    ctaLabel: "Confirm & finish setup",
+    ctaHref: opts.confirmUrl,
+  });
+}
+
 /** The public /contact form notification sent to PLATFORM_ADMIN_EMAIL — see api/contact/route.ts. */
 export function buildContactFormEmailHtml(opts: {
   appUrl: string;

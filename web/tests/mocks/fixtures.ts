@@ -73,6 +73,9 @@ export function makeCoach(overrides: Partial<Coach> = {}): Coach {
     stripeConnectOnboarded: false,
     currency: "aud",
     subPlan: "Free",
+    loginDisabled: false,
+    disabledAt: null,
+    disabledReason: null,
     ...overrides,
   };
 }

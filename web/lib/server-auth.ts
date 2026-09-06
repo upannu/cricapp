@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { LinkedIdentity } from "./types";
 
 export interface Caller {
   userId: string;
@@ -77,6 +78,36 @@ export async function findAuthUserByEmail(
     if (!data.nextPage) return { user: null, error: null };
     page = data.nextPage;
   }
+}
+
+/**
+ * Merges new candidate identities into an account's existing linkedIdentities — shared by
+ * approve-user's "link an additional role" branch and players/relink-guardians (both need the
+ * exact same "seed from the account's own current role if it has no linkedIdentities yet, then
+ * append whatever's genuinely new" logic; letting them drift apart independently risks one
+ * silently doing it differently). `meta` is the account's current app_metadata; a candidate is
+ * skipped if an identity with the same role already covers it — same role with no playerId
+ * (academy_admin/coach), or same role AND playerId (player/parent, one entry per child).
+ */
+export function mergeLinkedIdentities(
+  meta: Record<string, unknown>,
+  candidates: LinkedIdentity[],
+): LinkedIdentity[] {
+  const currentIdentities = meta.linkedIdentities as LinkedIdentity[] | undefined;
+  const seeded: LinkedIdentity[] = currentIdentities && currentIdentities.length > 0
+    ? currentIdentities
+    : [{
+        role: meta.role as LinkedIdentity["role"],
+        academyId: meta.academy_id as string | undefined,
+        coachId: meta.coach_id as string | undefined,
+        playerId: meta.player_id as string | undefined,
+      }];
+
+  const newOnes = candidates.filter((candidate) =>
+    !seeded.some((li) => li.role === candidate.role &&
+      (candidate.playerId === undefined || li.playerId === candidate.playerId))
+  );
+  return seeded.concat(newOnes);
 }
 
 /**

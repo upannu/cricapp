@@ -37,7 +37,7 @@ export async function middleware(request: NextRequest) {
   // request-additional-role) can legitimately be called by an *already logged-in* user requesting
   // an additional linked role, so they must never be redirected either way.
   const isAuthApi =
-    pathname.startsWith("/api/lookup-player") ||
+    pathname.startsWith("/api/request-signup-link") ||
     pathname.startsWith("/api/notify-admin-signup") ||
     pathname.startsWith("/api/check-existing-account") ||
     pathname.startsWith("/api/request-additional-role") ||

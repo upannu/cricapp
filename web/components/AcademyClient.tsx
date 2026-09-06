@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Papa from "papaparse";
 import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan, Net } from "@/lib/types";
@@ -8,6 +8,11 @@ import { useAuth } from "@/lib/auth";
 import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, insertPlayers, updateAcademyFields, fetchActivePlans, fetchNets, upsertNet, deleteNet } from "@/lib/db";
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
+import { RowActionsMenu } from "@/components/RowActionsMenu";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { ListSummary } from "@/components/ListSummary";
+import { StatsGrid } from "@/components/StatsGrid";
+import { StatCard } from "@/components/StatCard";
 import { getPlatformFeePercent, isValidEmail } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
@@ -130,10 +135,6 @@ export function AcademyClient() {
   const [netError,     setNetError]     = useState("");
   const [confirmDeleteNetId, setConfirmDeleteNetId] = useState<string | null>(null);
 
-  // 3-dot menu
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const menuRef                     = useRef<HTMLDivElement>(null);
-
   // Confirm status toggle
   const [confirmToggle, setConfirmToggle] = useState<ConfirmToggle | null>(null);
   const [toggling,      setToggling]      = useState(false);
@@ -201,17 +202,6 @@ export function AcademyClient() {
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close 3-dot menu on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpenMenuId(null);
-      }
-    }
-    if (openMenuId) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [openMenuId]);
-
   // ── Accordion ──────────────────────────────────────────────────────────────
   // An academy_admin's own academy auto-expands (see the expandedId initializer above) straight
   // to Pricing rather than Players — the session-fee/age-group rates are what they open this page
@@ -272,7 +262,6 @@ export function AcademyClient() {
 
   // ── 3-dot actions ──────────────────────────────────────────────────────────
   function handleMenuAction(action: "edit" | "toggleStatus", academy: Academy) {
-    setOpenMenuId(null);
     if (action === "edit") { openEdit(academy); return; }
     setConfirmToggle({
       id: academy.id,
@@ -512,6 +501,14 @@ export function AcademyClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerId: newId, academyId: editingId }),
       }).catch(() => {});
+      // A guardian who already has a parent/player account under this same email — signed up
+      // before this player existed — never gets linked to them automatically otherwise; nothing
+      // re-checks after the initial signup/approval. Best-effort, never blocks the add itself.
+      fetch("/api/players/relink-guardians", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerIds: [newId] }),
+      }).catch(() => {});
     }
   }
 
@@ -584,6 +581,12 @@ export function AcademyClient() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ playerId: newId, academyId }),
         }).catch(() => {});
+        // See handleAddNewPlayer above for why this exists.
+        fetch("/api/players/relink-guardians", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerIds: [newId] }),
+        }).catch(() => {});
       }
     } catch (err) {
       setTabPlayerError((err as { message?: string })?.message ?? String(err));
@@ -612,6 +615,7 @@ export function AcademyClient() {
       status: "Active", joinedDate: now, certificationLevel: tabCoachDraft.certificationLevel,
       bio: "", academyId: "", marketplaceVisible: false, available: true,
       stripeConnectOnboarded: false, currency: academy.currency, subPlan: "Free",
+      loginDisabled: false, disabledAt: null, disabledReason: null,
     };
     try {
       await upsertCoach({
@@ -661,6 +665,7 @@ export function AcademyClient() {
       status: "Active", joinedDate: now, certificationLevel: "Level 1",
       bio: "", academyId: "", marketplaceVisible: false, available: true,
       stripeConnectOnboarded: false, currency: academy.currency, subPlan: "Free",
+      loginDisabled: false, disabledAt: null, disabledReason: null,
     };
     try {
       await upsertCoach({
@@ -806,12 +811,22 @@ export function AcademyClient() {
       setCsvRows([]);
       setCsvFileName("");
 
+      const emailedIds: string[] = [];
       for (const p of newPlayers) {
         if (!p.email.trim()) continue;
+        emailedIds.push(p.id);
         fetch("/api/players/notify-added", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ playerId: p.id, academyId: editingId }),
+        }).catch(() => {});
+      }
+      // One batched call for the whole CSV import — see handleAddNewPlayer above for why this exists.
+      if (emailedIds.length > 0) {
+        fetch("/api/players/relink-guardians", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerIds: emailedIds }),
         }).catch(() => {});
       }
     } catch (err) {
@@ -842,6 +857,7 @@ export function AcademyClient() {
       marketplaceVisible: false, available: true, stripeConnectOnboarded: false,
       currency: currencyForCountry(draft.country),
       subPlan: "Free",
+      loginDisabled: false, disabledAt: null, disabledReason: null,
     };
     try {
       await upsertCoach({
@@ -885,6 +901,7 @@ export function AcademyClient() {
       certificationLevel: "Level 1", bio: "", academyId: "",
       marketplaceVisible: false, available: true, stripeConnectOnboarded: false,
       currency: currencyForCountry(draft.country), subPlan: "Free",
+      loginDisabled: false, disabledAt: null, disabledReason: null,
     };
     try {
       await upsertCoach({
@@ -927,6 +944,7 @@ export function AcademyClient() {
     });
 
   const activeCount = academies.filter((a) => a.status === "Active").length;
+  const inactiveCount = academies.filter((a) => a.status === "Inactive").length;
   const grandTotal  = allPlayers.filter((p) => academies.some((a) => a.playerIds.includes(p.id))).length;
 
   // map coachId → academy names they're already in (excluding the one being edited)
@@ -946,18 +964,25 @@ export function AcademyClient() {
     return !q || p.name.toLowerCase().includes(q) || p.club.toLowerCase().includes(q);
   });
 
-  // additional coaches = all coaches except the current owner
-  const additionalCoaches = allCoaches.filter((c) => c.id !== draft.headCoachId);
+  // additional coaches = all coaches except the current owner — excludes a removed coach too,
+  // unless they're already toggled on (editing an academy that already has one shouldn't
+  // silently drop them from view).
+  const additionalCoaches = allCoaches.filter((c) =>
+    c.id !== draft.headCoachId && (!c.loginDisabled || draft.coachIds.includes(c.id))
+  );
+  // Same idea for the head-coach/owner picker just below.
+  const assignableCoaches = allCoaches.filter((c) => !c.loginDisabled || c.id === draft.headCoachId);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="max-w-5xl mx-auto px-6 py-8">
 
       {/* Page header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Academies</h1>
           <p className="text-zinc-400 text-sm">Manage your fast bowling programs and cohorts</p>
+          <ListSummary parts={[`${displayed.length} shown`, `${academies.length} total`, `${activeCount} active`]} />
         </div>
         {user?.role === "platform_admin" && (
           <button type="button" onClick={openAdd}
@@ -968,20 +993,14 @@ export function AcademyClient() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-surface rounded-2xl p-5 text-center">
-          <div className="text-2xl font-bold text-white mb-1">{academies.length}</div>
-          <div className="text-xs text-zinc-400">Total academies</div>
-        </div>
-        <div className="bg-surface rounded-2xl p-5 text-center">
-          <div className="text-2xl font-bold text-pace-green mb-1">{activeCount}</div>
-          <div className="text-xs text-zinc-400">Active programs</div>
-        </div>
-        <div className="bg-surface rounded-2xl p-5 text-center">
-          <div className="text-2xl font-bold text-amber mb-1">{grandTotal}</div>
-          <div className="text-xs text-zinc-400">Total players</div>
-        </div>
-      </div>
+      <StatsGrid columns={4}>
+        <StatCard label="Total academies" value={academies.length} />
+        <StatCard label="Active programs" value={activeCount} color="text-pace-green"
+          onClick={() => setStatusFilter("Active")} active={statusFilter === "Active"} />
+        <StatCard label="Total players" value={grandTotal} color="text-amber" />
+        <StatCard label="Inactive" value={inactiveCount} color="text-zinc-400"
+          onClick={() => setStatusFilter("Inactive")} active={statusFilter === "Inactive"} />
+      </StatsGrid>
 
       {/* Filter bar */}
       <div className="bg-surface rounded-2xl p-4 mb-6 flex flex-wrap gap-3 items-center">
@@ -1033,7 +1052,7 @@ export function AcademyClient() {
           )}
         </div>
       ) : (
-        <div className="space-y-2" ref={menuRef}>
+        <div className="space-y-2">
           {displayed.map((academy) => {
             const isExpanded      = expandedId === academy.id;
             const tab             = getTab(academy.id);
@@ -1046,7 +1065,6 @@ export function AcademyClient() {
             }, {} as Partial<Record<AgeGroup, number>>);
             const ageGroupsPresent = AGE_GROUPS.filter((g) => (countsByGroup[g] ?? 0) > 0);
             const groupViewActive  = activeGroupView?.academyId === academy.id ? activeGroupView.ageGroup : null;
-            const isMenuOpen       = openMenuId === academy.id;
 
             return (
               <div key={academy.id}
@@ -1124,59 +1142,38 @@ export function AcademyClient() {
                     </button>
                   )}
 
-                  {/* ⋮ menu */}
+                  {/* ⋮ menu — the infrequent, platform_admin-only actions (a direct Billing/Edit
+                      button above already covers what gets clicked most). */}
                   {user?.role === "platform_admin" && (
-                    <div className="relative flex-shrink-0">
-                      <button type="button"
-                        onClick={(e) => { e.stopPropagation(); setOpenMenuId(isMenuOpen ? null : academy.id); }}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${
-                          isMenuOpen
-                            ? "border-zinc-500 bg-zinc-700 text-white"
-                            : "border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500"
-                        }`}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
-                        </svg>
-                      </button>
-
-                      {isMenuOpen && (
-                        <div className="absolute right-0 top-10 z-30 w-44 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
-                          <button type="button"
-                            onClick={() => handleMenuAction("edit", academy)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-200 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer text-left">
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <RowActionsMenu items={[
+                        {
+                          label: "Edit Academy",
+                          icon: (
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                             </svg>
-                            Edit Academy
-                          </button>
-                          <div className="h-px bg-zinc-700 mx-3 my-1" />
-                          <button type="button"
-                            onClick={() => handleMenuAction("toggleStatus", academy)}
-                            className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors cursor-pointer text-left ${
-                              academy.status === "Active"
-                                ? "text-amber hover:bg-amber/10"
-                                : "text-pace-green hover:bg-pace-green/10"
-                            }`}>
-                            {academy.status === "Active" ? (
-                              <>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
-                                </svg>
-                                Deactivate
-                              </>
-                            ) : (
-                              <>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <circle cx="12" cy="12" r="10"/>
-                                  <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
-                                </svg>
-                                Activate
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      )}
+                          ),
+                          onClick: () => handleMenuAction("edit", academy),
+                        },
+                        {
+                          label: academy.status === "Active" ? "Deactivate" : "Activate",
+                          dividerBefore: true,
+                          variant: academy.status === "Active" ? "warning" : "success",
+                          icon: academy.status === "Active" ? (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" /><line x1="8" y1="12" x2="16" y2="12" />
+                            </svg>
+                          ) : (
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10" />
+                              <line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
+                            </svg>
+                          ),
+                          onClick: () => handleMenuAction("toggleStatus", academy),
+                        },
+                      ]} />
                     </div>
                   )}
                 </div>
@@ -1570,46 +1567,27 @@ export function AcademyClient() {
 
       {/* ── Confirm status toggle ── */}
       {confirmToggle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setConfirmToggle(null)} />
-          <div className="relative bg-surface rounded-2xl w-full max-w-sm shadow-2xl border border-zinc-700/60 p-6">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
-              confirmToggle.newStatus === "Inactive" ? "bg-amber/20" : "bg-pace-green/20"
-            }`}>
-              {confirmToggle.newStatus === "Inactive" ? (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/>
-                </svg>
-              ) : (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-              )}
-            </div>
-            <h3 className="text-white font-bold text-center mb-1">
-              {confirmToggle.newStatus === "Inactive" ? "Deactivate Academy?" : "Activate Academy?"}
-            </h3>
-            <p className="text-zinc-400 text-sm text-center mb-6">
-              {confirmToggle.newStatus === "Inactive"
-                ? `"${confirmToggle.name}" will be marked Inactive. All players and data are preserved.`
-                : `"${confirmToggle.name}" will be set back to Active.`}
-            </p>
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setConfirmToggle(null)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
-                Cancel
-              </button>
-              <button type="button" onClick={handleConfirmToggle} disabled={toggling}
-                className={`flex-1 px-4 py-2.5 text-sm font-bold rounded-xl transition-colors cursor-pointer disabled:opacity-60 ${
-                  confirmToggle.newStatus === "Inactive"
-                    ? "bg-amber/20 text-amber border border-amber/40 hover:bg-amber/30"
-                    : "bg-pace-green text-black hover:opacity-90"
-                }`}>
-                {toggling ? "Saving…" : confirmToggle.newStatus === "Inactive" ? "Yes, Deactivate" : "Yes, Activate"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmModal
+          icon={confirmToggle.newStatus === "Inactive" ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" /><line x1="8" y1="12" x2="16" y2="12" />
+            </svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+          iconBg={confirmToggle.newStatus === "Inactive" ? "bg-amber/20" : "bg-pace-green/20"}
+          title={confirmToggle.newStatus === "Inactive" ? "Deactivate Academy?" : "Activate Academy?"}
+          message={confirmToggle.newStatus === "Inactive"
+            ? `"${confirmToggle.name}" will be marked Inactive. All players and data are preserved.`
+            : `"${confirmToggle.name}" will be set back to Active.`}
+          confirmLabel={confirmToggle.newStatus === "Inactive" ? "Yes, Deactivate" : "Yes, Activate"}
+          confirmVariant={confirmToggle.newStatus === "Inactive" ? "warning" : "default"}
+          loading={toggling}
+          onConfirm={handleConfirmToggle}
+          onCancel={() => setConfirmToggle(null)}
+        />
       )}
 
       {/* ── Owner missing popup ── */}
@@ -1830,7 +1808,7 @@ export function AcademyClient() {
                         onChange={(e) => setOwner(e.target.value)}
                         className={sel}>
                         <option value="">— Select owner —</option>
-                        {allCoaches.map((c) => (
+                        {assignableCoaches.map((c) => (
                           <option key={c.id} value={c.id}>{c.name} · {c.certificationLevel}</option>
                         ))}
                       </select>

@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-const VALID_ROLES = ["player", "coach", "academy_admin", "parent"];
+const VALID_ROLES = ["player", "coach", "academy_admin", "parent", "coach_invite"];
 
 export async function POST(request: Request) {
   const { id, subject, heading, body } = (await request.json()) as {
@@ -35,10 +35,12 @@ export async function POST(request: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
+  // Upsert rather than update — a template id can be defined in code (see EmailTemplatesAdminClient's
+  // ROLES) before its row exists in the DB, e.g. a newly added id like coach_invite. update() would
+  // silently affect zero rows and never actually create it, leaving the "save" a no-op forever.
   const { error } = await supabase
     .from("email_templates")
-    .update({ subject, heading, body, updated_at: new Date().toISOString() })
-    .eq("id", id);
+    .upsert({ id, subject, heading, body, updated_at: new Date().toISOString() });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ success: true });

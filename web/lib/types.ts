@@ -2,14 +2,20 @@ import type { Currency } from '@/lib/currency';
 
 export type PlanTier = 'Coach Pro' | 'Player Pro' | 'Free';
 
-/** The four roles a signup approval can be for — also the fixed set of editable welcome-email
- * templates at /admin/email-templates (one row per role, never user-created/deleted). */
+/** The four roles a signup approval can be for. */
 export type WelcomeEmailRole = 'player' | 'coach' | 'academy_admin' | 'parent';
 
-/** Admin-editable welcome-email copy sent by /api/approve-user. `subject` and `heading` support a
- * `{{name}}` placeholder; `body` supports `{{name}}` too and may use blank lines for paragraphs. */
+/** Every admin-editable template id at /admin/email-templates: the four welcome-email roles
+ * above, sent by /api/approve-user, plus coach_invite, sent by /api/resend-coach-invite. Each is
+ * a fixed, code-defined slot — never user-created/deleted — though the underlying DB row is
+ * created on first save (see /api/email-templates/update's upsert) rather than needing to be
+ * seeded ahead of time. */
+export type SystemEmailId = WelcomeEmailRole | 'coach_invite';
+
+/** Admin-editable email copy. `subject` and `heading` support a `{{name}}` placeholder; `body`
+ * supports `{{name}}` too and may use blank lines for paragraphs. */
 export interface EmailTemplate {
-  id: WelcomeEmailRole;
+  id: SystemEmailId;
   subject: string;
   heading: string;
   body: string;
@@ -402,6 +408,15 @@ export interface Coach {
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
   subscriptionStatus?: string;
+  /** Soft delete — distinct from `status` (Active/Inactive, a temporary/reversible business
+   * state that still shows everywhere). This is "removed for good," set by staff via the ⋮
+   * menu's "Remove Coach": blocks login (see lib/auth.tsx), hides the coach from the default
+   * Coaches list and every assignment picker, and force-excludes them from the marketplace —
+   * but never deletes the row, so their session/report/booking history stays intact. Mirrors
+   * the identical player login_disabled/disabled_at/disabled_reason pattern exactly. */
+  loginDisabled: boolean;
+  disabledAt: string | null;
+  disabledReason: string | null;
 }
 
 export type BookingStatus = 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed';

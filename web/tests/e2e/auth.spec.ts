@@ -48,4 +48,24 @@ test.describe("middleware redirect matrix", () => {
     await expect(page.getByText("Invalid email or password.")).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
   });
+
+  // Regression guard for a real account-enumeration bug: the child's-registered-email field on
+  // /signup used to run a live, unauthenticated lookup on every keystroke and show a distinct
+  // "✓ Found N player records"/"No player found" message — anyone could learn whether an
+  // arbitrary email had children registered on the platform with no login and no signup
+  // commitment. See api/request-signup-link/route.ts for the fix: the real answer is now only
+  // ever revealed by an email sent to that address, never in this response.
+  test("the child's-registered-email field gives no live match/no-match signal", async ({ page }) => {
+    await page.goto("/signup");
+    await page.getByRole("button", { name: "Parent / Guardian" }).click();
+
+    await page.getByPlaceholder("The email your coach has on file").fill("e2e-nonexistent-probe@crichq-test.local");
+    // No live check exists to wait for — this just gives any (deliberately absent) network round
+    // trip time to have fired and rendered something, if the old behavior somehow regressed back in.
+    await page.waitForTimeout(1000);
+
+    await expect(page.getByText(/Found/i)).not.toBeVisible();
+    await expect(page.getByText(/No player found/i)).not.toBeVisible();
+    await expect(page.getByText(/Checking…/i)).not.toBeVisible();
+  });
 });

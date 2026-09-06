@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlayersClient } from "@/components/PlayersClient";
 import { makeAcademy, makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
@@ -19,6 +19,9 @@ vi.mock("@/lib/db", () => ({ fetchPlayers, fetchAcademies, fetchCoaches, fetchAc
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
+
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 // Real MessageModal/BulkMessageModal pull in their own data-fetching/sending concerns —
 // stub them so this test stays about PlayersClient's own list/selection logic.
@@ -87,7 +90,8 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByTitle("Send message"));
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Send Message"));
     expect(screen.getByTestId("message-modal")).toHaveTextContent("Messaging Alice Bowler");
   });
 
@@ -250,6 +254,31 @@ describe("PlayersClient", () => {
     }));
   });
 
+  test("adding a player with an email fires a best-effort guardian-relink call", async () => {
+    const user = userEvent.setup();
+    insertPlayer.mockClear();
+    const fetchSpy = vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}"));
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("No players in your scope.");
+
+    await user.click(screen.getByRole("button", { name: "+ Add Player" }));
+    await user.type(screen.getByPlaceholderText("Player name"), "Emailed Kid");
+    await user.type(screen.getByPlaceholderText("player@email.com"), "kid@example.com");
+    await user.click(screen.getByRole("button", { name: "Add Player" }));
+
+    await screen.findByText("Emailed Kid");
+    const relinkCall = fetchSpy.mock.calls.find(([url]) => url === "/api/players/relink-guardians");
+    expect(relinkCall).toBeTruthy();
+    expect(JSON.parse(relinkCall![1]!.body as string)).toEqual({ playerIds: [expect.stringMatching(/^p_/)] });
+
+    fetchSpy.mockRestore();
+  });
+
   test("rejects a garbage email on quick-add instead of silently saving an unreachable player", async () => {
     const user = userEvent.setup();
     insertPlayer.mockClear();
@@ -333,5 +362,206 @@ describe("PlayersClient", () => {
 
     render(<PlayersClient />);
     expect(await screen.findByText("No players in your scope.")).toBeInTheDocument();
+  });
+
+  test("groups players by academy, with an 'Unassigned' section for those on no academy roster", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer" }),
+      makePlayer({ id: "p3", name: "Cara Spinner" }),
+    ]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", playerIds: ["p1", "p2"] })]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.selectOptions(screen.getByRole("combobox"), "Academy");
+
+    // One "Riverside Academy" (2)-count group header, plus another for the 1 player on no
+    // academy roster — a coach-less player's own Coach column also reads the academy/"Unassigned"
+    // fallback, so these group headers aren't the only place either string appears on the page.
+    expect(await screen.findByText("(2)")).toBeInTheDocument();
+    expect(screen.getByText("(1)")).toBeInTheDocument();
+    expect(screen.getAllByText("Riverside Academy").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Unassigned").length).toBeGreaterThan(0);
+    // Both group sections' rows still render, no pagination gating a grouped view.
+    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
+    expect(screen.getByText("Cara Spinner")).toBeInTheDocument();
+    expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+  });
+
+  test("doesn't offer Academy/Coach grouping to a coach viewing their own single-coach roster", async () => {
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "coach-1" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["No grouping", "Age Group", "Playing Level"]);
+  });
+
+  test("collapsing a group hides its rows without losing their selection", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", ageGroup: "U14" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", ageGroup: "U16" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+    await user.selectOptions(screen.getByRole("combobox"), "Age Group");
+    await screen.findByText("U14");
+
+    // Alice's row (U14, listed first) — the group header's own checkbox shares no accessible
+    // name with this one, so index 0 here is unambiguously her row's own selection box.
+    await user.click(screen.getAllByRole("checkbox", { name: "Select for bulk message" })[0]);
+    await user.click(screen.getByText("U14")); // collapse the group Alice is in
+
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+
+    await user.click(screen.getByText("U14")); // expand again
+    expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
+    // Selection made before collapsing is still in effect.
+    expect(screen.getAllByRole("checkbox", { name: "Select for bulk message" })[0]).toBeChecked();
+  });
+
+  test("a group's 'Select all' checkbox only selects players within that group", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", ageGroup: "U14" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", ageGroup: "U14" }),
+      makePlayer({ id: "p3", name: "Cara Spinner", ageGroup: "U16" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+    await user.selectOptions(screen.getByRole("combobox"), "Age Group");
+    await screen.findByText("U14");
+
+    await user.click(screen.getAllByLabelText("Select all")[0]); // the U14 group's header checkbox
+
+    expect(screen.getByText("2 players selected")).toBeInTheDocument();
+  });
+
+  test("clicking a column header sorts the table by that column, and clicking it again reverses the order", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Zara Last" }),
+      makePlayer({ id: "p2", name: "Amy First" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Zara Last");
+
+    const rowNames = () => screen.getAllByRole("row").slice(1).map((r) => r.textContent);
+
+    // Default sort is already by name ascending.
+    expect(rowNames()[0]).toContain("Amy First");
+
+    const playerHeader = screen.getByRole("columnheader", { name: /Player/ });
+    await user.click(within(playerHeader).getByRole("button"));
+    expect(rowNames()[0]).toContain("Zara Last");
+
+    // Clicking the same header again flips it back.
+    await user.click(within(playerHeader).getByRole("button"));
+    expect(rowNames()[0]).toContain("Amy First");
+  });
+
+  test("filters the table by subscription status via the status pills", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    const farFuture = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const past = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", subscription: { plan: "Free", startDate: "2026-01-01", endDate: farFuture, sessionsUsed: 0, sessionsLimit: 4 } }),
+      makePlayer({ id: "p2", name: "Bob Seamer", subscription: { plan: "Free", startDate: "2026-01-01", endDate: soon, sessionsUsed: 0, sessionsLimit: 4 } }),
+      makePlayer({ id: "p3", name: "Cara Spinner", subscription: { plan: "Free", startDate: "2026-01-01", endDate: past, sessionsUsed: 0, sessionsLimit: 4 } }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "Expiring" }));
+
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cara Spinner")).not.toBeInTheDocument();
+  });
+
+  test("shows a shown/total/expiring summary line under the page title", async () => {
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    // Both default (makePlayer) subscriptions run well past the "expiring soon" window.
+    expect(screen.getByText("2 shown · 2 total · 0 expiring soon")).toBeInTheDocument();
+  });
+
+  test("clicking the 'Expiring in 7 Days' stat card jumps straight to that status filter", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", subscription: { plan: "Free", startDate: "2026-01-01", endDate: soon, sessionsUsed: 0, sessionsLimit: 4 } }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: /Expiring in 7 Days/ }));
+
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+    // The "Expiring" filter pill itself reflects the same state the stat card just set.
+    expect(screen.getByRole("button", { name: "Expiring" })).toHaveClass("bg-pace-green");
+  });
+
+  test("View lives under the row's ⋮ menu and navigates to that player's profile", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    // No separate visible "View" button any more — it's folded into the ⋮ menu alongside
+    // Send Message, so the row's actions don't need a wide column of their own.
+    expect(screen.queryByRole("link", { name: "View" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("View"));
+
+    expect(push).toHaveBeenCalledWith("/players/p1");
   });
 });
