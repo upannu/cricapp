@@ -40,6 +40,10 @@ test("bulk message to selected players shows success but never calls the deliver
   const sendButton = page.getByRole("button", { name: /^Send to \d+ players?$/ });
   await sendButton.click();
 
+  // Submitting now opens a confirm dialog rather than sending immediately.
+  await expect(page.getByRole("heading", { name: /^Send (Email|SMS)\?$/ })).toBeVisible();
+  await page.getByRole("button", { name: "Yes, Send" }).click();
+
   // The UI's own success indicator — the bug is specifically that this shows
   // even though no delivery API was ever called.
   await expect(page.getByText(/Sent to \d+ players?/)).toBeVisible();
