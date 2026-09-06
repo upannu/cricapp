@@ -490,7 +490,7 @@ describe("PlayersClient", () => {
     expect(rowNames()[0]).toContain("Amy First");
   });
 
-  test("filters the table by subscription status via the status pills", async () => {
+  test("filters the table by subscription status via the stat cards", async () => {
     const user = userEvent.setup();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
     const farFuture = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -507,7 +507,7 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByRole("button", { name: "Expiring" }));
+    await user.click(screen.getByRole("button", { name: /Expiring Soon/ }));
 
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
@@ -528,11 +528,12 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByRole("button", { name: "Expiring" }));
+    const expiringCard = screen.getByRole("button", { name: /Expiring Soon/ });
+    await user.click(expiringCard);
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Expiring" }));
-    expect(screen.getByRole("button", { name: "All" })).toHaveClass("bg-pace-green");
+    await user.click(expiringCard);
+    expect(expiringCard).not.toHaveClass("ring-pace-green");
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
   });
@@ -567,12 +568,12 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByRole("button", { name: /Expiring Soon/ }));
+    const expiringCard = screen.getByRole("button", { name: /Expiring Soon/ });
+    await user.click(expiringCard);
 
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
-    // The "Expiring" filter pill itself reflects the same state the stat card just set.
-    expect(screen.getByRole("button", { name: "Expiring" })).toHaveClass("bg-pace-green");
+    expect(expiringCard).toHaveClass("ring-pace-green");
   });
 
   test("clicking the 'Expired Players' stat card jumps straight to that status filter", async () => {
@@ -589,11 +590,12 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByRole("button", { name: /Expired Players/ }));
+    const expiredCard = screen.getByRole("button", { name: /Expired Players/ });
+    await user.click(expiredCard);
 
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Expired" })).toHaveClass("bg-pace-green");
+    expect(expiredCard).toHaveClass("ring-pace-green");
   });
 
   test("View lives under the row's ⋮ menu and navigates to that player's profile", async () => {

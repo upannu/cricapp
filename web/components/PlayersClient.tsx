@@ -704,17 +704,6 @@ export function PlayersClient() {
         <SelectPill value={groupBy} options={groupByOptions} onChange={handleGroupByChange} ariaLabel="Group by" />
       </div>
 
-      <div className="flex gap-2 mb-6">
-        {(["All", "Active", "Expiring", "Expired"] as const).map((s) => (
-          <button key={s} type="button" onClick={() => handleStatusFilterChange(s)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              statusFilter === s ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
-            }`}>
-            {s}
-          </button>
-        ))}
-      </div>
-
       {canAddPlayers && showAddPlayer && !atRosterCap && (
         <div className="bg-surface rounded-2xl p-5 mb-6 border border-pace-green/30">
           <div className="flex items-center justify-between mb-3">
