@@ -975,7 +975,7 @@ export function AcademyClient() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="max-w-5xl mx-auto px-6 py-8">
 
       {/* Page header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
