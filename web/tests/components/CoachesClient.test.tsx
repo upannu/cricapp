@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CoachesClient } from "@/components/CoachesClient";
-import { makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
+import { makeAcademy, makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
 
 const { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, reassignCoachPlayers } = vi.hoisted(() => ({
   fetchCoaches: vi.fn(), fetchAcademies: vi.fn(), fetchPlayers: vi.fn(), fetchActivePlans: vi.fn(),
@@ -84,7 +84,8 @@ describe("CoachesClient", () => {
     Object.defineProperty(window, "location", { value: { ...window.location, href: "" }, writable: true });
 
     render(<CoachesClient />);
-    await user.click(await screen.findByRole("button", { name: "Set up payouts" }));
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Set Up Payouts"));
 
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/stripe/connect/onboard",
@@ -328,13 +329,29 @@ describe("CoachesClient", () => {
     expect(screen.queryByText("Resend Invite")).not.toBeInTheDocument();
   });
 
-  test("hides the ⋮ delete menu from a coach viewing their own card", async () => {
+  test("a coach viewing their own row only gets Edit/Payouts in the ⋮ menu, never the staff-only actions", async () => {
+    const user = userEvent.setup();
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
     fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
 
     render(<CoachesClient />);
     await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByText("Edit")).toBeInTheDocument();
+    expect(screen.getByText("Set Up Payouts")).toBeInTheDocument();
+    expect(screen.queryByText("Deactivate")).not.toBeInTheDocument();
+    expect(screen.queryByText("Remove Coach")).not.toBeInTheDocument();
+  });
+
+  test("hides the ⋮ menu entirely from a coach viewing another coach's row", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c2", name: "Coach Sam" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Sam");
 
     expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
   });
@@ -346,7 +363,8 @@ describe("CoachesClient", () => {
     fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", academyId: "", subPlan: "Free" })]);
 
     render(<CoachesClient />);
-    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Edit"));
 
     expect(await screen.findByText(/Requires Coach Pro/)).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: "Visible in the coach marketplace" })).toBeDisabled();
@@ -370,7 +388,8 @@ describe("CoachesClient", () => {
     }]);
 
     render(<CoachesClient />);
-    await user.click(await screen.findByRole("button", { name: "Edit" }));
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Edit"));
 
     expect(await screen.findByRole("checkbox", { name: "Visible in the coach marketplace" })).not.toBeDisabled();
     expect(screen.queryByText(/Requires Coach Pro/)).not.toBeInTheDocument();
@@ -416,7 +435,7 @@ describe("CoachesClient", () => {
     expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
   });
 
-  test("sorts coaches by most players when that sort is selected", async () => {
+  test("clicking the Players column header sorts by player count", async () => {
     const user = userEvent.setup();
     setupDefaults();
     fetchCoaches.mockResolvedValue([
@@ -431,12 +450,18 @@ describe("CoachesClient", () => {
     render(<CoachesClient />);
     await screen.findByText("Coach Ant");
 
-    const cardNames = () => screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
-    // Default sort is Name (A–Z) — Ant before Zed.
-    expect(cardNames()).toEqual(["Coach Ant", "Coach Zed"]);
+    const rowNames = () => screen.getAllByRole("row").slice(1).map((r) => r.textContent);
+    // Default sort is by name ascending — Ant before Zed.
+    expect(rowNames()[0]).toContain("Coach Ant");
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "Sort by" }), "Most Players");
-    expect(cardNames()).toEqual(["Coach Zed", "Coach Ant"]);
+    const playersHeader = screen.getByRole("columnheader", { name: /Players/ });
+    await user.click(within(playersHeader).getByRole("button"));
+    // Ascending by count — Ant (0 players) before Zed (2).
+    expect(rowNames()[0]).toContain("Coach Ant");
+
+    await user.click(within(playersHeader).getByRole("button"));
+    // Descending — Zed (2 players) now first.
+    expect(rowNames()[0]).toContain("Coach Zed");
   });
 
   test("shows a shown/total/active summary line under the page title", async () => {
@@ -489,5 +514,20 @@ describe("CoachesClient", () => {
 
     expect(screen.getByText("Coach Sam")).toBeInTheDocument();
     expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+  });
+
+  test("shows the coach's academy in its own column, or 'Independent' when they have none", async () => {
+    setupDefaults();
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy" })]);
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", academyId: "ac1" }),
+      makeCoach({ id: "c2", name: "Coach Sam", academyId: "" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    expect(screen.getByText(/Riverside Academy/)).toBeInTheDocument();
+    expect(screen.getByText("Independent")).toBeInTheDocument();
   });
 });

@@ -14,9 +14,21 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { ListSummary } from "@/components/ListSummary";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
-import { PowerIcon, PowerOffIcon, EyeIcon, EyeOffIcon, MailIcon, RepeatIcon, TrashIcon } from "@/components/icons";
+import { SortableHeader } from "@/components/SortableHeader";
+import { useSort } from "@/lib/useSort";
+import { PowerIcon, PowerOffIcon, EyeIcon, EyeOffIcon, MailIcon, RepeatIcon, TrashIcon, EditIcon, CreditCardIcon } from "@/components/icons";
 
-type CoachSortBy = "name" | "players" | "status";
+type CoachSortKey = "name" | "academy" | "status" | "players" | "joined";
+
+function compareCoaches(a: Coach, b: Coach, sortKey: CoachSortKey): number {
+  switch (sortKey) {
+    case "name":    return a.name.localeCompare(b.name);
+    case "academy": return (academyById(a.academyId)?.name ?? "").localeCompare(academyById(b.academyId)?.name ?? "");
+    case "status":  return a.status.localeCompare(b.status);
+    case "players": return playerCountForCoach(a.id) - playerCountForCoach(b.id);
+    case "joined":  return a.joinedDate.localeCompare(b.joinedDate);
+  }
+}
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 const CERT_LEVELS: CertificationLevel[] = ["Level 1", "Level 2", "Level 3", "Elite"];
@@ -79,7 +91,7 @@ export function CoachesClient() {
   // by default, with its own tab as the only way back to them (see the filtered/filter tabs below).
   const [filter, setFilter] = useState<"All" | "Active" | "Inactive" | "Removed">("All");
   const [search, setSearch] = useState("");
-  const [coachSortBy, setCoachSortBy] = useState<CoachSortBy>("name");
+  const { sortKey, sortDir, handleSort } = useSort<CoachSortKey>("name");
   const [sendInvite, setSendInvite] = useState(true);
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [inviteError, setInviteError] = useState("");
@@ -518,11 +530,8 @@ export function CoachesClient() {
     ? statusFiltered.filter((c) => c.name.toLowerCase().includes(searchTerm) || c.email.toLowerCase().includes(searchTerm))
     : statusFiltered;
   const sorted = [...filtered].sort((a, b) => {
-    const cmp =
-      coachSortBy === "players" ? playerCountForCoach(b.id) - playerCountForCoach(a.id) // most players first, not alphabetical
-      : coachSortBy === "status" ? a.status.localeCompare(b.status)
-      : a.name.localeCompare(b.name);
-    return cmp;
+    const cmp = compareCoaches(a, b, sortKey);
+    return sortDir === "asc" ? cmp : -cmp;
   });
   const activeCount = coaches.filter((c) => c.status === "Active" && !c.loginDisabled).length;
   const totalPlayers = coaches.reduce((s, c) => s + playerCountForCoach(c.id), 0);
@@ -842,23 +851,13 @@ export function CoachesClient() {
         </div>
       )}
 
-      {/* Search + sort */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative max-w-md w-full">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search coaches by name or email…" className={`${inp} pl-10`} />
-        </div>
-        <label className="flex items-center gap-2 sm:flex-shrink-0">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider whitespace-nowrap">Sort by</span>
-          <select value={coachSortBy} onChange={(e) => setCoachSortBy(e.target.value as CoachSortBy)} className={`${sel} sm:w-44`}>
-            <option value="name">Name (A–Z)</option>
-            <option value="players">Most Players</option>
-            <option value="status">Status</option>
-          </select>
-        </label>
+      {/* Search — sorting now lives on the table's own column headers below, same as Players. */}
+      <div className="relative max-w-md mb-4">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search coaches by name or email…" className={`${inp} pl-10`} />
       </div>
 
       {/* Filter tabs — Removed only shows a count when there's actually anyone there, same as
@@ -889,215 +888,175 @@ export function CoachesClient() {
           onClick={() => setFilter("Removed")} active={filter === "Removed"} />
       </StatsGrid>
 
-      {/* Coach cards */}
-      {filtered.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-16 text-center">
-          <p className="text-zinc-400 text-sm mb-4">No coaches found.</p>
-          <button type="button" onClick={openAdd}
-            className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
-            + Add First Coach
-          </button>
+      {/* Coach table */}
+      <div className="bg-surface rounded-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-zinc-700/60">
+          <h2 className="text-base font-semibold text-white">
+            {sorted.length} Coach{sorted.length !== 1 ? "es" : ""}
+          </h2>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {sorted.map((coach) => {
-            const playerCount = playerCountForCoach(coach.id);
-            const initials = coach.name.split(" ").map((n) => n[0]).join("");
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-zinc-700/60">
+                <SortableHeader label="Coach" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} className="pl-6" />
+                <SortableHeader label="Academy" sortKey="academy" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="Players" sortKey="players" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <th className="text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Payouts</th>
+                <SortableHeader label="Joined" sortKey="joined" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <th className="text-right text-xs font-semibold text-zinc-400 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((coach) => {
+                const playerCount = playerCountForCoach(coach.id);
+                const initials = coach.name.split(" ").map((n) => n[0]).join("");
+                const canEditRow = user?.role !== "coach" || user.coachId === coach.id;
+                const isStaff = user?.role !== "coach";
+                const academy = coach.academyId ? academyById(coach.academyId) : undefined;
 
-            return (
-              <div key={coach.id}
-                className={`bg-surface rounded-2xl p-6 border transition-colors ${
-                  saved === coach.id ? "border-pace-green/50" : "border-transparent"
-                }`}>
-                {/* Card header */}
-                <div className="flex items-start justify-between gap-3 mb-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-base flex-shrink-0">
-                      {initials}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                        <h3 className="text-white font-bold text-sm">{coach.name}</h3>
-                        {saved === coach.id && (
-                          <span className="text-pace-green text-xs font-semibold">✓ Saved</span>
-                        )}
+                const menuItems = coach.loginDisabled
+                  ? (isStaff ? [{
+                      label: "Reinstate Coach", variant: "success" as const,
+                      onClick: () => setConfirmReinstate({ coachId: coach.id, name: coach.name }),
+                    }] : [])
+                  : [
+                      ...(canEditRow ? [{ label: "Edit", icon: <EditIcon />, onClick: () => openEdit(coach) }] : []),
+                      ...(canEditRow ? [{
+                        label: coach.stripeConnectOnboarded ? "View Payouts" : "Set Up Payouts",
+                        icon: <CreditCardIcon />,
+                        disabled: payoutLoading === coach.id,
+                        onClick: () => (coach.stripeConnectOnboarded ? handleViewPayouts(coach.id) : handleSetupPayouts(coach.id)),
+                      }] : []),
+                      // Only meaningful for an independent coach — an academy-employed one has no
+                      // reason to pay for this themselves.
+                      ...(user?.role === "coach" && user.coachId === coach.id && !coach.academyId ? [{
+                        label: coach.subPlan === "Coach Pro" ? "Manage Plan" : "Upgrade Plan",
+                        onClick: () => router.push("/coach/subscription"),
+                      }] : []),
+                      // Everything below stays staff-only (never on a coach's own row) — same
+                      // gating the confirm-removal step already had.
+                      ...(isStaff ? [
+                        {
+                          label: coach.status === "Active" ? "Deactivate" : "Activate",
+                          variant: coach.status === "Active" ? "warning" as const : "success" as const,
+                          icon: coach.status === "Active" ? <PowerOffIcon /> : <PowerIcon />,
+                          onClick: () => setConfirmStatusToggle({
+                            coachId: coach.id, name: coach.name,
+                            newStatus: coach.status === "Active" ? "Inactive" : "Active",
+                          }),
+                        },
+                        {
+                          label: coach.marketplaceVisible ? "Hide from Marketplace" : "Show in Marketplace",
+                          icon: coach.marketplaceVisible ? <EyeOffIcon /> : <EyeIcon />,
+                          onClick: () => setConfirmMarketplaceToggle({
+                            coachId: coach.id, name: coach.name, newValue: !coach.marketplaceVisible,
+                          }),
+                        },
+                        ...(coach.email ? [{
+                          label: "Resend Invite",
+                          icon: <MailIcon />,
+                          onClick: () => setConfirmResendInvite({ coachId: coach.id, name: coach.name }),
+                        }] : []),
+                        ...(playerCount > 0 ? [{
+                          label: "Reassign All Players",
+                          icon: <RepeatIcon />,
+                          onClick: () => { setReassignAllTarget({ coachId: coach.id, name: coach.name, playerCount }); setReassignAllToCoachId(""); },
+                        }] : []),
+                        { label: "Remove Coach", variant: "danger" as const, dividerBefore: true, icon: <TrashIcon />, onClick: () => openEditWithDeleteConfirm(coach) },
+                      ] : []),
+                    ];
+
+                return (
+                  <tr key={coach.id}
+                    className={`border-b border-zinc-700/40 last:border-0 transition-colors ${
+                      saved === coach.id ? "bg-pace-green/5" : "hover:bg-surface/80"
+                    }`}>
+                    <td className="px-4 py-4 pl-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
+                          {initials}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-white text-sm font-medium whitespace-nowrap">{coach.name}</p>
+                            {saved === coach.id && <span className="text-pace-green text-xs font-semibold">✓ Saved</span>}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CERT_STYLES[coach.certificationLevel]}`}>
+                              {coach.certificationLevel}
+                            </span>
+                            {resendInviteSent === coach.id && <span className="text-pace-green text-xs">✓ Invite sent</span>}
+                          </div>
+                          {coach.loginDisabled && (
+                            <p className="text-zinc-500 text-xs mt-0.5">
+                              {coach.disabledReason || "Removed by staff"}
+                              {coach.disabledAt && ` · ${new Date(coach.disabledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CERT_STYLES[coach.certificationLevel]}`}>
-                          {coach.certificationLevel}
+                    </td>
+                    <td className="px-4 py-4 text-xs whitespace-nowrap">
+                      {academy ? (
+                        <span className="px-2 py-0.5 rounded-md text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                          🏫 {academy.name}
                         </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                      ) : (
+                        <span className="text-zinc-500">Independent</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4">
+                      {coach.loginDisabled ? (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">Removed</span>
+                      ) : (
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
                           coach.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
                         }`}>
                           {coach.status}
                         </span>
-                        {coach.loginDisabled && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">
-                            Removed
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-sm font-bold text-pace-green font-mono">{playerCount}</td>
+                    <td className="px-4 py-4 text-xs whitespace-nowrap">
+                      {canEditRow ? (
+                        <>
+                          <span className={coach.stripeConnectOnboarded ? "text-pace-green font-semibold" : "text-zinc-400"}>
+                            {coach.stripeConnectOnboarded ? "✓ Connected" : coach.stripeConnectAccountId ? "Onboarding incomplete" : "Not set up"}
                           </span>
-                        )}
-                      </div>
-                      {coach.loginDisabled && (
-                        <p className="text-zinc-500 text-xs mt-1">
-                          {coach.disabledReason || "Removed by staff"}
-                          {coach.disabledAt && ` · ${new Date(coach.disabledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
-                        </p>
+                          {payoutError?.coachId === coach.id && (
+                            <p className="text-red-400 mt-0.5">{payoutError.message}</p>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-zinc-600">—</span>
                       )}
-                    </div>
-                  </div>
-                  {(user?.role !== "coach" || user.coachId === coach.id) && (
-                    <button type="button" onClick={() => openEdit(coach)}
-                      className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors cursor-pointer flex-shrink-0">
-                      Edit
-                    </button>
-                  )}
-                  {/* Every action here stays staff-only (never on a coach's own card) — same
-                      gating the confirm-delete already had. Each opens a confirm step rather than
-                      acting immediately; Remove is visually separated as the destructive one. A
-                      removed coach only ever gets Reinstate — every other action here assumes an
-                      active login/roster spot, neither of which a removed coach has right now. */}
-                  {user?.role !== "coach" && (
-                    <RowActionsMenu items={coach.loginDisabled ? [
-                      {
-                        label: "Reinstate Coach",
-                        variant: "success",
-                        onClick: () => setConfirmReinstate({ coachId: coach.id, name: coach.name }),
-                      },
-                    ] : [
-                      {
-                        label: coach.status === "Active" ? "Deactivate" : "Activate",
-                        variant: coach.status === "Active" ? "warning" : "success",
-                        icon: coach.status === "Active" ? <PowerOffIcon /> : <PowerIcon />,
-                        onClick: () => setConfirmStatusToggle({
-                          coachId: coach.id, name: coach.name,
-                          newStatus: coach.status === "Active" ? "Inactive" : "Active",
-                        }),
-                      },
-                      {
-                        label: coach.marketplaceVisible ? "Hide from Marketplace" : "Show in Marketplace",
-                        icon: coach.marketplaceVisible ? <EyeOffIcon /> : <EyeIcon />,
-                        onClick: () => setConfirmMarketplaceToggle({
-                          coachId: coach.id, name: coach.name, newValue: !coach.marketplaceVisible,
-                        }),
-                      },
-                      ...(coach.email ? [{
-                        label: "Resend Invite",
-                        icon: <MailIcon />,
-                        onClick: () => setConfirmResendInvite({ coachId: coach.id, name: coach.name }),
-                      }] : []),
-                      ...(playerCount > 0 ? [{
-                        label: "Reassign All Players",
-                        icon: <RepeatIcon />,
-                        onClick: () => { setReassignAllTarget({ coachId: coach.id, name: coach.name, playerCount }); setReassignAllToCoachId(""); },
-                      }] : []),
-                      { label: "Remove Coach", variant: "danger" as const, dividerBefore: true, icon: <TrashIcon />, onClick: () => openEditWithDeleteConfirm(coach) },
-                    ]} />
-                  )}
-                </div>
-
-                {/* Specialization + location */}
-                <p className="text-zinc-300 text-sm font-medium mb-1">{coach.specialization || "—"}</p>
-                <div className="flex flex-wrap items-center gap-3 mb-4">
-                  {coach.location && (
-                    <span className="text-zinc-500 text-xs">📍 {coach.location}</span>
-                  )}
-                  {coach.academyId && (() => {
-                    const ac = academyById(coach.academyId);
-                    return ac ? (
-                      <span className="px-2 py-0.5 rounded-md text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                        🏫 {ac.name}
-                      </span>
-                    ) : null;
-                  })()}
-                </div>
-
-                {/* Bio */}
-                {coach.bio && (
-                  <p className="text-zinc-400 text-xs leading-relaxed mb-4 line-clamp-2">{coach.bio}</p>
-                )}
-
-                {/* Meta grid */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div>
-                    <div className="text-xs text-zinc-500 mb-0.5">Email</div>
-                    <div className="text-xs text-zinc-300 truncate">{coach.email}</div>
-                    {resendInviteSent === coach.id && (
-                      <div className="text-xs text-pace-green mt-0.5">✓ Invite sent</div>
-                    )}
-                  </div>
-                  <div>
-                    <div className="text-xs text-zinc-500 mb-0.5">Phone</div>
-                    <div className="text-xs text-zinc-300">{coach.phone || "—"}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-zinc-500 mb-0.5">Joined</div>
-                    <div className="text-xs text-zinc-300">
+                    </td>
+                    <td className="px-4 py-4 text-sm text-zinc-400 whitespace-nowrap">
                       {new Date(coach.joinedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-zinc-500 mb-0.5">Players</div>
-                    <div className="text-sm font-bold text-pace-green">{playerCount}</div>
-                  </div>
-                </div>
-
-                {/* Age groups */}
-                {coach.ageGroupsFocus.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {coach.ageGroupsFocus.map((g) => (
-                      <span key={g} className="px-2 py-0.5 rounded-md text-xs bg-ink text-zinc-400 border border-zinc-700">
-                        {g}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {/* Payouts — visible to staff, or to the coach viewing their own card */}
-                {(user?.role !== "coach" || user.coachId === coach.id) && (
-                  <div className="mt-4 pt-4 border-t border-zinc-700/40 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs text-zinc-500">Payouts</p>
-                      <p className={`text-xs font-semibold ${coach.stripeConnectOnboarded ? "text-pace-green" : "text-zinc-400"}`}>
-                        {coach.stripeConnectOnboarded ? "✓ Connected" : coach.stripeConnectAccountId ? "Onboarding incomplete" : "Not set up"}
-                      </p>
-                      {payoutError?.coachId === coach.id && (
-                        <p className="text-xs text-red-400 mt-0.5">{payoutError.message}</p>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => coach.stripeConnectOnboarded ? handleViewPayouts(coach.id) : handleSetupPayouts(coach.id)}
-                      disabled={payoutLoading === coach.id}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer disabled:opacity-60 text-zinc-300 border-zinc-600 hover:border-pace-green hover:text-pace-green flex-shrink-0"
-                    >
-                      {payoutLoading === coach.id ? "Loading…" : coach.stripeConnectOnboarded ? "View payouts" : "Set up payouts"}
-                    </button>
-                  </div>
-                )}
-
-                {/* Own plan — only meaningful for an independent coach; an academy-employed one
-                    has no reason to pay for this themselves. */}
-                {user?.role === "coach" && user.coachId === coach.id && !coach.academyId && (
-                  <div className="mt-4 pt-4 border-t border-zinc-700/40 flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-xs text-zinc-500">Your plan</p>
-                      <p className={`text-xs font-semibold ${coach.subPlan === "Coach Pro" ? "text-pace-green" : "text-zinc-400"}`}>
-                        {coach.subPlan === "Coach Pro" ? "✓ Coach Pro" : "Free"}
-                      </p>
-                    </div>
-                    <Link
-                      href="/coach/subscription"
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors cursor-pointer disabled:opacity-60 text-zinc-300 border-zinc-600 hover:border-pace-green hover:text-pace-green flex-shrink-0"
-                    >
-                      {coach.subPlan === "Coach Pro" ? "Manage plan" : "Upgrade"}
-                    </Link>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                    </td>
+                    <td className="px-4 py-4 pr-6 text-right">
+                      <div className="flex justify-end">
+                        <RowActionsMenu items={menuItems} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {filtered.length === 0 && (
+            <div className="px-6 py-16 text-center">
+              <p className="text-zinc-400 text-sm mb-4">No coaches found.</p>
+              <button type="button" onClick={openAdd}
+                className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
+                + Add First Coach
+              </button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {confirmStatusToggle && (
         <ConfirmModal
