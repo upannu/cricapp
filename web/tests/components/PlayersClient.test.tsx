@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { PlayersClient } from "@/components/PlayersClient";
 import { makeAcademy, makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
 
-const { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields } = vi.hoisted(() => ({
+const { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields, updatePlayer } = vi.hoisted(() => ({
   fetchPlayers: vi.fn(),
   fetchAcademies: vi.fn(),
   fetchCoaches: vi.fn(),
@@ -14,8 +14,9 @@ const { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlay
   insertPlayer: vi.fn().mockResolvedValue(undefined),
   insertPlayers: vi.fn().mockResolvedValue(undefined),
   updateAcademyFields: vi.fn().mockResolvedValue(undefined),
+  updatePlayer: vi.fn().mockResolvedValue(undefined),
 }));
-vi.mock("@/lib/db", () => ({ fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields }));
+vi.mock("@/lib/db", () => ({ fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields, updatePlayer }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
@@ -616,5 +617,97 @@ describe("PlayersClient", () => {
     await user.click(screen.getByText("View"));
 
     expect(push).toHaveBeenCalledWith("/players/p1");
+  });
+
+  test("Edit and Manage Subscription live under the row's ⋮ menu and navigate to the right routes", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Edit"));
+    expect(push).toHaveBeenCalledWith("/players/p1/edit");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Manage Subscription"));
+    expect(push).toHaveBeenCalledWith("/players/p1/subscription");
+  });
+
+  test("Reassign Coach moves a player to the picked coach", async () => {
+    updatePlayer.mockClear();
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler", coachId: "coach-1" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "coach-1", name: "Coach One" }),
+      makeCoach({ id: "coach-2", name: "Coach Two" }),
+    ]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Reassign Coach"));
+
+    expect(screen.getByText("Reassign Coach?")).toBeInTheDocument();
+    // The player's current coach isn't offered as a target — reassigning to the same coach is a no-op.
+    expect(screen.queryByRole("option", { name: "Coach One" })).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByRole("combobox"), "Coach Two");
+    await user.click(screen.getByRole("button", { name: "Reassign" }));
+
+    expect(updatePlayer).toHaveBeenCalledWith("p1", { coach_id: "coach-2" });
+    expect(await screen.findByText("Coach Two")).toBeInTheDocument();
+  });
+
+  test("a coach viewing their own roster doesn't get a Reassign Coach option", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "coach-1" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler", coachId: "coach-1" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "coach-1", name: "Coach One" })]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.queryByText("Reassign Coach")).not.toBeInTheDocument();
+  });
+
+  test("Remove Player locks the player out, and Reinstate Player brings them back", async () => {
+    updatePlayer.mockClear();
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Remove Player"));
+    expect(screen.getByText("Remove Player?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Yes, Remove" }));
+
+    expect(updatePlayer).toHaveBeenCalledWith("p1", expect.objectContaining({ login_disabled: true, disabled_reason: "Removed by staff" }));
+    expect(await screen.findByText("Removed")).toBeInTheDocument();
+    expect(screen.getByText(/Removed by staff/)).toBeInTheDocument();
+
+    // A removed player's menu collapses to just Reinstate — no Edit/Remove/etc alongside it.
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.queryByText("Edit")).not.toBeInTheDocument();
+    await user.click(screen.getByText("Reinstate Player"));
+    expect(screen.getByText("Reinstate Player?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Yes, Reinstate" }));
+
+    expect(updatePlayer).toHaveBeenCalledWith("p1", { login_disabled: false, disabled_at: null, disabled_reason: null });
+    expect(await screen.findByText("Active")).toBeInTheDocument();
   });
 });

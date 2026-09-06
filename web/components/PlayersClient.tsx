@@ -5,18 +5,19 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect, Fragment } from "react";
 import Papa from "papaparse";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields } from "@/lib/db";
+import { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields, updatePlayer } from "@/lib/db";
 import { formatDate, getPlayerStatus, getInitials, getCoachOrAcademyLabel, isValidEmail } from "@/lib/utils";
 import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, PlayingLevel, Plan } from "@/lib/types";
 import { MessageModal } from "@/components/MessageModal";
 import { BulkMessageModal } from "@/components/BulkMessageModal";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
+import { ConfirmModal } from "@/components/ConfirmModal";
 import { SelectPill } from "@/components/SelectPill";
 import { SortableHeader } from "@/components/SortableHeader";
 import { ListSummary } from "@/components/ListSummary";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
-import { MessageIcon, EyeIcon } from "@/components/icons";
+import { MessageIcon, EyeIcon, EditIcon, CreditCardIcon, RepeatIcon, TrashIcon } from "@/components/icons";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { rosterCapForCoachPlan, sessionsLimitForPlan } from "@/lib/plan-features";
 import { useSort } from "@/lib/useSort";
@@ -31,6 +32,11 @@ const EMPTY_NEW_PLAYER = { name: "", email: "", ageGroup: "U14" as AgeGroup, bow
 const PLAYERS_PER_PAGE = 10;
 const NO_COACH_LABEL = "No Coach Assigned";
 const UNASSIGNED_ACADEMY_LABEL = "Unassigned";
+// Same soft-delete mechanism the payment-lockout cron already uses on this same field — a
+// distinct reason string (rather than a second boolean) is what keeps a staff removal from being
+// mistaken for a payment lockout wherever loginDisabled is surfaced elsewhere (e.g. SessionPacksClient's
+// "🔒 Login locked" badge).
+const PLAYER_REMOVED_REASON = "Removed by staff";
 
 // A large roster is easier to scan sectioned than as one long flat list — "None" keeps today's
 // plain paginated table; each other option buckets filteredPlayers into named, orderable groups.
@@ -162,6 +168,13 @@ export function PlayersClient() {
   const [csvError, setCsvError] = useState("");
   const [csvImporting, setCsvImporting] = useState(false);
   const [csvImportedCount, setCsvImportedCount] = useState<number | null>(null);
+  const [reassignTarget, setReassignTarget] = useState<{ playerId: string; playerName: string; currentCoachId: string } | null>(null);
+  const [reassignToCoachId, setReassignToCoachId] = useState("");
+  const [reassigning, setReassigning] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<{ playerId: string; playerName: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [reinstateTarget, setReinstateTarget] = useState<{ playerId: string; playerName: string } | null>(null);
+  const [reinstating, setReinstating] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -474,6 +487,40 @@ export function PlayersClient() {
     setPage(1); // Same reasoning as handleSearchChange — a narrower filter can strand a later page.
   }
 
+  async function handleConfirmReassign() {
+    if (!reassignTarget) return;
+    setReassigning(true);
+    const newCoachId = reassignToCoachId || null;
+    await updatePlayer(reassignTarget.playerId, { coach_id: newCoachId });
+    setPlayers((prev) => prev.map((p) => (p.id === reassignTarget.playerId ? { ...p, coachId: newCoachId ?? "" } : p)));
+    setReassigning(false);
+    setReassignTarget(null);
+    setReassignToCoachId("");
+  }
+
+  async function handleConfirmRemove() {
+    if (!removeTarget) return;
+    setRemoving(true);
+    const disabledAt = new Date().toISOString();
+    await updatePlayer(removeTarget.playerId, { login_disabled: true, disabled_at: disabledAt, disabled_reason: PLAYER_REMOVED_REASON });
+    setPlayers((prev) => prev.map((p) =>
+      p.id === removeTarget.playerId ? { ...p, loginDisabled: true, disabledAt, disabledReason: PLAYER_REMOVED_REASON } : p
+    ));
+    setRemoving(false);
+    setRemoveTarget(null);
+  }
+
+  async function handleConfirmReinstate() {
+    if (!reinstateTarget) return;
+    setReinstating(true);
+    await updatePlayer(reinstateTarget.playerId, { login_disabled: false, disabled_at: null, disabled_reason: null });
+    setPlayers((prev) => prev.map((p) =>
+      p.id === reinstateTarget.playerId ? { ...p, loginDisabled: false, disabledAt: null, disabledReason: null } : p
+    ));
+    setReinstating(false);
+    setReinstateTarget(null);
+  }
+
   // "Select all" (and its indeterminate state) only ever covers what's currently visible under
   // the active search — narrowing a search after selecting some players deliberately leaves the
   // now-hidden selections alone rather than silently dropping them.
@@ -572,6 +619,12 @@ export function PlayersClient() {
             <div>
               <p className="text-white text-sm font-medium whitespace-nowrap">{player.name}</p>
               <p className="text-zinc-400 text-xs">{player.bowlingStyle}</p>
+              {player.loginDisabled && (
+                <p className="text-zinc-500 text-xs mt-0.5">
+                  {player.disabledReason || "Removed by staff"}
+                  {player.disabledAt && ` · ${new Date(player.disabledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
+                </p>
+              )}
             </div>
           </div>
         </td>
@@ -582,9 +635,13 @@ export function PlayersClient() {
           </span>
         </td>
         <td className="px-4 py-4">
-          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyles[status]}`}>
-            {status}
-          </span>
+          {player.loginDisabled ? (
+            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">Removed</span>
+          ) : (
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyles[status]}`}>
+              {status}
+            </span>
+          )}
         </td>
         <td className="px-4 py-4 whitespace-nowrap">
           <span className={`text-sm font-medium ${status === "Expiring" ? "text-amber" : status === "Expired" ? "text-red-400" : "text-zinc-300"}`}>
@@ -596,10 +653,28 @@ export function PlayersClient() {
           {/* Both View and Message live under one ⋮ now — a wide table with 10 columns already
               needed horizontal scroll to reach a separate View button out here, so folding it in
               keeps every row's actions in one place instead of splitting them across a visible
-              button plus a menu. */}
-          <RowActionsMenu items={[
+              button plus a menu. A removed player's menu collapses to just Reinstate, same as
+              CoachesClient's own Remove/Reinstate treatment. */}
+          <RowActionsMenu items={player.loginDisabled ? (
+            canAddPlayers ? [{
+              label: "Reinstate Player", variant: "success" as const,
+              onClick: () => setReinstateTarget({ playerId: player.id, playerName: player.name }),
+            }] : []
+          ) : [
             { label: "View", icon: <EyeIcon />, onClick: () => router.push(`/players/${player.id}`) },
+            { label: "Edit", icon: <EditIcon />, onClick: () => router.push(`/players/${player.id}/edit`) },
+            { label: "Manage Subscription", icon: <CreditCardIcon />, onClick: () => router.push(`/players/${player.id}/subscription`) },
             { label: "Send Message", icon: <MessageIcon />, onClick: () => setMessagingPlayer(player) },
+            // Reassigning to a different coach only makes sense for someone who manages more than
+            // one coach — a coach viewing their own single-coach roster has nobody else to pick.
+            ...(user?.role !== "coach" ? [{
+              label: "Reassign Coach", icon: <RepeatIcon />,
+              onClick: () => { setReassignTarget({ playerId: player.id, playerName: player.name, currentCoachId: player.coachId }); setReassignToCoachId(""); },
+            }] : []),
+            ...(canAddPlayers ? [{
+              label: "Remove Player", variant: "danger" as const, dividerBefore: true, icon: <TrashIcon />,
+              onClick: () => setRemoveTarget({ playerId: player.id, playerName: player.name }),
+            }] : []),
           ]} />
         </td>
         <td className="px-4 py-4 pr-6 text-center">
@@ -986,6 +1061,64 @@ export function PlayersClient() {
           setBulkMessaging(false);
           setSelectedIds(new Set());
         }}
+      />
+    )}
+
+    {reassignTarget && (
+      <ConfirmModal
+        icon={<RepeatIcon width={22} height={22} className="text-blue-400" />}
+        iconBg="bg-blue-500/20"
+        title="Reassign Coach?"
+        message={`"${reassignTarget.playerName}" will move to whoever you pick below.`}
+        confirmLabel="Reassign"
+        confirmBusyLabel="Reassigning…"
+        loading={reassigning}
+        onConfirm={handleConfirmReassign}
+        onCancel={() => setReassignTarget(null)}
+      >
+        <select
+          value={reassignToCoachId}
+          onChange={(e) => setReassignToCoachId(e.target.value)}
+          className={selectCls}
+        >
+          <option value="">— No Coach Assigned —</option>
+          {coaches.filter((c) => c.id !== reassignTarget.currentCoachId).map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </ConfirmModal>
+    )}
+
+    {removeTarget && (
+      <ConfirmModal
+        icon={<TrashIcon width={22} height={22} className="text-red-400" />}
+        iconBg="bg-red-500/20"
+        title="Remove Player?"
+        message={`"${removeTarget.playerName}" will be locked out and hidden from the roster's active use — their history and data are all preserved, and this can be undone any time with Reinstate.`}
+        confirmLabel="Yes, Remove"
+        confirmBusyLabel="Removing…"
+        confirmVariant="danger"
+        loading={removing}
+        onConfirm={handleConfirmRemove}
+        onCancel={() => setRemoveTarget(null)}
+      />
+    )}
+
+    {reinstateTarget && (
+      <ConfirmModal
+        icon={
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        }
+        iconBg="bg-pace-green/20"
+        title="Reinstate Player?"
+        message={`Restores "${reinstateTarget.playerName}"'s login and brings them back into normal view — nothing else about their profile changes.`}
+        confirmLabel="Yes, Reinstate"
+        confirmBusyLabel="Reinstating…"
+        loading={reinstating}
+        onConfirm={handleConfirmReinstate}
+        onCancel={() => setReinstateTarget(null)}
       />
     )}
     </>
