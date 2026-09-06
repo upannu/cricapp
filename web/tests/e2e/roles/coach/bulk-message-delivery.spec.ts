@@ -8,21 +8,23 @@ import { test, expect } from "@playwright/test";
 // delivery API IS called, with the right payload, for every selected recipient.
 //
 // The delivery routes themselves depend on external creds (Gmail/ClickSend) this suite doesn't
-// control and shouldn't actually invoke from CI — page.route() stubs just those two endpoints
-// with a canned success response, so this stays a test of the app's own behavior (does it call
-// the right endpoint, with the right recipient/body, for each selected player) rather than a
-// test of Gmail/ClickSend's live availability.
+// control and shouldn't actually invoke from CI. Two separate mechanisms are deliberately used
+// here rather than one: a passive page.on("request") listener (the same mechanism the pre-fix
+// version of this test relied on to prove zero calls happened, and — unlike route-interception
+// used alone — not sensitive to how/whether the response gets fulfilled) is what the assertions
+// below depend on, while page.route() is used only to fulfill those two endpoints with a canned
+// success response so the app under test never reaches Gmail/ClickSend for real. (An earlier
+// version of this test relied on route-interception alone for both jobs and saw 0 requests
+// recorded in CI despite the UI reporting success — this split avoids that failure mode.)
 test("bulk message to selected players calls the real delivery API for every recipient", async ({ page }) => {
-  const sendMessageCalls: { url: string; postData: string | null }[] = [];
-  await page.route("**/api/send-message", async (route) => {
-    sendMessageCalls.push({ url: route.request().url(), postData: route.request().postData() });
-    await route.fulfill({ json: { success: true } });
+  const sendMessageRequests: import("@playwright/test").Request[] = [];
+  const sendSmsRequests: import("@playwright/test").Request[] = [];
+  page.on("request", (req) => {
+    if (req.url().includes("/api/send-message")) sendMessageRequests.push(req);
+    if (req.url().includes("/api/send-sms")) sendSmsRequests.push(req);
   });
-  const sendSmsCalls: string[] = [];
-  await page.route("**/api/send-sms", async (route) => {
-    sendSmsCalls.push(route.request().url());
-    await route.fulfill({ json: { success: true } });
-  });
+  await page.route("**/api/send-message", (route) => route.fulfill({ json: { success: true } }));
+  await page.route("**/api/send-sms", (route) => route.fulfill({ json: { success: true } }));
 
   await page.goto("/players");
 
@@ -56,10 +58,10 @@ test("bulk message to selected players calls the real delivery API for every rec
 
   // The bug is fixed: the real delivery API is called once per recipient with the right content,
   // not skipped in favor of only logging to message history.
-  expect(sendMessageCalls.length).toBeGreaterThan(0);
-  expect(sendSmsCalls).toHaveLength(0);
-  for (const call of sendMessageCalls) {
-    expect(JSON.parse(call.postData ?? "{}")).toMatchObject({
+  expect(sendMessageRequests.length).toBeGreaterThan(0);
+  expect(sendSmsRequests).toHaveLength(0);
+  for (const req of sendMessageRequests) {
+    expect(JSON.parse(req.postData() ?? "{}")).toMatchObject({
       subject: "E2E bulk-message regression check",
       body: "This confirms bulk messages are actually delivered.",
     });
