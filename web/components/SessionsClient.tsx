@@ -15,7 +15,6 @@ import { CameraCalibrationModal } from "@/components/CameraCalibrationModal";
 import { VideoAnnotator } from "@/components/VideoAnnotator";
 import { VoiceNoteRecorder } from "@/components/VoiceNoteRecorder";
 import { AssessmentForm } from "@/components/AssessmentForm";
-import { ListSummary } from "@/components/ListSummary";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
 import { aiReportsIncludedForPlayer } from "@/lib/plan-features";
@@ -368,7 +367,6 @@ export function SessionsClient() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Sessions</h1>
-          <ListSummary parts={[`${filtered.length} shown`, `${sessions.length} total`]} />
         </div>
       </div>
 

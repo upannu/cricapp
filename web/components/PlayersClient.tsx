@@ -14,7 +14,6 @@ import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { SelectPill } from "@/components/SelectPill";
 import { SortableHeader } from "@/components/SortableHeader";
-import { ListSummary } from "@/components/ListSummary";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
 import { MessageIcon, EyeIcon, EditIcon, CreditCardIcon, RepeatIcon, TrashIcon } from "@/components/icons";
@@ -815,7 +814,6 @@ export function PlayersClient() {
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Players</h1>
-          <ListSummary parts={[`${filteredPlayers.length} shown`, `${players.length} total`]} />
         </div>
         <button
           type="button"
@@ -847,7 +845,7 @@ export function PlayersClient() {
           atRosterCap ? (
             <Link
               href="/coach/subscription"
-              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-amber border border-amber/40 rounded-xl hover:bg-amber/10 transition-colors text-center"
+              className="flex-shrink-0 sm:ml-auto px-4 py-2 text-sm font-semibold text-amber border border-amber/40 rounded-xl hover:bg-amber/10 transition-colors text-center"
             >
               Roster full ({rosterCap}) — Upgrade
             </Link>
@@ -855,7 +853,7 @@ export function PlayersClient() {
             <button
               type="button"
               onClick={() => { setShowAddPlayer((v) => !v); setAddPlayerError(""); }}
-              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer"
+              className="flex-shrink-0 sm:ml-auto px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer"
             >
               {showAddPlayer ? "Cancel" : "+ Add Player"}
             </button>
@@ -1103,7 +1101,7 @@ export function PlayersClient() {
                 </th>
                 <th className="text-center text-xs font-semibold text-zinc-400 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">
                   <div className="flex items-center gap-2">
-                    <span>Msg/Sms</span>
+                    <span>Select</span>
                     <input
                       type="checkbox"
                       checked={allSelected}

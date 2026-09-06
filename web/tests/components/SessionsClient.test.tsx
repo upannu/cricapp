@@ -112,20 +112,6 @@ describe("SessionsClient", () => {
     expect(await screen.findByText("Showing 1–1 of 1 sessions")).toBeInTheDocument();
   });
 
-  test("shows a shown/total summary line under the page title", async () => {
-    setupDefaults();
-    fetchSessions.mockResolvedValue([
-      makeSession({ id: "s1", playerId: "p1" }),
-      makeSession({ id: "s2", playerId: "p1" }),
-    ]);
-
-    render(<SessionsClient />);
-    await screen.findByText("Showing 1–2 of 2 sessions");
-
-    // No third "this week" segment — that number is already the This week stat card.
-    expect(screen.getByText("2 shown · 2 total")).toBeInTheDocument();
-  });
-
   test("sorting by fastest ball speed reorders the session list", async () => {
     const user = userEvent.setup();
     setupDefaults();

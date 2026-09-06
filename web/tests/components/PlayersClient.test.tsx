@@ -56,8 +56,8 @@ describe("PlayersClient", () => {
     expect(screen.getByText("Bob Bowler")).toBeInTheDocument();
     expect(screen.getByText("2 Players")).toBeInTheDocument();
     expect(screen.getByText("Total Players")).toBeInTheDocument();
-    // Both players' subscriptions run well into the future — both Active, none Expiring/Expired.
-    expect(screen.getByText("2 shown · 2 total")).toBeInTheDocument();
+    // Renamed from "Msg/Sms" — the same checkbox now drives every bulk action, not just messaging.
+    expect(screen.getByText("Select")).toBeInTheDocument();
   });
 
   test("scopes the fetch to the coach's own players when the caller is a coach", async () => {
@@ -537,22 +537,6 @@ describe("PlayersClient", () => {
     expect(expiringCard).not.toHaveClass("ring-pace-green");
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
-  });
-
-  test("shows a shown/total summary line under the page title", async () => {
-    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
-    fetchPlayers.mockResolvedValue([
-      makePlayer({ id: "p1", name: "Alice Bowler" }),
-      makePlayer({ id: "p2", name: "Bob Seamer" }),
-    ]);
-    fetchAcademies.mockResolvedValue([]);
-    fetchCoaches.mockResolvedValue([]);
-
-    render(<PlayersClient />);
-    await screen.findByText("Alice Bowler");
-
-    // No third "expiring" segment — that number is already the Expiring Soon stat card.
-    expect(screen.getByText("2 shown · 2 total")).toBeInTheDocument();
   });
 
   test("clicking the 'Expiring Soon' stat card jumps straight to that status filter", async () => {

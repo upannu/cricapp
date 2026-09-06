@@ -9,7 +9,6 @@ import {
   fetchAttendanceForDate, saveAttendance,
 } from "@/lib/db";
 import { matchPlayerByNameOrEmail } from "@/lib/utils";
-import { ListSummary } from "@/components/ListSummary";
 import type { GroupSession, Player, Coach, SessionPack, BookingType, AttendanceStatus, AttendanceRecord } from "@/lib/types";
 
 const SESSION_TYPES: BookingType[] = [
@@ -462,7 +461,6 @@ export function AttendanceClient() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-white mb-1">Attendance</h1>
-          <ListSummary parts={[`${filteredGroups.length} shown`, `${groups.length} total`]} />
         </div>
         <button type="button" onClick={openAdd}
           className="px-4 py-2 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer flex-shrink-0">

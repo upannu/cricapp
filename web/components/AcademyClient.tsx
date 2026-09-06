@@ -10,7 +10,6 @@ import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
-import { ListSummary } from "@/components/ListSummary";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
 import { getPlatformFeePercent, isValidEmail } from "@/lib/utils";
@@ -981,7 +980,6 @@ export function AcademyClient() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Academies</h1>
-          <ListSummary parts={[`${displayed.length} shown`, `${academies.length} total`]} />
         </div>
         {user?.role === "platform_admin" && (
           <button type="button" onClick={openAdd}
