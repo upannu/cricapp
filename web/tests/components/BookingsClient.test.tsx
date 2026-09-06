@@ -136,7 +136,7 @@ describe("BookingsClient", () => {
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
   });
 
-  test("shows a shown/total/pending summary line under the page title", async () => {
+  test("shows a shown/total summary line under the page title", async () => {
     setupDefaults();
     fetchBookings.mockResolvedValue([
       { id: "b1", playerId: "p1", coachId: "coach1", date: today, time: "09:00", durationMins: 60, type: "Net Session", status: "Confirmed", location: "", notes: "", feeAud: 0, paymentStatus: "Paid" },
@@ -146,8 +146,9 @@ describe("BookingsClient", () => {
     render(<BookingsClient />);
     await screen.findByText("Alice Bowler");
 
-    // Default "Upcoming" tab excludes the Pending one — 1 shown, 2 total, 1 pending overall.
-    expect(screen.getByText("1 shown · 2 total · 1 pending")).toBeInTheDocument();
+    // Default "Upcoming" tab excludes the Pending one — 1 shown, 2 total. No third "pending"
+    // segment — that number is already the Pending confirm stat card right below.
+    expect(screen.getByText("1 shown · 2 total")).toBeInTheDocument();
   });
 
   test("clicking the 'Pending confirm' stat card switches straight to the Pending tab", async () => {

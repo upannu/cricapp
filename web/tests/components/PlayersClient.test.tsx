@@ -507,7 +507,7 @@ describe("PlayersClient", () => {
     expect(screen.queryByText("Cara Spinner")).not.toBeInTheDocument();
   });
 
-  test("shows a shown/total/expiring summary line under the page title", async () => {
+  test("shows a shown/total summary line under the page title", async () => {
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
     fetchPlayers.mockResolvedValue([
       makePlayer({ id: "p1", name: "Alice Bowler" }),
@@ -519,8 +519,8 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    // Both default (makePlayer) subscriptions run well past the "expiring soon" window.
-    expect(screen.getByText("2 shown · 2 total · 0 expiring soon")).toBeInTheDocument();
+    // No third "expiring" segment — that number is already the Expiring in 7 Days stat card.
+    expect(screen.getByText("2 shown · 2 total")).toBeInTheDocument();
   });
 
   test("clicking the 'Expiring in 7 Days' stat card jumps straight to that status filter", async () => {

@@ -446,7 +446,7 @@ export function SessionPacksClient() {
           <h1 className="text-2xl font-bold text-white mb-1">Session Packs</h1>
           <p className="text-zinc-400 text-sm">Track upfront session purchases, scheduled dates, and credits</p>
           {pageTab === "Packs" && (
-            <ListSummary parts={[`${filteredPlayers.length} shown`, `${scopedPlayers.length} total`, `${activePacks.length} active packs`]} />
+            <ListSummary parts={[`${filteredPlayers.length} shown`, `${scopedPlayers.length} total`]} />
           )}
         </div>
         {canAddPack && (

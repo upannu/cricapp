@@ -982,7 +982,7 @@ export function AcademyClient() {
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Academies</h1>
           <p className="text-zinc-400 text-sm">Manage your fast bowling programs and cohorts</p>
-          <ListSummary parts={[`${displayed.length} shown`, `${academies.length} total`, `${activeCount} active`]} />
+          <ListSummary parts={[`${displayed.length} shown`, `${academies.length} total`]} />
         </div>
         {user?.role === "platform_admin" && (
           <button type="button" onClick={openAdd}

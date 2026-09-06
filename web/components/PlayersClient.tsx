@@ -656,7 +656,7 @@ export function PlayersClient() {
         <div>
           <h1 className="text-2xl font-bold text-white">Players</h1>
           <p className="text-zinc-400 text-sm mt-1">Manage your players and their subscriptions</p>
-          <ListSummary parts={[`${filteredPlayers.length} shown`, `${players.length} total`, `${expiring} expiring soon`]} />
+          <ListSummary parts={[`${filteredPlayers.length} shown`, `${players.length} total`]} />
         </div>
         <button
           type="button"

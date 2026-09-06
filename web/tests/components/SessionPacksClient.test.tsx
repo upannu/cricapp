@@ -58,7 +58,7 @@ describe("SessionPacksClient", () => {
     expect(fetchPlayers).toHaveBeenCalledWith(undefined, "academy-9");
   });
 
-  test("searches by player name and shows a shown/total/active-packs summary line", async () => {
+  test("searches by player name and shows a shown/total summary line", async () => {
     const user = userEvent.setup();
     setupDefaults();
     fetchPlayers.mockResolvedValue([
@@ -69,10 +69,11 @@ describe("SessionPacksClient", () => {
 
     render(<SessionPacksClient />);
     await screen.findByText("Alice Bowler");
-    expect(screen.getByText("2 shown · 2 total · 1 active packs")).toBeInTheDocument();
+    // No third "active packs" segment — that number is already the Active packs stat card.
+    expect(screen.getByText("2 shown · 2 total")).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText("Search by player name…"), "Bob");
-    expect(await screen.findByText("1 shown · 2 total · 1 active packs")).toBeInTheDocument();
+    expect(await screen.findByText("1 shown · 2 total")).toBeInTheDocument();
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
   });

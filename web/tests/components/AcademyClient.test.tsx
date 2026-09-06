@@ -263,7 +263,7 @@ describe("AcademyClient", () => {
     expect(upsertCoach).toHaveBeenCalledWith(expect.objectContaining({ name: "Jordan Blake", email: "jordan@crichq.com.au" }));
   });
 
-  test("shows a shown/total/active summary line under the page title", async () => {
+  test("shows a shown/total summary line under the page title", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
     fetchAcademies.mockResolvedValue([
@@ -274,7 +274,8 @@ describe("AcademyClient", () => {
     render(<AcademyClient />);
     await screen.findByText("Riverside Academy");
 
-    expect(screen.getByText("2 shown · 2 total · 1 active")).toBeInTheDocument();
+    // No third "active" segment — that number is already the Active programs stat card right below.
+    expect(screen.getByText("2 shown · 2 total")).toBeInTheDocument();
   });
 
   test("clicking the Active programs stat card filters the list to Active academies", async () => {
