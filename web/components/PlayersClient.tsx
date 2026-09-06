@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, Fragment } from "react";
 import Papa from "papaparse";
 import { useAuth } from "@/lib/auth";
@@ -14,7 +15,7 @@ import { SortableHeader } from "@/components/SortableHeader";
 import { ListSummary } from "@/components/ListSummary";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
-import { MessageIcon } from "@/components/icons";
+import { MessageIcon, EyeIcon } from "@/components/icons";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { rosterCapForCoachPlan, sessionsLimitForPlan } from "@/lib/plan-features";
 import { useSort } from "@/lib/useSort";
@@ -137,6 +138,7 @@ const planStyles: Record<string, string> = {
 
 export function PlayersClient() {
   const { user } = useAuth();
+  const router = useRouter();
   const [players, setPlayers] = useState<Player[]>([]);
   const [academies, setAcademies] = useState<Academy[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
@@ -590,20 +592,14 @@ export function PlayersClient() {
         <td className="px-4 py-4 text-sm text-zinc-300 font-mono">{player.sessionsCount}</td>
         <td className="px-4 py-4 text-sm text-zinc-400 whitespace-nowrap">{formatDate(player.lastActive)}</td>
         <td className="px-4 py-4">
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/players/${player.id}`}
-              className="px-3 py-1.5 text-xs font-semibold text-pace-green border border-pace-green/40 rounded-lg hover:bg-pace-green/10 transition-colors"
-            >
-              View
-            </Link>
-            {/* Message moved behind ⋮ — there's already a bulk "Message Selected"
-                flow for the common case, so a per-row send is the secondary action
-                here, not the primary one (unlike View). */}
-            <RowActionsMenu items={[
-              { label: "Send Message", icon: <MessageIcon />, onClick: () => setMessagingPlayer(player) },
-            ]} />
-          </div>
+          {/* Both View and Message live under one ⋮ now — a wide table with 10 columns already
+              needed horizontal scroll to reach a separate View button out here, so folding it in
+              keeps every row's actions in one place instead of splitting them across a visible
+              button plus a menu. */}
+          <RowActionsMenu items={[
+            { label: "View", icon: <EyeIcon />, onClick: () => router.push(`/players/${player.id}`) },
+            { label: "Send Message", icon: <MessageIcon />, onClick: () => setMessagingPlayer(player) },
+          ]} />
         </td>
         <td className="px-4 py-4 pr-6 text-center">
           <input

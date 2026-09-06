@@ -20,6 +20,9 @@ vi.mock("@/lib/db", () => ({ fetchPlayers, fetchAcademies, fetchCoaches, fetchAc
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 // Real MessageModal/BulkMessageModal pull in their own data-fetching/sending concerns —
 // stub them so this test stays about PlayersClient's own list/selection logic.
 vi.mock("@/components/MessageModal", () => ({
@@ -540,5 +543,25 @@ describe("PlayersClient", () => {
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
     // The "Expiring" filter pill itself reflects the same state the stat card just set.
     expect(screen.getByRole("button", { name: "Expiring" })).toHaveClass("bg-pace-green");
+  });
+
+  test("View lives under the row's ⋮ menu and navigates to that player's profile", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    // No separate visible "View" button any more — it's folded into the ⋮ menu alongside
+    // Send Message, so the row's actions don't need a wide column of their own.
+    expect(screen.queryByRole("link", { name: "View" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("View"));
+
+    expect(push).toHaveBeenCalledWith("/players/p1");
   });
 });
