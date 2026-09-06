@@ -900,9 +900,9 @@ export function CoachesClient() {
                 <SortableHeader label="Academy" sortKey="academy" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Players" sortKey="players" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <th className="text-left text-xs font-semibold text-zinc-400 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Payouts</th>
+                <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Payouts</th>
                 <SortableHeader label="Joined" sortKey="joined" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <th className="text-right text-xs font-semibold text-zinc-400 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
+                <th className="text-right text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>

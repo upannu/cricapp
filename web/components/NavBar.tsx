@@ -51,11 +51,11 @@ export function NavBar() {
   const [pendingCount, setPendingCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
-  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [playerNames, setPlayerNames] = useState<Record<string, { name: string; academyName: string | null }>>({});
   const adminMenuRef = useRef<HTMLDivElement>(null);
-  const roleMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user?.role !== "platform_admin") return;
@@ -106,7 +106,7 @@ export function NavBar() {
   useEffect(() => {
     setMobileOpen(false);
     setAdminMenuOpen(false);
-    setRoleMenuOpen(false);
+    setUserMenuOpen(false);
   }, [pathname]);
 
   // Close the admin tools dropdown on outside click.
@@ -123,13 +123,13 @@ export function NavBar() {
   // Close the role switcher dropdown on outside click.
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (roleMenuRef.current && !roleMenuRef.current.contains(e.target as Node)) {
-        setRoleMenuOpen(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
       }
     }
-    if (roleMenuOpen) document.addEventListener("mousedown", handleClick);
+    if (userMenuOpen) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [roleMenuOpen]);
+  }, [userMenuOpen]);
 
   function handleLogout() {
     logout();
@@ -148,7 +148,7 @@ export function NavBar() {
       });
       if (res.ok) {
         await refreshUser();
-        setRoleMenuOpen(false);
+        setUserMenuOpen(false);
         router.push(identity.role === "player" || identity.role === "parent" ? "/portal" : "/players");
       }
     } finally {
@@ -264,52 +264,19 @@ export function NavBar() {
                 )}
               </div>
             )}
-            {user.linkedIdentities && user.linkedIdentities.length > 1 ? (
-              <div className="relative flex-shrink-0" ref={roleMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setRoleMenuOpen((v) => !v)}
-                  className="flex items-center gap-2.5 cursor-pointer rounded-lg px-1.5 py-1 hover:bg-zinc-700/40 transition-colors"
-                  title="Switch role"
-                >
-                  <div className="text-right min-w-0">
-                    <p className="text-sm font-medium text-white leading-tight truncate max-w-[160px]">{user.name}</p>
-                    <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${ROLE_STYLES[user.role]}`}>
-                      {ROLE_LABELS[user.role]}
-                    </span>
-                  </div>
-                  <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
-                    {initials}
-                  </div>
-                </button>
-                {roleMenuOpen && (
-                  <div className="absolute right-0 top-12 z-30 w-56 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
-                    <p className="px-4 pt-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Switch role</p>
-                    {user.linkedIdentities.map((identity, i) => {
-                      const isActive = identity.role === user.role
-                        && (identity.academyId ?? undefined) === user.academyId
-                        && (identity.coachId ?? undefined) === user.coachId
-                        && (identity.playerId ?? undefined) === user.playerId;
-                      return (
-                        <button
-                          key={i}
-                          type="button"
-                          disabled={isActive || switching}
-                          onClick={() => handleSwitchRole(identity)}
-                          className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors cursor-pointer disabled:cursor-default ${
-                            isActive ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
-                          }`}
-                        >
-                          {identityLabel(identity)}
-                          {isActive && <span className="text-xs">✓ Active</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
+            {/* One trigger + dropdown for every user, whether or not they have other identities
+                to switch between — previously a single-identity user saw name/badge/avatar as
+                inert static text with a permanently-visible "Sign out" button next to it; now
+                that same info is the dropdown's trigger, and Sign out lives inside it (below the
+                switch-role options, when there are any), so the always-visible row only ever
+                shows the avatar itself, not an extra action button. */}
+            <div className="relative flex-shrink-0" ref={userMenuRef}>
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="flex items-center gap-2.5 cursor-pointer rounded-lg px-1.5 py-1 hover:bg-zinc-700/40 transition-colors"
+                title="Account menu"
+              >
                 <div className="text-right min-w-0">
                   <p className="text-sm font-medium text-white leading-tight truncate max-w-[160px]">{user.name}</p>
                   <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${ROLE_STYLES[user.role]}`}>
@@ -319,20 +286,50 @@ export function NavBar() {
                 <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
                   {initials}
                 </div>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-zinc-500 hover:text-white transition-colors cursor-pointer px-2.5 py-1.5 rounded-lg hover:bg-zinc-700/50 text-sm font-medium flex-shrink-0"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-              <span>Sign out</span>
-            </button>
+              </button>
+              {userMenuOpen && (
+                <div className="absolute right-0 top-12 z-30 w-56 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
+                  {user.linkedIdentities && user.linkedIdentities.length > 1 && (
+                    <>
+                      <p className="px-4 pt-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Switch role</p>
+                      {user.linkedIdentities.map((identity, i) => {
+                        const isActive = identity.role === user.role
+                          && (identity.academyId ?? undefined) === user.academyId
+                          && (identity.coachId ?? undefined) === user.coachId
+                          && (identity.playerId ?? undefined) === user.playerId;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            disabled={isActive || switching}
+                            onClick={() => handleSwitchRole(identity)}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors cursor-pointer disabled:cursor-default ${
+                              isActive ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                            }`}
+                          >
+                            {identityLabel(identity)}
+                            {isActive && <span className="text-xs">✓ Active</span>}
+                          </button>
+                        );
+                      })}
+                      <div className="h-px bg-zinc-700 mx-3 my-1" />
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

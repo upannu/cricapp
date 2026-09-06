@@ -154,7 +154,8 @@ export function CoachChatWidget() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-pace-green text-black shadow-2xl hover:opacity-90 transition-opacity cursor-pointer flex items-center justify-center text-2xl"
-        aria-label="Open Coach AI chat"
+        title={open ? "Close Coach AI chat" : "Coach AI chat"}
+        aria-label={open ? "Close Coach AI chat" : "Open Coach AI chat"}
       >
         {open ? "✕" : "🏏"}
       </button>

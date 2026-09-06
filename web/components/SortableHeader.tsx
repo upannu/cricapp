@@ -30,7 +30,7 @@ export function SortableHeader<K extends string>({
         type="button"
         onClick={() => onSort(sortKey)}
         className={`inline-flex items-center gap-1 cursor-pointer transition-colors ${
-          isActive ? "text-white" : "text-zinc-400 hover:text-white"
+          isActive ? "text-white" : "text-zinc-300 hover:text-white"
         } ${align === "right" ? "flex-row-reverse" : ""}`}
       >
         {label}
