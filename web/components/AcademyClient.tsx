@@ -981,7 +981,6 @@ export function AcademyClient() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Academies</h1>
-          <p className="text-zinc-400 text-sm">Manage your fast bowling programs and cohorts</p>
           <ListSummary parts={[`${displayed.length} shown`, `${academies.length} total`]} />
         </div>
         {user?.role === "platform_admin" && (

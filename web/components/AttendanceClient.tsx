@@ -462,7 +462,6 @@ export function AttendanceClient() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-white mb-1">Attendance</h1>
-          <p className="text-zinc-400 text-sm">Recurring group sessions — take attendance and draw down each player&apos;s own pack.</p>
           <ListSummary parts={[`${filteredGroups.length} shown`, `${groups.length} total`]} />
         </div>
         <button type="button" onClick={openAdd}
