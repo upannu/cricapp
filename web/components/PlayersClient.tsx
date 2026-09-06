@@ -11,6 +11,7 @@ import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, Play
 import { MessageModal } from "@/components/MessageModal";
 import { BulkMessageModal } from "@/components/BulkMessageModal";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
+import { SelectPill } from "@/components/SelectPill";
 import { SortableHeader } from "@/components/SortableHeader";
 import { ListSummary } from "@/components/ListSummary";
 import { StatsGrid } from "@/components/StatsGrid";
@@ -700,16 +701,7 @@ export function PlayersClient() {
             className={`${inputCls} pl-10`}
           />
         </div>
-        <div className="sm:flex-shrink-0">
-          <select
-            value={groupBy}
-            onChange={(e) => handleGroupByChange(e.target.value as GroupByOption)}
-            className={`${selectCls} sm:w-44`}
-            aria-label="Group by"
-          >
-            {groupByOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
+        <SelectPill value={groupBy} options={groupByOptions} onChange={handleGroupByChange} ariaLabel="Group by" />
       </div>
 
       <div className="flex gap-2 mb-6">
