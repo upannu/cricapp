@@ -654,7 +654,7 @@ export function PlayersClient() {
 
   return (
     <>
-    <div className="max-w-7xl mx-auto px-6 py-8">
+    <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Players</h1>
