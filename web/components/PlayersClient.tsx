@@ -704,12 +704,20 @@ export function PlayersClient() {
           />
         </td>
         <td className="px-4 py-4">
-          <div className="flex items-center gap-3">
+          {/* Clicking the name/avatar opens the player's profile (view mode) — the same
+              destination as the ⋮ menu's own "View", just a faster path to it. Scoped to this
+              one button rather than the whole row, so it never fights the row's own checkbox or
+              the ⋮ menu's click targets. */}
+          <button
+            type="button"
+            onClick={() => router.push(`/players/${player.id}`)}
+            className="flex items-center gap-3 text-left cursor-pointer group"
+          >
             <div className="w-9 h-9 rounded-full bg-pace-green/20 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">
               {getInitials(player.name)}
             </div>
             <div>
-              <p className="text-white text-sm font-medium whitespace-nowrap">{player.name}</p>
+              <p className="text-white text-sm font-medium whitespace-nowrap group-hover:text-pace-green transition-colors">{player.name}</p>
               <p className="text-zinc-400 text-xs">{player.bowlingStyle}</p>
               {player.loginDisabled && (
                 <p className="text-zinc-500 text-xs mt-0.5">
@@ -718,7 +726,7 @@ export function PlayersClient() {
                 </p>
               )}
             </div>
-          </div>
+          </button>
         </td>
         <td className="px-4 py-4 text-zinc-300 text-xs whitespace-nowrap">{getCoachOrAcademyLabel(player, coaches, academies)}</td>
         <td className="px-4 py-4">
@@ -736,7 +744,7 @@ export function PlayersClient() {
           )}
         </td>
         <td className="px-4 py-4 whitespace-nowrap">
-          <span className={`text-sm font-medium ${status === "Expiring" ? "text-amber" : status === "Expired" ? "text-red-400" : "text-zinc-300"}`}>
+          <span className={`text-sm font-medium ${status === "Expiring" ? "text-amber" : status === "Expired" ? "text-red-300" : "text-zinc-300"}`}>
             {formatDate(player.subscription.endDate)}
           </span>
         </td>
@@ -811,29 +819,13 @@ export function PlayersClient() {
   return (
     <>
     <div className="max-w-5xl mx-auto px-6 py-8">
-      <div className="mb-8">
+      <div className="mb-8 flex items-start justify-between gap-4">
         <h1 className="text-2xl font-bold text-white">Players</h1>
-      </div>
-
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative max-w-md w-full">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search players by name, email, or club…"
-            className={`${inputCls} pl-10`}
-          />
-        </div>
-        <SelectPill value={groupBy} options={groupByOptions} onChange={handleGroupByChange} ariaLabel="Group by" />
         {canAddPlayers && (
           atRosterCap ? (
             <Link
               href="/coach/subscription"
-              className="flex-shrink-0 sm:ml-auto px-4 py-2 text-sm font-semibold text-amber border border-amber/40 rounded-xl hover:bg-amber/10 transition-colors text-center"
+              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-amber border border-amber/40 rounded-xl hover:bg-amber/10 transition-colors text-center"
             >
               Roster full ({rosterCap}) — Upgrade
             </Link>
@@ -841,7 +833,7 @@ export function PlayersClient() {
             <button
               type="button"
               onClick={() => { setShowAddPlayer((v) => !v); setAddPlayerError(""); }}
-              className="flex-shrink-0 sm:ml-auto px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer"
+              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer"
             >
               {showAddPlayer ? "Cancel" : "+ Add Player"}
             </button>
@@ -1069,10 +1061,23 @@ export function PlayersClient() {
 
       {/* Table */}
       <div className="bg-surface rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-700/60">
-          <h2 className="text-base font-semibold text-white">
-            {filteredPlayers.length} Player{filteredPlayers.length !== 1 ? "s" : ""}
-          </h2>
+        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative max-w-md w-full">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search players by name, email, or club…"
+              className={`${inputCls} pl-10`}
+            />
+          </div>
+          <SelectPill value={groupBy} options={groupByOptions} onChange={handleGroupByChange} ariaLabel="Group by" />
+          <span className="text-xs text-zinc-400 font-medium sm:ml-auto whitespace-nowrap">
+            Showing {filteredPlayers.length} player{filteredPlayers.length !== 1 ? "s" : ""}
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
