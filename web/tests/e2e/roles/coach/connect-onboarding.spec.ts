@@ -9,8 +9,12 @@ import { test, expect } from "@playwright/test";
 test("Set up payouts navigates to Stripe's real hosted onboarding flow", async ({ page }) => {
   await page.goto("/coaches");
 
-  const setupButton = page.getByRole("button", { name: "Set up payouts" }).first();
-  await expect(setupButton).toBeVisible({ timeout: 10_000 });
+  // "Set Up Payouts" lives under the row's own ⋮ menu now, not as a directly visible button.
+  const moreActions = page.getByRole("button", { name: "More actions" }).first();
+  await expect(moreActions).toBeVisible({ timeout: 10_000 });
+  await moreActions.click();
+  const setupButton = page.getByText("Set Up Payouts");
+  await expect(setupButton).toBeVisible();
   await setupButton.click();
 
   // handleSetupPayouts (CoachesClient.tsx) does window.location.href = data.url on success —
