@@ -467,7 +467,9 @@ export function PlayersClient() {
   }
 
   function handleStatusFilterChange(value: "All" | PlayerStatus) {
-    setStatusFilter(value);
+    // Clicking the already-active filter again clears it back to "All" instead of being a no-op —
+    // a single click both narrows and (on a second click) un-narrows the same filter.
+    setStatusFilter((prev) => (prev === value ? "All" : value));
     setPage(1); // Same reasoning as handleSearchChange — a narrower filter can strand a later page.
   }
 

@@ -508,6 +508,29 @@ describe("PlayersClient", () => {
     expect(screen.queryByText("Cara Spinner")).not.toBeInTheDocument();
   });
 
+  test("clicking an already-active status filter again clears it back to All", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", subscription: { plan: "Free", startDate: "2026-01-01", endDate: soon, sessionsUsed: 0, sessionsLimit: 4 } }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "Expiring" }));
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Expiring" }));
+    expect(screen.getByRole("button", { name: "All" })).toHaveClass("bg-pace-green");
+    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+  });
+
   test("shows a shown/total summary line under the page title", async () => {
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
     fetchPlayers.mockResolvedValue([
