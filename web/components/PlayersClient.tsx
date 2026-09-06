@@ -175,6 +175,14 @@ export function PlayersClient() {
   const [removing, setRemoving] = useState(false);
   const [reinstateTarget, setReinstateTarget] = useState<{ playerId: string; playerName: string } | null>(null);
   const [reinstating, setReinstating] = useState(false);
+  const [bulkReassignOpen, setBulkReassignOpen] = useState(false);
+  const [bulkReassignToCoachId, setBulkReassignToCoachId] = useState("");
+  const [bulkReassigning, setBulkReassigning] = useState(false);
+  const [bulkAssignAcademyOpen, setBulkAssignAcademyOpen] = useState(false);
+  const [bulkAssignAcademyId, setBulkAssignAcademyId] = useState("");
+  const [bulkAssigningAcademy, setBulkAssigningAcademy] = useState(false);
+  const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
+  const [bulkRemoving, setBulkRemoving] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -519,6 +527,82 @@ export function PlayersClient() {
     ));
     setReinstating(false);
     setReinstateTarget(null);
+  }
+
+  async function handleConfirmBulkReassign() {
+    setBulkReassigning(true);
+    const newCoachId = bulkReassignToCoachId || null;
+    await Promise.all(selectedPlayers.map((p) => updatePlayer(p.id, { coach_id: newCoachId })));
+    const targetIds = new Set(selectedPlayers.map((p) => p.id));
+    setPlayers((prev) => prev.map((p) => (targetIds.has(p.id) ? { ...p, coachId: newCoachId ?? "" } : p)));
+    setBulkReassigning(false);
+    setBulkReassignOpen(false);
+    setBulkReassignToCoachId("");
+    clearSelection();
+  }
+
+  // Merges the selected players into the target academy's own player_ids/player_counts (an
+  // academy's roster is a list on the academy row, not a field on the player — same model
+  // handleAddPlayer already follows) and, since a player only ever belongs to one academy at a
+  // time, drops them out of whichever other academy currently holds them so nobody ends up
+  // double-counted across two academies at once.
+  async function handleConfirmBulkAssignAcademy() {
+    if (!bulkAssignAcademyId) return;
+    setBulkAssigningAcademy(true);
+    const targetIds = new Set(selectedPlayers.map((p) => p.id));
+    const affectedAcademyIds = new Set<string>([bulkAssignAcademyId]);
+    for (const a of academies) {
+      if (a.playerIds.some((id) => targetIds.has(id))) affectedAcademyIds.add(a.id);
+    }
+    const updates = new Map<string, { playerIds: string[]; playerCounts: Partial<Record<AgeGroup, number>> }>();
+    for (const academyId of affectedAcademyIds) {
+      const academy = academies.find((a) => a.id === academyId);
+      if (!academy) continue;
+      const newPlayerIds = academyId === bulkAssignAcademyId
+        ? [...new Set([...academy.playerIds, ...targetIds])]
+        : academy.playerIds.filter((id) => !targetIds.has(id));
+      const playerCounts: Partial<Record<AgeGroup, number>> = {};
+      for (const p of players.filter((pl) => newPlayerIds.includes(pl.id))) {
+        playerCounts[p.ageGroup] = (playerCounts[p.ageGroup] ?? 0) + 1;
+      }
+      await updateAcademyFields(academyId, { player_ids: newPlayerIds, player_counts: playerCounts as Record<string, number> });
+      updates.set(academyId, { playerIds: newPlayerIds, playerCounts });
+    }
+    setAcademies((prev) => prev.map((a) => {
+      const update = updates.get(a.id);
+      return update ? { ...a, playerIds: update.playerIds, playerCounts: update.playerCounts } : a;
+    }));
+    setBulkAssigningAcademy(false);
+    setBulkAssignAcademyOpen(false);
+    setBulkAssignAcademyId("");
+    clearSelection();
+  }
+
+  async function handleConfirmBulkRemove() {
+    setBulkRemoving(true);
+    const disabledAt = new Date().toISOString();
+    const targets = selectedPlayers.filter((p) => !p.loginDisabled);
+    await Promise.all(targets.map((p) => updatePlayer(p.id, { login_disabled: true, disabled_at: disabledAt, disabled_reason: PLAYER_REMOVED_REASON })));
+    const targetIds = new Set(targets.map((p) => p.id));
+    setPlayers((prev) => prev.map((p) =>
+      targetIds.has(p.id) ? { ...p, loginDisabled: true, disabledAt, disabledReason: PLAYER_REMOVED_REASON } : p
+    ));
+    setBulkRemoving(false);
+    setBulkRemoveOpen(false);
+    clearSelection();
+  }
+
+  function handleExportCsv() {
+    const rows = selectedPlayers.map((p) => ({
+      name: p.name, email: p.email, phone: p.phone, ageGroup: p.ageGroup, bowlingStyle: p.bowlingStyle,
+      club: p.club, coach: coachNameForPlayer(p, coaches), status: getPlayerStatus(p.subscription.endDate),
+    }));
+    const blob = new Blob([Papa.unparse(rows)], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `players-export-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // "Select all" (and its indeterminate state) only ever covers what's currently visible under
@@ -953,6 +1037,40 @@ export function PlayersClient() {
           >
             ✉ Message Selected
           </button>
+          {user?.role !== "coach" && (
+            <button
+              type="button"
+              onClick={() => { setBulkReassignOpen(true); setBulkReassignToCoachId(""); }}
+              className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+            >
+              Reassign Coach
+            </button>
+          )}
+          {user?.role === "platform_admin" && (
+            <button
+              type="button"
+              onClick={() => { setBulkAssignAcademyOpen(true); setBulkAssignAcademyId(""); }}
+              className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+            >
+              Assign Academy
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            Export CSV
+          </button>
+          {canAddPlayers && (
+            <button
+              type="button"
+              onClick={() => setBulkRemoveOpen(true)}
+              className="px-3 py-1.5 text-xs font-semibold text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+            >
+              Remove Selected
+            </button>
+          )}
           <button
             type="button"
             onClick={clearSelection}
@@ -1119,6 +1237,71 @@ export function PlayersClient() {
         loading={reinstating}
         onConfirm={handleConfirmReinstate}
         onCancel={() => setReinstateTarget(null)}
+      />
+    )}
+
+    {bulkReassignOpen && (
+      <ConfirmModal
+        icon={<RepeatIcon width={22} height={22} className="text-blue-400" />}
+        iconBg="bg-blue-500/20"
+        title="Reassign Coach?"
+        message={`${selectedPlayers.length} player${selectedPlayers.length !== 1 ? "s" : ""} will move to whoever you pick below.`}
+        confirmLabel="Reassign"
+        confirmBusyLabel="Reassigning…"
+        loading={bulkReassigning}
+        onConfirm={handleConfirmBulkReassign}
+        onCancel={() => setBulkReassignOpen(false)}
+      >
+        <select
+          value={bulkReassignToCoachId}
+          onChange={(e) => setBulkReassignToCoachId(e.target.value)}
+          className={selectCls}
+        >
+          <option value="">— No Coach Assigned —</option>
+          {coaches.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </ConfirmModal>
+    )}
+
+    {bulkAssignAcademyOpen && (
+      <ConfirmModal
+        icon={<CreditCardIcon width={22} height={22} className="text-blue-400" />}
+        iconBg="bg-blue-500/20"
+        title="Assign Academy?"
+        message={`${selectedPlayers.length} player${selectedPlayers.length !== 1 ? "s" : ""} will move to the academy you pick below — anyone already on a different academy's roster is taken off it first.`}
+        confirmLabel="Assign"
+        confirmBusyLabel="Assigning…"
+        loading={bulkAssigningAcademy}
+        onConfirm={handleConfirmBulkAssignAcademy}
+        onCancel={() => setBulkAssignAcademyOpen(false)}
+      >
+        <select
+          value={bulkAssignAcademyId}
+          onChange={(e) => setBulkAssignAcademyId(e.target.value)}
+          className={selectCls}
+        >
+          <option value="">— Pick an academy —</option>
+          {academies.map((a) => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+      </ConfirmModal>
+    )}
+
+    {bulkRemoveOpen && (
+      <ConfirmModal
+        icon={<TrashIcon width={22} height={22} className="text-red-400" />}
+        iconBg="bg-red-500/20"
+        title="Remove Selected Players?"
+        message={`${selectedPlayers.filter((p) => !p.loginDisabled).length} player${selectedPlayers.filter((p) => !p.loginDisabled).length !== 1 ? "s" : ""} will be locked out and hidden from active use — their history and data are all preserved, and this can be undone any time with Reinstate.`}
+        confirmLabel="Yes, Remove"
+        confirmBusyLabel="Removing…"
+        confirmVariant="danger"
+        loading={bulkRemoving}
+        onConfirm={handleConfirmBulkRemove}
+        onCancel={() => setBulkRemoveOpen(false)}
       />
     )}
     </>

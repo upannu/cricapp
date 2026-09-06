@@ -710,4 +710,127 @@ describe("PlayersClient", () => {
     expect(updatePlayer).toHaveBeenCalledWith("p1", { login_disabled: false, disabled_at: null, disabled_reason: null });
     expect(await screen.findByText("Active")).toBeInTheDocument();
   });
+
+  test("bulk Reassign Coach moves every selected player to the picked coach", async () => {
+    updatePlayer.mockClear();
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", coachId: "coach-1" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", coachId: "coach-1" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "coach-1", name: "Coach One" }),
+      makeCoach({ id: "coach-2", name: "Coach Two" }),
+    ]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByTitle("Select all"));
+    await user.click(screen.getByRole("button", { name: "Reassign Coach" }));
+
+    expect(screen.getByText("Reassign Coach?")).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox"), "Coach Two");
+    await user.click(screen.getByRole("button", { name: "Reassign" }));
+
+    expect(updatePlayer).toHaveBeenCalledWith("p1", { coach_id: "coach-2" });
+    expect(updatePlayer).toHaveBeenCalledWith("p2", { coach_id: "coach-2" });
+    expect(await screen.findAllByText("Coach Two")).toHaveLength(2);
+  });
+
+  test("a coach viewing their own roster doesn't get bulk Reassign Coach or Assign Academy", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "coach-1" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler", coachId: "coach-1" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "coach-1", name: "Coach One" })]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByTitle("Select for bulk message"));
+    expect(screen.queryByRole("button", { name: "Reassign Coach" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Assign Academy" })).not.toBeInTheDocument();
+  });
+
+  test("bulk Assign Academy (platform_admin only) moves selected players in, and out of any previous academy", async () => {
+    updateAcademyFields.mockClear();
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler", ageGroup: "U14" })]);
+    fetchAcademies.mockResolvedValue([
+      makeAcademy({ id: "academy-old", name: "Old Academy", playerIds: ["p1"], playerCounts: { U14: 1 } }),
+      makeAcademy({ id: "academy-new", name: "New Academy", playerIds: [] }),
+    ]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByTitle("Select for bulk message"));
+    await user.click(screen.getByRole("button", { name: "Assign Academy" }));
+
+    expect(screen.getByText("Assign Academy?")).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox"), "New Academy");
+    await user.click(screen.getByRole("button", { name: "Assign" }));
+
+    await waitFor(() => expect(updateAcademyFields).toHaveBeenCalledWith("academy-new", { player_ids: ["p1"], player_counts: { U14: 1 } }));
+    expect(updateAcademyFields).toHaveBeenCalledWith("academy-old", { player_ids: [], player_counts: {} });
+  });
+
+  test("bulk Remove locks out every selected player that isn't already removed", async () => {
+    updatePlayer.mockClear();
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", loginDisabled: true, disabledReason: "Removed by staff" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByTitle("Select all"));
+    await user.click(screen.getByRole("button", { name: "Remove Selected" }));
+
+    // Only the one not-yet-removed player is actually acted on.
+    expect(screen.getByText("Remove Selected Players?")).toBeInTheDocument();
+    expect(screen.getByText(/1 player will be locked out/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Yes, Remove" }));
+
+    expect(updatePlayer).toHaveBeenCalledTimes(1);
+    expect(updatePlayer).toHaveBeenCalledWith("p1", expect.objectContaining({ login_disabled: true }));
+  });
+
+  test("Export CSV downloads a CSV of the selected players", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler", email: "alice@example.com" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    const createObjectURL = vi.fn().mockReturnValue("blob:mock-url");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByTitle("Select for bulk message"));
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const [blob] = createObjectURL.mock.calls[0];
+    expect(blob.type).toBe("text/csv");
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");
+
+    clickSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
 });
