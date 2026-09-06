@@ -54,8 +54,9 @@ describe("PlayersClient", () => {
     expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.getByText("Bob Bowler")).toBeInTheDocument();
     expect(screen.getByText("2 Players")).toBeInTheDocument();
-    // Total Sessions stat = 5 + 3
-    expect(screen.getByText("8")).toBeInTheDocument();
+    expect(screen.getByText("Total Players")).toBeInTheDocument();
+    // Both players' subscriptions run well into the future — both Active, none Expiring/Expired.
+    expect(screen.getByText("2 shown · 2 total")).toBeInTheDocument();
   });
 
   test("scopes the fetch to the coach's own players when the caller is a coach", async () => {
@@ -519,11 +520,11 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    // No third "expiring" segment — that number is already the Expiring in 7 Days stat card.
+    // No third "expiring" segment — that number is already the Expiring Soon stat card.
     expect(screen.getByText("2 shown · 2 total")).toBeInTheDocument();
   });
 
-  test("clicking the 'Expiring in 7 Days' stat card jumps straight to that status filter", async () => {
+  test("clicking the 'Expiring Soon' stat card jumps straight to that status filter", async () => {
     const user = userEvent.setup();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
     const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -537,12 +538,33 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByRole("button", { name: /Expiring in 7 Days/ }));
+    await user.click(screen.getByRole("button", { name: /Expiring Soon/ }));
 
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
     // The "Expiring" filter pill itself reflects the same state the stat card just set.
     expect(screen.getByRole("button", { name: "Expiring" })).toHaveClass("bg-pace-green");
+  });
+
+  test("clicking the 'Expired Players' stat card jumps straight to that status filter", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    const past = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", subscription: { plan: "Free", startDate: "2026-01-01", endDate: past, sessionsUsed: 0, sessionsLimit: 4 } }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: /Expired Players/ }));
+
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Expired" })).toHaveClass("bg-pace-green");
   });
 
   test("View lives under the row's ⋮ menu and navigates to that player's profile", async () => {

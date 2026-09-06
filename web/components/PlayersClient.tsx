@@ -176,12 +176,14 @@ export function PlayersClient() {
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Every player is exactly one of these three — they always sum to players.length, so the stat
+  // cards mirror the status filter pills exactly instead of showing unrelated billing/session
+  // numbers that don't add up to the roster total (Active Subscriptions and Total Sessions used
+  // to sit here; the former is easy to misread as almost the same thing as Active Players, the
+  // latter already has its own home as Sessions' own headline stat).
   const active    = players.filter((p) => getPlayerStatus(p.subscription.endDate) === "Active").length;
   const expiring  = players.filter((p) => getPlayerStatus(p.subscription.endDate) === "Expiring").length;
-  const activeSubs = players.filter(
-    (p) => p.subscription.plan !== "Free" && getPlayerStatus(p.subscription.endDate) === "Active"
-  ).length;
-  const totalSessions = players.reduce((s, p) => s + p.sessionsCount, 0);
+  const expired   = players.filter((p) => getPlayerStatus(p.subscription.endDate) === "Expired").length;
 
   // An academy-employed coach adds players through the Academy page instead, onto that academy's
   // own roster — this "+ Add Player" was originally only for a coach with no academy at all, who
@@ -871,13 +873,17 @@ export function PlayersClient() {
         </div>
       )}
 
-      {/* Stats */}
+      {/* Stats — Active/Expiring/Expired always sum to Total Players, mirroring the status filter
+          pills above exactly (each clickable straight to its own filter) rather than mixing in
+          unrelated billing/session numbers that don't add up to the roster. */}
       <StatsGrid columns={4}>
-        <StatCard label="Active Players" value={active} />
-        <StatCard label="Active Subscriptions" value={activeSubs} />
-        <StatCard label="Expiring in 7 Days" value={expiring} color={expiring > 0 ? "text-fire" : "text-white"}
+        <StatCard label="Active Players" value={active} color="text-pace-green"
+          onClick={() => handleStatusFilterChange("Active")} active={statusFilter === "Active"} />
+        <StatCard label="Expiring Soon" value={expiring} color={expiring > 0 ? "text-fire" : "text-white"}
           onClick={() => handleStatusFilterChange("Expiring")} active={statusFilter === "Expiring"} />
-        <StatCard label="Total Sessions" value={totalSessions} />
+        <StatCard label="Expired Players" value={expired} color={expired > 0 ? "text-red-400" : "text-white"}
+          onClick={() => handleStatusFilterChange("Expired")} active={statusFilter === "Expired"} />
+        <StatCard label="Total Players" value={players.length} />
       </StatsGrid>
 
       {/* Bulk action bar */}
