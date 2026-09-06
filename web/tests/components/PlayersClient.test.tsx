@@ -54,7 +54,7 @@ describe("PlayersClient", () => {
 
     expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.getByText("Bob Bowler")).toBeInTheDocument();
-    expect(screen.getByText("2 Players")).toBeInTheDocument();
+    expect(screen.getByText("Showing 2 players")).toBeInTheDocument();
     expect(screen.getByText("Total Players")).toBeInTheDocument();
     // No visible "Select"/"Msg/Sms" label on the header checkbox — just the checkbox itself,
     // findable by its own title, same as every row's own selection checkbox.
@@ -111,18 +111,18 @@ describe("PlayersClient", () => {
 
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
-    expect(screen.getByText("3 Players")).toBeInTheDocument();
+    expect(screen.getByText("Showing 3 players")).toBeInTheDocument();
 
     // Match by name.
     await user.type(screen.getByPlaceholderText(/Search players/), "bob");
-    expect(await screen.findByText("1 Player")).toBeInTheDocument();
+    expect(await screen.findByText("Showing 1 player")).toBeInTheDocument();
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
 
     // Match by email domain — case-insensitive, and matches a player whose name doesn't contain it.
     await user.clear(screen.getByPlaceholderText(/Search players/));
     await user.type(screen.getByPlaceholderText(/Search players/), "RIVERSIDE");
-    expect(await screen.findByText("2 Players")).toBeInTheDocument();
+    expect(await screen.findByText("Showing 2 players")).toBeInTheDocument();
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.getByText("Cara Spinner")).toBeInTheDocument();
 
@@ -145,7 +145,7 @@ describe("PlayersClient", () => {
     await screen.findByText("Player 01");
 
     // Header count reflects the full roster, not just the current page.
-    expect(screen.getByText("12 Players")).toBeInTheDocument();
+    expect(screen.getByText("Showing 12 players")).toBeInTheDocument();
 
     // Page 1: first 10 only.
     expect(screen.getByText("Player 10")).toBeInTheDocument();
@@ -183,7 +183,7 @@ describe("PlayersClient", () => {
     // Narrowing to a single match while on page 2 must not leave the view on a page 2 that no
     // longer exists for the filtered set.
     await user.type(screen.getByPlaceholderText(/Search players/), "Zara");
-    expect(await screen.findByText("1 Player")).toBeInTheDocument();
+    expect(await screen.findByText("Showing 1 player")).toBeInTheDocument();
     expect(screen.getByText("Zara Unique")).toBeInTheDocument();
     expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
   });
@@ -602,6 +602,37 @@ describe("PlayersClient", () => {
     await user.click(screen.getByText("View"));
 
     expect(push).toHaveBeenCalledWith("/players/p1");
+  });
+
+  test("clicking a player's name/avatar also opens their profile (view mode), without touching the row's checkbox", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByText("Alice Bowler"));
+    expect(push).toHaveBeenCalledWith("/players/p1");
+    // The row's own checkbox is a separate control, untouched by this click.
+    expect(screen.getByTitle("Select for bulk message")).not.toBeChecked();
+  });
+
+  test("checking a player's row checkbox doesn't navigate to their profile", async () => {
+    push.mockClear();
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByTitle("Select for bulk message"));
+    expect(push).not.toHaveBeenCalled();
   });
 
   test("Edit and Manage Subscription live under the row's ⋮ menu and navigate to the right routes", async () => {
