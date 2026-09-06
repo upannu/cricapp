@@ -379,7 +379,8 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.selectOptions(screen.getByRole("combobox"), "Academy");
+    await user.click(screen.getByRole("button", { name: "Group by" }));
+    await user.click(screen.getByRole("option", { name: "Academy" }));
 
     // One "Riverside Academy" (2)-count group header, plus another for the 1 player on no
     // academy roster — a coach-less player's own Coach column also reads the academy/"Unassigned"
@@ -395,6 +396,7 @@ describe("PlayersClient", () => {
   });
 
   test("doesn't offer Academy/Coach grouping to a coach viewing their own single-coach roster", async () => {
+    const user = userEvent.setup();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "coach-1" }) });
     fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
     fetchAcademies.mockResolvedValue([]);
@@ -403,8 +405,10 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
+    await user.click(screen.getByRole("button", { name: "Group by" }));
     const options = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(options).toEqual(["Group by", "Age Group", "Playing Level"]);
+    // "Group by" itself is the currently-selected (default, ungrouped) option, hence its own ✓.
+    expect(options).toEqual(["Group by✓", "Age Group", "Playing Level"]);
   });
 
   test("collapsing a group hides its rows without losing their selection", async () => {
@@ -419,7 +423,8 @@ describe("PlayersClient", () => {
 
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
-    await user.selectOptions(screen.getByRole("combobox"), "Age Group");
+    await user.click(screen.getByRole("button", { name: "Group by" }));
+    await user.click(screen.getByRole("option", { name: "Age Group" }));
     await screen.findByText("U14");
 
     // Alice's row (U14, listed first) — the group header's own checkbox shares no accessible
@@ -449,7 +454,8 @@ describe("PlayersClient", () => {
 
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
-    await user.selectOptions(screen.getByRole("combobox"), "Age Group");
+    await user.click(screen.getByRole("button", { name: "Group by" }));
+    await user.click(screen.getByRole("option", { name: "Age Group" }));
     await screen.findByText("U14");
 
     await user.click(screen.getAllByLabelText("Select all")[0]); // the U14 group's header checkbox
