@@ -289,8 +289,7 @@ describe("AcademyClient", () => {
     render(<AcademyClient />);
     await screen.findByText("Riverside Academy");
 
-    // The stat card's own accessible name leads with the count ("1 Active programs").
-    await user.click(screen.getByRole("button", { name: /^1 Active programs$/ }));
+    await user.click(screen.getByRole("button", { name: /^Active programs 1$/ }));
 
     expect(screen.getByText("Riverside Academy")).toBeInTheDocument();
     expect(screen.queryByText("Retired Academy")).not.toBeInTheDocument();
@@ -308,7 +307,9 @@ describe("AcademyClient", () => {
     render(<AcademyClient />);
     await screen.findByText("Riverside Academy");
 
-    await user.click(screen.getByRole("button", { name: /^1 Inactive$/ }));
+    // Anchored — the plain "Inactive" filter tab shares this label; the stat card's own
+    // accessible name has its count appended after it ("Inactive 1").
+    await user.click(screen.getByRole("button", { name: /^Inactive 1$/ }));
 
     expect(screen.getByText("Retired Academy")).toBeInTheDocument();
     expect(screen.queryByText("Riverside Academy")).not.toBeInTheDocument();

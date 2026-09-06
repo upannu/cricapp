@@ -132,8 +132,9 @@ describe("BookingsClient", () => {
 
     await user.click(screen.getByRole("button", { name: /Pending confirm/ }));
 
-    // The Pending tab pill itself reflects the same state the stat card just set — anchored,
-    // since the tab shows a count badge with no separating space ("Pending1") whenever any exist.
-    expect(screen.getByRole("button", { name: /^Pending/ })).toHaveClass("bg-pace-green");
+    // The Pending tab pill itself reflects the same state the stat card just set — anchored to
+    // its own no-space count badge ("Pending1"), since the "Pending confirm" stat card's label
+    // also starts with "Pending".
+    expect(screen.getByRole("button", { name: /^Pending\d/ })).toHaveClass("bg-pace-green");
   });
 });
