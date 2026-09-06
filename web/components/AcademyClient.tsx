@@ -944,6 +944,7 @@ export function AcademyClient() {
     });
 
   const activeCount = academies.filter((a) => a.status === "Active").length;
+  const inactiveCount = academies.filter((a) => a.status === "Inactive").length;
   const grandTotal  = allPlayers.filter((p) => academies.some((a) => a.playerIds.includes(p.id))).length;
 
   // map coachId → academy names they're already in (excluding the one being edited)
@@ -992,11 +993,13 @@ export function AcademyClient() {
       </div>
 
       {/* Stats */}
-      <StatsGrid columns={3}>
+      <StatsGrid columns={4}>
         <StatCard label="Total academies" value={academies.length} />
         <StatCard label="Active programs" value={activeCount} color="text-pace-green"
           onClick={() => setStatusFilter("Active")} active={statusFilter === "Active"} />
         <StatCard label="Total players" value={grandTotal} color="text-amber" />
+        <StatCard label="Inactive" value={inactiveCount} color="text-zinc-400"
+          onClick={() => setStatusFilter("Inactive")} active={statusFilter === "Inactive"} />
       </StatsGrid>
 
       {/* Filter bar */}
