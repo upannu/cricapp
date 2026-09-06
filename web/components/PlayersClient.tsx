@@ -541,7 +541,7 @@ export function PlayersClient() {
   // already scoped to just them) only ever sees themselves, so either would always render as one
   // group with nothing gained by grouping.
   const groupByOptions: { value: GroupByOption; label: string }[] = [
-    { value: "none", label: "No grouping" },
+    { value: "none", label: "Group by" },
     ...(user?.role === "platform_admin" ? [{ value: "academy" as const, label: "Academy" }] : []),
     ...(user?.role !== "coach" ? [{ value: "coach" as const, label: "Coach" }] : []),
     { value: "ageGroup", label: "Age Group" },
@@ -700,16 +700,16 @@ export function PlayersClient() {
             className={`${inputCls} pl-10`}
           />
         </div>
-        <label className="flex items-center gap-2 sm:flex-shrink-0">
-          <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider whitespace-nowrap">Group by</span>
+        <div className="sm:flex-shrink-0">
           <select
             value={groupBy}
             onChange={(e) => handleGroupByChange(e.target.value as GroupByOption)}
             className={`${selectCls} sm:w-44`}
+            aria-label="Group by"
           >
             {groupByOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-        </label>
+        </div>
       </div>
 
       <div className="flex gap-2 mb-6">
