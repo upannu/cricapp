@@ -118,4 +118,22 @@ describe("BookingsClient", () => {
     // Default "Upcoming" tab excludes the Pending one — 1 shown, 2 total, 1 pending overall.
     expect(screen.getByText("1 shown · 2 total · 1 pending")).toBeInTheDocument();
   });
+
+  test("clicking the 'Pending confirm' stat card switches straight to the Pending tab", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchBookings.mockResolvedValue([
+      { id: "b1", playerId: "p1", coachId: "coach1", date: today, time: "09:00", durationMins: 60, type: "Net Session", status: "Confirmed", location: "", notes: "", feeAud: 0, paymentStatus: "Paid" },
+      { id: "b2", playerId: "p1", coachId: "coach1", date: today, time: "11:00", durationMins: 60, type: "Net Session", status: "Pending", location: "", notes: "", feeAud: 0, paymentStatus: "Pending" },
+    ]);
+
+    render(<BookingsClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: /Pending confirm/ }));
+
+    // The Pending tab pill itself reflects the same state the stat card just set — anchored,
+    // since the tab shows a count badge with no separating space ("Pending1") whenever any exist.
+    expect(screen.getByRole("button", { name: /^Pending/ })).toHaveClass("bg-pace-green");
+  });
 });

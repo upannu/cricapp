@@ -519,4 +519,26 @@ describe("PlayersClient", () => {
     // Both default (makePlayer) subscriptions run well past the "expiring soon" window.
     expect(screen.getByText("2 shown · 2 total · 0 expiring soon")).toBeInTheDocument();
   });
+
+  test("clicking the 'Expiring in 7 Days' stat card jumps straight to that status filter", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", subscription: { plan: "Free", startDate: "2026-01-01", endDate: soon, sessionsUsed: 0, sessionsLimit: 4 } }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: /Expiring in 7 Days/ }));
+
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+    // The "Expiring" filter pill itself reflects the same state the stat card just set.
+    expect(screen.getByRole("button", { name: "Expiring" })).toHaveClass("bg-pace-green");
+  });
 });

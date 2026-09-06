@@ -276,4 +276,23 @@ describe("AcademyClient", () => {
 
     expect(screen.getByText("2 shown · 2 total · 1 active")).toBeInTheDocument();
   });
+
+  test("clicking the Active programs stat card filters the list to Active academies", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([
+      makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" }),
+      makeAcademy({ id: "ac2", name: "Retired Academy", status: "Inactive" }),
+    ]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    // The stat card's own accessible name leads with the count ("1 Active programs").
+    await user.click(screen.getByRole("button", { name: /^1 Active programs$/ }));
+
+    expect(screen.getByText("Riverside Academy")).toBeInTheDocument();
+    expect(screen.queryByText("Retired Academy")).not.toBeInTheDocument();
+  });
 });

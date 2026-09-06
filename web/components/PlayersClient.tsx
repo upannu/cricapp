@@ -12,6 +12,7 @@ import { BulkMessageModal } from "@/components/BulkMessageModal";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { SortableHeader } from "@/components/SortableHeader";
 import { ListSummary } from "@/components/ListSummary";
+import { StatsGrid } from "@/components/StatsGrid";
 import { MessageIcon } from "@/components/icons";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { rosterCapForCoachPlan, sessionsLimitForPlan } from "@/lib/plan-features";
@@ -875,12 +876,13 @@ export function PlayersClient() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <StatsGrid columns={4}>
         <StatCard label="Active Players" value={active} />
         <StatCard label="Active Subscriptions" value={activeSubs} />
-        <StatCard label="Expiring in 7 Days" value={expiring} highlight={expiring > 0} />
+        <StatCard label="Expiring in 7 Days" value={expiring} highlight={expiring > 0}
+          onClick={() => handleStatusFilterChange("Expiring")} active={statusFilter === "Expiring"} />
         <StatCard label="Total Sessions" value={totalSessions} />
-      </div>
+      </StatsGrid>
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
@@ -1011,11 +1013,24 @@ export function PlayersClient() {
   );
 }
 
-function StatCard({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
-  return (
-    <div className="bg-surface rounded-2xl p-5">
+function StatCard({
+  label, value, highlight, onClick, active,
+}: { label: string; value: number; highlight?: boolean; onClick?: () => void; active?: boolean }) {
+  const content = (
+    <>
       <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">{label}</p>
       <p className={`text-3xl font-bold ${highlight ? "text-fire" : "text-white"}`}>{value}</p>
-    </div>
+    </>
+  );
+  if (!onClick) {
+    return <div className="bg-surface rounded-2xl p-5">{content}</div>;
+  }
+  return (
+    <button type="button" onClick={onClick}
+      className={`bg-surface rounded-2xl p-5 text-left transition-colors cursor-pointer hover:bg-white/5 ${
+        active ? "ring-1 ring-pace-green" : ""
+      }`}>
+      {content}
+    </button>
   );
 }

@@ -8,6 +8,8 @@ import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSession
 import { formatDate, getSessionFee, getPlatformFeePercent } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 import { ListSummary } from "@/components/ListSummary";
+import { StatsGrid } from "@/components/StatsGrid";
+import { StatCard } from "@/components/StatCard";
 import { DEFAULT_CURRENCY, formatMoney, sumMoneyByCurrency, type Currency } from "@/lib/currency";
 
 const BOOKING_TYPES: BookingType[] = [
@@ -401,12 +403,14 @@ export function BookingsClient() {
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <StatsGrid columns={4}>
         <StatCard label="Total bookings" value={bookings.length} color="text-white" />
         <StatCard label="This week" value={thisWeek.length} color="text-pace-green" />
-        <StatCard label="Upcoming" value={upcomingAll.length} color="text-blue-400" />
-        <StatCard label="Pending confirm" value={pendingAll.length} color="text-amber" />
-      </div>
+        <StatCard label="Upcoming" value={upcomingAll.length} color="text-blue-400"
+          onClick={() => setTab("Upcoming")} active={tab === "Upcoming"} />
+        <StatCard label="Pending confirm" value={pendingAll.length} color="text-amber"
+          onClick={() => setTab("Pending")} active={tab === "Pending"} />
+      </StatsGrid>
 
       {/* Form ref anchor */}
       <div ref={formRef} />
@@ -1022,15 +1026,6 @@ function BookingCard({
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="bg-surface rounded-2xl p-5 text-center">
-      <div className={`text-2xl font-bold mb-1 ${color}`}>{value}</div>
-      <div className="text-xs text-zinc-400">{label}</div>
-    </div>
-  );
-}
 
 function BookingPayOnlineButton({ bookingId }: { bookingId: string }) {
   const [loading, setLoading] = useState(false);
