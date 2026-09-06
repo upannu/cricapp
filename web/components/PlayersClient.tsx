@@ -655,7 +655,6 @@ export function PlayersClient() {
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Players</h1>
-          <p className="text-zinc-400 text-sm mt-1">Manage your players and their subscriptions</p>
           <ListSummary parts={[`${filteredPlayers.length} shown`, `${players.length} total`]} />
         </div>
         <button

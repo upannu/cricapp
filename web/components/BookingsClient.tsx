@@ -403,7 +403,6 @@ export function BookingsClient() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Bookings</h1>
-          <p className="text-zinc-400 text-sm">Manage coaching sessions and player appointments</p>
           <ListSummary parts={[`${filtered.length} shown`, `${bookings.length} total`]} />
         </div>
         <button type="button" onClick={openAdd}

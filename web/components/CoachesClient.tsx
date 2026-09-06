@@ -542,7 +542,6 @@ export function CoachesClient() {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white mb-1">Coaches</h1>
-          <p className="text-zinc-400 text-sm">Manage your coaching team and their player assignments</p>
           <ListSummary parts={[`${filtered.length} shown`, `${coaches.length} total`]} />
         </div>
         {user?.role !== "coach" && (
