@@ -7,7 +7,7 @@ import Papa from "papaparse";
 import { useAuth } from "@/lib/auth";
 import { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields, updatePlayer } from "@/lib/db";
 import { formatDate, getPlayerStatus, getInitials, getCoachOrAcademyLabel, isValidEmail } from "@/lib/utils";
-import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, PlayingLevel, Plan, PlanTier } from "@/lib/types";
+import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, Plan, PlanTier } from "@/lib/types";
 import { MessageModal } from "@/components/MessageModal";
 import { BulkMessageModal } from "@/components/BulkMessageModal";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
@@ -22,7 +22,6 @@ import { rosterCapForCoachPlan, sessionsLimitForPlan } from "@/lib/plan-features
 import { useSort } from "@/lib/useSort";
 
 const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
-const PLAYING_LEVELS: PlayingLevel[] = ["Beginner", "Club", "Representative", "State", "National", "International"];
 const BOWLING_STYLES: BowlingStyle[] = [
   "Right Arm Fast", "Left Arm Fast", "Right Arm Fast-Medium",
   "Left Arm Fast-Medium", "Right Arm Medium", "Left Arm Medium",
@@ -30,7 +29,6 @@ const BOWLING_STYLES: BowlingStyle[] = [
 const EMPTY_NEW_PLAYER = { name: "", email: "", ageGroup: "U14" as AgeGroup, bowlingStyle: "Right Arm Fast" as BowlingStyle, club: "" };
 const PLAYERS_PER_PAGE = 10;
 const NO_COACH_LABEL = "No Coach Assigned";
-const UNASSIGNED_ACADEMY_LABEL = "Unassigned";
 // Same soft-delete mechanism the payment-lockout cron already uses on this same field — a
 // distinct reason string (rather than a second boolean) is what keeps a staff removal from being
 // mistaken for a payment lockout wherever loginDisabled is surfaced elsewhere (e.g. SessionPacksClient's
@@ -110,9 +108,7 @@ export function PlayersClient() {
   const [statusFilter, setStatusFilter] = useState<"All" | PlayerStatus>("All");
   const [coachFilter, setCoachFilter] = useState(""); // "" = All, "__unassigned__" = no coach
   const [planFilter, setPlanFilter] = useState<PlanTier | "">("");
-  const [academyFilter, setAcademyFilter] = useState(""); // "" = All, "__unassigned__" = no academy
   const [ageGroupFilter, setAgeGroupFilter] = useState<AgeGroup | "">("");
-  const [playingLevelFilter, setPlayingLevelFilter] = useState<PlayingLevel | "">("");
   const { sortKey, sortDir, handleSort } = useSort<PlayerSortKey>("name");
   const [assignAcademyId, setAssignAcademyId] = useState(""); // platform_admin only — "" = unassigned
   const [showCsvImport, setShowCsvImport] = useState(false);
@@ -436,13 +432,7 @@ export function PlayersClient() {
       return p.coachId === coachFilter;
     })
     .filter((p) => !planFilter || p.subscription.plan === planFilter)
-    .filter((p) => {
-      if (!academyFilter) return true;
-      if (academyFilter === "__unassigned__") return !academies.some((a) => a.playerIds.includes(p.id));
-      return academies.find((a) => a.id === academyFilter)?.playerIds.includes(p.id) ?? false;
-    })
-    .filter((p) => !ageGroupFilter || p.ageGroup === ageGroupFilter)
-    .filter((p) => !playingLevelFilter || p.playingLevel === playingLevelFilter);
+    .filter((p) => !ageGroupFilter || p.ageGroup === ageGroupFilter);
   const sortedPlayers = [...filteredPlayers].sort((a, b) => {
     const cmp = comparePlayers(a, b, sortKey, coaches, academies);
     return sortDir === "asc" ? cmp : -cmp;
@@ -629,59 +619,21 @@ export function PlayersClient() {
     { value: "Player Pro", label: "Player Pro" },
     { value: "Coach Pro", label: "Coach Pro" },
   ];
-  // Academy is platform_admin-only for the same reason as the old "Group by" academy option — an
-  // academy_admin's own roster is all one academy already.
-  const academyFilterOptions: { value: string; label: string }[] = [
-    { value: "", label: "Academy" },
-    ...[...academies].sort((a, b) => a.name.localeCompare(b.name)).map((a) => ({ value: a.id, label: a.name })),
-    { value: "__unassigned__", label: UNASSIGNED_ACADEMY_LABEL },
-  ];
   const ageGroupFilterOptions: { value: AgeGroup | ""; label: string }[] = [
     { value: "", label: "Age Group" },
     ...AGE_GROUPS.map((g) => ({ value: g, label: g })),
   ];
-  const playingLevelFilterOptions: { value: PlayingLevel | ""; label: string }[] = [
-    { value: "", label: "Playing Level" },
-    ...PLAYING_LEVELS.map((l) => ({ value: l, label: l })),
-  ];
 
-  // One combined summary row for every active filter, regardless of which control set it (the
-  // pill row, a stat card, or a column's own funnel icon) — each chip clears just its own filter;
-  // "Reset filters" (rendered alongside, only when this list isn't empty) clears all of them.
-  const activeFilterChips: { key: string; label: string; onRemove: () => void }[] = [
-    ...(statusFilter !== "All" ? [{
-      key: "status", label: `Status: ${statusFilterOptions.find((o) => o.value === statusFilter)?.label}`,
-      onRemove: () => { setStatusFilter("All"); setPage(1); },
-    }] : []),
-    ...(coachFilter !== "" ? [{
-      key: "coach", label: `Coach: ${coachFilterOptions.find((o) => o.value === coachFilter)?.label}`,
-      onRemove: () => { setCoachFilter(""); setPage(1); },
-    }] : []),
-    ...(planFilter !== "" ? [{
-      key: "plan", label: `Plan: ${planFilter}`,
-      onRemove: () => { setPlanFilter(""); setPage(1); },
-    }] : []),
-    ...(academyFilter !== "" ? [{
-      key: "academy", label: `Academy: ${academyFilterOptions.find((o) => o.value === academyFilter)?.label}`,
-      onRemove: () => { setAcademyFilter(""); setPage(1); },
-    }] : []),
-    ...(ageGroupFilter !== "" ? [{
-      key: "ageGroup", label: `Age Group: ${ageGroupFilter}`,
-      onRemove: () => { setAgeGroupFilter(""); setPage(1); },
-    }] : []),
-    ...(playingLevelFilter !== "" ? [{
-      key: "playingLevel", label: `Playing Level: ${playingLevelFilter}`,
-      onRemove: () => { setPlayingLevelFilter(""); setPage(1); },
-    }] : []),
-  ];
+  // Each pill already shows its own selected value and a highlighted border when active (its
+  // `active` prop), so nothing further identifies *which* filter is applied beyond that — this
+  // just clears all of them in one click, shown only when at least one actually is.
+  const hasActiveFilters = statusFilter !== "All" || coachFilter !== "" || planFilter !== "" || ageGroupFilter !== "";
 
   function clearAllFilters() {
     setStatusFilter("All");
     setCoachFilter("");
     setPlanFilter("");
-    setAcademyFilter("");
     setAgeGroupFilter("");
-    setPlayingLevelFilter("");
     setPage(1);
   }
 
@@ -1031,73 +983,49 @@ export function PlayersClient() {
 
       {/* Table */}
       <div className="bg-surface rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col gap-3">
-          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
-            <div className="relative w-full sm:max-w-[300px]">
-              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search players by name, email, or club…"
-                className={`${inputCls} pl-10`}
-              />
-            </div>
-            {/* Status and Coach are filtered via the ⋮-free funnel icons on their own column
-                headers below (and, for Status, the stat cards) — a separate pill here for either
-                would just be a second control for the same filter. Academy/Plan/Age Group/Playing
-                Level have no column of their own, so a pill is the only way to filter by them. */}
-            {user?.role === "platform_admin" && (
-              <SelectPill
-                value={academyFilter} options={academyFilterOptions} ariaLabel="Academy" active={academyFilter !== ""}
-                onChange={(v) => { setAcademyFilter(v); setPage(1); }}
-              />
-            )}
-            <SelectPill
-              value={planFilter} options={planFilterOptions} ariaLabel="Plan" active={planFilter !== ""}
-              onChange={(v) => { setPlanFilter(v); setPage(1); }}
+        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+          <div className="relative w-full sm:max-w-[300px]">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search players by name, email, or club…"
+              className={`${inputCls} pl-10`}
             />
-            <SelectPill
-              value={ageGroupFilter} options={ageGroupFilterOptions} ariaLabel="Age Group" active={ageGroupFilter !== ""}
-              onChange={(v) => { setAgeGroupFilter(v); setPage(1); }}
-            />
-            <SelectPill
-              value={playingLevelFilter} options={playingLevelFilterOptions} ariaLabel="Playing Level" active={playingLevelFilter !== ""}
-              onChange={(v) => { setPlayingLevelFilter(v); setPage(1); }}
-            />
-            <span className="text-xs text-zinc-400 font-medium sm:ml-auto whitespace-nowrap">
-              Showing {filteredPlayers.length} player{filteredPlayers.length !== 1 ? "s" : ""}
-            </span>
           </div>
-          {activeFilterChips.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-zinc-700/60">
-              {activeFilterChips.map((chip) => (
-                <span
-                  key={chip.key}
-                  className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full text-xs font-medium bg-pace-green/10 text-pace-green border border-pace-green/30"
-                >
-                  {chip.label}
-                  <button
-                    type="button"
-                    onClick={chip.onRemove}
-                    aria-label={`Remove ${chip.label} filter`}
-                    className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-pace-green/20 transition-colors cursor-pointer"
-                  >
-                    ✕
-                  </button>
-                </span>
-              ))}
-              <button
-                type="button"
-                onClick={clearAllFilters}
-                className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer"
-              >
-                Reset filters
-              </button>
-            </div>
+          {/* Status is filtered via the stat cards and its own column's funnel icon — a separate
+              pill here would just be a second control for the same filter. Coach/Plan/Age Group
+              have no column-driven filter of their own (or, for Coach, no longer one at all —
+              this pill is now the one way to filter by it), so a pill is how each is reached. */}
+          {user?.role !== "coach" && (
+            <SelectPill
+              value={coachFilter} options={coachFilterOptions} ariaLabel="Coach" active={coachFilter !== ""}
+              onChange={(v) => { setCoachFilter(v); setPage(1); }}
+            />
           )}
+          <SelectPill
+            value={planFilter} options={planFilterOptions} ariaLabel="Plan" active={planFilter !== ""}
+            onChange={(v) => { setPlanFilter(v); setPage(1); }}
+          />
+          <SelectPill
+            value={ageGroupFilter} options={ageGroupFilterOptions} ariaLabel="Age Group" active={ageGroupFilter !== ""}
+            onChange={(v) => { setAgeGroupFilter(v); setPage(1); }}
+          />
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer whitespace-nowrap"
+            >
+              Reset filters
+            </button>
+          )}
+          <span className="text-xs text-zinc-400 font-medium sm:ml-auto whitespace-nowrap">
+            Showing {filteredPlayers.length} player{filteredPlayers.length !== 1 ? "s" : ""}
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -1114,15 +1042,7 @@ export function PlayersClient() {
                   />
                 </th>
                 <SortableHeader label="Player" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <SortableHeader
-                  label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort}
-                  filterSlot={user?.role !== "coach" && (
-                    <SelectPill
-                      iconOnly value={coachFilter} options={coachFilterOptions} ariaLabel="Filter by Coach"
-                      active={coachFilter !== ""} onChange={(v) => { setCoachFilter(v); setPage(1); }}
-                    />
-                  )}
-                />
+                <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Plan" sortKey="plan" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader
                   label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort}
