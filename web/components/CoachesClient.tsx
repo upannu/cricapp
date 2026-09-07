@@ -555,7 +555,7 @@ export function CoachesClient() {
         <div className="flex items-start justify-between gap-3 bg-amber/10 border border-amber/30 rounded-xl px-4 py-3 mb-6">
           <p className="text-sm text-amber">
             {payoutNotice === "return"
-              ? "⏳ Payout setup submitted. It can take a few minutes for Stripe to confirm — refresh this page shortly if the coach still shows \"Not set up.\""
+              ? "⏳ Payout setup submitted. It can take a few minutes for Stripe to confirm — refresh this page shortly if the coach still shows \"Onboarding incomplete.\""
               : "Your payout setup link expired before you finished. Click \"Set up payouts\" again to continue."}
           </p>
           <button
