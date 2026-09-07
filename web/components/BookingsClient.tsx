@@ -36,7 +36,7 @@ function dowOfDate(dateStr: string): number {
 const DURATIONS = [30, 45, 60, 90, 120];
 // Only the flat (Past / All) tabs paginate — Upcoming/Pending are grouped by date and stay
 // naturally small (a handful of sessions ahead), while Past accumulates forever.
-const BOOKINGS_PER_PAGE = 10;
+const DEFAULT_BOOKINGS_PER_PAGE = 10;
 
 const STATUS_STYLES: Record<BookingStatus, string> = {
   Confirmed:  "bg-pace-green/20 text-pace-green border-pace-green/30",
@@ -212,6 +212,7 @@ export function BookingsClient() {
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   const [tab, setTab] = useState<FilterTab>("Upcoming");
   const [page, setPage] = useState(1);
+  const [bookingsPerPage, setBookingsPerPage] = useState(DEFAULT_BOOKINGS_PER_PAGE);
   const [search, setSearch] = useState("");
   // Switching tabs can easily land fewer results than the page you were on — reset during render
   // (React's documented pattern for "adjust state when a value changes") rather than an effect,
@@ -257,10 +258,10 @@ export function BookingsClient() {
     ? null
     : groupByDate(filtered);
 
-  // Pagination for the flat (ungrouped) Past/All lists only — see BOOKINGS_PER_PAGE above.
-  const totalPages = grouped ? 1 : Math.max(1, Math.ceil(filtered.length / BOOKINGS_PER_PAGE));
+  // Pagination for the flat (ungrouped) Past/All lists only — see DEFAULT_BOOKINGS_PER_PAGE above.
+  const totalPages = grouped ? 1 : Math.max(1, Math.ceil(filtered.length / bookingsPerPage));
   const currentPage = Math.min(page, totalPages);
-  const pagedFiltered = grouped ? filtered : filtered.slice((currentPage - 1) * BOOKINGS_PER_PAGE, currentPage * BOOKINGS_PER_PAGE);
+  const pagedFiltered = grouped ? filtered : filtered.slice((currentPage - 1) * bookingsPerPage, currentPage * bookingsPerPage);
 
   // ── Form helpers ──────────────────────────────────────────────────────────
   function scrollToForm() {
@@ -783,13 +784,14 @@ export function BookingsClient() {
           show={totalPages > 1}
           label={
             <p className="text-xs text-zinc-500">
-              Showing {(currentPage - 1) * BOOKINGS_PER_PAGE + 1}–{Math.min(currentPage * BOOKINGS_PER_PAGE, filtered.length)} of {filtered.length}
+              Showing {(currentPage - 1) * bookingsPerPage + 1}–{Math.min(currentPage * bookingsPerPage, filtered.length)} of {filtered.length}
             </p>
           }
           page={currentPage}
           totalPages={totalPages}
-          onPrev={() => setPage((p) => Math.max(1, p - 1))}
-          onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+          onPageChange={setPage}
+          itemsPerPage={bookingsPerPage}
+          onItemsPerPageChange={(n) => { setBookingsPerPage(n); setPage(1); }}
           className="mt-4"
         />
         </>

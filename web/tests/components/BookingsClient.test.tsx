@@ -100,7 +100,7 @@ describe("BookingsClient", () => {
     render(<BookingsClient />);
     await user.click(await screen.findByRole("button", { name: "Past" }));
 
-    expect(await screen.findByText("Page 1 of 2")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "1" })).toHaveAttribute("aria-current", "page");
     // Sorted most-recent-first — page 1 holds days-ago 1..10, i.e. loc-0..loc-9.
     expect(screen.getByText("loc-0")).toBeInTheDocument();
     expect(screen.queryByText("loc-11")).not.toBeInTheDocument();
@@ -112,7 +112,7 @@ describe("BookingsClient", () => {
     // Switching tabs away and back resets pagination rather than stranding page 2.
     await user.click(screen.getByRole("button", { name: "All" }));
     await user.click(screen.getByRole("button", { name: "Past" }));
-    expect(await screen.findByText("Page 1 of 2")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "1" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("loc-0")).toBeInTheDocument();
   });
 
