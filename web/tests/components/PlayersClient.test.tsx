@@ -54,7 +54,7 @@ describe("PlayersClient", () => {
 
     expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.getByText("Bob Bowler")).toBeInTheDocument();
-    expect(screen.getByText("Showing 2 players")).toBeInTheDocument();
+    expect(screen.getByText("2 players")).toBeInTheDocument();
     expect(screen.getByText("Total Players")).toBeInTheDocument();
     // No visible "Select"/"Msg/Sms" label on the header checkbox — just the checkbox itself,
     // findable by its own title, same as every row's own selection checkbox.
@@ -111,18 +111,18 @@ describe("PlayersClient", () => {
 
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
-    expect(screen.getByText("Showing 3 players")).toBeInTheDocument();
+    expect(screen.getByText("3 players")).toBeInTheDocument();
 
     // Match by name.
     await user.type(screen.getByPlaceholderText(/Search players/), "bob");
-    expect(await screen.findByText("Showing 1 player")).toBeInTheDocument();
+    expect(await screen.findByText("Showing 1 of 3 players")).toBeInTheDocument();
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
 
     // Match by email domain — case-insensitive, and matches a player whose name doesn't contain it.
     await user.clear(screen.getByPlaceholderText(/Search players/));
     await user.type(screen.getByPlaceholderText(/Search players/), "RIVERSIDE");
-    expect(await screen.findByText("Showing 2 players")).toBeInTheDocument();
+    expect(await screen.findByText("Showing 2 of 3 players")).toBeInTheDocument();
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.getByText("Cara Spinner")).toBeInTheDocument();
 
@@ -144,8 +144,10 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Player 01");
 
-    // Header count reflects the full roster, not just the current page.
-    expect(screen.getByText("Showing 12 players")).toBeInTheDocument();
+    // With more than one page, the top counter steps aside for the pagination footer's own
+    // "Showing X–Y of Z" — showing two different counts on the page at once would be confusing.
+    expect(screen.queryByText("12 players")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 1–10 of 12")).toBeInTheDocument();
 
     // Page 1: first 10 only.
     expect(screen.getByText("Player 10")).toBeInTheDocument();
@@ -183,7 +185,7 @@ describe("PlayersClient", () => {
     // Narrowing to a single match while on page 2 must not leave the view on a page 2 that no
     // longer exists for the filtered set.
     await user.type(screen.getByPlaceholderText(/Search players/), "Zara");
-    expect(await screen.findByText("Showing 1 player")).toBeInTheDocument();
+    expect(await screen.findByText("Showing 1 of 12 players")).toBeInTheDocument();
     expect(screen.getByText("Zara Unique")).toBeInTheDocument();
     expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
   });
