@@ -17,6 +17,7 @@ import { VoiceNoteRecorder } from "@/components/VoiceNoteRecorder";
 import { AssessmentForm } from "@/components/AssessmentForm";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { aiReportsIncludedForPlayer } from "@/lib/plan-features";
 
 const SESSIONS_PER_PAGE = 10;
@@ -865,34 +866,19 @@ export function SessionsClient() {
       )}
 
       {/* Results count + pagination */}
-      {filtered.length > 0 && (
-        <div className="flex items-center justify-between mt-6">
+      <PaginationFooter
+        show={filtered.length > 0}
+        label={
           <p className="text-xs text-zinc-500">
             Showing {(currentPage - 1) * SESSIONS_PER_PAGE + 1}–{Math.min(currentPage * SESSIONS_PER_PAGE, filtered.length)} of {filtered.length} sessions
           </p>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              >
-                ← Prev
-              </button>
-              <span className="text-xs text-zinc-400 px-1">Page {currentPage} of {totalPages}</span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              >
-                Next →
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+        }
+        page={currentPage}
+        totalPages={totalPages}
+        onPrev={() => setPage((p) => Math.max(1, p - 1))}
+        onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+        className="mt-6"
+      />
     </div>
 
     {calibrationRequest && (

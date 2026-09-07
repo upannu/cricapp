@@ -14,6 +14,7 @@ import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { SelectPill } from "@/components/SelectPill";
 import { SortableHeader } from "@/components/SortableHeader";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
 import { MessageIcon, EyeIcon, EditIcon, CreditCardIcon, RepeatIcon, TrashIcon } from "@/components/icons";
@@ -735,7 +736,7 @@ export function PlayersClient() {
   return (
     <>
     <div className="max-w-5xl mx-auto px-6 py-8">
-      <div className="mb-8 flex items-start justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <h1 className="text-2xl font-bold text-white">Players</h1>
         {canAddPlayers && (
           atRosterCap ? (
@@ -920,7 +921,7 @@ export function PlayersClient() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="mb-4 flex items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3">
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3">
           <span className="text-blue-400 text-sm font-semibold">
             {selectedIds.size} player{selectedIds.size !== 1 ? "s" : ""} selected
           </span>
@@ -968,7 +969,7 @@ export function PlayersClient() {
           <button
             type="button"
             onClick={clearSelection}
-            className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer ml-auto"
+            className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer sm:ml-auto"
           >
             Clear
           </button>
@@ -1055,32 +1056,18 @@ export function PlayersClient() {
         {/* Always visible — a fixed spot for the count rather than one that moves depending on
             which filter is applied or how many rows it leaves. Prev/Next/"Page X of Y" stay
             hidden below a single page — nothing to page through, so no controls for it. */}
-        <div className="flex items-center justify-between px-6 py-3 border-t border-zinc-700/60">
-          <p className="text-xs text-zinc-400">
-            Showing {filteredPlayers.length === 0 ? 0 : (currentPage - 1) * PLAYERS_PER_PAGE + 1}–{Math.min(currentPage * PLAYERS_PER_PAGE, filteredPlayers.length)} of {filteredPlayers.length}
-          </p>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              >
-                ← Prev
-              </button>
-              <span className="text-xs text-zinc-400 px-1">Page {currentPage} of {totalPages}</span>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              >
-                Next →
-              </button>
-            </div>
-          )}
-        </div>
+        <PaginationFooter
+          label={
+            <p className="text-xs text-zinc-400">
+              Showing {filteredPlayers.length === 0 ? 0 : (currentPage - 1) * PLAYERS_PER_PAGE + 1}–{Math.min(currentPage * PLAYERS_PER_PAGE, filteredPlayers.length)} of {filteredPlayers.length}
+            </p>
+          }
+          page={currentPage}
+          totalPages={totalPages}
+          onPrev={() => setPage((p) => Math.max(1, p - 1))}
+          onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+          className="px-6 py-3 border-t border-zinc-700/60"
+        />
       </div>
     </div>
 
