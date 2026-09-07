@@ -29,12 +29,16 @@ export function SortableHeader<K extends string>({
       <button
         type="button"
         onClick={() => onSort(sortKey)}
-        className={`inline-flex items-center gap-1 cursor-pointer transition-colors ${
+        className={`group inline-flex items-center gap-1 cursor-pointer transition-colors ${
           isActive ? "text-white" : "text-zinc-300 hover:text-white"
         } ${align === "right" ? "flex-row-reverse" : ""}`}
       >
         {label}
-        <span className="text-[10px] leading-none">{isActive ? (direction === "asc" ? "▲" : "▼") : "↕"}</span>
+        {isActive ? (
+          <span className="text-[10px] leading-none">{direction === "asc" ? "▲" : "▼"}</span>
+        ) : (
+          <span className="text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity">↕</span>
+        )}
       </button>
     </th>
   );

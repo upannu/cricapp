@@ -63,6 +63,16 @@ describe("SelectPill", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  test("active highlights the closed trigger as having a filter applied, separately from the open state", () => {
+    const { rerender } = render(<SelectPill value="none" options={options} onChange={() => {}} ariaLabel="Group by" />);
+    const trigger = screen.getByRole("button", { name: "Group by" });
+    // Not selected, not applied — the plain default styling.
+    expect(trigger.className).not.toContain("border-pace-green");
+
+    rerender(<SelectPill value="age" options={options} onChange={() => {}} ariaLabel="Group by" active />);
+    expect(trigger.className).toContain("border-pace-green/50");
+  });
+
   test("keeping only one popover open at a time across multiple instances, with no shared state", async () => {
     const user = userEvent.setup();
     render(

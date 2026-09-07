@@ -17,15 +17,21 @@ export interface SelectPillOption<T extends string> {
  * The trigger's accessible name is always `ariaLabel` (fixed, via aria-label overriding the
  * visible text) — same convention as RowActionsMenu's "More actions" button always being findable
  * by that one fixed name regardless of what's currently selected.
+ *
+ * `active` is a separate, caller-computed signal from `open` — same "applied vs. currently
+ * interacting with" split StatCard's own `active` prop already draws — for a pill used as a
+ * filter, so a closed pill can still show it has a value applied instead of only highlighting
+ * while its popover happens to be open.
  */
 export function SelectPill<T extends string>({
-  value, options, onChange, ariaLabel, align = "left",
+  value, options, onChange, ariaLabel, align = "left", active = false,
 }: {
   value: T;
   options: SelectPillOption<T>[];
   onChange: (value: T) => void;
   ariaLabel: string;
   align?: "left" | "right";
+  active?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -49,7 +55,11 @@ export function SelectPill<T extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border transition-colors cursor-pointer whitespace-nowrap ${
-          open ? "border-pace-green text-white bg-ink" : "border-zinc-700 text-zinc-300 bg-ink hover:border-zinc-500"
+          open
+            ? "border-pace-green text-white bg-ink"
+            : active
+              ? "border-pace-green/50 bg-pace-green/10 text-pace-green"
+              : "border-zinc-700 text-zinc-300 bg-ink hover:border-zinc-500"
         }`}
       >
         {current?.label ?? ariaLabel}
