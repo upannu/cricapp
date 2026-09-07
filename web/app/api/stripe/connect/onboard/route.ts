@@ -95,7 +95,10 @@ export async function POST(request: Request) {
         account_onboarding: {
           configurations: ["recipient"],
           refresh_url: `${origin}/coaches?refresh=1`,
-          return_url: `${origin}/coaches?onboarding=return`,
+          // Carries coachId back so the return page can actively re-check *this* account's real
+          // Stripe status (see connect/check-status/route.ts) rather than just showing a banner
+          // and hoping a webhook that never fires for a v2-created account eventually updates it.
+          return_url: `${origin}/coaches?onboarding=return&coachId=${encodeURIComponent(coachId)}`,
         },
       },
     });

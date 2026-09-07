@@ -17,7 +17,7 @@ const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
 
 const { push, replace, searchParamsGet } = vi.hoisted(() => ({
-  push: vi.fn(), replace: vi.fn(), searchParamsGet: vi.fn(() => null),
+  push: vi.fn(), replace: vi.fn(), searchParamsGet: vi.fn((_key: string) => null as string | null),
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace }),
@@ -92,6 +92,43 @@ describe("CoachesClient", () => {
       expect.objectContaining({ method: "POST", body: JSON.stringify({ coachId: "c1" }) }),
     );
     global.fetch = originalFetch;
+  });
+
+  test("returning from Stripe onboarding actively re-checks status, and updates the row when it's actually done", async () => {
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", stripeConnectOnboarded: false, stripeConnectAccountId: "acct_test123" })]);
+    searchParamsGet.mockImplementation((key: string) => (key === "onboarding" ? "return" : key === "coachId" ? "c1" : null));
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ onboarded: true }) }) as typeof fetch;
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/stripe/connect/check-status",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ coachId: "c1" }) }),
+    );
+    expect(await screen.findByText(/Payout setup complete/)).toBeInTheDocument();
+    expect(screen.getByText("✓ Connected")).toBeInTheDocument();
+    expect(replace).toHaveBeenCalledWith("/coaches");
+
+    global.fetch = originalFetch;
+    searchParamsGet.mockImplementation(() => null);
+  });
+
+  test("returning from Stripe onboarding shows the still-incomplete banner when the live check says so", async () => {
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", stripeConnectOnboarded: false, stripeConnectAccountId: "acct_test123" })]);
+    searchParamsGet.mockImplementation((key: string) => (key === "onboarding" ? "return" : key === "coachId" ? "c1" : null));
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ onboarded: false }) }) as typeof fetch;
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    expect(await screen.findByText(/hasn't confirmed this account is fully set up/)).toBeInTheDocument();
+    expect(screen.getByText("Onboarding incomplete")).toBeInTheDocument();
+
+    global.fetch = originalFetch;
+    searchParamsGet.mockImplementation(() => null);
   });
 
   test("reaches the removal-confirm prompt directly from the row's ⋮ menu, skipping the edit form's own fields", async () => {
