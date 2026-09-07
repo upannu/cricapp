@@ -18,6 +18,7 @@ const ADMIN_TOOLS = [
 
 const NAV_ALL = [
   { label: "Players",  href: "/players" },
+  { label: "Sessions", href: "/sessions" },
   { label: "Attendance", href: "/attendance" },
   { label: "Academy",  href: "/academy" },
   { label: "Bookings", href: "/bookings" },

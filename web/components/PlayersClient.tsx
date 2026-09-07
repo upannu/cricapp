@@ -36,7 +36,7 @@ const NO_COACH_LABEL = "No Coach Assigned";
 // "🔒 Login locked" badge).
 const PLAYER_REMOVED_REASON = "Removed by staff";
 
-type PlayerSortKey = "name" | "coach" | "plan" | "status" | "endDate" | "sessions";
+type PlayerSortKey = "name" | "coach" | "plan" | "status" | "endDate";
 
 function comparePlayers(a: Player, b: Player, sortKey: PlayerSortKey, coaches: Coach[], academies: Academy[]): number {
   switch (sortKey) {
@@ -45,7 +45,6 @@ function comparePlayers(a: Player, b: Player, sortKey: PlayerSortKey, coaches: C
     case "plan": return a.subscription.plan.localeCompare(b.subscription.plan);
     case "status": return getPlayerStatus(a.subscription.endDate).localeCompare(getPlayerStatus(b.subscription.endDate));
     case "endDate": return a.subscription.endDate.localeCompare(b.subscription.endDate);
-    case "sessions": return a.sessionsCount - b.sessionsCount;
   }
 }
 
@@ -700,7 +699,6 @@ export function PlayersClient() {
             {formatDate(player.subscription.endDate)}
           </span>
         </td>
-        <td className="px-4 py-4 text-sm text-zinc-300 tabular-nums">{player.sessionsCount}</td>
         <td className="px-4 py-4 pr-6">
           {/* Both View and Message live under one ⋮ now — a wide table with 10 columns already
               needed horizontal scroll to reach a separate View button out here, so folding it in
@@ -1037,7 +1035,6 @@ export function PlayersClient() {
                 <SortableHeader label="Plan" sortKey="plan" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="End / Renewal" sortKey="endDate" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Sessions" sortKey="sessions" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">
                   Actions
                 </th>
