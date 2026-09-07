@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface RowActionItem {
   label: string;
@@ -20,6 +21,9 @@ const VARIANT_CLASSES: Record<NonNullable<RowActionItem["variant"]>, string> = {
   success: "text-pace-green hover:bg-pace-green/10",
 };
 
+const MENU_WIDTH = 192; // w-48
+const EDGE_PADDING = 8;
+
 /**
  * The "⋮" row-actions menu — one shared widget for every list page's secondary/infrequent
  * actions, so the primary action (View/Edit/Billing) stays a direct, visible button and
@@ -29,28 +33,66 @@ const VARIANT_CLASSES: Record<NonNullable<RowActionItem["variant"]>, string> = {
  * extracted here so PlayersClient/CoachesClient use the identical widget rather than
  * near-duplicates that drift apart over time.
  *
- * Self-contained: manages its own open state and closes on an outside click, so a page using more
- * than one of these (one per row in a list) never needs to lift state to keep only one open at a
- * time — each instance closes itself the moment focus moves elsewhere, including into another
- * row's menu.
+ * The open dropdown renders through a portal into `document.body`, positioned via the trigger
+ * button's real screen coordinates — not nested inside the row anymore. Two bugs motivated this:
+ * a row near the bottom of a table (inside the table card's own `overflow-hidden`, there for its
+ * rounded corners) got its menu physically clipped, since a plain `absolute` popover never checks
+ * whether there's room below; and an "Expired"-status player row carries `opacity-60` on its own
+ * `<tr>`, which — because CSS opacity cascades onto DOM descendants — used to dim the menu's own
+ * solid background right along with it, letting the row's text show faintly through. A portaled
+ * node is no longer a descendant of that row in the actual DOM, so neither problem can reach it.
+ *
+ * Self-contained: manages its own open state and closes on an outside click (or a scroll — a
+ * `fixed`-positioned portal doesn't move with the table it was anchored to, so continuing to show
+ * it stale is worse than just closing it, the same simplification the outside-click handler
+ * already makes), so a page using more than one of these (one per row in a list) never needs to
+ * lift state to keep only one open at a time — each instance closes itself the moment focus moves
+ * elsewhere, including into another row's menu.
  */
 export function RowActionsMenu({ items, align = "right" }: { items: RowActionItem[]; align?: "left" | "right" }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (buttonRef.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
+      setOpen(false);
     }
     if (open) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    function handleScroll() { setOpen(false); }
+    window.addEventListener("scroll", handleScroll, true);
+    return () => window.removeEventListener("scroll", handleScroll, true);
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open || !buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const estimatedHeight = items.length * 42 + 16;
+    const openUpward = rect.bottom + estimatedHeight > window.innerHeight && rect.top > estimatedHeight;
+    const idealLeft = align === "right" ? rect.right - MENU_WIDTH : rect.left;
+    const left = Math.max(EDGE_PADDING, Math.min(idealLeft, window.innerWidth - MENU_WIDTH - EDGE_PADDING));
+    setPosition(
+      openUpward
+        ? { left, bottom: window.innerHeight - rect.top + 4 }
+        : { left, top: rect.bottom + 4 }
+    );
+  }, [open, items.length, align]);
+
   if (items.length === 0) return null;
 
   return (
-    <div className="relative flex-shrink-0" ref={ref}>
+    <div className="relative flex-shrink-0">
       <button
+        ref={buttonRef}
         type="button"
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         title="More actions"
@@ -64,8 +106,12 @@ export function RowActionsMenu({ items, align = "right" }: { items: RowActionIte
         </svg>
       </button>
 
-      {open && (
-        <div className={`absolute ${align === "right" ? "right-0" : "left-0"} top-10 z-30 w-48 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden`}>
+      {open && position && createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: "fixed", left: position.left, top: position.top, bottom: position.bottom }}
+          className="z-50 w-48 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden"
+        >
           {items.map((item, i) => (
             <div key={i}>
               {item.dividerBefore && <div className="h-px bg-zinc-700 mx-3 my-1" />}
@@ -86,7 +132,8 @@ export function RowActionsMenu({ items, align = "right" }: { items: RowActionIte
               </button>
             </div>
           ))}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -48,11 +48,16 @@ export function formatDateTime(iso: string): string {
   return `${datePart} at ${timePart}`;
 }
 
+// Academy takes priority over coach — a player's academy affiliation is the more stable,
+// organizationally meaningful identity (a coach can move between academies, or a player can be
+// reassigned to a different coach within the same academy, without the academy itself changing),
+// and not every player has one at all (an independent coach's own roster has no academy to fall
+// back to), which is exactly when the coach's name is what actually identifies them.
 export function getCoachOrAcademyLabel(player: Player, coaches: Coach[], academies: Academy[]): string {
-  const coach = player.coachId ? coaches.find((c) => c.id === player.coachId) : undefined;
-  if (coach) return coach.name;
   const academy = academies.find((a) => a.playerIds.includes(player.id));
-  return academy ? academy.name : 'Unassigned';
+  if (academy) return academy.name;
+  const coach = player.coachId ? coaches.find((c) => c.id === player.coachId) : undefined;
+  return coach ? coach.name : 'Unassigned';
 }
 
 /** Pricing lives on the Academy, not the Coach — a coach's fee for a session is whatever their
