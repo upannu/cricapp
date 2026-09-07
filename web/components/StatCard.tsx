@@ -23,14 +23,14 @@ export function StatCard({
   );
 
   if (!onClick) {
-    return <div className="bg-surface rounded-2xl p-4">{content}</div>;
+    return <div className="bg-surface rounded-2xl p-5">{content}</div>;
   }
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`bg-surface rounded-2xl p-4 text-left transition-colors cursor-pointer hover:bg-white/5 ${
+      className={`bg-surface rounded-2xl p-5 text-left transition-colors cursor-pointer hover:bg-white/5 ${
         active ? "ring-1 ring-pace-green" : ""
       }`}
     >

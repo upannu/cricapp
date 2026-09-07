@@ -367,7 +367,7 @@ describe("PlayersClient", () => {
     expect(await screen.findByText("No players in your scope.")).toBeInTheDocument();
   });
 
-  test("filters players by coach, and resetting to the default option clears it", async () => {
+  test("filters players by coach via the column's own funnel icon, and resetting to the default option clears it", async () => {
     const user = userEvent.setup();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
     fetchPlayers.mockResolvedValue([
@@ -384,26 +384,29 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByRole("button", { name: "Coach" }));
+    // No standalone "Coach" pill in the filter row — the column's own funnel icon is the one way
+    // to filter by coach now.
+    expect(screen.queryByRole("button", { name: "Coach" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Filter by Coach" }));
     await user.click(screen.getByRole("option", { name: "Coach One" }));
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.queryByText("Bob Seamer")).not.toBeInTheDocument();
     expect(screen.queryByText("Cara Spinner")).not.toBeInTheDocument();
+    expect(screen.getByText("Coach: Coach One")).toBeInTheDocument();
 
-    // The unassigned bucket is its own explicit option, not folded into "All". The trigger's
-    // accessible name is always the fixed "Coach" (its aria-label), regardless of what's
-    // currently selected — same convention as every other SelectPill in this app.
-    await user.click(screen.getByRole("button", { name: "Coach" }));
+    // The unassigned bucket is its own explicit option, not folded into "All".
+    await user.click(screen.getByRole("button", { name: "Filter by Coach" }));
     await user.click(screen.getByRole("option", { name: "No Coach Assigned" }));
     expect(screen.getByText("Cara Spinner")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
 
-    // Resetting back to the default "Coach" option clears the filter entirely.
-    await user.click(screen.getByRole("button", { name: "Coach" }));
-    await user.click(screen.getByRole("option", { name: "Coach" }));
+    // The chip's own ✕ resets just this filter.
+    await user.click(screen.getByRole("button", { name: /Remove Coach:.*filter/ }));
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.getByText("Cara Spinner")).toBeInTheDocument();
+    expect(screen.queryByText(/^Coach:/)).not.toBeInTheDocument();
   });
 
   test("filters players by plan", async () => {
@@ -426,7 +429,7 @@ describe("PlayersClient", () => {
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
   });
 
-  test("doesn't offer a Coach filter to a coach viewing their own single-coach roster", async () => {
+  test("doesn't offer a Coach filter (via the column funnel) to a coach viewing their own single-coach roster", async () => {
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "coach-1" }) });
     fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
     fetchAcademies.mockResolvedValue([]);
@@ -435,10 +438,10 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    expect(screen.queryByRole("button", { name: "Coach" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Filter by Coach" })).not.toBeInTheDocument();
   });
 
-  test("the Status pill filters the same statusFilter the stat cards drive, and stays in sync with them", async () => {
+  test("the Status column's funnel icon filters the same statusFilter the stat cards drive, and stays in sync with them", async () => {
     const user = userEvent.setup();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
     const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -452,41 +455,25 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByRole("button", { name: "Status" }));
+    // No standalone "Status" pill in the filter row either — the stat cards and this funnel
+    // icon are the two ways to set it, always in sync since both drive the same state.
+    expect(screen.queryByRole("button", { name: "Status" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Filter by Status" }));
     await user.click(screen.getByRole("option", { name: "Expiring Soon" }));
 
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
-    // The "Expiring Soon" stat card reflects the same statusFilter state the pill just set.
-    expect(screen.getByRole("button", { name: /Expiring Soon/ })).toHaveClass("ring-pace-green");
+    // Anchored at the start — the chip's own "Remove Status: Expiring Soon filter" button also
+    // contains this substring, so an unanchored match would find both.
+    expect(screen.getByRole("button", { name: /^Expiring Soon/ })).toHaveClass("ring-pace-green");
+    // getByText matches an element's own direct text-node children only, not text nested inside
+    // a child element — the ✕ lives in its own nested <button>, so the chip's own matchable text
+    // is just its label, with no ✕ appended.
+    expect(screen.getByText("Status: Expiring Soon")).toBeInTheDocument();
   });
 
-  test("the Coach and Status column funnel icons filter using the same state as the pill row and stat cards", async () => {
-    const user = userEvent.setup();
-    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
-    fetchPlayers.mockResolvedValue([
-      makePlayer({ id: "p1", name: "Alice Bowler", coachId: "coach-1" }),
-      makePlayer({ id: "p2", name: "Bob Seamer", coachId: "coach-2" }),
-    ]);
-    fetchAcademies.mockResolvedValue([]);
-    fetchCoaches.mockResolvedValue([
-      makeCoach({ id: "coach-1", name: "Coach One" }),
-      makeCoach({ id: "coach-2", name: "Coach Two" }),
-    ]);
-
-    render(<PlayersClient />);
-    await screen.findByText("Alice Bowler");
-
-    await user.click(screen.getByRole("button", { name: "Filter by Coach" }));
-    await user.click(screen.getByRole("option", { name: "Coach One" }));
-
-    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
-    expect(screen.queryByText("Bob Seamer")).not.toBeInTheDocument();
-    // The pill-row Coach filter (a separate trigger, same underlying state) reflects it too.
-    expect(screen.getByRole("button", { name: "Coach" })).toHaveTextContent("Coach One");
-  });
-
-  test("advanced filters (Academy/Age Group/Playing Level) are hidden until '+ Filters' is opened, and filter correctly", async () => {
+  test("Academy/Age Group/Playing Level are always-visible pills, no toggle needed to reach them", async () => {
     const user = userEvent.setup();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
     fetchPlayers.mockResolvedValue([
@@ -499,10 +486,7 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    expect(screen.queryByRole("button", { name: "Academy" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Age Group" })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "+ Filters" }));
+    expect(screen.queryByRole("button", { name: "+ Filters" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Academy" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Playing Level" }));
@@ -510,6 +494,36 @@ describe("PlayersClient", () => {
 
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+    expect(screen.getByText("Playing Level: State")).toBeInTheDocument();
+  });
+
+  test("Reset filters clears every active filter at once", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", ageGroup: "U14",
+        subscription: { plan: "Free", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 0, sessionsLimit: 4 } }),
+      makePlayer({ id: "p2", name: "Bob Seamer", ageGroup: "U16",
+        subscription: { plan: "Player Pro", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 0, sessionsLimit: null } }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+    expect(screen.queryByText("Reset filters")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Plan" }));
+    await user.click(screen.getByRole("option", { name: "Free" }));
+    await user.click(screen.getByRole("button", { name: "Age Group" }));
+    await user.click(screen.getByRole("option", { name: "U16" }));
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+    expect(screen.queryByText("Bob Seamer")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Reset filters" }));
+    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.queryByText("Reset filters")).not.toBeInTheDocument();
   });
 
   test("clicking a column header sorts the table by that column, and clicking it again reverses the order", async () => {
