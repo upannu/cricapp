@@ -439,30 +439,17 @@ describe("PlayersClient", () => {
     expect(screen.queryByRole("button", { name: "Coach" })).not.toBeInTheDocument();
   });
 
-  test("the Status column's funnel icon filters the same statusFilter the stat cards drive, and stays in sync with them", async () => {
-    const user = userEvent.setup();
+  test("Status has no pill or column funnel icon — the stat cards are the only way to filter by it", async () => {
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
-    const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-    fetchPlayers.mockResolvedValue([
-      makePlayer({ id: "p1", name: "Alice Bowler" }),
-      makePlayer({ id: "p2", name: "Bob Seamer", subscription: { plan: "Free", startDate: "2026-01-01", endDate: soon, sessionsUsed: 0, sessionsLimit: 4 } }),
-    ]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
     fetchAcademies.mockResolvedValue([]);
     fetchCoaches.mockResolvedValue([]);
 
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    // No standalone "Status" pill in the filter row either — the stat cards and this funnel
-    // icon are the two ways to set it, always in sync since both drive the same state.
     expect(screen.queryByRole("button", { name: "Status" })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Filter by Status" }));
-    await user.click(screen.getByRole("option", { name: "Expiring Soon" }));
-
-    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
-    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Expiring Soon/ })).toHaveClass("ring-pace-green");
+    expect(screen.queryByRole("button", { name: "Filter by Status" })).not.toBeInTheDocument();
   });
 
   test("filters players by age group, and Academy/Playing Level/the old '+ Filters' toggle are gone for good", async () => {

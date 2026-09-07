@@ -600,12 +600,6 @@ export function PlayersClient() {
   const currentPage = Math.min(page, totalPages);
   const pagePlayers = sortedPlayers.slice((currentPage - 1) * PLAYERS_PER_PAGE, currentPage * PLAYERS_PER_PAGE);
 
-  const statusFilterOptions: { value: "All" | PlayerStatus; label: string }[] = [
-    { value: "All", label: "Status" },
-    { value: "Active", label: "Active" },
-    { value: "Expiring", label: "Expiring Soon" },
-    { value: "Expired", label: "Expired" },
-  ];
   // A coach viewing their own single-coach roster has nobody else to filter by — same reasoning
   // the old "Group by" coach option used.
   const coachFilterOptions: { value: string; label: string }[] = [
@@ -986,53 +980,50 @@ export function PlayersClient() {
 
       {/* Table */}
       <div className="bg-surface rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
-            <div className="relative w-full sm:max-w-[300px]">
-              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search players by name, email, or club…"
-                className={`${inputCls} pl-10`}
-              />
-            </div>
-            {/* Status is filtered via the stat cards and its own column's funnel icon — a separate
-                pill here would just be a second control for the same filter. Coach/Plan/Age Group
-                have no column-driven filter of their own (or, for Coach, no longer one at all —
-                this pill is now the one way to filter by it), so a pill is how each is reached. */}
-            {user?.role !== "coach" && (
-              <SelectPill
-                value={coachFilter} options={coachFilterOptions} ariaLabel="Coach" active={coachFilter !== ""}
-                onChange={(v) => { setCoachFilter(v); setPage(1); }}
-              />
-            )}
-            <SelectPill
-              value={planFilter} options={planFilterOptions} ariaLabel="Plan" active={planFilter !== ""}
-              onChange={(v) => { setPlanFilter(v); setPage(1); }}
+        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+          <div className="relative w-full sm:max-w-[300px]">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search players by name, email, or club…"
+              className={`${inputCls} pl-10`}
             />
-            <SelectPill
-              value={ageGroupFilter} options={ageGroupFilterOptions} ariaLabel="Age Group" active={ageGroupFilter !== ""}
-              onChange={(v) => { setAgeGroupFilter(v); setPage(1); }}
-            />
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearAllFilters}
-                className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer whitespace-nowrap"
-              >
-                Reset filters
-              </button>
-            )}
           </div>
+          {/* Status is filtered via the stat cards alone now (no funnel icon of its own either —
+              three big clickable cards already cover it without a fourth control). Coach/Plan/Age
+              Group have no column-driven filter of their own, so a pill is how each is reached. */}
+          {user?.role !== "coach" && (
+            <SelectPill
+              value={coachFilter} options={coachFilterOptions} ariaLabel="Coach" active={coachFilter !== ""}
+              onChange={(v) => { setCoachFilter(v); setPage(1); }}
+            />
+          )}
+          <SelectPill
+            value={planFilter} options={planFilterOptions} ariaLabel="Plan" active={planFilter !== ""}
+            onChange={(v) => { setPlanFilter(v); setPage(1); }}
+          />
+          <SelectPill
+            value={ageGroupFilter} options={ageGroupFilterOptions} ariaLabel="Age Group" active={ageGroupFilter !== ""}
+            onChange={(v) => { setAgeGroupFilter(v); setPage(1); }}
+          />
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer whitespace-nowrap"
+            >
+              Reset filters
+            </button>
+          )}
           {/* Once the table's own pagination footer is showing, it already carries a "Showing X of
               Y" — this stays only for the unpaginated case, rather than displaying two different
               counts on the page at once. */}
           {totalPages <= 1 && (
-            <span className="text-xs text-zinc-400 font-medium whitespace-nowrap">
+            <span className="text-xs text-zinc-400 font-medium sm:ml-auto whitespace-nowrap">
               {isFiltered
                 ? `Showing ${filteredPlayers.length} of ${players.length} player${players.length !== 1 ? "s" : ""}`
                 : `${players.length} player${players.length !== 1 ? "s" : ""}`}
@@ -1056,15 +1047,7 @@ export function PlayersClient() {
                 <SortableHeader label="Player" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Plan" sortKey="plan" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <SortableHeader
-                  label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort}
-                  filterSlot={
-                    <SelectPill
-                      iconOnly value={statusFilter} options={statusFilterOptions} ariaLabel="Filter by Status"
-                      active={statusFilter !== "All"} onChange={(v) => { setStatusFilter(v); setPage(1); }}
-                    />
-                  }
-                />
+                <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="End / Renewal" sortKey="endDate" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Sessions" sortKey="sessions" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">
