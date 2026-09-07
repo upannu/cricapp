@@ -366,7 +366,7 @@ export function ReportsClient() {
                       );
                     })}
                     {totalGroupPages > 1 && (
-                      <div className="flex items-center justify-between pt-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
                         <p className="text-xs text-zinc-500">Page {currentGroupPage} of {totalGroupPages}</p>
                         <div className="flex items-center gap-2">
                           <button
