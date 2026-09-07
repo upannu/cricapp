@@ -628,6 +628,9 @@ export function PlayersClient() {
   // `active` prop), so nothing further identifies *which* filter is applied beyond that — this
   // just clears all of them in one click, shown only when at least one actually is.
   const hasActiveFilters = statusFilter !== "All" || coachFilter !== "" || planFilter !== "" || ageGroupFilter !== "";
+  // Broader than hasActiveFilters — a text search narrows the roster exactly the same way a
+  // pill/stat-card filter does, so it counts too for "is the counter showing a subset".
+  const isFiltered = hasActiveFilters || searchTerm !== "";
 
   function clearAllFilters() {
     setStatusFilter("All");
@@ -983,49 +986,58 @@ export function PlayersClient() {
 
       {/* Table */}
       <div className="bg-surface rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
-          <div className="relative w-full sm:max-w-[300px]">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search players by name, email, or club…"
-              className={`${inputCls} pl-10`}
-            />
-          </div>
-          {/* Status is filtered via the stat cards and its own column's funnel icon — a separate
-              pill here would just be a second control for the same filter. Coach/Plan/Age Group
-              have no column-driven filter of their own (or, for Coach, no longer one at all —
-              this pill is now the one way to filter by it), so a pill is how each is reached. */}
-          {user?.role !== "coach" && (
+        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+            <div className="relative w-full sm:max-w-[300px]">
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search players by name, email, or club…"
+                className={`${inputCls} pl-10`}
+              />
+            </div>
+            {/* Status is filtered via the stat cards and its own column's funnel icon — a separate
+                pill here would just be a second control for the same filter. Coach/Plan/Age Group
+                have no column-driven filter of their own (or, for Coach, no longer one at all —
+                this pill is now the one way to filter by it), so a pill is how each is reached. */}
+            {user?.role !== "coach" && (
+              <SelectPill
+                value={coachFilter} options={coachFilterOptions} ariaLabel="Coach" active={coachFilter !== ""}
+                onChange={(v) => { setCoachFilter(v); setPage(1); }}
+              />
+            )}
             <SelectPill
-              value={coachFilter} options={coachFilterOptions} ariaLabel="Coach" active={coachFilter !== ""}
-              onChange={(v) => { setCoachFilter(v); setPage(1); }}
+              value={planFilter} options={planFilterOptions} ariaLabel="Plan" active={planFilter !== ""}
+              onChange={(v) => { setPlanFilter(v); setPage(1); }}
             />
+            <SelectPill
+              value={ageGroupFilter} options={ageGroupFilterOptions} ariaLabel="Age Group" active={ageGroupFilter !== ""}
+              onChange={(v) => { setAgeGroupFilter(v); setPage(1); }}
+            />
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer whitespace-nowrap"
+              >
+                Reset filters
+              </button>
+            )}
+          </div>
+          {/* Once the table's own pagination footer is showing, it already carries a "Showing X of
+              Y" — this stays only for the unpaginated case, rather than displaying two different
+              counts on the page at once. */}
+          {totalPages <= 1 && (
+            <span className="text-xs text-zinc-400 font-medium whitespace-nowrap">
+              {isFiltered
+                ? `Showing ${filteredPlayers.length} of ${players.length} player${players.length !== 1 ? "s" : ""}`
+                : `${players.length} player${players.length !== 1 ? "s" : ""}`}
+            </span>
           )}
-          <SelectPill
-            value={planFilter} options={planFilterOptions} ariaLabel="Plan" active={planFilter !== ""}
-            onChange={(v) => { setPlanFilter(v); setPage(1); }}
-          />
-          <SelectPill
-            value={ageGroupFilter} options={ageGroupFilterOptions} ariaLabel="Age Group" active={ageGroupFilter !== ""}
-            onChange={(v) => { setAgeGroupFilter(v); setPage(1); }}
-          />
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={clearAllFilters}
-              className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer whitespace-nowrap"
-            >
-              Reset filters
-            </button>
-          )}
-          <span className="text-xs text-zinc-400 font-medium sm:ml-auto whitespace-nowrap">
-            Showing {filteredPlayers.length} player{filteredPlayers.length !== 1 ? "s" : ""}
-          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
