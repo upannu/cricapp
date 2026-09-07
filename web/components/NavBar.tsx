@@ -156,8 +156,13 @@ export function NavBar() {
     }
   }
 
+  // Capped at 2 letters and stripped of anything but letters first — an unadorned "Dev Admin"
+  // was always fine, but a display name carrying a parenthetical aside (e.g. a dev/staging
+  // account's "Dev Admin (real email)") used to leak that punctuation straight into the avatar
+  // ("DA(e") since the old version took the first character of every space-separated word with
+  // no cap and no filtering.
   const initials = user
-    ? user.name.split(" ").map((n) => n[0]).join("")
+    ? user.name.replace(/[^\p{L}\s]/gu, "").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((n) => n[0].toUpperCase()).join("") || "?"
     : "?";
 
   const isPlayerOrParent = user?.role === "player" || user?.role === "parent";
@@ -265,30 +270,30 @@ export function NavBar() {
               </div>
             )}
             {/* One trigger + dropdown for every user, whether or not they have other identities
-                to switch between — previously a single-identity user saw name/badge/avatar as
-                inert static text with a permanently-visible "Sign out" button next to it; now
-                that same info is the dropdown's trigger, and Sign out lives inside it (below the
-                switch-role options, when there are any), so the always-visible row only ever
-                shows the avatar itself, not an extra action button. */}
+                to switch between. The header row shows only the avatar — name, real email, and
+                role badge live inside the dropdown's own header instead of sitting inline next to
+                it at all times, so the always-visible row stays a single compact control rather
+                than three separate pieces of identity text competing for space next to the nav. */}
             <div className="relative flex-shrink-0" ref={userMenuRef}>
               <button
                 type="button"
                 onClick={() => setUserMenuOpen((v) => !v)}
-                className="flex items-center gap-2.5 cursor-pointer rounded-lg px-1.5 py-1 hover:bg-zinc-700/40 transition-colors"
+                className="flex items-center cursor-pointer rounded-full hover:opacity-90 transition-opacity"
                 title="Account menu"
               >
-                <div className="text-right min-w-0">
-                  <p className="text-sm font-medium text-white leading-tight truncate max-w-[160px]">{user.name}</p>
-                  <span className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${ROLE_STYLES[user.role]}`}>
-                    {ROLE_LABELS[user.role]}
-                  </span>
-                </div>
                 <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
                   {initials}
                 </div>
               </button>
               {userMenuOpen && (
-                <div className="absolute right-0 top-12 z-30 w-56 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
+                <div className="absolute right-0 top-12 z-30 w-64 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
+                  <div className="px-4 pt-3 pb-2.5 border-b border-zinc-700">
+                    <p className="text-sm font-medium text-white leading-tight truncate">{user.name}</p>
+                    <p className="text-xs text-zinc-400 leading-tight truncate mt-0.5">{user.email}</p>
+                    <span className={`inline-block mt-2 text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${ROLE_STYLES[user.role]}`}>
+                      {ROLE_LABELS[user.role]}
+                    </span>
+                  </div>
                   {user.linkedIdentities && user.linkedIdentities.length > 1 && (
                     <>
                       <p className="px-4 pt-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Switch role</p>
