@@ -48,16 +48,20 @@ export function formatDateTime(iso: string): string {
   return `${datePart} at ${timePart}`;
 }
 
-// Academy takes priority over coach — a player's academy affiliation is the more stable,
-// organizationally meaningful identity (a coach can move between academies, or a player can be
-// reassigned to a different coach within the same academy, without the academy itself changing),
-// and not every player has one at all (an independent coach's own roster has no academy to fall
-// back to), which is exactly when the coach's name is what actually identifies them.
+// Coach takes priority over academy. Tried the reverse — academy first, coach as fallback — on
+// the reasoning that academy affiliation is the more stable identity; in practice this made the
+// Coach column (and every other place this label is shown, e.g. player-profile's own "Coach"
+// row) go blind to coach reassignment for any player who belongs to an academy, since the same
+// academy name displays no matter which coach they're actually assigned to — confirmed live: a
+// coach reassignment for a player with an academy silently stopped showing anywhere, even though
+// the underlying coach_id genuinely changed. A field literally labeled "Coach" needs to actually
+// reflect the coach; academy only stands in for a player with none at all (an independent coach's
+// own roster has no academy to fall back to).
 export function getCoachOrAcademyLabel(player: Player, coaches: Coach[], academies: Academy[]): string {
-  const academy = academies.find((a) => a.playerIds.includes(player.id));
-  if (academy) return academy.name;
   const coach = player.coachId ? coaches.find((c) => c.id === player.coachId) : undefined;
-  return coach ? coach.name : 'Unassigned';
+  if (coach) return coach.name;
+  const academy = academies.find((a) => a.playerIds.includes(player.id));
+  return academy ? academy.name : 'Unassigned';
 }
 
 /** Pricing lives on the Academy, not the Coach — a coach's fee for a session is whatever their

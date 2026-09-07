@@ -3,22 +3,22 @@ import { getCoachOrAcademyLabel } from "@/lib/utils";
 import { makePlayer, makeCoach, makeAcademy } from "../../mocks/fixtures";
 
 describe("getCoachOrAcademyLabel", () => {
-  test("prefers the academy's name when the player belongs to one, even if they also have a coach", () => {
+  test("prefers the coach's name when the player has one, even if they also belong to an academy", () => {
     const player = makePlayer({ id: "p1", coachId: "c1" });
     const coach = makeCoach({ id: "c1", name: "Coach One" });
     const academy = makeAcademy({ id: "a1", name: "Riverside Academy", playerIds: ["p1"] });
 
-    expect(getCoachOrAcademyLabel(player, [coach], [academy])).toBe("Riverside Academy");
+    expect(getCoachOrAcademyLabel(player, [coach], [academy])).toBe("Coach One");
   });
 
-  test("falls back to the coach's name when the player has no academy", () => {
-    const player = makePlayer({ id: "p1", coachId: "c1" });
-    const coach = makeCoach({ id: "c1", name: "Coach One" });
+  test("falls back to the academy's name when the player has no coach", () => {
+    const player = makePlayer({ id: "p1", coachId: "" });
+    const academy = makeAcademy({ id: "a1", name: "Riverside Academy", playerIds: ["p1"] });
 
-    expect(getCoachOrAcademyLabel(player, [coach], [])).toBe("Coach One");
+    expect(getCoachOrAcademyLabel(player, [], [academy])).toBe("Riverside Academy");
   });
 
-  test("falls back to 'Unassigned' when the player has neither an academy nor a coach", () => {
+  test("falls back to 'Unassigned' when the player has neither a coach nor an academy", () => {
     const player = makePlayer({ id: "p1", coachId: "" });
     expect(getCoachOrAcademyLabel(player, [], [])).toBe("Unassigned");
   });
