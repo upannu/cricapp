@@ -78,7 +78,7 @@ export function CoachesClient() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [payoutNotice, setPayoutNotice] = useState<"return" | "refresh" | null>(null);
+  const [payoutNotice, setPayoutNotice] = useState<"return" | "refresh" | "checking" | "confirmed" | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -139,12 +139,40 @@ export function CoachesClient() {
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Coming back from Stripe's hosted onboarding flow — strip the query param once read so
-  // refreshing the page doesn't keep re-showing the notice.
+  // refreshing the page doesn't keep re-showing the notice. Rather than just showing a "wait a
+  // few minutes" banner and hoping stripe_connect_onboarded updates on its own, actively re-check
+  // this coach's real Stripe status right now (see api/stripe/connect/check-status's own comment
+  // for why the webhook this used to depend on can never fire for this account shape) — so the
+  // banner and the row's own status reflect reality immediately instead of a wait that, for that
+  // exact reason, never actually resolved on its own.
   useEffect(() => {
     const onboarding = searchParams.get("onboarding");
     const refresh = searchParams.get("refresh");
-    if (onboarding === "return") setPayoutNotice("return");
-    else if (refresh) setPayoutNotice("refresh");
+    const returningCoachId = searchParams.get("coachId");
+    if (onboarding === "return") {
+      if (returningCoachId) {
+        setPayoutNotice("checking");
+        fetch("/api/stripe/connect/check-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ coachId: returningCoachId }),
+        })
+          .then((res) => res.json())
+          .then((data: { onboarded?: boolean }) => {
+            if (data.onboarded) {
+              setCoaches((prev) => prev.map((c) => (c.id === returningCoachId ? { ...c, stripeConnectOnboarded: true } : c)));
+              setPayoutNotice("confirmed");
+            } else {
+              setPayoutNotice("return");
+            }
+          })
+          .catch(() => setPayoutNotice("return"));
+      } else {
+        setPayoutNotice("return");
+      }
+    } else if (refresh) {
+      setPayoutNotice("refresh");
+    }
     if (onboarding || refresh) router.replace("/coaches");
   }, [searchParams, router]);
 
@@ -550,18 +578,28 @@ export function CoachesClient() {
         )}
       </div>
 
-      {/* Returning from Stripe's hosted payout onboarding */}
+      {/* Returning from Stripe's hosted payout onboarding — "confirmed" is a real, actively-checked
+          status (see the effect above), not just an optimistic guess, so it gets its own
+          success styling rather than sharing the amber "still waiting" treatment. */}
       {payoutNotice && (
-        <div className="flex items-start justify-between gap-3 bg-amber/10 border border-amber/30 rounded-xl px-4 py-3 mb-6">
-          <p className="text-sm text-amber">
-            {payoutNotice === "return"
-              ? "⏳ Payout setup submitted. It can take a few minutes for Stripe to confirm — refresh this page shortly if the coach still shows \"Onboarding incomplete.\""
-              : "Your payout setup link expired before you finished. Click \"Set up payouts\" again to continue."}
+        <div className={`flex items-start justify-between gap-3 border rounded-xl px-4 py-3 mb-6 ${
+          payoutNotice === "confirmed" ? "bg-pace-green/10 border-pace-green/30" : "bg-amber/10 border-amber/30"
+        }`}>
+          <p className={`text-sm ${payoutNotice === "confirmed" ? "text-pace-green" : "text-amber"}`}>
+            {payoutNotice === "checking"
+              ? "⏳ Checking payout setup status…"
+              : payoutNotice === "confirmed"
+                ? "✓ Payout setup complete! This coach can now receive payouts."
+                : payoutNotice === "return"
+                  ? "⏳ Stripe hasn't confirmed this account is fully set up yet. If any steps are still outstanding, click \"Set up payouts\" again to finish them."
+                  : "Your payout setup link expired before you finished. Click \"Set up payouts\" again to continue."}
           </p>
           <button
             type="button"
             onClick={() => setPayoutNotice(null)}
-            className="text-amber/70 hover:text-amber transition-colors cursor-pointer text-lg leading-none flex-shrink-0"
+            className={`transition-colors cursor-pointer text-lg leading-none flex-shrink-0 ${
+              payoutNotice === "confirmed" ? "text-pace-green/70 hover:text-pace-green" : "text-amber/70 hover:text-amber"
+            }`}
             aria-label="Dismiss"
           >
             ×
