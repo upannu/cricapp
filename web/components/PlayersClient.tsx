@@ -622,9 +622,6 @@ export function PlayersClient() {
   // `active` prop), so nothing further identifies *which* filter is applied beyond that — this
   // just clears all of them in one click, shown only when at least one actually is.
   const hasActiveFilters = statusFilter !== "All" || coachFilter !== "" || planFilter !== "" || ageGroupFilter !== "";
-  // Broader than hasActiveFilters — a text search narrows the roster exactly the same way a
-  // pill/stat-card filter does, so it counts too for "is the counter showing a subset".
-  const isFiltered = hasActiveFilters || searchTerm !== "";
 
   function clearAllFilters() {
     setStatusFilter("All");
@@ -1019,16 +1016,6 @@ export function PlayersClient() {
               Reset filters
             </button>
           )}
-          {/* Once the table's own pagination footer is showing, it already carries a "Showing X of
-              Y" — this stays only for the unpaginated case, rather than displaying two different
-              counts on the page at once. */}
-          {totalPages <= 1 && (
-            <span className="text-xs text-zinc-400 font-medium sm:ml-auto whitespace-nowrap">
-              {isFiltered
-                ? `Showing ${filteredPlayers.length} of ${players.length} player${players.length !== 1 ? "s" : ""}`
-                : `${players.length} player${players.length !== 1 ? "s" : ""}`}
-            </span>
-          )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -1065,11 +1052,14 @@ export function PlayersClient() {
             </div>
           )}
         </div>
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-zinc-700/60">
-            <p className="text-xs text-zinc-400">
-              Showing {(currentPage - 1) * PLAYERS_PER_PAGE + 1}–{Math.min(currentPage * PLAYERS_PER_PAGE, filteredPlayers.length)} of {filteredPlayers.length}
-            </p>
+        {/* Always visible — a fixed spot for the count rather than one that moves depending on
+            which filter is applied or how many rows it leaves. Prev/Next/"Page X of Y" stay
+            hidden below a single page — nothing to page through, so no controls for it. */}
+        <div className="flex items-center justify-between px-6 py-3 border-t border-zinc-700/60">
+          <p className="text-xs text-zinc-400">
+            Showing {filteredPlayers.length === 0 ? 0 : (currentPage - 1) * PLAYERS_PER_PAGE + 1}–{Math.min(currentPage * PLAYERS_PER_PAGE, filteredPlayers.length)} of {filteredPlayers.length}
+          </p>
+          {totalPages > 1 && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -1089,8 +1079,8 @@ export function PlayersClient() {
                 Next →
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
 
