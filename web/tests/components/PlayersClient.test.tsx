@@ -438,6 +438,54 @@ describe("PlayersClient", () => {
     expect(screen.queryByRole("button", { name: "Coach" })).not.toBeInTheDocument();
   });
 
+  test("the Status pill filters the same statusFilter the stat cards drive, and stays in sync with them", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", subscription: { plan: "Free", startDate: "2026-01-01", endDate: soon, sessionsUsed: 0, sessionsLimit: 4 } }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "Status" }));
+    await user.click(screen.getByRole("option", { name: "Expiring Soon" }));
+
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+    // The "Expiring Soon" stat card reflects the same statusFilter state the pill just set.
+    expect(screen.getByRole("button", { name: /Expiring Soon/ })).toHaveClass("ring-pace-green");
+  });
+
+  test("the Coach and Status column funnel icons filter using the same state as the pill row and stat cards", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", coachId: "coach-1" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", coachId: "coach-2" }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "coach-1", name: "Coach One" }),
+      makeCoach({ id: "coach-2", name: "Coach Two" }),
+    ]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "Filter by Coach" }));
+    await user.click(screen.getByRole("option", { name: "Coach One" }));
+
+    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
+    expect(screen.queryByText("Bob Seamer")).not.toBeInTheDocument();
+    // The pill-row Coach filter (a separate trigger, same underlying state) reflects it too.
+    expect(screen.getByRole("button", { name: "Coach" })).toHaveTextContent("Coach One");
+  });
+
   test("advanced filters (Academy/Age Group/Playing Level) are hidden until '+ Filters' is opened, and filter correctly", async () => {
     const user = userEvent.setup();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });

@@ -611,6 +611,12 @@ export function PlayersClient() {
   const currentPage = Math.min(page, totalPages);
   const pagePlayers = sortedPlayers.slice((currentPage - 1) * PLAYERS_PER_PAGE, currentPage * PLAYERS_PER_PAGE);
 
+  const statusFilterOptions: { value: "All" | PlayerStatus; label: string }[] = [
+    { value: "All", label: "Status" },
+    { value: "Active", label: "Active" },
+    { value: "Expiring", label: "Expiring Soon" },
+    { value: "Expired", label: "Expired" },
+  ];
   // A coach viewing their own single-coach roster has nobody else to filter by — same reasoning
   // the old "Group by" coach option used.
   const coachFilterOptions: { value: string; label: string }[] = [
@@ -1000,6 +1006,10 @@ export function PlayersClient() {
                 className={`${inputCls} pl-10`}
               />
             </div>
+            <SelectPill
+              value={statusFilter} options={statusFilterOptions} ariaLabel="Status" active={statusFilter !== "All"}
+              onChange={(v) => { setStatusFilter(v); setPage(1); }}
+            />
             {user?.role !== "coach" && (
               <SelectPill
                 value={coachFilter} options={coachFilterOptions} ariaLabel="Coach" active={coachFilter !== ""}
@@ -1059,9 +1069,25 @@ export function PlayersClient() {
                   />
                 </th>
                 <SortableHeader label="Player" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader
+                  label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort}
+                  filterSlot={user?.role !== "coach" && (
+                    <SelectPill
+                      iconOnly value={coachFilter} options={coachFilterOptions} ariaLabel="Filter by Coach"
+                      active={coachFilter !== ""} onChange={(v) => { setCoachFilter(v); setPage(1); }}
+                    />
+                  )}
+                />
                 <SortableHeader label="Plan" sortKey="plan" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader
+                  label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort}
+                  filterSlot={
+                    <SelectPill
+                      iconOnly value={statusFilter} options={statusFilterOptions} ariaLabel="Filter by Status"
+                      active={statusFilter !== "All"} onChange={(v) => { setStatusFilter(v); setPage(1); }}
+                    />
+                  }
+                />
                 <SortableHeader label="End / Renewal" sortKey="endDate" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Sessions" sortKey="sessions" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">

@@ -73,6 +73,21 @@ describe("SelectPill", () => {
     expect(trigger.className).toContain("border-pace-green/50");
   });
 
+  test("iconOnly renders a funnel glyph instead of the selected label, but still opens the same options", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<SelectPill iconOnly value="age" options={options} onChange={onChange} ariaLabel="Filter" />);
+
+    const trigger = screen.getByRole("button", { name: "Filter" });
+    // No visible option text on the trigger itself — just the funnel icon.
+    expect(trigger).not.toHaveTextContent("Age Group");
+    expect(trigger).toHaveAttribute("title", "Filter");
+
+    await user.click(trigger);
+    await user.click(screen.getByRole("option", { name: "Playing Level" }));
+    expect(onChange).toHaveBeenCalledWith("level");
+  });
+
   test("keeping only one popover open at a time across multiple instances, with no shared state", async () => {
     const user = userEvent.setup();
     render(
