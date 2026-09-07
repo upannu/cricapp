@@ -97,7 +97,7 @@ describe("SessionsClient", () => {
 
     render(<SessionsClient />);
     await screen.findByText("Showing 1–10 of 12 sessions");
-    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByText("session-0")).toBeInTheDocument();
     expect(screen.queryByText("session-11")).not.toBeInTheDocument();
 

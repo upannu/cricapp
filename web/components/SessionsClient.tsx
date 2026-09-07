@@ -20,7 +20,7 @@ import { StatCard } from "@/components/StatCard";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { aiReportsIncludedForPlayer } from "@/lib/plan-features";
 
-const SESSIONS_PER_PAGE = 10;
+const DEFAULT_SESSIONS_PER_PAGE = 10;
 
 const SESSION_TYPES: BookingType[] = [
   "Net Session",
@@ -167,6 +167,7 @@ export function SessionsClient() {
   const [typeFilter, setTypeFilter] = useState<BookingType | "all">("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [sessionsPerPage, setSessionsPerPage] = useState(DEFAULT_SESSIONS_PER_PAGE);
   const [sessionSortBy, setSessionSortBy] = useState<"dateDesc" | "dateAsc" | "speedDesc">("dateDesc");
 
   const visibleCoaches = _sessCoaches;
@@ -357,9 +358,9 @@ export function SessionsClient() {
 
   // Clamp rather than reset so a shrinking result set can never strand the view on a
   // now-nonexistent page (mirrors PlayersClient's pagination — see there for rationale).
-  const totalPages = Math.max(1, Math.ceil(filtered.length / SESSIONS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filtered.length / sessionsPerPage));
   const currentPage = Math.min(page, totalPages);
-  const pagedSessions = sortedSessions.slice((currentPage - 1) * SESSIONS_PER_PAGE, currentPage * SESSIONS_PER_PAGE);
+  const pagedSessions = sortedSessions.slice((currentPage - 1) * sessionsPerPage, currentPage * sessionsPerPage);
 
   return (
     <>
@@ -870,13 +871,14 @@ export function SessionsClient() {
         show={filtered.length > 0}
         label={
           <p className="text-xs text-zinc-500">
-            Showing {(currentPage - 1) * SESSIONS_PER_PAGE + 1}–{Math.min(currentPage * SESSIONS_PER_PAGE, filtered.length)} of {filtered.length} sessions
+            Showing {(currentPage - 1) * sessionsPerPage + 1}–{Math.min(currentPage * sessionsPerPage, filtered.length)} of {filtered.length} sessions
           </p>
         }
         page={currentPage}
         totalPages={totalPages}
-        onPrev={() => setPage((p) => Math.max(1, p - 1))}
-        onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+        onPageChange={setPage}
+        itemsPerPage={sessionsPerPage}
+        onItemsPerPageChange={(n) => { setSessionsPerPage(n); setPage(1); }}
         className="mt-6"
       />
     </div>

@@ -151,7 +151,7 @@ describe("PlayersClient", () => {
     // Page 1: first 10 only.
     expect(screen.getByText("Player 10")).toBeInTheDocument();
     expect(screen.queryByText("Player 11")).not.toBeInTheDocument();
-    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("button", { name: "← Prev" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "Next →" }));
@@ -714,7 +714,7 @@ describe("PlayersClient", () => {
     // The player's current coach isn't offered as a target — reassigning to the same coach is a no-op.
     expect(screen.queryByRole("option", { name: "Coach One" })).not.toBeInTheDocument();
 
-    await user.selectOptions(screen.getByRole("combobox"), "Coach Two");
+    await user.selectOptions(screen.getByRole("combobox", { name: "New coach" }), "Coach Two");
     await user.click(screen.getByRole("button", { name: "Reassign" }));
 
     expect(updatePlayer).toHaveBeenCalledWith("p1", { coach_id: "coach-2" });
@@ -787,7 +787,7 @@ describe("PlayersClient", () => {
     await user.click(screen.getByRole("button", { name: "Reassign Coach" }));
 
     expect(screen.getByText("Reassign Coach?")).toBeInTheDocument();
-    await user.selectOptions(screen.getByRole("combobox"), "Coach Two");
+    await user.selectOptions(screen.getByRole("combobox", { name: "New coach" }), "Coach Two");
     await user.click(screen.getByRole("button", { name: "Reassign" }));
 
     expect(updatePlayer).toHaveBeenCalledWith("p1", { coach_id: "coach-2" });
@@ -828,7 +828,7 @@ describe("PlayersClient", () => {
     await user.click(screen.getByRole("button", { name: "Assign Academy" }));
 
     expect(screen.getByText("Assign Academy?")).toBeInTheDocument();
-    await user.selectOptions(screen.getByRole("combobox"), "New Academy");
+    await user.selectOptions(screen.getByRole("combobox", { name: "Academy" }), "New Academy");
     await user.click(screen.getByRole("button", { name: "Assign" }));
 
     await waitFor(() => expect(updateAcademyFields).toHaveBeenCalledWith("academy-new", { player_ids: ["p1"], player_counts: { U14: 1 } }));

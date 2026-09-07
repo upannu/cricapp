@@ -28,7 +28,7 @@ const BOWLING_STYLES: BowlingStyle[] = [
   "Left Arm Fast-Medium", "Right Arm Medium", "Left Arm Medium",
 ];
 const EMPTY_NEW_PLAYER = { name: "", email: "", ageGroup: "U14" as AgeGroup, bowlingStyle: "Right Arm Fast" as BowlingStyle, club: "" };
-const PLAYERS_PER_PAGE = 10;
+const DEFAULT_PLAYERS_PER_PAGE = 10;
 const NO_COACH_LABEL = "No Coach Assigned";
 // Same soft-delete mechanism the payment-lockout cron already uses on this same field — a
 // distinct reason string (rather than a second boolean) is what keeps a staff removal from being
@@ -104,6 +104,7 @@ export function PlayersClient() {
   const [savingPlayer, setSavingPlayer] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [page, setPage] = useState(1);
+  const [playersPerPage, setPlayersPerPage] = useState(DEFAULT_PLAYERS_PER_PAGE);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | PlayerStatus>("All");
   const [coachFilter, setCoachFilter] = useState(""); // "" = All, "__unassigned__" = no coach
@@ -596,9 +597,9 @@ export function PlayersClient() {
   // the table itself (count, rows, pagination, select-all) reflects the filtered/searched list.
   // Clamp rather than reset so a shrinking result set (or just switching between coaches while
   // testing) can never strand the view on a now-nonexistent page.
-  const totalPages = Math.max(1, Math.ceil(filteredPlayers.length / PLAYERS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredPlayers.length / playersPerPage));
   const currentPage = Math.min(page, totalPages);
-  const pagePlayers = sortedPlayers.slice((currentPage - 1) * PLAYERS_PER_PAGE, currentPage * PLAYERS_PER_PAGE);
+  const pagePlayers = sortedPlayers.slice((currentPage - 1) * playersPerPage, currentPage * playersPerPage);
 
   // A coach viewing their own single-coach roster has nobody else to filter by — same reasoning
   // the old "Group by" coach option used.
@@ -1056,13 +1057,14 @@ export function PlayersClient() {
         <PaginationFooter
           label={
             <p className="text-xs text-zinc-400">
-              Showing {filteredPlayers.length === 0 ? 0 : (currentPage - 1) * PLAYERS_PER_PAGE + 1}–{Math.min(currentPage * PLAYERS_PER_PAGE, filteredPlayers.length)} of {filteredPlayers.length}
+              Showing {filteredPlayers.length === 0 ? 0 : (currentPage - 1) * playersPerPage + 1}–{Math.min(currentPage * playersPerPage, filteredPlayers.length)} of {filteredPlayers.length}
             </p>
           }
           page={currentPage}
           totalPages={totalPages}
-          onPrev={() => setPage((p) => Math.max(1, p - 1))}
-          onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+          onPageChange={setPage}
+          itemsPerPage={playersPerPage}
+          onItemsPerPageChange={(n) => { setPlayersPerPage(n); setPage(1); }}
           className="px-6 py-3 border-t border-zinc-700/60"
         />
       </div>
@@ -1104,6 +1106,7 @@ export function PlayersClient() {
           value={reassignToCoachId}
           onChange={(e) => setReassignToCoachId(e.target.value)}
           className={selectCls}
+          aria-label="New coach"
         >
           <option value="">— No Coach Assigned —</option>
           {coaches.filter((c) => c.id !== reassignTarget.currentCoachId).map((c) => (
@@ -1162,6 +1165,7 @@ export function PlayersClient() {
           value={bulkReassignToCoachId}
           onChange={(e) => setBulkReassignToCoachId(e.target.value)}
           className={selectCls}
+          aria-label="New coach"
         >
           <option value="">— No Coach Assigned —</option>
           {coaches.map((c) => (
@@ -1187,6 +1191,7 @@ export function PlayersClient() {
           value={bulkAssignAcademyId}
           onChange={(e) => setBulkAssignAcademyId(e.target.value)}
           className={selectCls}
+          aria-label="Academy"
         >
           <option value="">— Pick an academy —</option>
           {academies.map((a) => (
