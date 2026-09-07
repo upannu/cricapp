@@ -63,6 +63,31 @@ describe("SelectPill", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  test("active highlights the closed trigger as having a filter applied, separately from the open state", () => {
+    const { rerender } = render(<SelectPill value="none" options={options} onChange={() => {}} ariaLabel="Group by" />);
+    const trigger = screen.getByRole("button", { name: "Group by" });
+    // Not selected, not applied — the plain default styling.
+    expect(trigger.className).not.toContain("border-pace-green");
+
+    rerender(<SelectPill value="age" options={options} onChange={() => {}} ariaLabel="Group by" active />);
+    expect(trigger.className).toContain("border-pace-green/50");
+  });
+
+  test("iconOnly renders a funnel glyph instead of the selected label, but still opens the same options", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<SelectPill iconOnly value="age" options={options} onChange={onChange} ariaLabel="Filter" />);
+
+    const trigger = screen.getByRole("button", { name: "Filter" });
+    // No visible option text on the trigger itself — just the funnel icon.
+    expect(trigger).not.toHaveTextContent("Age Group");
+    expect(trigger).toHaveAttribute("title", "Filter");
+
+    await user.click(trigger);
+    await user.click(screen.getByRole("option", { name: "Playing Level" }));
+    expect(onChange).toHaveBeenCalledWith("level");
+  });
+
   test("keeping only one popover open at a time across multiple instances, with no shared state", async () => {
     const user = userEvent.setup();
     render(

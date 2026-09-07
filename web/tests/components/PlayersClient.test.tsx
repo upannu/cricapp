@@ -367,102 +367,149 @@ describe("PlayersClient", () => {
     expect(await screen.findByText("No players in your scope.")).toBeInTheDocument();
   });
 
-  test("groups players by academy, with an 'Unassigned' section for those on no academy roster", async () => {
+  test("filters players by coach, and resetting to the default option clears it", async () => {
     const user = userEvent.setup();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
     fetchPlayers.mockResolvedValue([
-      makePlayer({ id: "p1", name: "Alice Bowler" }),
-      makePlayer({ id: "p2", name: "Bob Seamer" }),
-      makePlayer({ id: "p3", name: "Cara Spinner" }),
+      makePlayer({ id: "p1", name: "Alice Bowler", coachId: "coach-1" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", coachId: "coach-2" }),
+      makePlayer({ id: "p3", name: "Cara Spinner", coachId: "" }),
     ]);
-    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", playerIds: ["p1", "p2"] })]);
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "coach-1", name: "Coach One" }),
+      makeCoach({ id: "coach-2", name: "Coach Two" }),
+    ]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "Coach" }));
+    await user.click(screen.getByRole("option", { name: "Coach One" }));
+    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
+    expect(screen.queryByText("Bob Seamer")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cara Spinner")).not.toBeInTheDocument();
+
+    // The unassigned bucket is its own explicit option, not folded into "All". The trigger's
+    // accessible name is always the fixed "Coach" (its aria-label), regardless of what's
+    // currently selected — same convention as every other SelectPill in this app.
+    await user.click(screen.getByRole("button", { name: "Coach" }));
+    await user.click(screen.getByRole("option", { name: "No Coach Assigned" }));
+    expect(screen.getByText("Cara Spinner")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+
+    // Resetting back to the default "Coach" option clears the filter entirely.
+    await user.click(screen.getByRole("button", { name: "Coach" }));
+    await user.click(screen.getByRole("option", { name: "Coach" }));
+    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.getByText("Cara Spinner")).toBeInTheDocument();
+  });
+
+  test("filters players by plan", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", subscription: { plan: "Free", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 0, sessionsLimit: 4 } }),
+      makePlayer({ id: "p2", name: "Bob Seamer", subscription: { plan: "Player Pro", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 0, sessionsLimit: null } }),
+    ]);
+    fetchAcademies.mockResolvedValue([]);
     fetchCoaches.mockResolvedValue([]);
 
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByRole("button", { name: "Group by" }));
-    await user.click(screen.getByRole("option", { name: "Academy" }));
+    await user.click(screen.getByRole("button", { name: "Plan" }));
+    await user.click(screen.getByRole("option", { name: "Player Pro" }));
 
-    // One "Riverside Academy" (2)-count group header, plus another for the 1 player on no
-    // academy roster — a coach-less player's own Coach column also reads the academy/"Unassigned"
-    // fallback, so these group headers aren't the only place either string appears on the page.
-    expect(await screen.findByText("(2)")).toBeInTheDocument();
-    expect(screen.getByText("(1)")).toBeInTheDocument();
-    expect(screen.getAllByText("Riverside Academy").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Unassigned").length).toBeGreaterThan(0);
-    // Both group sections' rows still render, no pagination gating a grouped view.
-    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
-    expect(screen.getByText("Cara Spinner")).toBeInTheDocument();
-    expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
   });
 
-  test("doesn't offer Academy/Coach grouping to a coach viewing their own single-coach roster", async () => {
-    const user = userEvent.setup();
+  test("doesn't offer a Coach filter to a coach viewing their own single-coach roster", async () => {
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "coach-1" }) });
     fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
     fetchAcademies.mockResolvedValue([]);
-    fetchCoaches.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "coach-1", name: "Coach One" })]);
 
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByRole("button", { name: "Group by" }));
-    const options = screen.getAllByRole("option").map((o) => o.textContent);
-    // "Group by" itself is the currently-selected (default, ungrouped) option, hence its own ✓.
-    expect(options).toEqual(["Group by✓", "Age Group", "Playing Level"]);
+    expect(screen.queryByRole("button", { name: "Coach" })).not.toBeInTheDocument();
   });
 
-  test("collapsing a group hides its rows without losing their selection", async () => {
+  test("the Status pill filters the same statusFilter the stat cards drive, and stays in sync with them", async () => {
     const user = userEvent.setup();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    const soon = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
     fetchPlayers.mockResolvedValue([
-      makePlayer({ id: "p1", name: "Alice Bowler", ageGroup: "U14" }),
-      makePlayer({ id: "p2", name: "Bob Seamer", ageGroup: "U16" }),
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", subscription: { plan: "Free", startDate: "2026-01-01", endDate: soon, sessionsUsed: 0, sessionsLimit: 4 } }),
     ]);
     fetchAcademies.mockResolvedValue([]);
     fetchCoaches.mockResolvedValue([]);
 
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
-    await user.click(screen.getByRole("button", { name: "Group by" }));
-    await user.click(screen.getByRole("option", { name: "Age Group" }));
-    await screen.findByText("U14");
 
-    // Alice's row (U14, listed first) — the group header's own checkbox shares no accessible
-    // name with this one, so index 0 here is unambiguously her row's own selection box.
-    await user.click(screen.getAllByRole("checkbox", { name: "Select for bulk message" })[0]);
-    await user.click(screen.getByText("U14")); // collapse the group Alice is in
+    await user.click(screen.getByRole("button", { name: "Status" }));
+    await user.click(screen.getByRole("option", { name: "Expiring Soon" }));
 
-    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
-
-    await user.click(screen.getByText("U14")); // expand again
-    expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
-    // Selection made before collapsing is still in effect.
-    expect(screen.getAllByRole("checkbox", { name: "Select for bulk message" })[0]).toBeChecked();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+    // The "Expiring Soon" stat card reflects the same statusFilter state the pill just set.
+    expect(screen.getByRole("button", { name: /Expiring Soon/ })).toHaveClass("ring-pace-green");
   });
 
-  test("a group's 'Select all' checkbox only selects players within that group", async () => {
+  test("the Coach and Status column funnel icons filter using the same state as the pill row and stat cards", async () => {
     const user = userEvent.setup();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
     fetchPlayers.mockResolvedValue([
-      makePlayer({ id: "p1", name: "Alice Bowler", ageGroup: "U14" }),
-      makePlayer({ id: "p2", name: "Bob Seamer", ageGroup: "U14" }),
-      makePlayer({ id: "p3", name: "Cara Spinner", ageGroup: "U16" }),
+      makePlayer({ id: "p1", name: "Alice Bowler", coachId: "coach-1" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", coachId: "coach-2" }),
     ]);
     fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "coach-1", name: "Coach One" }),
+      makeCoach({ id: "coach-2", name: "Coach Two" }),
+    ]);
+
+    render(<PlayersClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "Filter by Coach" }));
+    await user.click(screen.getByRole("option", { name: "Coach One" }));
+
+    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
+    expect(screen.queryByText("Bob Seamer")).not.toBeInTheDocument();
+    // The pill-row Coach filter (a separate trigger, same underlying state) reflects it too.
+    expect(screen.getByRole("button", { name: "Coach" })).toHaveTextContent("Coach One");
+  });
+
+  test("advanced filters (Academy/Age Group/Playing Level) are hidden until '+ Filters' is opened, and filter correctly", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler", ageGroup: "U14", playingLevel: "Club" }),
+      makePlayer({ id: "p2", name: "Bob Seamer", ageGroup: "U16", playingLevel: "State" }),
+    ]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", playerIds: ["p1"] })]);
     fetchCoaches.mockResolvedValue([]);
 
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
-    await user.click(screen.getByRole("button", { name: "Group by" }));
-    await user.click(screen.getByRole("option", { name: "Age Group" }));
-    await screen.findByText("U14");
 
-    await user.click(screen.getAllByLabelText("Select all")[0]); // the U14 group's header checkbox
+    expect(screen.queryByRole("button", { name: "Academy" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Age Group" })).not.toBeInTheDocument();
 
-    expect(screen.getByText("2 players selected")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "+ Filters" }));
+    expect(screen.getByRole("button", { name: "Academy" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Playing Level" }));
+    await user.click(screen.getByRole("option", { name: "State" }));
+
+    expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
   });
 
   test("clicking a column header sorts the table by that column, and clicking it again reverses the order", async () => {

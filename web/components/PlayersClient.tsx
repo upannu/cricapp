@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect } from "react";
 import Papa from "papaparse";
 import { useAuth } from "@/lib/auth";
 import { fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, insertPlayer, insertPlayers, updateAcademyFields, updatePlayer } from "@/lib/db";
 import { formatDate, getPlayerStatus, getInitials, getCoachOrAcademyLabel, isValidEmail } from "@/lib/utils";
-import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, PlayingLevel, Plan } from "@/lib/types";
+import type { Academy, AgeGroup, BowlingStyle, Coach, Player, PlayerStatus, PlayingLevel, Plan, PlanTier } from "@/lib/types";
 import { MessageModal } from "@/components/MessageModal";
 import { BulkMessageModal } from "@/components/BulkMessageModal";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
@@ -37,19 +37,6 @@ const UNASSIGNED_ACADEMY_LABEL = "Unassigned";
 // "🔒 Login locked" badge).
 const PLAYER_REMOVED_REASON = "Removed by staff";
 
-// A large roster is easier to scan sectioned than as one long flat list — "None" keeps today's
-// plain paginated table; each other option buckets filteredPlayers into named, orderable groups.
-// "academy"/"coach" are only offered when they'd actually vary (see groupByOptions below) — an
-// academy_admin's own roster is all one academy, and a coach's own roster is all one coach, so
-// grouping by either would always produce a single group.
-type GroupByOption = "none" | "academy" | "coach" | "ageGroup" | "playingLevel";
-
-interface PlayerGroup {
-  key: string;
-  label: string;
-  players: Player[];
-}
-
 type PlayerSortKey = "name" | "coach" | "plan" | "status" | "endDate" | "sessions";
 
 function comparePlayers(a: Player, b: Player, sortKey: PlayerSortKey, coaches: Coach[], academies: Academy[]): number {
@@ -66,42 +53,6 @@ function comparePlayers(a: Player, b: Player, sortKey: PlayerSortKey, coaches: C
 function coachNameForPlayer(player: Player, coaches: Coach[]): string {
   const coach = player.coachId ? coaches.find((c) => c.id === player.coachId) : undefined;
   return coach ? coach.name : NO_COACH_LABEL;
-}
-
-function academyNameForPlayer(player: Player, academies: Academy[]): string {
-  const academy = academies.find((a) => a.playerIds.includes(player.id));
-  return academy ? academy.name : UNASSIGNED_ACADEMY_LABEL;
-}
-
-function groupPlayers(list: Player[], groupBy: GroupByOption, coaches: Coach[], academies: Academy[]): PlayerGroup[] {
-  if (groupBy === "none") return [{ key: "all", label: "", players: list }];
-
-  const keyFn: (p: Player) => string =
-    groupBy === "ageGroup" ? (p) => p.ageGroup :
-    groupBy === "playingLevel" ? (p) => p.playingLevel :
-    groupBy === "coach" ? (p) => coachNameForPlayer(p, coaches) :
-    (p) => academyNameForPlayer(p, academies);
-
-  const buckets = new Map<string, Player[]>();
-  for (const p of list) {
-    const key = keyFn(p);
-    const bucket = buckets.get(key);
-    if (bucket) bucket.push(p);
-    else buckets.set(key, [p]);
-  }
-
-  let orderedKeys: string[];
-  if (groupBy === "ageGroup") orderedKeys = AGE_GROUPS.filter((g) => buckets.has(g));
-  else if (groupBy === "playingLevel") orderedKeys = PLAYING_LEVELS.filter((g) => buckets.has(g));
-  else {
-    // Alphabetical, but the "nobody's assigned this" bucket always reads last rather than
-    // wherever it happens to sort — it's the exception case, not a normal group.
-    const fallback = groupBy === "coach" ? NO_COACH_LABEL : UNASSIGNED_ACADEMY_LABEL;
-    orderedKeys = [...buckets.keys()].filter((k) => k !== fallback).sort((a, b) => a.localeCompare(b));
-    if (buckets.has(fallback)) orderedKeys.push(fallback);
-  }
-
-  return orderedKeys.map((key) => ({ key, label: key, players: buckets.get(key)! }));
 }
 
 // CSV import — same shape/behavior as AcademyClient's own (not shared as a module yet; ported
@@ -156,9 +107,13 @@ export function PlayersClient() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [groupBy, setGroupBy] = useState<GroupByOption>("none");
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<"All" | PlayerStatus>("All");
+  const [coachFilter, setCoachFilter] = useState(""); // "" = All, "__unassigned__" = no coach
+  const [planFilter, setPlanFilter] = useState<PlanTier | "">("");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [academyFilter, setAcademyFilter] = useState(""); // "" = All, "__unassigned__" = no academy
+  const [ageGroupFilter, setAgeGroupFilter] = useState<AgeGroup | "">("");
+  const [playingLevelFilter, setPlayingLevelFilter] = useState<PlayingLevel | "">("");
   const { sortKey, sortDir, handleSort } = useSort<PlayerSortKey>("name");
   const [assignAcademyId, setAssignAcademyId] = useState(""); // platform_admin only — "" = unassigned
   const [showCsvImport, setShowCsvImport] = useState(false);
@@ -474,9 +429,21 @@ export function PlayersClient() {
         p.club.toLowerCase().includes(searchTerm)
       )
     : players;
-  const filteredPlayers = statusFilter === "All"
-    ? searchedPlayers
-    : searchedPlayers.filter((p) => getPlayerStatus(p.subscription.endDate) === statusFilter);
+  const filteredPlayers = searchedPlayers
+    .filter((p) => statusFilter === "All" || getPlayerStatus(p.subscription.endDate) === statusFilter)
+    .filter((p) => {
+      if (!coachFilter) return true;
+      if (coachFilter === "__unassigned__") return !p.coachId;
+      return p.coachId === coachFilter;
+    })
+    .filter((p) => !planFilter || p.subscription.plan === planFilter)
+    .filter((p) => {
+      if (!academyFilter) return true;
+      if (academyFilter === "__unassigned__") return !academies.some((a) => a.playerIds.includes(p.id));
+      return academies.find((a) => a.id === academyFilter)?.playerIds.includes(p.id) ?? false;
+    })
+    .filter((p) => !ageGroupFilter || p.ageGroup === ageGroupFilter)
+    .filter((p) => !playingLevelFilter || p.playingLevel === playingLevelFilter);
   const sortedPlayers = [...filteredPlayers].sort((a, b) => {
     const cmp = comparePlayers(a, b, sortKey, coaches, academies);
     return sortDir === "asc" ? cmp : -cmp;
@@ -634,29 +601,6 @@ export function PlayersClient() {
     setSelectedIds(new Set());
   }
 
-  function toggleGroupSelection(groupPlayerList: Player[]) {
-    const allSelectedInGroup = groupPlayerList.length > 0 && groupPlayerList.every((p) => selectedIds.has(p.id));
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      groupPlayerList.forEach((p) => (allSelectedInGroup ? next.delete(p.id) : next.add(p.id)));
-      return next;
-    });
-  }
-
-  function toggleGroupCollapsed(key: string) {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }
-
-  function handleGroupByChange(value: GroupByOption) {
-    setGroupBy(value);
-    setCollapsedGroups(new Set()); // stale keys from the previous grouping don't carry any meaning here
-  }
-
   const selectedPlayers = players.filter((p) => selectedIds.has(p.id));
 
   // The stats cards above the table still summarize the whole roster regardless of search — only
@@ -667,18 +611,40 @@ export function PlayersClient() {
   const currentPage = Math.min(page, totalPages);
   const pagePlayers = sortedPlayers.slice((currentPage - 1) * PLAYERS_PER_PAGE, currentPage * PLAYERS_PER_PAGE);
 
-  // Academy/Coach are only offered when a caller's own roster could actually span more than one —
-  // an academy_admin only ever sees their own academy, and a coach (this page's own fetch is
-  // already scoped to just them) only ever sees themselves, so either would always render as one
-  // group with nothing gained by grouping.
-  const groupByOptions: { value: GroupByOption; label: string }[] = [
-    { value: "none", label: "Group by" },
-    ...(user?.role === "platform_admin" ? [{ value: "academy" as const, label: "Academy" }] : []),
-    ...(user?.role !== "coach" ? [{ value: "coach" as const, label: "Coach" }] : []),
-    { value: "ageGroup", label: "Age Group" },
-    { value: "playingLevel", label: "Playing Level" },
+  const statusFilterOptions: { value: "All" | PlayerStatus; label: string }[] = [
+    { value: "All", label: "Status" },
+    { value: "Active", label: "Active" },
+    { value: "Expiring", label: "Expiring Soon" },
+    { value: "Expired", label: "Expired" },
   ];
-  const groups = groupBy === "none" ? [] : groupPlayers(sortedPlayers, groupBy, coaches, academies);
+  // A coach viewing their own single-coach roster has nobody else to filter by — same reasoning
+  // the old "Group by" coach option used.
+  const coachFilterOptions: { value: string; label: string }[] = [
+    { value: "", label: "Coach" },
+    ...[...coaches].sort((a, b) => a.name.localeCompare(b.name)).map((c) => ({ value: c.id, label: c.name })),
+    { value: "__unassigned__", label: NO_COACH_LABEL },
+  ];
+  const planFilterOptions: { value: PlanTier | ""; label: string }[] = [
+    { value: "", label: "Plan" },
+    { value: "Free", label: "Free" },
+    { value: "Player Pro", label: "Player Pro" },
+    { value: "Coach Pro", label: "Coach Pro" },
+  ];
+  // Academy is platform_admin-only for the same reason as the old "Group by" academy option — an
+  // academy_admin's own roster is all one academy already.
+  const academyFilterOptions: { value: string; label: string }[] = [
+    { value: "", label: "Academy" },
+    ...[...academies].sort((a, b) => a.name.localeCompare(b.name)).map((a) => ({ value: a.id, label: a.name })),
+    { value: "__unassigned__", label: UNASSIGNED_ACADEMY_LABEL },
+  ];
+  const ageGroupFilterOptions: { value: AgeGroup | ""; label: string }[] = [
+    { value: "", label: "Age Group" },
+    ...AGE_GROUPS.map((g) => ({ value: g, label: g })),
+  ];
+  const playingLevelFilterOptions: { value: PlayingLevel | ""; label: string }[] = [
+    { value: "", label: "Playing Level" },
+    ...PLAYING_LEVELS.map((l) => ({ value: l, label: l })),
+  ];
 
   function renderPlayerRow(player: Player) {
     const status = getPlayerStatus(player.subscription.endDate);
@@ -776,41 +742,6 @@ export function PlayersClient() {
               onClick: () => setRemoveTarget({ playerId: player.id, playerName: player.name }),
             }] : []),
           ]} />
-        </td>
-      </tr>
-    );
-  }
-
-  function renderGroupHeaderRow(group: PlayerGroup) {
-    const isCollapsed = collapsedGroups.has(group.key);
-    const allSelectedInGroup = group.players.length > 0 && group.players.every((p) => selectedIds.has(p.id));
-    const someSelectedInGroup = group.players.some((p) => selectedIds.has(p.id)) && !allSelectedInGroup;
-    return (
-      <tr key={`group-${group.key}`} className="border-b border-zinc-700/40 bg-ink/60">
-        <td colSpan={10} className="px-4 py-2.5">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => toggleGroupCollapsed(group.key)}
-              className="flex items-center gap-2 text-sm font-semibold text-white cursor-pointer flex-1 text-left"
-            >
-              <span className={`text-zinc-400 text-xs transition-transform duration-200 ${isCollapsed ? "" : "rotate-180"}`}>
-                ▾
-              </span>
-              {group.label}
-              <span className="text-zinc-500 font-normal">({group.players.length})</span>
-            </button>
-            <label className="flex items-center gap-1.5 text-xs text-zinc-400 cursor-pointer flex-shrink-0">
-              Select all
-              <input
-                type="checkbox"
-                checked={allSelectedInGroup}
-                ref={(el) => { if (el) el.indeterminate = someSelectedInGroup; }}
-                onChange={() => toggleGroupSelection(group.players)}
-                className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
-              />
-            </label>
-          </div>
         </td>
       </tr>
     );
@@ -1061,23 +992,67 @@ export function PlayersClient() {
 
       {/* Table */}
       <div className="bg-surface rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="relative max-w-md w-full">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder="Search players by name, email, or club…"
-              className={`${inputCls} pl-10`}
+        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+            <div className="relative max-w-md w-full">
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search players by name, email, or club…"
+                className={`${inputCls} pl-10`}
+              />
+            </div>
+            <SelectPill
+              value={statusFilter} options={statusFilterOptions} ariaLabel="Status" active={statusFilter !== "All"}
+              onChange={(v) => { setStatusFilter(v); setPage(1); }}
             />
+            {user?.role !== "coach" && (
+              <SelectPill
+                value={coachFilter} options={coachFilterOptions} ariaLabel="Coach" active={coachFilter !== ""}
+                onChange={(v) => { setCoachFilter(v); setPage(1); }}
+              />
+            )}
+            <SelectPill
+              value={planFilter} options={planFilterOptions} ariaLabel="Plan" active={planFilter !== ""}
+              onChange={(v) => { setPlanFilter(v); setPage(1); }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters((v) => !v)}
+              className={`flex items-center gap-1.5 px-4 py-3 rounded-xl text-sm font-medium border transition-colors cursor-pointer whitespace-nowrap ${
+                showAdvancedFilters || academyFilter || ageGroupFilter || playingLevelFilter
+                  ? "border-pace-green/50 bg-pace-green/10 text-pace-green"
+                  : "border-zinc-700 text-zinc-300 bg-ink hover:border-zinc-500"
+              }`}
+            >
+              {showAdvancedFilters ? "− Filters" : "+ Filters"}
+            </button>
+            <span className="text-xs text-zinc-400 font-medium sm:ml-auto whitespace-nowrap">
+              Showing {filteredPlayers.length} player{filteredPlayers.length !== 1 ? "s" : ""}
+            </span>
           </div>
-          <SelectPill value={groupBy} options={groupByOptions} onChange={handleGroupByChange} ariaLabel="Group by" />
-          <span className="text-xs text-zinc-400 font-medium sm:ml-auto whitespace-nowrap">
-            Showing {filteredPlayers.length} player{filteredPlayers.length !== 1 ? "s" : ""}
-          </span>
+          {showAdvancedFilters && (
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 pt-3 border-t border-zinc-700/60">
+              {user?.role === "platform_admin" && (
+                <SelectPill
+                  value={academyFilter} options={academyFilterOptions} ariaLabel="Academy" active={academyFilter !== ""}
+                  onChange={(v) => { setAcademyFilter(v); setPage(1); }}
+                />
+              )}
+              <SelectPill
+                value={ageGroupFilter} options={ageGroupFilterOptions} ariaLabel="Age Group" active={ageGroupFilter !== ""}
+                onChange={(v) => { setAgeGroupFilter(v); setPage(1); }}
+              />
+              <SelectPill
+                value={playingLevelFilter} options={playingLevelFilterOptions} ariaLabel="Playing Level" active={playingLevelFilter !== ""}
+                onChange={(v) => { setPlayingLevelFilter(v); setPage(1); }}
+              />
+            </div>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -1094,9 +1069,25 @@ export function PlayersClient() {
                   />
                 </th>
                 <SortableHeader label="Player" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader
+                  label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort}
+                  filterSlot={user?.role !== "coach" && (
+                    <SelectPill
+                      iconOnly value={coachFilter} options={coachFilterOptions} ariaLabel="Filter by Coach"
+                      active={coachFilter !== ""} onChange={(v) => { setCoachFilter(v); setPage(1); }}
+                    />
+                  )}
+                />
                 <SortableHeader label="Plan" sortKey="plan" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader
+                  label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort}
+                  filterSlot={
+                    <SelectPill
+                      iconOnly value={statusFilter} options={statusFilterOptions} ariaLabel="Filter by Status"
+                      active={statusFilter !== "All"} onChange={(v) => { setStatusFilter(v); setPage(1); }}
+                    />
+                  }
+                />
                 <SortableHeader label="End / Renewal" sortKey="endDate" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Sessions" sortKey="sessions" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">
@@ -1105,14 +1096,7 @@ export function PlayersClient() {
               </tr>
             </thead>
             <tbody>
-              {groupBy === "none"
-                ? pagePlayers.map((player) => renderPlayerRow(player))
-                : groups.map((group) => (
-                    <Fragment key={group.key}>
-                      {renderGroupHeaderRow(group)}
-                      {!collapsedGroups.has(group.key) && group.players.map((player) => renderPlayerRow(player))}
-                    </Fragment>
-                  ))}
+              {pagePlayers.map((player) => renderPlayerRow(player))}
             </tbody>
           </table>
           {filteredPlayers.length === 0 && (
@@ -1121,7 +1105,7 @@ export function PlayersClient() {
             </div>
           )}
         </div>
-        {groupBy === "none" && totalPages > 1 && (
+        {totalPages > 1 && (
           <div className="flex items-center justify-between px-6 py-3 border-t border-zinc-700/60">
             <p className="text-xs text-zinc-400">
               Showing {(currentPage - 1) * PLAYERS_PER_PAGE + 1}–{Math.min(currentPage * PLAYERS_PER_PAGE, filteredPlayers.length)} of {filteredPlayers.length}
