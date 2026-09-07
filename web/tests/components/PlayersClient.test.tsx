@@ -54,7 +54,7 @@ describe("PlayersClient", () => {
 
     expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.getByText("Bob Bowler")).toBeInTheDocument();
-    expect(screen.getByText("2 players")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–2 of 2")).toBeInTheDocument();
     expect(screen.getByText("Total Players")).toBeInTheDocument();
     // No visible "Select"/"Msg/Sms" label on the header checkbox — just the checkbox itself,
     // findable by its own title, same as every row's own selection checkbox.
@@ -111,18 +111,18 @@ describe("PlayersClient", () => {
 
     render(<PlayersClient />);
     await screen.findByText("Alice Bowler");
-    expect(screen.getByText("3 players")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–3 of 3")).toBeInTheDocument();
 
     // Match by name.
     await user.type(screen.getByPlaceholderText(/Search players/), "bob");
-    expect(await screen.findByText("Showing 1 of 3 players")).toBeInTheDocument();
+    expect(await screen.findByText("Showing 1–1 of 1")).toBeInTheDocument();
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
 
     // Match by email domain — case-insensitive, and matches a player whose name doesn't contain it.
     await user.clear(screen.getByPlaceholderText(/Search players/));
     await user.type(screen.getByPlaceholderText(/Search players/), "RIVERSIDE");
-    expect(await screen.findByText("Showing 2 of 3 players")).toBeInTheDocument();
+    expect(await screen.findByText("Showing 1–2 of 2")).toBeInTheDocument();
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.getByText("Cara Spinner")).toBeInTheDocument();
 
@@ -144,10 +144,8 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Player 01");
 
-    // The top counter (whole-roster count) and the footer's own page-slice count both stay
-    // visible at once — different scopes, not a duplicate — rather than the top one's position
-    // jumping between the header and footer depending on how many rows a filter happens to leave.
-    expect(screen.getByText("12 players")).toBeInTheDocument();
+    // A single count, always in the same spot at the foot of the table — not one whose position
+    // jumps between a header line and the footer depending on how many rows a filter leaves.
     expect(screen.getByText("Showing 1–10 of 12")).toBeInTheDocument();
 
     // Page 1: first 10 only.
@@ -186,7 +184,7 @@ describe("PlayersClient", () => {
     // Narrowing to a single match while on page 2 must not leave the view on a page 2 that no
     // longer exists for the filtered set.
     await user.type(screen.getByPlaceholderText(/Search players/), "Zara");
-    expect(await screen.findByText("Showing 1 of 12 players")).toBeInTheDocument();
+    expect(await screen.findByText("Showing 1–1 of 1")).toBeInTheDocument();
     expect(screen.getByText("Zara Unique")).toBeInTheDocument();
     expect(screen.queryByText(/Page \d+ of \d+/)).not.toBeInTheDocument();
   });
