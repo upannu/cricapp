@@ -144,9 +144,10 @@ describe("PlayersClient", () => {
     render(<PlayersClient />);
     await screen.findByText("Player 01");
 
-    // With more than one page, the top counter steps aside for the pagination footer's own
-    // "Showing X–Y of Z" — showing two different counts on the page at once would be confusing.
-    expect(screen.queryByText("12 players")).not.toBeInTheDocument();
+    // The top counter (whole-roster count) and the footer's own page-slice count both stay
+    // visible at once — different scopes, not a duplicate — rather than the top one's position
+    // jumping between the header and footer depending on how many rows a filter happens to leave.
+    expect(screen.getByText("12 players")).toBeInTheDocument();
     expect(screen.getByText("Showing 1–10 of 12")).toBeInTheDocument();
 
     // Page 1: first 10 only.

@@ -1019,16 +1019,16 @@ export function PlayersClient() {
               Reset filters
             </button>
           )}
-          {/* Once the table's own pagination footer is showing, it already carries a "Showing X of
-              Y" — this stays only for the unpaginated case, rather than displaying two different
-              counts on the page at once. */}
-          {totalPages <= 1 && (
-            <span className="text-xs text-zinc-400 font-medium sm:ml-auto whitespace-nowrap">
-              {isFiltered
-                ? `Showing ${filteredPlayers.length} of ${players.length} player${players.length !== 1 ? "s" : ""}`
-                : `${players.length} player${players.length !== 1 ? "s" : ""}`}
-            </span>
-          )}
+          {/* Always visible, regardless of pagination — hiding this whenever the footer's own
+              "Showing 1–10 of 12" appeared made the count's position jump between the top and
+              bottom row depending on which filter happened to be applied. The two aren't really
+              duplicates: this is the filtered subset vs. the whole roster; the footer is which
+              page-slice of that subset is on screen right now. */}
+          <span className="text-xs text-zinc-400 font-medium sm:ml-auto whitespace-nowrap">
+            {isFiltered
+              ? `Showing ${filteredPlayers.length} of ${players.length} player${players.length !== 1 ? "s" : ""}`
+              : `${players.length} player${players.length !== 1 ? "s" : ""}`}
+          </span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
