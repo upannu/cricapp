@@ -42,6 +42,17 @@ const EDGE_PADDING = 8;
  * solid background right along with it, letting the row's text show faintly through. A portaled
  * node is no longer a descendant of that row in the actual DOM, so neither problem can reach it.
  *
+ * Positioning is a two-pass measure-then-place, not a guess from item count: the menu first
+ * mounts anchored below the button but `visibility: hidden` (present in the DOM, invisible, so it
+ * can be measured — `display: none` wouldn't work here since a non-rendered element reports zero
+ * size); a second layout effect then reads its *real* rendered height, picks whichever side
+ * (above/below the button) has more room, and clamps the final position so the menu can never
+ * extend past either viewport edge regardless of how tall it turns out to be. Both passes run
+ * inside `useLayoutEffect`, so both commits land before the browser paints — no visible flicker
+ * between the placeholder position and the corrected one. An item-count-based height estimate was
+ * tried first and got this wrong for anything but the shortest menus (icons, a divider, and text
+ * wrapping all shift the real height enough that a fixed per-item guess drifts).
+ *
  * Self-contained: manages its own open state and closes on an outside click (or a scroll — a
  * `fixed`-positioned portal doesn't move with the table it was anchored to, so continuing to show
  * it stale is worse than just closing it, the same simplification the outside-click handler
@@ -51,7 +62,7 @@ const EDGE_PADDING = 8;
  */
 export function RowActionsMenu({ items, align = "right" }: { items: RowActionItem[]; align?: "left" | "right" }) {
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const [position, setPosition] = useState<{ left: number; top: number; ready: boolean } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -73,19 +84,29 @@ export function RowActionsMenu({ items, align = "right" }: { items: RowActionIte
     return () => window.removeEventListener("scroll", handleScroll, true);
   }, [open]);
 
+  // Pass 1 — anchor below the button as a starting guess, not yet visible.
   useLayoutEffect(() => {
     if (!open || !buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
-    const estimatedHeight = items.length * 42 + 16;
-    const openUpward = rect.bottom + estimatedHeight > window.innerHeight && rect.top > estimatedHeight;
     const idealLeft = align === "right" ? rect.right - MENU_WIDTH : rect.left;
     const left = Math.max(EDGE_PADDING, Math.min(idealLeft, window.innerWidth - MENU_WIDTH - EDGE_PADDING));
-    setPosition(
-      openUpward
-        ? { left, bottom: window.innerHeight - rect.top + 4 }
-        : { left, top: rect.bottom + 4 }
-    );
-  }, [open, items.length, align]);
+    setPosition({ left, top: rect.bottom + 4, ready: false });
+  }, [open, align]);
+
+  // Pass 2 — now that the menu is actually in the DOM, measure its real height and correct the
+  // position (flip above the button if that side has more room; either way, clamp so it can never
+  // render past a viewport edge), then reveal it.
+  useLayoutEffect(() => {
+    if (!open || !position || position.ready || !buttonRef.current || !menuRef.current) return;
+    const buttonRect = buttonRef.current.getBoundingClientRect();
+    const menuHeight = menuRef.current.getBoundingClientRect().height;
+    const spaceBelow = window.innerHeight - buttonRect.bottom;
+    const spaceAbove = buttonRect.top;
+    const openUpward = menuHeight > spaceBelow && spaceAbove > spaceBelow;
+    const idealTop = openUpward ? buttonRect.top - menuHeight - 4 : buttonRect.bottom + 4;
+    const top = Math.max(EDGE_PADDING, Math.min(idealTop, window.innerHeight - menuHeight - EDGE_PADDING));
+    setPosition((p) => (p ? { ...p, top, ready: true } : p));
+  }, [open, position]);
 
   if (items.length === 0) return null;
 
@@ -109,7 +130,7 @@ export function RowActionsMenu({ items, align = "right" }: { items: RowActionIte
       {open && position && createPortal(
         <div
           ref={menuRef}
-          style={{ position: "fixed", left: position.left, top: position.top, bottom: position.bottom }}
+          style={{ position: "fixed", left: position.left, top: position.top, visibility: position.ready ? "visible" : "hidden" }}
           className="z-50 w-48 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden"
         >
           {items.map((item, i) => (
