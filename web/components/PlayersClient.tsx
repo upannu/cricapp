@@ -695,7 +695,7 @@ export function PlayersClient() {
           )}
         </td>
         <td className="px-4 py-4 whitespace-nowrap">
-          <span className={`text-sm font-medium ${status === "Expiring" ? "text-amber" : status === "Expired" ? "text-red-300" : "text-zinc-300"}`}>
+          <span className={`text-sm font-medium ${status === "Expiring" ? "text-amber-300" : status === "Expired" ? "text-red-300" : "text-zinc-300"}`}>
             {formatDate(player.subscription.endDate)}
           </span>
         </td>

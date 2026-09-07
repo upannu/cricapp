@@ -78,6 +78,38 @@ describe("NavBar", () => {
     expect(push).toHaveBeenCalledWith("/login");
   });
 
+  test("the header shows only the avatar — name/email/role live inside the account menu, not next to it", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({
+      user: makeAuthUser({ role: "platform_admin", name: "Dev Admin", email: "dev@example.com" }),
+      logout: vi.fn(),
+      refreshUser: vi.fn(),
+    });
+
+    render(<NavBar />);
+
+    // Not visible in the collapsed header — only the avatar trigger is.
+    expect(screen.queryByText("Dev Admin")).not.toBeInTheDocument();
+    expect(screen.queryByText("dev@example.com")).not.toBeInTheDocument();
+    expect(screen.queryByText("Platform Admin")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTitle("Account menu"));
+    expect(screen.getByText("Dev Admin")).toBeInTheDocument();
+    expect(screen.getByText("dev@example.com")).toBeInTheDocument();
+    expect(screen.getByText("Platform Admin")).toBeInTheDocument();
+  });
+
+  test("the avatar's initials are capped at two letters and strip a parenthetical aside in the name", () => {
+    useAuth.mockReturnValue({
+      user: makeAuthUser({ role: "platform_admin", name: "Dev Admin (real email)" }),
+      logout: vi.fn(),
+      refreshUser: vi.fn(),
+    });
+
+    render(<NavBar />);
+    expect(screen.getByTitle("Account menu")).toHaveTextContent("DA");
+  });
+
   test("clicking outside the account menu closes it", async () => {
     const user = userEvent.setup();
     useAuth.mockReturnValue({
