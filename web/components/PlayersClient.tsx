@@ -110,7 +110,6 @@ export function PlayersClient() {
   const [statusFilter, setStatusFilter] = useState<"All" | PlayerStatus>("All");
   const [coachFilter, setCoachFilter] = useState(""); // "" = All, "__unassigned__" = no coach
   const [planFilter, setPlanFilter] = useState<PlanTier | "">("");
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [academyFilter, setAcademyFilter] = useState(""); // "" = All, "__unassigned__" = no academy
   const [ageGroupFilter, setAgeGroupFilter] = useState<AgeGroup | "">("");
   const [playingLevelFilter, setPlayingLevelFilter] = useState<PlayingLevel | "">("");
@@ -646,6 +645,46 @@ export function PlayersClient() {
     ...PLAYING_LEVELS.map((l) => ({ value: l, label: l })),
   ];
 
+  // One combined summary row for every active filter, regardless of which control set it (the
+  // pill row, a stat card, or a column's own funnel icon) — each chip clears just its own filter;
+  // "Reset filters" (rendered alongside, only when this list isn't empty) clears all of them.
+  const activeFilterChips: { key: string; label: string; onRemove: () => void }[] = [
+    ...(statusFilter !== "All" ? [{
+      key: "status", label: `Status: ${statusFilterOptions.find((o) => o.value === statusFilter)?.label}`,
+      onRemove: () => { setStatusFilter("All"); setPage(1); },
+    }] : []),
+    ...(coachFilter !== "" ? [{
+      key: "coach", label: `Coach: ${coachFilterOptions.find((o) => o.value === coachFilter)?.label}`,
+      onRemove: () => { setCoachFilter(""); setPage(1); },
+    }] : []),
+    ...(planFilter !== "" ? [{
+      key: "plan", label: `Plan: ${planFilter}`,
+      onRemove: () => { setPlanFilter(""); setPage(1); },
+    }] : []),
+    ...(academyFilter !== "" ? [{
+      key: "academy", label: `Academy: ${academyFilterOptions.find((o) => o.value === academyFilter)?.label}`,
+      onRemove: () => { setAcademyFilter(""); setPage(1); },
+    }] : []),
+    ...(ageGroupFilter !== "" ? [{
+      key: "ageGroup", label: `Age Group: ${ageGroupFilter}`,
+      onRemove: () => { setAgeGroupFilter(""); setPage(1); },
+    }] : []),
+    ...(playingLevelFilter !== "" ? [{
+      key: "playingLevel", label: `Playing Level: ${playingLevelFilter}`,
+      onRemove: () => { setPlayingLevelFilter(""); setPage(1); },
+    }] : []),
+  ];
+
+  function clearAllFilters() {
+    setStatusFilter("All");
+    setCoachFilter("");
+    setPlanFilter("");
+    setAcademyFilter("");
+    setAgeGroupFilter("");
+    setPlayingLevelFilter("");
+    setPage(1);
+  }
+
   function renderPlayerRow(player: Player) {
     const status = getPlayerStatus(player.subscription.endDate);
     const isSelected = selectedIds.has(player.id);
@@ -994,7 +1033,7 @@ export function PlayersClient() {
       <div className="bg-surface rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col gap-3">
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
-            <div className="relative max-w-md w-full">
+            <div className="relative w-full sm:max-w-[300px]">
               <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
@@ -1006,51 +1045,57 @@ export function PlayersClient() {
                 className={`${inputCls} pl-10`}
               />
             </div>
-            <SelectPill
-              value={statusFilter} options={statusFilterOptions} ariaLabel="Status" active={statusFilter !== "All"}
-              onChange={(v) => { setStatusFilter(v); setPage(1); }}
-            />
-            {user?.role !== "coach" && (
+            {/* Status and Coach are filtered via the ⋮-free funnel icons on their own column
+                headers below (and, for Status, the stat cards) — a separate pill here for either
+                would just be a second control for the same filter. Academy/Plan/Age Group/Playing
+                Level have no column of their own, so a pill is the only way to filter by them. */}
+            {user?.role === "platform_admin" && (
               <SelectPill
-                value={coachFilter} options={coachFilterOptions} ariaLabel="Coach" active={coachFilter !== ""}
-                onChange={(v) => { setCoachFilter(v); setPage(1); }}
+                value={academyFilter} options={academyFilterOptions} ariaLabel="Academy" active={academyFilter !== ""}
+                onChange={(v) => { setAcademyFilter(v); setPage(1); }}
               />
             )}
             <SelectPill
               value={planFilter} options={planFilterOptions} ariaLabel="Plan" active={planFilter !== ""}
               onChange={(v) => { setPlanFilter(v); setPage(1); }}
             />
-            <button
-              type="button"
-              onClick={() => setShowAdvancedFilters((v) => !v)}
-              className={`flex items-center gap-1.5 px-4 py-3 rounded-xl text-sm font-medium border transition-colors cursor-pointer whitespace-nowrap ${
-                showAdvancedFilters || academyFilter || ageGroupFilter || playingLevelFilter
-                  ? "border-pace-green/50 bg-pace-green/10 text-pace-green"
-                  : "border-zinc-700 text-zinc-300 bg-ink hover:border-zinc-500"
-              }`}
-            >
-              {showAdvancedFilters ? "− Filters" : "+ Filters"}
-            </button>
+            <SelectPill
+              value={ageGroupFilter} options={ageGroupFilterOptions} ariaLabel="Age Group" active={ageGroupFilter !== ""}
+              onChange={(v) => { setAgeGroupFilter(v); setPage(1); }}
+            />
+            <SelectPill
+              value={playingLevelFilter} options={playingLevelFilterOptions} ariaLabel="Playing Level" active={playingLevelFilter !== ""}
+              onChange={(v) => { setPlayingLevelFilter(v); setPage(1); }}
+            />
             <span className="text-xs text-zinc-400 font-medium sm:ml-auto whitespace-nowrap">
               Showing {filteredPlayers.length} player{filteredPlayers.length !== 1 ? "s" : ""}
             </span>
           </div>
-          {showAdvancedFilters && (
-            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 pt-3 border-t border-zinc-700/60">
-              {user?.role === "platform_admin" && (
-                <SelectPill
-                  value={academyFilter} options={academyFilterOptions} ariaLabel="Academy" active={academyFilter !== ""}
-                  onChange={(v) => { setAcademyFilter(v); setPage(1); }}
-                />
-              )}
-              <SelectPill
-                value={ageGroupFilter} options={ageGroupFilterOptions} ariaLabel="Age Group" active={ageGroupFilter !== ""}
-                onChange={(v) => { setAgeGroupFilter(v); setPage(1); }}
-              />
-              <SelectPill
-                value={playingLevelFilter} options={playingLevelFilterOptions} ariaLabel="Playing Level" active={playingLevelFilter !== ""}
-                onChange={(v) => { setPlayingLevelFilter(v); setPage(1); }}
-              />
+          {activeFilterChips.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-zinc-700/60">
+              {activeFilterChips.map((chip) => (
+                <span
+                  key={chip.key}
+                  className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full text-xs font-medium bg-pace-green/10 text-pace-green border border-pace-green/30"
+                >
+                  {chip.label}
+                  <button
+                    type="button"
+                    onClick={chip.onRemove}
+                    aria-label={`Remove ${chip.label} filter`}
+                    className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-pace-green/20 transition-colors cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer"
+              >
+                Reset filters
+              </button>
             </div>
           )}
         </div>
