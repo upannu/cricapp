@@ -572,8 +572,8 @@ export function CoachesClient() {
         </div>
         {user?.role !== "coach" && (
           <button type="button" onClick={openAdd}
-            className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
-            + New Coach
+            className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer">
+            + Add Coach
           </button>
         )}
       </div>
@@ -886,11 +886,16 @@ export function CoachesClient() {
         </div>
       )}
 
-      {/* Filter tabs — Removed only shows a count when there's actually anyone there, same as
-          the badge pattern used for Bookings' Pending tab. */}
+      {/* Filter tabs — the one control for status, same "one control per job" reasoning that kept
+          Players' stat cards as its only status filter rather than also having a redundant tabs
+          row; here the tabs came first and cover a state (Inactive, and "All" itself) the cards
+          don't, so they're the one that stays and the cards below go back to being plain metrics.
+          Clicking the already-active tab again clears it back to "All" instead of being a no-op —
+          same toggle Players' own stat-card filtering already has. Removed only shows a count
+          when there's actually anyone there, same badge pattern Bookings' Pending tab uses. */}
       <div className="flex gap-2 mb-6">
         {(["All", "Active", "Inactive", "Removed"] as const).map((f) => (
-          <button key={f} type="button" onClick={() => setFilter(f)}
+          <button key={f} type="button" onClick={() => setFilter((prev) => (prev === f ? "All" : f))}
             className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               filter === f ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
             }`}>
@@ -904,13 +909,12 @@ export function CoachesClient() {
         ))}
       </div>
 
-      {/* Stats — Total last, same order Players' own stat strip uses. */}
+      {/* Stats — plain metrics, not a second way to filter (see the tabs' own comment above).
+          Total last, same order Players' own stat strip uses. */}
       <StatsGrid columns={4}>
-        <StatCard label="Active" value={activeCount} color="text-pace-green"
-          onClick={() => setFilter("Active")} active={filter === "Active"} />
+        <StatCard label="Active" value={activeCount} color="text-pace-green" />
         <StatCard label="Players assigned" value={totalPlayers} color="text-amber" />
-        <StatCard label="Removed" value={removedCount} color="text-zinc-400"
-          onClick={() => setFilter("Removed")} active={filter === "Removed"} />
+        <StatCard label="Removed" value={removedCount} color="text-zinc-400" />
         <StatCard label="Total coaches" value={coaches.length - removedCount} />
       </StatsGrid>
 

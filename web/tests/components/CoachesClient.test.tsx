@@ -88,14 +88,14 @@ describe("CoachesClient", () => {
     expect(fetchCoaches).toHaveBeenCalledWith("academy-9");
   });
 
-  test("hides the 'New Coach' button for a coach viewing their own team page", async () => {
+  test("hides the 'Add Coach' button for a coach viewing their own team page", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
 
     render(<CoachesClient />);
     await screen.findByRole("heading", { name: "Coaches" });
 
-    expect(screen.queryByRole("button", { name: "+ New Coach" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+ Add Coach" })).not.toBeInTheDocument();
   });
 
   test("clicking 'Set up payouts' posts to the Connect onboarding endpoint", async () => {
@@ -461,7 +461,7 @@ describe("CoachesClient", () => {
     setupDefaults();
 
     render(<CoachesClient />);
-    await user.click(await screen.findByRole("button", { name: "+ New Coach" }));
+    await user.click(await screen.findByRole("button", { name: "+ Add Coach" }));
 
     await user.type(screen.getByPlaceholderText("e.g. Arjun Sharma"), "Priya Iyer");
     await user.type(screen.getByPlaceholderText("coach@email.com"), "priya@example.com");
@@ -525,7 +525,7 @@ describe("CoachesClient", () => {
     expect(rowNames()[0]).toContain("Coach Zed");
   });
 
-  test("clicking the Active stat card filters the list to Active coaches", async () => {
+  test("clicking the Active tab filters the list, and clicking it again clears back to All", async () => {
     const user = userEvent.setup();
     setupDefaults();
     fetchCoaches.mockResolvedValue([
@@ -536,32 +536,26 @@ describe("CoachesClient", () => {
     render(<CoachesClient />);
     await screen.findByText("Coach Dan");
 
-    // The stat card's own accessible name is "Active 1" (label then count); the filter tab's is
-    // plain "Active" with no count — anchored so this can't match the tab instead.
-    await user.click(screen.getByRole("button", { name: /^Active 1$/ }));
-
+    await user.click(screen.getByRole("button", { name: "Active" }));
     expect(screen.getByText("Coach Dan")).toBeInTheDocument();
     expect(screen.queryByText("Coach Sam")).not.toBeInTheDocument();
+
+    // Same toggle Players' own stat-card filtering already has — a second click un-narrows it.
+    await user.click(screen.getByRole("button", { name: "Active" }));
+    expect(screen.getByText("Coach Dan")).toBeInTheDocument();
+    expect(screen.getByText("Coach Sam")).toBeInTheDocument();
   });
 
-  test("clicking the Removed stat card jumps straight to the Removed tab", async () => {
-    const user = userEvent.setup();
+  test("the stat cards are plain metrics now, not a second way to filter", async () => {
     setupDefaults();
-    fetchCoaches.mockResolvedValue([
-      makeCoach({ id: "c1", name: "Coach Dan", status: "Active" }),
-      makeCoach({ id: "c2", name: "Coach Sam", loginDisabled: true }),
-    ]);
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", status: "Active" })]);
 
     render(<CoachesClient />);
     await screen.findByText("Coach Dan");
-    expect(screen.queryByText("Coach Sam")).not.toBeInTheDocument();
 
-    // The stat card's own accessible name is "Removed 1" (with a space); the filter tab's own
-    // count badge has no separating space ("Removed1") — anchored so these can't collide.
-    await user.click(screen.getByRole("button", { name: /^Removed 1$/ }));
-
-    expect(screen.getByText("Coach Sam")).toBeInTheDocument();
-    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+    // The filter tab is the only "Active"-named button on the page — the stat card showing the
+    // same label is plain, non-interactive content, same as "Players assigned"/"Total coaches".
+    expect(screen.getAllByRole("button", { name: "Active" })).toHaveLength(1);
   });
 
   test("shows the coach's academy in its own column, or 'Independent' when they have none", async () => {
