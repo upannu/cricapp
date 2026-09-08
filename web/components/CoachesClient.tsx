@@ -886,15 +886,6 @@ export function CoachesClient() {
         </div>
       )}
 
-      {/* Search — sorting now lives on the table's own column headers below, same as Players. */}
-      <div className="relative max-w-md mb-4">
-        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search coaches by name or email…" className={`${inp} pl-10`} />
-      </div>
-
       {/* Filter tabs — Removed only shows a count when there's actually anyone there, same as
           the badge pattern used for Bookings' Pending tab. */}
       <div className="flex gap-2 mb-6">
@@ -913,20 +904,30 @@ export function CoachesClient() {
         ))}
       </div>
 
-      {/* Stats */}
+      {/* Stats — Total last, same order Players' own stat strip uses. */}
       <StatsGrid columns={4}>
-        <StatCard label="Total coaches" value={coaches.length - removedCount} />
         <StatCard label="Active" value={activeCount} color="text-pace-green"
           onClick={() => setFilter("Active")} active={filter === "Active"} />
         <StatCard label="Players assigned" value={totalPlayers} color="text-amber" />
         <StatCard label="Removed" value={removedCount} color="text-zinc-400"
           onClick={() => setFilter("Removed")} active={filter === "Removed"} />
+        <StatCard label="Total coaches" value={coaches.length - removedCount} />
       </StatsGrid>
 
-      {/* Coach table */}
+      {/* Coach table — search lives in the table's own header row, same as Players, rather than
+          floating above it as a separate element. Coaches has no pagination footer to relocate
+          the filtered count to the way Players did (see PR #50), so the count stays here
+          alongside search instead of being dropped outright. */}
       <div className="bg-surface rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-700/60">
-          <h2 className="text-base font-semibold text-white">
+        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="relative w-full sm:max-w-[300px]">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search coaches by name or email…" className={`${inp} pl-10`} />
+          </div>
+          <h2 className="text-sm text-zinc-400 whitespace-nowrap">
             {sorted.length} Coach{sorted.length !== 1 ? "es" : ""}
           </h2>
         </div>
