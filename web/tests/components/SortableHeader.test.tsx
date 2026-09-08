@@ -47,4 +47,19 @@ describe("SortableHeader", () => {
     );
     expect(screen.queryByRole("button", { name: "Funnel" })).not.toBeInTheDocument();
   });
+
+  // Tailwind's preflight resets a <button>'s own text-transform to `none`, which silently defeats
+  // an `uppercase` utility inherited from the <th> around it — confirmed via a live computed-style
+  // check against a real page (the button rendered `none` despite its <th> ancestor being
+  // `uppercase`). The fix repeats `uppercase` directly on the button; this locks that in structurally
+  // since jsdom doesn't apply Tailwind's real cascade/layers to make the visual regression itself
+  // assertable here.
+  test("repeats uppercase directly on the button, not just the inherited-from <th> — a Tailwind reset defeats inheritance otherwise", () => {
+    render(
+      <table><thead><tr>
+        <SortableHeader label="Coach" sortKey="coach" activeKey="name" direction="asc" onSort={() => {}} />
+      </tr></thead></table>
+    );
+    expect(screen.getByRole("button", { name: /Coach/ })).toHaveClass("uppercase");
+  });
 });
