@@ -15,8 +15,11 @@ import { ConfirmModal } from "@/components/ConfirmModal";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
 import { SortableHeader } from "@/components/SortableHeader";
+import { PaginationFooter } from "@/components/PaginationFooter";
 import { useSort } from "@/lib/useSort";
 import { PowerIcon, PowerOffIcon, EyeIcon, EyeOffIcon, MailIcon, RepeatIcon, TrashIcon, EditIcon, CreditCardIcon } from "@/components/icons";
+
+const DEFAULT_COACHES_PER_PAGE = 10;
 
 type CoachSortKey = "name" | "academy" | "status" | "players" | "joined";
 
@@ -93,6 +96,8 @@ export function CoachesClient() {
   const [search, setSearch] = useState("");
   const [academyFilter, setAcademyFilter] = useState(""); // "" = All, "__independent__" = no academy
   const [payoutsFilter, setPayoutsFilter] = useState<"" | "connected" | "incomplete" | "not_set_up">("");
+  const [page, setPage] = useState(1);
+  const [coachesPerPage, setCoachesPerPage] = useState(DEFAULT_COACHES_PER_PAGE);
   const { sortKey, sortDir, handleSort } = useSort<CoachSortKey>("name");
   const [sendInvite, setSendInvite] = useState(true);
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -572,6 +577,9 @@ export function CoachesClient() {
     const cmp = compareCoaches(a, b, sortKey);
     return sortDir === "asc" ? cmp : -cmp;
   });
+  const totalPages = Math.max(1, Math.ceil(sorted.length / coachesPerPage));
+  const currentPage = Math.min(page, totalPages);
+  const pageCoaches = sorted.slice((currentPage - 1) * coachesPerPage, currentPage * coachesPerPage);
 
   const academyFilterOptions: { value: string; label: string }[] = [
     { value: "", label: "Academy" },
@@ -588,6 +596,7 @@ export function CoachesClient() {
   function clearAllFilters() {
     setAcademyFilter("");
     setPayoutsFilter("");
+    setPage(1);
   }
   const activeCount = coaches.filter((c) => c.status === "Active" && !c.loginDisabled).length;
   const inactiveCount = coaches.filter((c) => c.status === "Inactive" && !c.loginDisabled).length;
@@ -924,35 +933,36 @@ export function CoachesClient() {
           dropped from the summary row; still visible per-coach in the table's own Players column. */}
       <StatsGrid columns={4}>
         <StatCard label="Active" value={activeCount} color="text-pace-green"
-          onClick={() => setFilter((prev) => (prev === "Active" ? "All" : "Active"))} active={filter === "Active"} />
+          onClick={() => { setFilter((prev) => (prev === "Active" ? "All" : "Active")); setPage(1); }} active={filter === "Active"} />
         <StatCard label="Inactive" value={inactiveCount} color="text-amber"
-          onClick={() => setFilter((prev) => (prev === "Inactive" ? "All" : "Inactive"))} active={filter === "Inactive"} />
+          onClick={() => { setFilter((prev) => (prev === "Inactive" ? "All" : "Inactive")); setPage(1); }} active={filter === "Inactive"} />
         <StatCard label="Removed" value={removedCount} color="text-zinc-400"
-          onClick={() => setFilter((prev) => (prev === "Removed" ? "All" : "Removed"))} active={filter === "Removed"} />
+          onClick={() => { setFilter((prev) => (prev === "Removed" ? "All" : "Removed")); setPage(1); }} active={filter === "Removed"} />
         <StatCard label="Total coaches" value={coaches.length - removedCount} />
       </StatsGrid>
 
       {/* Coach table — search lives in the table's own header row, same as Players, rather than
-          floating above it as a separate element. Coaches has no pagination footer to relocate
-          the filtered count to the way Players did (see PR #50), so the count stays here
-          alongside search instead of being dropped outright. */}
+          floating above it as a separate element. The filtered count now lives in the pagination
+          footer's "Showing X–Y of Z" label instead of a standalone heading here, matching Players
+          exactly (see PR #75, which gave Players/Sessions/Bookings numbered pagination + a
+          rows-per-page selector — Coaches picks up the same footer here). */}
       <div className="bg-surface rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3">
+        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 flex-1">
             <div className="relative w-full sm:max-w-[300px]">
               <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+              <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 placeholder="Search coaches by name or email…" className={`${inp} pl-10`} />
             </div>
             <SelectPill
               value={academyFilter} options={academyFilterOptions} ariaLabel="Academy" active={academyFilter !== ""}
-              onChange={setAcademyFilter}
+              onChange={(v) => { setAcademyFilter(v); setPage(1); }}
             />
             <SelectPill
               value={payoutsFilter} options={payoutsFilterOptions} ariaLabel="Payouts" active={payoutsFilter !== ""}
-              onChange={setPayoutsFilter}
+              onChange={(v) => { setPayoutsFilter(v); setPage(1); }}
             />
             {hasActiveFilters && (
               <button
@@ -964,9 +974,6 @@ export function CoachesClient() {
               </button>
             )}
           </div>
-          <h2 className="text-sm text-zinc-400 whitespace-nowrap">
-            {sorted.length} Coach{sorted.length !== 1 ? "es" : ""}
-          </h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -982,7 +989,7 @@ export function CoachesClient() {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((coach) => {
+              {pageCoaches.map((coach) => {
                 const playerCount = playerCountForCoach(coach.id);
                 const initials = coach.name.split(" ").map((n) => n[0]).join("");
                 const canEditRow = user?.role !== "coach" || user.coachId === coach.id;
@@ -1166,6 +1173,23 @@ export function CoachesClient() {
             </div>
           )}
         </div>
+        {/* Always visible, same as Players — a fixed spot for the count rather than one that
+            moves depending on which filter is applied. Prev/Next/page numbers stay hidden below
+            a single page, which is the common case today with under 10 coaches; the row-count
+            control still shows so it's there before that changes. */}
+        <PaginationFooter
+          label={
+            <p className="text-xs text-zinc-400">
+              Showing {sorted.length === 0 ? 0 : (currentPage - 1) * coachesPerPage + 1}–{Math.min(currentPage * coachesPerPage, sorted.length)} of {sorted.length}
+            </p>
+          }
+          page={currentPage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          itemsPerPage={coachesPerPage}
+          onItemsPerPageChange={(n) => { setCoachesPerPage(n); setPage(1); }}
+          className="px-6 py-3 border-t border-zinc-700/60"
+        />
       </div>
 
       {confirmStatusToggle && (

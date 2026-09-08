@@ -672,4 +672,61 @@ describe("CoachesClient", () => {
     expect(screen.getByText(/Riverside Academy/)).toBeInTheDocument();
     expect(screen.getByText("Independent")).toBeInTheDocument();
   });
+
+  test("paginates the table at 10 coaches per page", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue(
+      Array.from({ length: 12 }, (_, i) => makeCoach({ id: `c${i + 1}`, name: `Coach ${String(i + 1).padStart(2, "0")}` })),
+    );
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach 01");
+
+    // A single count at the foot of the table, matching Players — not a standalone heading whose
+    // position depends on whether a pagination footer exists to hold it (see PR #75).
+    expect(screen.getByText("Showing 1–10 of 12")).toBeInTheDocument();
+    expect(screen.queryByText(/^\d+ Coach(es)?$/)).not.toBeInTheDocument();
+
+    expect(screen.getByText("Coach 10")).toBeInTheDocument();
+    expect(screen.queryByText("Coach 11")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "← Prev" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Next →" }));
+
+    expect(await screen.findByText("Coach 11")).toBeInTheDocument();
+    expect(screen.getByText("Coach 12")).toBeInTheDocument();
+    expect(screen.queryByText("Coach 01")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next →" })).toBeDisabled();
+  });
+
+  test("shows no pagination controls at 10 coaches or fewer", async () => {
+    setupDefaults();
+    fetchCoaches.mockResolvedValue(
+      Array.from({ length: 10 }, (_, i) => makeCoach({ id: `c${i + 1}`, name: `Coach ${String(i + 1).padStart(2, "0")}` })),
+    );
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach 10");
+    expect(screen.getByText("Showing 1–10 of 10")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Pagination" })).not.toBeInTheDocument();
+  });
+
+  test("changing rows per page shows more coaches on one page", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue(
+      Array.from({ length: 12 }, (_, i) => makeCoach({ id: `c${i + 1}`, name: `Coach ${String(i + 1).padStart(2, "0")}` })),
+    );
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach 01");
+    expect(screen.queryByText("Coach 12")).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Rows per page"), "25");
+
+    expect(await screen.findByText("Coach 12")).toBeInTheDocument();
+    expect(screen.getByText("Showing 1–12 of 12")).toBeInTheDocument();
+  });
 });
