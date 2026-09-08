@@ -957,6 +957,12 @@ export function CoachesClient() {
                       onClick: () => setConfirmReinstate({ coachId: coach.id, name: coach.name }),
                     }] : [])
                   : [
+                      // Gated the same as Edit/Payouts below (own row or staff) — a coach viewing
+                      // a colleague's row has no access to that profile server-side either
+                      // (canAccessCoachServer), so a visible "View" there would just be a dead
+                      // link, and this same gate is what an earlier test already locked in as
+                      // "no menu at all" for that case.
+                      ...(canEditRow ? [{ label: "View", icon: <EyeIcon />, onClick: () => router.push(`/coaches/${coach.id}`) }] : []),
                       ...(canEditRow ? [{ label: "Edit", icon: <EditIcon />, onClick: () => openEdit(coach) }] : []),
                       ...(canEditRow ? [{
                         label: coach.stripeConnectOnboarded ? "View Payouts" : "Set Up Payouts",
@@ -1009,29 +1015,52 @@ export function CoachesClient() {
                       saved === coach.id ? "bg-pace-green/5" : "hover:bg-surface/80"
                     }`}>
                     <td className="px-4 py-4 pl-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
-                          {initials}
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-white text-sm font-medium whitespace-nowrap">{coach.name}</p>
-                            {saved === coach.id && <span className="text-pace-green text-xs font-semibold">✓ Saved</span>}
-                          </div>
-                          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CERT_STYLES[coach.certificationLevel]}`}>
-                              {coach.certificationLevel}
-                            </span>
-                            {resendInviteSent === coach.id && <span className="text-pace-green text-xs">✓ Invite sent</span>}
-                          </div>
-                          {coach.loginDisabled && (
-                            <p className="text-zinc-500 text-xs mt-0.5">
-                              {coach.disabledReason || "Removed by staff"}
-                              {coach.disabledAt && ` · ${new Date(coach.disabledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
-                            </p>
-                          )}
-                        </div>
-                      </div>
+                      {/* Clicking the name/avatar opens the coach's profile (view mode) — same
+                          destination as the ⋮ menu's own "View", just a faster path to it.
+                          Scoped to this one control rather than the whole row, so it never fights
+                          the ⋮ menu's own click targets (same convention Players already uses).
+                          Gated by canEditRow, same as View/Edit/Payouts below — a coach viewing a
+                          colleague's row has no server-side access to that profile either
+                          (canAccessCoachServer), so this renders as plain, non-clickable content
+                          for that case rather than a dead link. */}
+                      {(() => {
+                        const identity = (
+                          <>
+                            <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
+                              {initials}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className={`text-white text-sm font-medium whitespace-nowrap ${canEditRow ? "group-hover:text-pace-green transition-colors" : ""}`}>{coach.name}</p>
+                                {saved === coach.id && <span className="text-pace-green text-xs font-semibold">✓ Saved</span>}
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CERT_STYLES[coach.certificationLevel]}`}>
+                                  {coach.certificationLevel}
+                                </span>
+                                {resendInviteSent === coach.id && <span className="text-pace-green text-xs">✓ Invite sent</span>}
+                              </div>
+                              {coach.loginDisabled && (
+                                <p className="text-zinc-500 text-xs mt-0.5">
+                                  {coach.disabledReason || "Removed by staff"}
+                                  {coach.disabledAt && ` · ${new Date(coach.disabledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
+                                </p>
+                              )}
+                            </div>
+                          </>
+                        );
+                        return canEditRow ? (
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/coaches/${coach.id}`)}
+                            className="flex items-center gap-3 text-left cursor-pointer group"
+                          >
+                            {identity}
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-3">{identity}</div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-4 text-xs whitespace-nowrap">
                       {academy ? (

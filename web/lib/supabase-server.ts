@@ -58,6 +58,27 @@ export async function canAccessPlayerServer(targetPlayerId: string): Promise<boo
 }
 
 /**
+ * Ownership check for /coaches/[id] — a staff-facing profile page, so player/parent gets no
+ * access at all (they have no equivalent portal view of a coach), mirroring
+ * canAccessPlayerServer's shape for the roles that do apply.
+ */
+export async function canAccessCoachServer(targetCoachId: string): Promise<boolean> {
+  const sb = await createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return false;
+  const role = user.app_metadata?.role as string | undefined;
+  if (role === "platform_admin") return true;
+  if (role === "coach") return user.app_metadata?.coach_id === targetCoachId;
+  if (role === "academy_admin") {
+    const academyId = user.app_metadata?.academy_id as string | undefined;
+    if (!academyId) return false;
+    const { data } = await sb.from("coaches").select("academy_id").eq("id", targetCoachId).single();
+    return data?.academy_id === academyId;
+  }
+  return false;
+}
+
+/**
  * Academy players get their access through the academy's own plan — the personal
  * Player Pro/Coach Pro subscription page doesn't apply to them.
  */
