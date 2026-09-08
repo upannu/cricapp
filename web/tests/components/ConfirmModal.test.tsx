@@ -88,4 +88,37 @@ describe("ConfirmModal", () => {
     expect(confirmButton).toBeDisabled();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
   });
+
+  test("shows a failed onConfirm's error inside the dialog — the only place it's visible for a row-triggered confirm", () => {
+    render(
+      <ConfirmModal
+        icon={<span />}
+        iconBg="bg-amber/20"
+        title="Deactivate Coach?"
+        message="Are you sure?"
+        confirmLabel="Yes, Deactivate"
+        error="Row-level security denied this update."
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      />
+    );
+
+    expect(screen.getByText("Row-level security denied this update.")).toBeInTheDocument();
+  });
+
+  test("shows no error text at all when none is passed", () => {
+    render(
+      <ConfirmModal
+        icon={<span />}
+        iconBg="bg-amber/20"
+        title="Deactivate Coach?"
+        message="Are you sure?"
+        confirmLabel="Yes, Deactivate"
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      />
+    );
+
+    expect(screen.queryByText(/security|error|failed/i)).not.toBeInTheDocument();
+  });
 });
