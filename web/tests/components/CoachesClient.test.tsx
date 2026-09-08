@@ -157,7 +157,7 @@ describe("CoachesClient", () => {
     searchParamsGet.mockImplementation(() => null);
   });
 
-  test("reaches the removal-confirm prompt directly from the row's ⋮ menu, skipping the edit form's own fields", async () => {
+  test("reaches the removal-confirm prompt directly from the row's ⋮ menu, without opening the Edit form", async () => {
     const user = userEvent.setup();
     setupDefaults();
     fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
@@ -168,8 +168,11 @@ describe("CoachesClient", () => {
     await user.click(screen.getByRole("button", { name: "More actions" }));
     await user.click(screen.getByText("Remove Coach"));
 
-    expect(await screen.findByText("Remove this coach?")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Confirm removal" })).toBeInTheDocument();
+    expect(await screen.findByText("Remove Coach?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Yes, Remove" })).toBeInTheDocument();
+    // The full Edit form (with every field) never opens for this — same as Deactivate,
+    // Marketplace, Resend Invite, and Reinstate, none of which open it either.
+    expect(screen.queryByPlaceholderText("e.g. Arjun Sharma")).not.toBeInTheDocument();
   });
 
   test("removing a coach with no dependents soft-deletes — sets login_disabled, never actually deletes the row", async () => {
@@ -182,12 +185,58 @@ describe("CoachesClient", () => {
 
     await user.click(screen.getByRole("button", { name: "More actions" }));
     await user.click(screen.getByText("Remove Coach"));
-    await user.click(screen.getByRole("button", { name: "Confirm removal" }));
+    await user.click(screen.getByRole("button", { name: "Yes, Remove" }));
 
     expect(updateCoachFields).toHaveBeenCalledWith("c1", expect.objectContaining({ login_disabled: true, disabled_reason: "Removed by staff via Coaches page" }));
     // Immediately drops out of the default "All" view (excludes Removed) — but the row itself
     // was never deleted, just flagged; see the Removed-tab test below for where it went.
     expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+  });
+
+  test("removing the sole coach for an academy is blocked with an explanatory message, no confirm dialog", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", academyId: "ac1" })]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", headCoachId: "c1", coachIds: ["c1"] })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Remove Coach"));
+
+    expect(await screen.findByText(/Coach Dan is the only coach for Riverside Academy/)).toBeInTheDocument();
+    expect(screen.queryByText("Remove Coach?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reassign & Remove Coach?")).not.toBeInTheDocument();
+    expect(updateCoachFields).not.toHaveBeenCalled();
+  });
+
+  test("removing a coach with assigned players requires picking where they go first", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan" }),
+      makeCoach({ id: "c2", name: "Coach Sam" }),
+    ]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice", coachId: "c1" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    const [coach1Menu] = screen.getAllByRole("button", { name: "More actions" });
+    await user.click(coach1Menu);
+    await user.click(screen.getByText("Remove Coach"));
+
+    expect(await screen.findByText("Reassign & Remove Coach?")).toBeInTheDocument();
+    expect(screen.getByText(/1 player is still assigned to this coach/)).toBeInTheDocument();
+    // Blocked until a destination is picked — reassignCoachPlayers only fires on confirm.
+    expect(reassignCoachPlayers).not.toHaveBeenCalled();
+
+    await user.selectOptions(screen.getByDisplayValue("— Leave unassigned —"), "Coach Sam");
+    await user.click(screen.getByRole("button", { name: "Reassign & Remove" }));
+
+    expect(reassignCoachPlayers).toHaveBeenCalledWith("c1", "c2");
+    expect(updateCoachFields).toHaveBeenCalledWith("c1", expect.objectContaining({ login_disabled: true, disabled_reason: "Removed by staff via Coaches page" }));
   });
 
   test("a removed coach shows under the Removed filter with a Reinstate action, and nothing else", async () => {
@@ -730,5 +779,96 @@ describe("CoachesClient", () => {
 
     expect(await screen.findByText("Coach 12")).toBeInTheDocument();
     expect(screen.getByText("Showing 1–12 of 12")).toBeInTheDocument();
+  });
+
+  test("selects coaches via checkboxes and bulk-assigns them to an academy", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", academyId: "" }),
+      makeCoach({ id: "c2", name: "Coach Sam", academyId: "" }),
+    ]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
+    await user.click(screen.getAllByTitle("Select for bulk actions")[0]);
+    expect(screen.getByText("1 coach selected")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Assign Academy" }));
+    expect(screen.getByText("Assign Academy?")).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Academy" }), "Riverside Academy");
+    await user.click(screen.getByRole("button", { name: "Assign" }));
+
+    expect(updateCoachFields).toHaveBeenCalledWith("c1", { academy_id: "ac1" });
+    expect(updateCoachFields).not.toHaveBeenCalledWith("c2", expect.anything());
+    // Clears the selection and closes the bar once the action completes.
+    expect(await screen.findByText(/Riverside Academy/)).toBeInTheDocument();
+    expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
+  });
+
+  test("Select all only ever selects a staff-visible column — a coach never sees bulk selection at all", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan" }),
+      makeCoach({ id: "c2", name: "Coach Sam" }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    expect(screen.queryByTitle("Select all")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Select for bulk actions")).not.toBeInTheDocument();
+  });
+
+  test("bulk Show/Hide in Marketplace sets marketplace_visible for every selected coach", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", marketplaceVisible: false }),
+      makeCoach({ id: "c2", name: "Coach Sam", marketplaceVisible: false }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByTitle("Select all"));
+    expect(screen.getByText("2 coaches selected")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show in Marketplace" }));
+    expect(screen.getByText("Show in Marketplace?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Yes, Show" }));
+
+    expect(updateCoachFields).toHaveBeenCalledWith("c1", { marketplace_visible: true });
+    expect(updateCoachFields).toHaveBeenCalledWith("c2", { marketplace_visible: true });
+  });
+
+  test("Export CSV downloads a CSV of the selected coaches", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", email: "dan@example.com" })]);
+
+    const createObjectURL = vi.fn().mockReturnValue("blob:mock-url");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByTitle("Select for bulk actions"));
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const [blob] = createObjectURL.mock.calls[0];
+    expect(blob.type).toBe("text/csv");
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");
+
+    clickSpy.mockRestore();
+    vi.unstubAllGlobals();
   });
 });
