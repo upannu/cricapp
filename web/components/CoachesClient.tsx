@@ -561,7 +561,7 @@ export function CoachesClient() {
     return sortDir === "asc" ? cmp : -cmp;
   });
   const activeCount = coaches.filter((c) => c.status === "Active" && !c.loginDisabled).length;
-  const totalPlayers = coaches.reduce((s, c) => s + playerCountForCoach(c.id), 0);
+  const inactiveCount = coaches.filter((c) => c.status === "Inactive" && !c.loginDisabled).length;
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -886,35 +886,20 @@ export function CoachesClient() {
         </div>
       )}
 
-      {/* Filter tabs — the one control for status, same "one control per job" reasoning that kept
-          Players' stat cards as its only status filter rather than also having a redundant tabs
-          row; here the tabs came first and cover a state (Inactive, and "All" itself) the cards
-          don't, so they're the one that stays and the cards below go back to being plain metrics.
-          Clicking the already-active tab again clears it back to "All" instead of being a no-op —
-          same toggle Players' own stat-card filtering already has. Removed only shows a count
-          when there's actually anyone there, same badge pattern Bookings' Pending tab uses. */}
-      <div className="flex gap-2 mb-6">
-        {(["All", "Active", "Inactive", "Removed"] as const).map((f) => (
-          <button key={f} type="button" onClick={() => setFilter((prev) => (prev === f ? "All" : f))}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              filter === f ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
-            }`}>
-            {f}
-            {f === "Removed" && removedCount > 0 && (
-              <span className="ml-1.5 bg-zinc-700 text-zinc-300 text-xs font-bold px-1.5 py-0.5 rounded-full">
-                {removedCount}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Stats — plain metrics, not a second way to filter (see the tabs' own comment above).
-          Total last, same order Players' own stat strip uses. */}
+      {/* Stats — the one control for status, same as Players: no separate tabs/pills row, the
+          cards themselves are both the summary and the filter. Active/Inactive/Removed are the
+          three mutually-exclusive sub-states that sum to Total, mirroring Players' own
+          Active/Expiring/Expired-then-Total shape exactly. Clicking the already-active card again
+          clears it back to "All" instead of being a no-op, same toggle Players' cards already
+          have. "Players assigned" doesn't fit this status breakdown (it's not a status at all) —
+          dropped from the summary row; still visible per-coach in the table's own Players column. */}
       <StatsGrid columns={4}>
-        <StatCard label="Active" value={activeCount} color="text-pace-green" />
-        <StatCard label="Players assigned" value={totalPlayers} color="text-amber" />
-        <StatCard label="Removed" value={removedCount} color="text-zinc-400" />
+        <StatCard label="Active" value={activeCount} color="text-pace-green"
+          onClick={() => setFilter((prev) => (prev === "Active" ? "All" : "Active"))} active={filter === "Active"} />
+        <StatCard label="Inactive" value={inactiveCount} color="text-amber"
+          onClick={() => setFilter((prev) => (prev === "Inactive" ? "All" : "Inactive"))} active={filter === "Inactive"} />
+        <StatCard label="Removed" value={removedCount} color="text-zinc-400"
+          onClick={() => setFilter((prev) => (prev === "Removed" ? "All" : "Removed"))} active={filter === "Removed"} />
         <StatCard label="Total coaches" value={coaches.length - removedCount} />
       </StatsGrid>
 
