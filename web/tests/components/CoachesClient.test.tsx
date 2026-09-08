@@ -4,12 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { CoachesClient } from "@/components/CoachesClient";
 import { makeAcademy, makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
 
-const { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, reassignCoachPlayers } = vi.hoisted(() => ({
+const { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, updateCoachFields, reassignCoachPlayers } = vi.hoisted(() => ({
   fetchCoaches: vi.fn(), fetchAcademies: vi.fn(), fetchPlayers: vi.fn(), fetchActivePlans: vi.fn(),
-  upsertCoach: vi.fn(), reassignCoachPlayers: vi.fn(),
+  upsertCoach: vi.fn(), updateCoachFields: vi.fn(), reassignCoachPlayers: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
-  fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, reassignCoachPlayers,
+  fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, updateCoachFields, reassignCoachPlayers,
   deleteCoach: vi.fn(), updateAcademyFields: vi.fn(),
 }));
 
@@ -34,6 +34,8 @@ function setupDefaults() {
   fetchActivePlans.mockResolvedValue([]);
   upsertCoach.mockClear();
   upsertCoach.mockResolvedValue(undefined);
+  updateCoachFields.mockClear();
+  updateCoachFields.mockResolvedValue(undefined);
   reassignCoachPlayers.mockClear();
   reassignCoachPlayers.mockResolvedValue(undefined);
 }
@@ -182,7 +184,7 @@ describe("CoachesClient", () => {
     await user.click(screen.getByText("Remove Coach"));
     await user.click(screen.getByRole("button", { name: "Confirm removal" }));
 
-    expect(upsertCoach).toHaveBeenCalledWith(expect.objectContaining({ id: "c1", login_disabled: true, disabled_reason: "Removed by staff via Coaches page" }));
+    expect(updateCoachFields).toHaveBeenCalledWith("c1", expect.objectContaining({ login_disabled: true, disabled_reason: "Removed by staff via Coaches page" }));
     // Immediately drops out of the default "All" view (excludes Removed) — but the row itself
     // was never deleted, just flagged; see the Removed-tab test below for where it went.
     expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
@@ -249,11 +251,11 @@ describe("CoachesClient", () => {
     await user.click(screen.getByText("Deactivate"));
 
     // Not applied yet — still just a confirm prompt.
-    expect(upsertCoach).not.toHaveBeenCalled();
+    expect(updateCoachFields).not.toHaveBeenCalled();
     expect(await screen.findByText("Deactivate Coach?")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Yes, Deactivate" }));
-    expect(upsertCoach).toHaveBeenCalledWith({ id: "c1", status: "Inactive" });
+    expect(updateCoachFields).toHaveBeenCalledWith("c1", { status: "Inactive" });
     // "Inactive" also names one of the stat cards — scope to the table's own card, not the page.
     const card = screen.getByText("Coach Dan").closest(".bg-surface") as HTMLElement;
     expect(await within(card).findByText("Inactive")).toBeInTheDocument();
@@ -263,7 +265,7 @@ describe("CoachesClient", () => {
     const user = userEvent.setup();
     setupDefaults();
     fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", status: "Active" })]);
-    upsertCoach.mockRejectedValueOnce(new Error("Row-level security denied this update."));
+    updateCoachFields.mockRejectedValueOnce(new Error("Row-level security denied this update."));
 
     render(<CoachesClient />);
     await screen.findByText("Coach Dan");
@@ -294,7 +296,7 @@ describe("CoachesClient", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(screen.queryByText("Deactivate Coach?")).not.toBeInTheDocument();
-    expect(upsertCoach).not.toHaveBeenCalled();
+    expect(updateCoachFields).not.toHaveBeenCalled();
   });
 
   test("toggling marketplace visibility also requires confirmation first", async () => {
@@ -311,7 +313,7 @@ describe("CoachesClient", () => {
     expect(await screen.findByText("Show in Marketplace?")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Yes, Show" }));
 
-    expect(upsertCoach).toHaveBeenCalledWith({ id: "c1", marketplace_visible: true });
+    expect(updateCoachFields).toHaveBeenCalledWith("c1", { marketplace_visible: true });
   });
 
   test("offers Reassign All Players only when the coach actually has players, and requires confirmation", async () => {
@@ -642,7 +644,7 @@ describe("CoachesClient", () => {
     expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
   });
 
-  test("shows a Marketplace badge only for a coach currently visible in the marketplace", async () => {
+  test("shows the coach's marketplace listing state in its own column", async () => {
     setupDefaults();
     fetchCoaches.mockResolvedValue([
       makeCoach({ id: "c1", name: "Coach Dan", marketplaceVisible: true }),
@@ -652,10 +654,10 @@ describe("CoachesClient", () => {
     render(<CoachesClient />);
     await screen.findByText("Coach Dan");
 
-    const danRow = screen.getByText("Coach Dan").closest("button") as HTMLElement;
-    const samRow = screen.getByText("Coach Sam").closest("button") as HTMLElement;
-    expect(within(danRow).getByText("Marketplace")).toBeInTheDocument();
-    expect(within(samRow).queryByText("Marketplace")).not.toBeInTheDocument();
+    const danRow = screen.getByText("Coach Dan").closest("tr") as HTMLElement;
+    const samRow = screen.getByText("Coach Sam").closest("tr") as HTMLElement;
+    expect(within(danRow).getByText("✓ Listed")).toBeInTheDocument();
+    expect(within(samRow).getByText("Not listed")).toBeInTheDocument();
   });
 
   test("shows the coach's academy in its own column, or 'Independent' when they have none", async () => {
