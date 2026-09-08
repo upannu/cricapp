@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Papa from "papaparse";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player, Plan } from "@/lib/types";
@@ -46,8 +47,8 @@ const CERT_STYLES: Record<CertificationLevel, string> = {
 // Billing fields (subPlan/stripe*) are managed by the subscription flow and webhook, never
 // through this edit form — excluded from the draft entirely rather than carried around unused.
 // loginDisabled/disabledAt/disabledReason are managed exclusively via the ⋮ menu's Remove/
-// Reinstate actions (see handleDelete/handleConfirmReinstate) — never part of the regular
-// create/edit form, same as the Stripe fields already excluded here.
+// Reinstate actions (see handleRemoveCoachClick/handleConfirmReinstate) — never part of the
+// regular create/edit form, same as the Stripe fields already excluded here.
 type DraftCoach = Omit<Coach, "id" | "stripeConnectAccountId" | "stripeConnectOnboarded" | "subPlan" | "stripeCustomerId" | "stripeSubscriptionId" | "subscriptionStatus" | "loginDisabled" | "disabledAt" | "disabledReason">;
 
 const EMPTY_DRAFT: DraftCoach = {
@@ -99,6 +100,12 @@ export function CoachesClient() {
   const [page, setPage] = useState(1);
   const [coachesPerPage, setCoachesPerPage] = useState(DEFAULT_COACHES_PER_PAGE);
   const { sortKey, sortDir, handleSort } = useSort<CoachSortKey>("name");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAssignAcademyOpen, setBulkAssignAcademyOpen] = useState(false);
+  const [bulkAssignAcademyId, setBulkAssignAcademyId] = useState("");
+  const [bulkAssigningAcademy, setBulkAssigningAcademy] = useState(false);
+  const [bulkMarketplaceTarget, setBulkMarketplaceTarget] = useState<boolean | null>(null);
+  const [bulkSettingMarketplace, setBulkSettingMarketplace] = useState(false);
   const [sendInvite, setSendInvite] = useState(true);
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [inviteError, setInviteError] = useState("");
@@ -110,7 +117,8 @@ export function CoachesClient() {
   const [reassignToCoachId, setReassignToCoachId] = useState("");
   const [newHeadCoachId, setNewHeadCoachId] = useState("");
   const [reassigning, setReassigning] = useState(false);
-  const [confirmDeleteCoachId, setConfirmDeleteCoachId] = useState<string | null>(null);
+  const [confirmRemoveCoach, setConfirmRemoveCoach] = useState<{ coachId: string; name: string } | null>(null);
+  const [removingCoach, setRemovingCoach] = useState(false);
   const [payoutLoading, setPayoutLoading] = useState<string | null>(null);
   const [payoutError, setPayoutError] = useState<{ coachId: string; message: string } | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -236,15 +244,6 @@ export function CoachesClient() {
     scrollToForm();
   }
 
-  // Reachable directly from the row's ⋮ menu, without a separate "find Remove Coach among the
-  // form fields" step first — lands straight on the same confirm-removal prompt the Edit form
-  // already has, so this doesn't invent a second removal UI to keep in sync with the first.
-  function openEditWithDeleteConfirm(coach: Coach) {
-    openEdit(coach);
-    setConfirmDeleteCoachId(coach.id);
-    scrollToForm();
-  }
-
   // Quick status toggle — same shape as Academy's, previously only reachable by opening Edit and
   // finding the status dropdown among all the other fields.
   async function handleConfirmStatusToggle() {
@@ -277,6 +276,64 @@ export function CoachesClient() {
     } finally {
       setTogglingCoach(false);
     }
+  }
+
+  // Sets academy_id directly on each selected coach's own row — the same, and only, mechanism
+  // the single-coach Edit form already uses to assign a coach to an academy (it doesn't touch
+  // that academy's own coach_ids array either; that array is maintained separately, from the
+  // Academy page's own accordion). Bulk here just repeats that one existing path per coach.
+  async function handleConfirmBulkAssignAcademy() {
+    if (!bulkAssignAcademyId) return;
+    setBulkAssigningAcademy(true);
+    try {
+      const targets = selectedCoaches;
+      await Promise.all(targets.map((c) => updateCoachFields(c.id, { academy_id: bulkAssignAcademyId })));
+      const targetIds = new Set(targets.map((c) => c.id));
+      setCoaches((prev) => prev.map((c) => (targetIds.has(c.id) ? { ...c, academyId: bulkAssignAcademyId } : c)));
+      setBulkAssignAcademyOpen(false);
+      setBulkAssignAcademyId("");
+      clearSelection();
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setBulkAssigningAcademy(false);
+    }
+  }
+
+  async function handleConfirmBulkMarketplace() {
+    if (bulkMarketplaceTarget === null) return;
+    setBulkSettingMarketplace(true);
+    try {
+      const targets = selectedCoaches;
+      await Promise.all(targets.map((c) => updateCoachFields(c.id, { marketplace_visible: bulkMarketplaceTarget })));
+      const targetIds = new Set(targets.map((c) => c.id));
+      setCoaches((prev) => prev.map((c) => (targetIds.has(c.id) ? { ...c, marketplaceVisible: bulkMarketplaceTarget } : c)));
+      setBulkMarketplaceTarget(null);
+      clearSelection();
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setBulkSettingMarketplace(false);
+    }
+  }
+
+  function handleExportCsv() {
+    const rows = selectedCoaches.map((c) => ({
+      name: c.name, email: c.email, phone: c.phone,
+      academy: c.academyId ? academyById(c.academyId)?.name ?? "" : "Independent",
+      status: c.loginDisabled ? "Removed" : c.status,
+      certificationLevel: c.certificationLevel,
+      players: playerCountForCoach(c.id),
+      payouts: c.stripeConnectOnboarded ? "Connected" : c.stripeConnectAccountId ? "Onboarding incomplete" : "Not set up",
+      marketplace: c.marketplaceVisible ? "Listed" : "Not listed",
+      joinedDate: c.joinedDate,
+    }));
+    const blob = new Blob([Papa.unparse(rows)], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `coaches-export-${new Date().toISOString().split("T")[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // Only moves players' coach_id — deliberately doesn't touch academy head-coach succession
@@ -361,7 +418,6 @@ export function CoachesClient() {
       currency: coach.currency,
     });
     setFormError("");
-    setConfirmDeleteCoachId(null);
     setShowForm(true);
     scrollToForm();
   }
@@ -370,7 +426,6 @@ export function CoachesClient() {
     setShowForm(false);
     setEditingId(null);
     setFormError("");
-    setConfirmDeleteCoachId(null);
   }
 
   async function handleSave() {
@@ -480,35 +535,51 @@ export function CoachesClient() {
   // Still a real state change worth a fixed, trackable reason rather than none at all.
   const REMOVED_REASON = "Removed by staff via Coaches page";
 
-  async function handleDelete(id: string) {
+  // Reachable directly from the row's ⋮ menu — routes straight to whichever confirm the
+  // situation calls for (a plain yes/no, or the reassignment picker below) rather than opening
+  // the full Edit form just to bury a removal control inside it, the same way every other
+  // confirm-gated action on this page (Deactivate, Marketplace, Resend Invite, Reinstate) never
+  // needs the form open either.
+  function handleRemoveCoachClick(coach: Coach) {
+    setFormError("");
     // A coach who's still an academy's head coach can't be safely removed while they hold that
     // role — resolve it here first so the person gets a clear reassignment step instead of a raw
     // error the moment they try to log in and find themselves locked out mid-responsibility.
-    const headCoachAcademy = _coachAcademies.find((a) => a.headCoachId === id);
-    const otherCoachIds = headCoachAcademy ? headCoachAcademy.coachIds.filter((cid) => cid !== id) : [];
+    const headCoachAcademy = _coachAcademies.find((a) => a.headCoachId === coach.id);
+    const otherCoachIds = headCoachAcademy ? headCoachAcademy.coachIds.filter((cid) => cid !== coach.id) : [];
     if (headCoachAcademy && otherCoachIds.length === 0) {
-      setFormError(`${coaches.find((c) => c.id === id)?.name ?? "This coach"} is the only coach for ${headCoachAcademy.name} — add another coach before removing them.`);
+      // No modal fits this — there's nothing to confirm, just a reason removal can't proceed yet.
+      // Shown via the same page-level banner the success message uses (see below), not a dialog.
+      setFormError(`${coach.name} is the only coach for ${headCoachAcademy.name} — add another coach before removing them.`);
       return;
     }
 
-    const playerCount = playerCountForCoach(id);
+    const playerCount = playerCountForCoach(coach.id);
     if (headCoachAcademy || playerCount > 0) {
       setReassignTarget({
-        coachId: id,
+        coachId: coach.id,
         playerCount,
         headCoachAcademy: headCoachAcademy ? { id: headCoachAcademy.id, name: headCoachAcademy.name, otherCoachIds } : undefined,
       });
       setReassignToCoachId("");
       setNewHeadCoachId("");
-      return;
+    } else {
+      setConfirmRemoveCoach({ coachId: coach.id, name: coach.name });
     }
+  }
+
+  async function handleConfirmRemoveCoach() {
+    if (!confirmRemoveCoach) return;
+    setRemovingCoach(true);
     const disabledAt = new Date().toISOString();
     try {
-      await updateCoachFields(id, { login_disabled: true, disabled_at: disabledAt, disabled_reason: REMOVED_REASON });
-      setCoaches((prev) => prev.map((c) => (c.id === id ? { ...c, loginDisabled: true, disabledAt, disabledReason: REMOVED_REASON } : c)));
-      closeForm();
+      await updateCoachFields(confirmRemoveCoach.coachId, { login_disabled: true, disabled_at: disabledAt, disabled_reason: REMOVED_REASON });
+      setCoaches((prev) => prev.map((c) => (c.id === confirmRemoveCoach.coachId ? { ...c, loginDisabled: true, disabledAt, disabledReason: REMOVED_REASON } : c)));
+      setConfirmRemoveCoach(null);
     } catch (err) {
       setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setRemovingCoach(false);
     }
   }
 
@@ -541,7 +612,6 @@ export function CoachesClient() {
         c.id === reassignTarget.coachId ? { ...c, loginDisabled: true, disabledAt, disabledReason: REMOVED_REASON } : c
       ));
       setReassignTarget(null);
-      closeForm();
     } catch (err) {
       setFormError((err as { message?: string })?.message ?? String(err));
     } finally {
@@ -584,6 +654,37 @@ export function CoachesClient() {
   const totalPages = Math.max(1, Math.ceil(sorted.length / coachesPerPage));
   const currentPage = Math.min(page, totalPages);
   const pageCoaches = sorted.slice((currentPage - 1) * coachesPerPage, currentPage * coachesPerPage);
+
+  // "Select all" (and its indeterminate state) covers every currently-filtered coach, not just
+  // the current page — narrowing a search/filter after selecting some deliberately leaves the
+  // now-hidden selections alone rather than silently dropping them. Same convention as Players.
+  const allSelected = sorted.length > 0 && sorted.every((c) => selectedIds.has(c.id));
+  const someSelected = sorted.some((c) => selectedIds.has(c.id)) && !allSelected;
+  const selectedCoaches = coaches.filter((c) => selectedIds.has(c.id));
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        sorted.forEach((c) => next.delete(c.id));
+      } else {
+        sorted.forEach((c) => next.add(c.id));
+      }
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
 
   const academyFilterOptions: { value: string; label: string }[] = [
     { value: "", label: "Academy" },
@@ -840,83 +941,7 @@ export function CoachesClient() {
               className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
               Cancel
             </button>
-            {editingId && user?.role !== "coach" && !(reassignTarget?.coachId === editingId) && !coaches.find((c) => c.id === editingId)?.loginDisabled && (
-              confirmDeleteCoachId === editingId ? (
-                <div className="ml-auto flex items-center gap-2">
-                  <span className="text-xs text-zinc-400">Remove this coach?</span>
-                  <button type="button" onClick={() => { handleDelete(editingId); setConfirmDeleteCoachId(null); }}
-                    className="px-3 py-1.5 text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors cursor-pointer">
-                    Confirm removal
-                  </button>
-                  <button type="button" onClick={() => setConfirmDeleteCoachId(null)}
-                    className="px-3 py-1.5 text-xs font-semibold text-zinc-400 border border-zinc-700 rounded-lg hover:text-white transition-colors cursor-pointer">
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button type="button" onClick={() => setConfirmDeleteCoachId(editingId)}
-                  className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer">
-                  Remove Coach
-                </button>
-              )
-            )}
           </div>
-
-          {reassignTarget?.coachId === editingId && (
-            <div className="mt-4 pt-4 border-t border-zinc-700/50 bg-red-500/5 border border-red-500/20 rounded-xl p-4 space-y-4">
-              {reassignTarget.headCoachAcademy && (
-                <div>
-                  <p className="text-sm text-white font-semibold mb-1">
-                    This coach is the head coach of {reassignTarget.headCoachAcademy.name}
-                  </p>
-                  <p className="text-xs text-zinc-400 mb-2">
-                    Choose who takes over as head coach — payouts for this academy go to whoever holds this role.
-                  </p>
-                  <select
-                    value={newHeadCoachId}
-                    onChange={(e) => setNewHeadCoachId(e.target.value)}
-                    className="bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
-                  >
-                    <option value="">— Select new head coach —</option>
-                    {reassignTarget.headCoachAcademy.otherCoachIds.map((cid) => {
-                      const c = coaches.find((co) => co.id === cid);
-                      return c ? <option key={cid} value={cid}>{c.name}</option> : null;
-                    })}
-                  </select>
-                </div>
-              )}
-              {reassignTarget.playerCount > 0 && (
-                <div>
-                  <p className="text-sm text-white font-semibold mb-1">
-                    {reassignTarget.playerCount} player{reassignTarget.playerCount !== 1 ? "s are" : " is"} still assigned to this coach
-                  </p>
-                  <p className="text-xs text-zinc-400 mb-2">
-                    Choose where to move them before removing this coach — they can&apos;t be removed while players still point to them.
-                  </p>
-                  <select
-                    value={reassignToCoachId}
-                    onChange={(e) => setReassignToCoachId(e.target.value)}
-                    className="bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
-                  >
-                    <option value="">— Leave unassigned —</option>
-                    {coaches.filter((c) => c.id !== reassignTarget.coachId).map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={confirmReassignAndDelete} disabled={reassigning}
-                  className="px-4 py-2.5 text-sm font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer">
-                  {reassigning ? "Saving…" : "Reassign & Remove Coach"}
-                </button>
-                <button type="button" onClick={() => { setReassignTarget(null); setFormError(""); }} disabled={reassigning}
-                  className="text-xs text-zinc-500 hover:text-white cursor-pointer">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
         </div>
         );
       })()}
@@ -925,6 +950,19 @@ export function CoachesClient() {
       {saved && !showForm && (
         <div className="mb-5 px-5 py-3 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
           ✓ Coach saved successfully
+        </div>
+      )}
+
+      {/* Page-level error banner — for the one validation that can't be resolved with a confirm
+          (a coach who's the sole coach for their academy can't be removed at all until another
+          coach exists), so there's nowhere for a ConfirmModal's own `error` slot to attach to.
+          Every other formError set on this page happens inside the Edit form or right before
+          opening one of the ConfirmModals below, both of which already have their own place to
+          show it — this only needs to catch the leftover case. */}
+      {formError && !showForm && !reassignTarget && !confirmRemoveCoach && !confirmStatusToggle &&
+        !confirmMarketplaceToggle && !confirmResendInvite && !confirmReinstate && !reassignAllTarget && (
+        <div className="mb-5 px-5 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
+          {formError}
         </div>
       )}
 
@@ -944,6 +982,51 @@ export function CoachesClient() {
           onClick={() => { setFilter((prev) => (prev === "Removed" ? "All" : "Removed")); setPage(1); }} active={filter === "Removed"} />
         <StatCard label="Total coaches" value={coaches.length - removedCount} />
       </StatsGrid>
+
+      {/* Bulk action bar — staff-only, same gate as the row-level Deactivate/Marketplace/Remove
+          actions below (a coach viewing their own team never gets bulk powers over colleagues). */}
+      {user?.role !== "coach" && selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3">
+          <span className="text-blue-400 text-sm font-semibold">
+            {selectedIds.size} coach{selectedIds.size !== 1 ? "es" : ""} selected
+          </span>
+          <button
+            type="button"
+            onClick={() => { setBulkAssignAcademyOpen(true); setBulkAssignAcademyId(""); }}
+            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+          >
+            Assign Academy
+          </button>
+          <button
+            type="button"
+            onClick={() => setBulkMarketplaceTarget(true)}
+            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+          >
+            Show in Marketplace
+          </button>
+          <button
+            type="button"
+            onClick={() => setBulkMarketplaceTarget(false)}
+            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+          >
+            Hide from Marketplace
+          </button>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer sm:ml-auto"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {/* Coach table — search lives in the table's own header row, same as Players, rather than
           floating above it as a separate element. The filtered count now lives in the pagination
@@ -983,7 +1066,19 @@ export function CoachesClient() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-700/60">
-                <SortableHeader label="Coach" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} className="pl-6" />
+                {user?.role !== "coach" && (
+                  <th className="text-center px-4 py-3 pl-6 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                      onChange={toggleAll}
+                      className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+                      title="Select all"
+                    />
+                  </th>
+                )}
+                <SortableHeader label="Coach" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} className={user?.role !== "coach" ? undefined : "pl-6"} />
                 <SortableHeader label="Academy" sortKey="academy" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Players" sortKey="players" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
@@ -1055,16 +1150,29 @@ export function CoachesClient() {
                           icon: <RepeatIcon />,
                           onClick: () => { setFormError(""); setReassignAllTarget({ coachId: coach.id, name: coach.name, playerCount }); setReassignAllToCoachId(""); },
                         }] : []),
-                        { label: "Remove Coach", variant: "danger" as const, dividerBefore: true, icon: <TrashIcon />, onClick: () => openEditWithDeleteConfirm(coach) },
+                        { label: "Remove Coach", variant: "danger" as const, dividerBefore: true, icon: <TrashIcon />, onClick: () => handleRemoveCoachClick(coach) },
                       ] : []),
                     ];
 
                 return (
                   <tr key={coach.id}
                     className={`border-b border-zinc-700/40 last:border-0 transition-colors ${
-                      saved === coach.id ? "bg-pace-green/5" : "hover:bg-surface/80"
+                      selectedIds.has(coach.id)
+                        ? "bg-blue-500/5"
+                        : saved === coach.id ? "bg-pace-green/5" : "hover:bg-surface/80"
                     }`}>
-                    <td className="px-4 py-4 pl-6">
+                    {isStaff && (
+                      <td className="px-4 py-4 pl-6 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(coach.id)}
+                          onChange={() => toggleSelect(coach.id)}
+                          className="w-4 h-4 accent-pace-green cursor-pointer"
+                          title="Select for bulk actions"
+                        />
+                      </td>
+                    )}
+                    <td className={`px-4 py-4 ${isStaff ? "" : "pl-6"}`}>
                       {/* Clicking the name/avatar opens the coach's profile (view mode) — same
                           destination as the ⋮ menu's own "View", just a faster path to it.
                           Scoped to this one control rather than the whole row, so it never fights
@@ -1271,6 +1379,127 @@ export function CoachesClient() {
             ))}
           </select>
         </ConfirmModal>
+      )}
+
+      {confirmRemoveCoach && (
+        <ConfirmModal
+          icon={<TrashIcon width={22} height={22} className="text-red-400" />}
+          iconBg="bg-red-500/20"
+          title="Remove Coach?"
+          message={`"${confirmRemoveCoach.name}" will be locked out and hidden from active use — their history is preserved, and this can be undone any time with Reinstate.`}
+          confirmLabel="Yes, Remove"
+          confirmBusyLabel="Removing…"
+          confirmVariant="danger"
+          loading={removingCoach}
+          error={formError}
+          onConfirm={handleConfirmRemoveCoach}
+          onCancel={() => { setConfirmRemoveCoach(null); setFormError(""); }}
+        />
+      )}
+
+      {reassignTarget && (
+        <ConfirmModal
+          icon={<TrashIcon width={22} height={22} className="text-red-400" />}
+          iconBg="bg-red-500/20"
+          title="Reassign & Remove Coach?"
+          message={
+            reassignTarget.headCoachAcademy
+              ? `This coach is the head coach of ${reassignTarget.headCoachAcademy.name} — choose a successor below${reassignTarget.playerCount > 0 ? ", and where their players go" : ""} before removing them.`
+              : `${reassignTarget.playerCount} player${reassignTarget.playerCount !== 1 ? "s are" : " is"} still assigned to this coach — choose where to move them below before removing them.`
+          }
+          confirmLabel="Reassign & Remove"
+          confirmBusyLabel="Saving…"
+          confirmVariant="danger"
+          loading={reassigning}
+          error={formError}
+          onConfirm={confirmReassignAndDelete}
+          onCancel={() => { setReassignTarget(null); setFormError(""); }}
+        >
+          <div className="space-y-4">
+            {reassignTarget.headCoachAcademy && (
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1.5">New head coach</label>
+                <select
+                  value={newHeadCoachId}
+                  onChange={(e) => setNewHeadCoachId(e.target.value)}
+                  className="w-full bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+                >
+                  <option value="">— Select new head coach —</option>
+                  {reassignTarget.headCoachAcademy.otherCoachIds.map((cid) => {
+                    const c = coaches.find((co) => co.id === cid);
+                    return c ? <option key={cid} value={cid}>{c.name}</option> : null;
+                  })}
+                </select>
+              </div>
+            )}
+            {reassignTarget.playerCount > 0 && (
+              <div>
+                <label className="block text-xs text-zinc-400 mb-1.5">Move their players to</label>
+                <select
+                  value={reassignToCoachId}
+                  onChange={(e) => setReassignToCoachId(e.target.value)}
+                  className="w-full bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+                >
+                  <option value="">— Leave unassigned —</option>
+                  {coaches.filter((c) => c.id !== reassignTarget.coachId).map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        </ConfirmModal>
+      )}
+
+      {bulkAssignAcademyOpen && (
+        <ConfirmModal
+          icon={<CreditCardIcon width={22} height={22} className="text-blue-400" />}
+          iconBg="bg-blue-500/20"
+          title="Assign Academy?"
+          message={`${selectedCoaches.length} coach${selectedCoaches.length !== 1 ? "es" : ""} will move to the academy you pick below.`}
+          confirmLabel="Assign"
+          confirmBusyLabel="Assigning…"
+          loading={bulkAssigningAcademy}
+          error={formError}
+          onConfirm={handleConfirmBulkAssignAcademy}
+          onCancel={() => { setBulkAssignAcademyOpen(false); setFormError(""); }}
+        >
+          <select
+            value={bulkAssignAcademyId}
+            onChange={(e) => setBulkAssignAcademyId(e.target.value)}
+            className={inp}
+            aria-label="Academy"
+          >
+            <option value="">— Pick an academy —</option>
+            {_coachAcademies.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </ConfirmModal>
+      )}
+
+      {bulkMarketplaceTarget !== null && (
+        <ConfirmModal
+          icon={
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          }
+          iconBg="bg-blue-500/20"
+          title={bulkMarketplaceTarget ? "Show in Marketplace?" : "Hide from Marketplace?"}
+          message={
+            bulkMarketplaceTarget
+              ? `${selectedCoaches.length} coach${selectedCoaches.length !== 1 ? "es" : ""} will become visible to parents/players browsing Find a Coach.`
+              : `${selectedCoaches.length} coach${selectedCoaches.length !== 1 ? "es" : ""} will no longer appear in Find a Coach.`
+          }
+          confirmLabel={bulkMarketplaceTarget ? "Yes, Show" : "Yes, Hide"}
+          confirmBusyLabel="Saving…"
+          loading={bulkSettingMarketplace}
+          error={formError}
+          onConfirm={handleConfirmBulkMarketplace}
+          onCancel={() => { setBulkMarketplaceTarget(null); setFormError(""); }}
+        />
       )}
 
       {confirmResendInvite && (
