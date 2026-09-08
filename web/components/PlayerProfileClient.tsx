@@ -105,78 +105,85 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
         </Link>
       </div>
 
-      {/* Quick actions */}
-      <div className="flex flex-wrap gap-3 mb-4">
-        <Link
-          href={`/players/${playerId}/reports`}
-          className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-surface text-white border-zinc-700 hover:bg-surface-hover"
-        >
-          View All Reports
-        </Link>
-        <Link
-          href={`/players/${playerId}/action-plans`}
-          className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-surface text-white border-zinc-700 hover:bg-surface-hover"
-        >
-          Action Plans
-        </Link>
-        <Link
-          href={`/players/${playerId}/sc-log`}
-          className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-surface text-white border-zinc-700 hover:bg-surface-hover"
-        >
-          S&C Log
-        </Link>
-        {!isAcademyPlayer && (
-          <Link
-            href={`/players/${playerId}/subscription`}
-            className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
-              status !== "Active"
-                ? "bg-fire/10 text-fire border-fire/30 hover:bg-fire/20"
-                : "bg-surface text-white border-zinc-700 hover:bg-surface-hover"
-            }`}
-          >
-            Manage Subscription
-          </Link>
-        )}
-        <Link
-          href={`/players/${playerId}/new-session`}
-          className="px-5 py-2.5 bg-pace-green text-black rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
-        >
-          + New Session
-        </Link>
-      </div>
-
-      {/* Header card */}
-      <div className="bg-surface rounded-2xl p-6 mb-4 flex items-start gap-5">
-        <div className="w-20 h-20 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-2xl flex-shrink-0">
-          {initials}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
-            <h1 className="text-2xl font-bold text-white">{player.name}</h1>
-            {!isAcademyPlayer && (
-              <>
-                <PlanBadge plan={player.subscription.plan} />
-                <StatusBadge status={status} />
-              </>
-            )}
-            {player.biomechanics.injuryRisk !== "Low" && (
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                  player.biomechanics.injuryRisk === "High"
-                    ? "bg-fire/20 text-fire"
-                    : "bg-amber/20 text-amber"
-                }`}
-              >
-                ⚠ {player.biomechanics.injuryRisk} Injury Risk
-              </span>
-            )}
+      {/* Header card + quick actions — merged into one row (avatar/identity on the left, every
+          action button on the right) rather than the identity card sitting in its own band below
+          a separate, unlabeled button row; wraps beneath the identity block on a narrow viewport
+          rather than overflowing, same as every other button/nav row in this app. */}
+      <div className="bg-surface rounded-2xl p-6 mb-4 flex flex-wrap items-center justify-between gap-5">
+        <div className="flex items-start gap-5">
+          <div className="w-20 h-20 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-2xl flex-shrink-0">
+            {initials}
           </div>
-          <p className="text-zinc-400 text-sm mb-2">
-            {player.bowlingStyle} · Added {formatDate(player.addedDate)}
-          </p>
-          <span className="text-pace-green font-mono font-bold text-sm">
-            ⚡ {player.xp.toLocaleString()} XP
-          </span>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
+              <h1 className="text-2xl font-bold text-white">{player.name}</h1>
+              {!isAcademyPlayer && (
+                <>
+                  <PlanBadge plan={player.subscription.plan} />
+                  <StatusBadge status={status} />
+                </>
+              )}
+              {player.biomechanics.injuryRisk !== "Low" && (
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                    player.biomechanics.injuryRisk === "High"
+                      ? "bg-fire/20 text-fire"
+                      : "bg-amber/20 text-amber"
+                  }`}
+                >
+                  ⚠ {player.biomechanics.injuryRisk} Injury Risk
+                </span>
+              )}
+            </div>
+            <p className="text-zinc-400 text-sm mb-2">
+              {player.bowlingStyle} · Added {formatDate(player.addedDate)}
+            </p>
+            <span className="text-pace-green font-mono font-bold text-sm">
+              ⚡ {player.xp.toLocaleString()} XP
+            </span>
+          </div>
+        </div>
+
+        {/* bg-ink (not bg-surface, unlike when this row lived directly on the page) — nested
+            inside this same-colored card, a bg-surface button would have no visible fill of its
+            own, same convention the search input inside the Players filter bar already follows. */}
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={`/players/${playerId}/reports`}
+            className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-ink text-white border-zinc-700 hover:bg-surface-hover"
+          >
+            View All Reports
+          </Link>
+          <Link
+            href={`/players/${playerId}/action-plans`}
+            className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-ink text-white border-zinc-700 hover:bg-surface-hover"
+          >
+            Action Plans
+          </Link>
+          <Link
+            href={`/players/${playerId}/sc-log`}
+            className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-ink text-white border-zinc-700 hover:bg-surface-hover"
+          >
+            S&C Log
+          </Link>
+          {!isAcademyPlayer && (
+            <Link
+              href={`/players/${playerId}/subscription`}
+              className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
+                status !== "Active"
+                  ? "bg-fire/10 text-fire border-fire/30 hover:bg-fire/20"
+                  : "bg-ink text-white border-zinc-700 hover:bg-surface-hover"
+              }`}
+            >
+              Manage Subscription
+            </Link>
+          )}
+          <Link
+            href={`/players/${playerId}/new-session`}
+            className="px-5 py-2.5 bg-pace-green text-black rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
+          >
+            + New Session
+          </Link>
         </div>
       </div>
 
