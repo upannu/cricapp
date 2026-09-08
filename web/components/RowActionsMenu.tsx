@@ -78,9 +78,9 @@ export function RowActionsMenu({ items, align = "right" }: { items: RowActionIte
   }, [open]);
 
   // Gated on position.ready (not just open) — opening can itself cause a scroll (e.g. the
-  // trigger button being scrolled into view as part of the click that opened it, inside a
-  // horizontally-scrolling table), and that scroll must not immediately close the menu it was
-  // part of opening. Once positioned and stable, a real subsequent scroll still closes it.
+  // trigger button being scrolled into view as part of the click that opened it), and that
+  // scroll shouldn't immediately close the menu it was part of opening. Once positioned and
+  // stable, a real subsequent scroll still closes it.
   useEffect(() => {
     if (!open || !position?.ready) return;
     function handleScroll() { setOpen(false); }
