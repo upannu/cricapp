@@ -77,12 +77,16 @@ export function RowActionsMenu({ items, align = "right" }: { items: RowActionIte
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  // Gated on position.ready (not just open) — opening can itself cause a scroll (e.g. the
+  // trigger button being scrolled into view as part of the click that opened it), and that
+  // scroll shouldn't immediately close the menu it was part of opening. Once positioned and
+  // stable, a real subsequent scroll still closes it.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !position?.ready) return;
     function handleScroll() { setOpen(false); }
     window.addEventListener("scroll", handleScroll, true);
     return () => window.removeEventListener("scroll", handleScroll, true);
-  }, [open]);
+  }, [open, position?.ready]);
 
   // Pass 1 — anchor below the button as a starting guess, not yet visible.
   useLayoutEffect(() => {

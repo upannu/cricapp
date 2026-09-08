@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
+import { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, updateCoachFields, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
 import { canUseMarketplaceForCoach } from "@/lib/plan-features";
 import { DateInput } from "@/components/DateInput";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
@@ -251,7 +251,7 @@ export function CoachesClient() {
     if (!confirmStatusToggle) return;
     setTogglingCoach(true);
     try {
-      await upsertCoach({ id: confirmStatusToggle.coachId, status: confirmStatusToggle.newStatus });
+      await updateCoachFields(confirmStatusToggle.coachId, { status: confirmStatusToggle.newStatus });
       setCoaches((prev) => prev.map((c) => (c.id === confirmStatusToggle.coachId ? { ...c, status: confirmStatusToggle.newStatus } : c)));
       setConfirmStatusToggle(null);
     } catch (err) {
@@ -269,7 +269,7 @@ export function CoachesClient() {
     if (!confirmMarketplaceToggle) return;
     setTogglingCoach(true);
     try {
-      await upsertCoach({ id: confirmMarketplaceToggle.coachId, marketplace_visible: confirmMarketplaceToggle.newValue });
+      await updateCoachFields(confirmMarketplaceToggle.coachId, { marketplace_visible: confirmMarketplaceToggle.newValue });
       setCoaches((prev) => prev.map((c) => (c.id === confirmMarketplaceToggle.coachId ? { ...c, marketplaceVisible: confirmMarketplaceToggle.newValue } : c)));
       setConfirmMarketplaceToggle(null);
     } catch (err) {
@@ -480,7 +480,7 @@ export function CoachesClient() {
   // Still a real state change worth a fixed, trackable reason rather than none at all.
   const REMOVED_REASON = "Removed by staff via Coaches page";
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     // A coach who's still an academy's head coach can't be safely removed while they hold that
     // role — resolve it here first so the person gets a clear reassignment step instead of a raw
     // error the moment they try to log in and find themselves locked out mid-responsibility.
@@ -503,9 +503,13 @@ export function CoachesClient() {
       return;
     }
     const disabledAt = new Date().toISOString();
-    upsertCoach({ id, login_disabled: true, disabled_at: disabledAt, disabled_reason: REMOVED_REASON });
-    setCoaches((prev) => prev.map((c) => (c.id === id ? { ...c, loginDisabled: true, disabledAt, disabledReason: REMOVED_REASON } : c)));
-    closeForm();
+    try {
+      await updateCoachFields(id, { login_disabled: true, disabled_at: disabledAt, disabled_reason: REMOVED_REASON });
+      setCoaches((prev) => prev.map((c) => (c.id === id ? { ...c, loginDisabled: true, disabledAt, disabledReason: REMOVED_REASON } : c)));
+      closeForm();
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    }
   }
 
   async function confirmReassignAndDelete() {
@@ -529,7 +533,7 @@ export function CoachesClient() {
       }
       await reassignCoachPlayers(reassignTarget.coachId, reassignToCoachId || null);
       const disabledAt = new Date().toISOString();
-      await upsertCoach({ id: reassignTarget.coachId, login_disabled: true, disabled_at: disabledAt, disabled_reason: REMOVED_REASON });
+      await updateCoachFields(reassignTarget.coachId, { login_disabled: true, disabled_at: disabledAt, disabled_reason: REMOVED_REASON });
       _coachPlayers = _coachPlayers.map((p) =>
         p.coachId === reassignTarget.coachId ? { ...p, coachId: reassignToCoachId } : p
       );
@@ -984,6 +988,7 @@ export function CoachesClient() {
                 <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Players" sortKey="players" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Payouts</th>
+                <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Marketplace</th>
                 <SortableHeader label="Joined" sortKey="joined" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <th className="text-right text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
               </tr>
@@ -1083,14 +1088,6 @@ export function CoachesClient() {
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CERT_STYLES[coach.certificationLevel]}`}>
                                   {coach.certificationLevel}
                                 </span>
-                                {/* Otherwise only visible by opening the ⋮ menu and reading which
-                                    of the two toggle labels ("Show"/"Hide from Marketplace") it
-                                    currently offers — an indirect way to learn the current state. */}
-                                {coach.marketplaceVisible && (
-                                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400">
-                                    Marketplace
-                                  </span>
-                                )}
                                 {resendInviteSent === coach.id && <span className="text-pace-green text-xs">✓ Invite sent</span>}
                               </div>
                               {coach.loginDisabled && (
@@ -1148,6 +1145,13 @@ export function CoachesClient() {
                         </>
                       ) : (
                         <span className="text-zinc-600">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-xs whitespace-nowrap">
+                      {coach.marketplaceVisible ? (
+                        <span className="text-blue-400 font-semibold">✓ Listed</span>
+                      ) : (
+                        <span className="text-zinc-500">Not listed</span>
                       )}
                     </td>
                     <td className="px-4 py-4 text-sm text-zinc-400 whitespace-nowrap">

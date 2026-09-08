@@ -471,6 +471,16 @@ export async function upsertCoach(c: Partial<DbCoach> & { id: string }): Promise
   if (error) throw error;
 }
 
+// .upsert() always validates as if it were a fresh INSERT (even against an existing row), so a
+// partial payload missing a NOT NULL column like `name` fails — use a real UPDATE for partial
+// field changes on a coach that's already known to exist (status/marketplace toggles, soft-delete
+// on Remove/Reassign & Remove). Mirrors updateAcademyFields, which exists for the same reason.
+export async function updateCoachFields(id: string, fields: Partial<DbCoach>): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("coaches").update(fields).eq("id", id);
+  if (error) throw error;
+}
+
 // Coaches created inline while editing an academy are inserted with academy_id: null (only
 // academies.coach_ids references them at that point) - call this after saving the academy so
 // coaches.academy_id stays in sync with the array, matching what fetchCoaches(academyId) and
