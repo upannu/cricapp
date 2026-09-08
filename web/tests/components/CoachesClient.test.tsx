@@ -571,6 +571,71 @@ describe("CoachesClient", () => {
     expect(screen.queryByRole("button", { name: /^Total coaches/ })).not.toBeInTheDocument();
   });
 
+  test("filters coaches by academy via the pill, including the Independent bucket, and Reset filters clears it", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", academyId: "a1" }),
+      makeCoach({ id: "c2", name: "Coach Sam", academyId: "" }),
+    ]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "a1", name: "Riverside Academy" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "Academy" }));
+    await user.click(screen.getByRole("option", { name: "Riverside Academy" }));
+    expect(screen.getByText("Coach Dan")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Sam")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Academy" }));
+    await user.click(screen.getByRole("option", { name: "Independent" }));
+    expect(screen.getByText("Coach Sam")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Reset filters" }));
+    expect(screen.getByText("Coach Dan")).toBeInTheDocument();
+    expect(screen.getByText("Coach Sam")).toBeInTheDocument();
+  });
+
+  test("filters coaches by payout status via the pill", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", stripeConnectOnboarded: true, stripeConnectAccountId: "acct_1" }),
+      makeCoach({ id: "c2", name: "Coach Sam", stripeConnectOnboarded: false, stripeConnectAccountId: undefined }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "Payouts" }));
+    await user.click(screen.getByRole("option", { name: "Connected" }));
+    expect(screen.getByText("Coach Dan")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Sam")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Payouts" }));
+    await user.click(screen.getByRole("option", { name: "Not set up" }));
+    expect(screen.getByText("Coach Sam")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+  });
+
+  test("shows a Marketplace badge only for a coach currently visible in the marketplace", async () => {
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "c1", name: "Coach Dan", marketplaceVisible: true }),
+      makeCoach({ id: "c2", name: "Coach Sam", marketplaceVisible: false }),
+    ]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    const danRow = screen.getByText("Coach Dan").closest("button") as HTMLElement;
+    const samRow = screen.getByText("Coach Sam").closest("button") as HTMLElement;
+    expect(within(danRow).getByText("Marketplace")).toBeInTheDocument();
+    expect(within(samRow).queryByText("Marketplace")).not.toBeInTheDocument();
+  });
+
   test("shows the coach's academy in its own column, or 'Independent' when they have none", async () => {
     setupDefaults();
     fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy" })]);

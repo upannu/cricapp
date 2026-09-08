@@ -10,6 +10,7 @@ import { canUseMarketplaceForCoach } from "@/lib/plan-features";
 import { DateInput } from "@/components/DateInput";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
+import { SelectPill } from "@/components/SelectPill";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
@@ -87,9 +88,11 @@ export function CoachesClient() {
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
   // "All" deliberately excludes Removed — a soft-deleted coach is meant to be out of normal view
-  // by default, with its own tab as the only way back to them (see the filtered/filter tabs below).
+  // by default, with its own stat card as the only way back to them (see the stats grid below).
   const [filter, setFilter] = useState<"All" | "Active" | "Inactive" | "Removed">("All");
   const [search, setSearch] = useState("");
+  const [academyFilter, setAcademyFilter] = useState(""); // "" = All, "__independent__" = no academy
+  const [payoutsFilter, setPayoutsFilter] = useState<"" | "connected" | "incomplete" | "not_set_up">("");
   const { sortKey, sortDir, handleSort } = useSort<CoachSortKey>("name");
   const [sendInvite, setSendInvite] = useState(true);
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -552,14 +555,40 @@ export function CoachesClient() {
     : filter === "All"
       ? coaches.filter((c) => !c.loginDisabled)
       : coaches.filter((c) => c.status === filter && !c.loginDisabled);
+  const academyThenFiltered = academyFilter
+    ? statusFiltered.filter((c) => (academyFilter === "__independent__" ? !c.academyId : c.academyId === academyFilter))
+    : statusFiltered;
+  const payoutsThenFiltered = payoutsFilter
+    ? academyThenFiltered.filter((c) => {
+        const status = c.stripeConnectOnboarded ? "connected" : c.stripeConnectAccountId ? "incomplete" : "not_set_up";
+        return status === payoutsFilter;
+      })
+    : academyThenFiltered;
   const searchTerm = search.trim().toLowerCase();
   const filtered = searchTerm
-    ? statusFiltered.filter((c) => c.name.toLowerCase().includes(searchTerm) || c.email.toLowerCase().includes(searchTerm))
-    : statusFiltered;
+    ? payoutsThenFiltered.filter((c) => c.name.toLowerCase().includes(searchTerm) || c.email.toLowerCase().includes(searchTerm))
+    : payoutsThenFiltered;
   const sorted = [...filtered].sort((a, b) => {
     const cmp = compareCoaches(a, b, sortKey);
     return sortDir === "asc" ? cmp : -cmp;
   });
+
+  const academyFilterOptions: { value: string; label: string }[] = [
+    { value: "", label: "Academy" },
+    ..._coachAcademies.map((a) => ({ value: a.id, label: a.name })),
+    { value: "__independent__", label: "Independent" },
+  ];
+  const payoutsFilterOptions: { value: "" | "connected" | "incomplete" | "not_set_up"; label: string }[] = [
+    { value: "", label: "Payouts" },
+    { value: "connected", label: "Connected" },
+    { value: "incomplete", label: "Onboarding incomplete" },
+    { value: "not_set_up", label: "Not set up" },
+  ];
+  const hasActiveFilters = academyFilter !== "" || payoutsFilter !== "";
+  function clearAllFilters() {
+    setAcademyFilter("");
+    setPayoutsFilter("");
+  }
   const activeCount = coaches.filter((c) => c.status === "Active" && !c.loginDisabled).length;
   const inactiveCount = coaches.filter((c) => c.status === "Inactive" && !c.loginDisabled).length;
 
@@ -908,13 +937,32 @@ export function CoachesClient() {
           the filtered count to the way Players did (see PR #50), so the count stays here
           alongside search instead of being dropped outright. */}
       <div className="bg-surface rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="relative w-full sm:max-w-[300px]">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search coaches by name or email…" className={`${inp} pl-10`} />
+        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 flex-1">
+            <div className="relative w-full sm:max-w-[300px]">
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search coaches by name or email…" className={`${inp} pl-10`} />
+            </div>
+            <SelectPill
+              value={academyFilter} options={academyFilterOptions} ariaLabel="Academy" active={academyFilter !== ""}
+              onChange={setAcademyFilter}
+            />
+            <SelectPill
+              value={payoutsFilter} options={payoutsFilterOptions} ariaLabel="Payouts" active={payoutsFilter !== ""}
+              onChange={setPayoutsFilter}
+            />
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer whitespace-nowrap"
+              >
+                Reset filters
+              </button>
+            )}
           </div>
           <h2 className="text-sm text-zinc-400 whitespace-nowrap">
             {sorted.length} Coach{sorted.length !== 1 ? "es" : ""}
@@ -1028,6 +1076,14 @@ export function CoachesClient() {
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CERT_STYLES[coach.certificationLevel]}`}>
                                   {coach.certificationLevel}
                                 </span>
+                                {/* Otherwise only visible by opening the ⋮ menu and reading which
+                                    of the two toggle labels ("Show"/"Hide from Marketplace") it
+                                    currently offers — an indirect way to learn the current state. */}
+                                {coach.marketplaceVisible && (
+                                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400">
+                                    Marketplace
+                                  </span>
+                                )}
                                 {resendInviteSent === coach.id && <span className="text-pace-green text-xs">✓ Invite sent</span>}
                               </div>
                               {coach.loginDisabled && (
