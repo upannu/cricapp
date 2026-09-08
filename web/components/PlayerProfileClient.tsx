@@ -11,6 +11,7 @@ import { computeInjuryRiskTrend, computeRpeSummary, computeSCLoadSummary, type I
 import { Sparkline } from "@/components/Sparkline";
 import { BadgeStrip } from "@/components/BadgeStrip";
 import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
+import { InfoCard, InfoRow } from "@/components/InfoCard";
 import type { Academy, Coach, Player, PlayerStatus, Plan } from "@/lib/types";
 
 const DIRECTION_LABEL: Record<InjuryRiskTrend["direction"], string> = {
@@ -479,38 +480,6 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
 }
 
 // ─── Sub-components ────────────────────────────────────────────────────────────
-
-function InfoCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="bg-surface rounded-2xl p-5">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-4">
-        {title}
-      </h3>
-      <div className="space-y-3">{children}</div>
-    </div>
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4">
-      <span className="text-zinc-400 text-sm flex-shrink-0">{label}</span>
-      <span className="text-white text-sm text-right">{value}</span>
-    </div>
-  );
-}
 
 function PlanBadge({ plan }: { plan: string }) {
   const styles: Record<string, string> = {

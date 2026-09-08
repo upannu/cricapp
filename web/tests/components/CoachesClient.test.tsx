@@ -54,6 +54,30 @@ describe("CoachesClient", () => {
     expect(screen.getByText("Not set up")).toBeInTheDocument();
   });
 
+  test("clicking a coach's name/avatar opens their profile", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+
+    render(<CoachesClient />);
+    await user.click(await screen.findByText("Coach Dan"));
+
+    expect(push).toHaveBeenCalledWith("/coaches/c1");
+  });
+
+  test("View lives under the row's ⋮ menu and also navigates to the coach's profile", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("View"));
+
+    expect(push).toHaveBeenCalledWith("/coaches/c1");
+  });
+
   test("scopes the fetch to the academy_admin's own academy", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "academy-9" }) });
