@@ -254,9 +254,31 @@ describe("CoachesClient", () => {
 
     await user.click(screen.getByRole("button", { name: "Yes, Deactivate" }));
     expect(upsertCoach).toHaveBeenCalledWith({ id: "c1", status: "Inactive" });
-    // "Inactive" also names one of the filter tabs — scope to the card itself, not the whole page.
+    // "Inactive" also names one of the stat cards — scope to the table's own card, not the page.
     const card = screen.getByText("Coach Dan").closest(".bg-surface") as HTMLElement;
     expect(await within(card).findByText("Inactive")).toBeInTheDocument();
+  });
+
+  test("a failed deactivate shows the real error inside the still-open confirm dialog, not silently", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", status: "Active" })]);
+    upsertCoach.mockRejectedValueOnce(new Error("Row-level security denied this update."));
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Deactivate"));
+    await user.click(screen.getByRole("button", { name: "Yes, Deactivate" }));
+
+    // The dialog itself is where this error must show — a row-triggered confirm has no edit form
+    // open anywhere on the page for a page-level error message to land in instead.
+    expect(await screen.findByText("Row-level security denied this update.")).toBeInTheDocument();
+    expect(screen.getByText("Deactivate Coach?")).toBeInTheDocument();
+    // Never applied — the coach's own status badge is untouched.
+    const card = screen.getByText("Coach Dan").closest(".bg-surface") as HTMLElement;
+    expect(within(card).getByText("Active")).toBeInTheDocument();
   });
 
   test("cancelling the deactivate confirm leaves the coach untouched", async () => {

@@ -17,6 +17,11 @@ export interface ConfirmModalProps {
   /** Extra content between the message and the button row — e.g. Reassign All Players' target-
    * coach picker. Most confirms don't need this. */
   children?: React.ReactNode;
+  /** A failed onConfirm's error, shown inside the dialog itself. Confirms triggered straight from
+   * a row's ⋮ menu (as opposed to an already-open edit form) have nowhere else on the page an
+   * error could be shown — this modal is a full-screen overlay, so any error rendered elsewhere in
+   * the page's normal flow is invisible behind it regardless of where in the DOM it sits. */
+  error?: string;
 }
 
 const CONFIRM_BUTTON_CLASSES: Record<NonNullable<ConfirmModalProps["confirmVariant"]>, string> = {
@@ -32,7 +37,7 @@ const CONFIRM_BUTTON_CLASSES: Record<NonNullable<ConfirmModalProps["confirmVaria
  */
 export function ConfirmModal({
   icon, iconBg, title, message, confirmLabel, confirmBusyLabel, cancelLabel = "Cancel",
-  confirmVariant = "default", loading = false, onConfirm, onCancel, children,
+  confirmVariant = "default", loading = false, onConfirm, onCancel, children, error,
 }: ConfirmModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -44,6 +49,7 @@ export function ConfirmModal({
         <h3 className="text-white font-bold text-center mb-1">{title}</h3>
         <p className={`text-zinc-400 text-sm text-center ${children ? "mb-4" : "mb-6"}`}>{message}</p>
         {children && <div className="mb-6">{children}</div>}
+        {error && <p className="text-red-400 text-xs text-center mb-4">{error}</p>}
         <div className="flex gap-3">
           <button type="button" onClick={onCancel} disabled={loading}
             className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer disabled:opacity-60">

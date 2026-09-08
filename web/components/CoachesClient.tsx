@@ -992,7 +992,7 @@ export function CoachesClient() {
                 const menuItems = coach.loginDisabled
                   ? (isStaff ? [{
                       label: "Reinstate Coach", variant: "success" as const,
-                      onClick: () => setConfirmReinstate({ coachId: coach.id, name: coach.name }),
+                      onClick: () => { setFormError(""); setConfirmReinstate({ coachId: coach.id, name: coach.name }); },
                     }] : [])
                   : [
                       // Gated the same as Edit/Payouts below (own row or staff) — a coach viewing
@@ -1021,27 +1021,27 @@ export function CoachesClient() {
                           label: coach.status === "Active" ? "Deactivate" : "Activate",
                           variant: coach.status === "Active" ? "warning" as const : "success" as const,
                           icon: coach.status === "Active" ? <PowerOffIcon /> : <PowerIcon />,
-                          onClick: () => setConfirmStatusToggle({
+                          onClick: () => { setFormError(""); setConfirmStatusToggle({
                             coachId: coach.id, name: coach.name,
                             newStatus: coach.status === "Active" ? "Inactive" : "Active",
-                          }),
+                          }); },
                         },
                         {
                           label: coach.marketplaceVisible ? "Hide from Marketplace" : "Show in Marketplace",
                           icon: coach.marketplaceVisible ? <EyeOffIcon /> : <EyeIcon />,
-                          onClick: () => setConfirmMarketplaceToggle({
+                          onClick: () => { setFormError(""); setConfirmMarketplaceToggle({
                             coachId: coach.id, name: coach.name, newValue: !coach.marketplaceVisible,
-                          }),
+                          }); },
                         },
                         ...(coach.email ? [{
                           label: "Resend Invite",
                           icon: <MailIcon />,
-                          onClick: () => setConfirmResendInvite({ coachId: coach.id, name: coach.name }),
+                          onClick: () => { setFormError(""); setConfirmResendInvite({ coachId: coach.id, name: coach.name }); },
                         }] : []),
                         ...(playerCount > 0 ? [{
                           label: "Reassign All Players",
                           icon: <RepeatIcon />,
-                          onClick: () => { setReassignAllTarget({ coachId: coach.id, name: coach.name, playerCount }); setReassignAllToCoachId(""); },
+                          onClick: () => { setFormError(""); setReassignAllTarget({ coachId: coach.id, name: coach.name, playerCount }); setReassignAllToCoachId(""); },
                         }] : []),
                         { label: "Remove Coach", variant: "danger" as const, dividerBefore: true, icon: <TrashIcon />, onClick: () => openEditWithDeleteConfirm(coach) },
                       ] : []),
@@ -1187,8 +1187,9 @@ export function CoachesClient() {
           confirmLabel={confirmStatusToggle.newStatus === "Inactive" ? "Yes, Deactivate" : "Yes, Activate"}
           confirmVariant={confirmStatusToggle.newStatus === "Inactive" ? "warning" : "default"}
           loading={togglingCoach}
+          error={formError}
           onConfirm={handleConfirmStatusToggle}
-          onCancel={() => setConfirmStatusToggle(null)}
+          onCancel={() => { setConfirmStatusToggle(null); setFormError(""); }}
         />
       )}
 
@@ -1207,8 +1208,9 @@ export function CoachesClient() {
             : `"${confirmMarketplaceToggle.name}" will no longer appear in Find a Coach.`}
           confirmLabel={confirmMarketplaceToggle.newValue ? "Yes, Show" : "Yes, Hide"}
           loading={togglingCoach}
+          error={formError}
           onConfirm={handleConfirmMarketplaceToggle}
-          onCancel={() => setConfirmMarketplaceToggle(null)}
+          onCancel={() => { setConfirmMarketplaceToggle(null); setFormError(""); }}
         />
       )}
 
@@ -1226,8 +1228,9 @@ export function CoachesClient() {
           confirmLabel="Reassign"
           confirmBusyLabel="Reassigning…"
           loading={reassigningAll}
+          error={formError}
           onConfirm={handleConfirmReassignAll}
-          onCancel={() => setReassignAllTarget(null)}
+          onCancel={() => { setReassignAllTarget(null); setFormError(""); }}
         >
           <select
             value={reassignAllToCoachId}
@@ -1255,8 +1258,9 @@ export function CoachesClient() {
           confirmLabel="Yes, Resend"
           confirmBusyLabel="Sending…"
           loading={resendingInvite}
+          error={formError}
           onConfirm={handleConfirmResendInvite}
-          onCancel={() => setConfirmResendInvite(null)}
+          onCancel={() => { setConfirmResendInvite(null); setFormError(""); }}
         />
       )}
 
@@ -1274,8 +1278,9 @@ export function CoachesClient() {
           confirmBusyLabel="Reinstating…"
           confirmVariant="default"
           loading={reinstatingCoach}
+          error={formError}
           onConfirm={handleConfirmReinstate}
-          onCancel={() => setConfirmReinstate(null)}
+          onCancel={() => { setConfirmReinstate(null); setFormError(""); }}
         />
       )}
     </div>
