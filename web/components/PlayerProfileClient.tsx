@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, updatePlayer } from "@/lib/db";
 import { formatDate, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
@@ -29,6 +30,7 @@ const DIRECTION_LABEL: Record<InjuryRiskTrend["direction"], string> = {
 
 export function PlayerProfileClient({ playerId }: { playerId: string }) {
   const { user } = useAuth();
+  const router = useRouter();
   const [player, setPlayer] = useState<Player | null>(null);
   const [academies, setAcademies] = useState<Academy[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
@@ -151,15 +153,21 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
     }
   }
 
-  // Same set Players' own list row menu offers, minus View/Edit/Manage Subscription — those are
-  // already dedicated buttons right above this menu on this exact page, so repeating them here
-  // would just be a second way to do the same thing rather than a new capability.
+  // Action Plans/S&C Log moved in here (out of the visible row) to keep that row down to one line
+  // — Edit/View All Reports/Manage Subscription/+New Session stay direct buttons since they're the
+  // ones reached most often; these two, Send Message, Reassign Coach, and Remove/Reinstate live
+  // behind the ⋮ instead, same idea as Coaches' own profile page keeping just Edit/Payouts visible.
+  // View/Edit/Manage Subscription themselves are still deliberately absent from this menu — already
+  // dedicated buttons right above it, so repeating them here would just be a second way to do the
+  // same thing rather than a new capability.
   const menuItems = player.loginDisabled
     ? (canAddPlayers ? [{
         label: "Reinstate Player", variant: "success" as const,
         onClick: () => { setFormError(""); setConfirmReinstate(true); },
       }] : [])
     : [
+        { label: "Action Plans", onClick: () => router.push(`/players/${playerId}/action-plans`) },
+        { label: "S&C Log", onClick: () => router.push(`/players/${playerId}/sc-log`) },
         { label: "Send Message", icon: <MessageIcon />, onClick: () => setShowMessageModal(true) },
         // Only makes sense for someone who manages more than one coach — a coach viewing their
         // own single-coach roster has nobody else to pick, same gate the list page uses.
@@ -250,18 +258,6 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-ink text-white border-zinc-700 hover:bg-surface-hover"
           >
             View All Reports
-          </Link>
-          <Link
-            href={`/players/${playerId}/action-plans`}
-            className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-ink text-white border-zinc-700 hover:bg-surface-hover"
-          >
-            Action Plans
-          </Link>
-          <Link
-            href={`/players/${playerId}/sc-log`}
-            className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-ink text-white border-zinc-700 hover:bg-surface-hover"
-          >
-            S&C Log
           </Link>
           {!isAcademyPlayer && (
             <Link
