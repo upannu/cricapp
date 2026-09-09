@@ -37,7 +37,15 @@ export function SortableHeader<K extends string>({
         <button
           type="button"
           onClick={() => onSort(sortKey)}
-          className={`group inline-flex items-center gap-1 cursor-pointer transition-colors ${
+          // Tailwind's own preflight resets text-transform to `none` on <button> — that reset sits
+          // in a later cascade layer than an inherited utility from the parent <th>, so the label
+          // rendered uppercase there (see the outer <th>'s own `uppercase`) without this repeats it
+          // right on the button, silently landing back in normal case. Confirmed via a live
+          // computed-style check: every SortableHeader-driven column (Coach/Academy/Status/etc.)
+          // rendered `text-transform: none` on this button while plain, buttonless <th>s (Payouts,
+          // Actions) correctly inherited `uppercase` — the two looked inconsistent side by side on
+          // any page using this component (Players/Sessions/Bookings/Coaches all do).
+          className={`group inline-flex items-center gap-1 cursor-pointer transition-colors uppercase tracking-wider ${
             isActive ? "text-white" : "text-zinc-300 hover:text-white"
           } ${align === "right" ? "flex-row-reverse" : ""}`}
         >

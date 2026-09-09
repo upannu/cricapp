@@ -85,6 +85,8 @@ export function CoachesClient() {
   const searchParams = useSearchParams();
   const [payoutNotice, setPayoutNotice] = useState<"return" | "refresh" | "checking" | "confirmed" | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const [tableCanScrollRight, setTableCanScrollRight] = useState(false);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -191,6 +193,30 @@ export function CoachesClient() {
     }
     if (onboarding || refresh) router.replace("/coaches");
   }, [searchParams, router]);
+
+  // Marketplace (and the checkbox column) pushed the table past its card's width at common
+  // laptop/tablet widths — Payouts/Marketplace/Joined/Actions can end up entirely off-screen with
+  // no visible hint there's more to scroll to (confirmed against the live page at 1024px/768px).
+  // ResizeObserver rather than a fixed dependency list — this needs to react to the table actually
+  // changing width for any reason (rows/columns changing, a resize, zoom), not one specific cause.
+  useEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    function checkScroll() {
+      if (!el) return;
+      setTableCanScrollRight(el.scrollWidth - el.scrollLeft - el.clientWidth > 1);
+    }
+    checkScroll();
+    el.addEventListener("scroll", checkScroll);
+    // Guards jsdom (no ResizeObserver global) as much as genuinely old browsers — either way,
+    // the fade is a nice-to-have hint, not something worth a hard dependency on.
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(checkScroll) : null;
+    observer?.observe(el);
+    return () => {
+      el.removeEventListener("scroll", checkScroll);
+      observer?.disconnect();
+    };
+  }, []);
 
   async function handleSetupPayouts(coachId: string) {
     setPayoutLoading(coachId);
@@ -1062,227 +1088,236 @@ export function CoachesClient() {
             )}
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-zinc-700/60">
-                {user?.role !== "coach" && (
-                  <th className="text-center px-4 py-3 pl-6 whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      ref={(el) => { if (el) el.indeterminate = someSelected; }}
-                      onChange={toggleAll}
-                      className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
-                      title="Select all"
-                    />
-                  </th>
-                )}
-                <SortableHeader label="Coach" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} className={user?.role !== "coach" ? undefined : "pl-6"} />
-                <SortableHeader label="Academy" sortKey="academy" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <SortableHeader label="Players" sortKey="players" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Payouts</th>
-                <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Marketplace</th>
-                <SortableHeader label="Joined" sortKey="joined" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <th className="text-right text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pageCoaches.map((coach) => {
-                const playerCount = playerCountForCoach(coach.id);
-                const initials = coach.name.split(" ").map((n) => n[0]).join("");
-                const canEditRow = user?.role !== "coach" || user.coachId === coach.id;
-                const isStaff = user?.role !== "coach";
-                const academy = coach.academyId ? academyById(coach.academyId) : undefined;
-
-                const menuItems = coach.loginDisabled
-                  ? (isStaff ? [{
-                      label: "Reinstate Coach", variant: "success" as const,
-                      onClick: () => { setFormError(""); setConfirmReinstate({ coachId: coach.id, name: coach.name }); },
-                    }] : [])
-                  : [
-                      // Gated the same as Edit/Payouts below (own row or staff) — a coach viewing
-                      // a colleague's row has no access to that profile server-side either
-                      // (canAccessCoachServer), so a visible "View" there would just be a dead
-                      // link, and this same gate is what an earlier test already locked in as
-                      // "no menu at all" for that case.
-                      ...(canEditRow ? [{ label: "View", icon: <EyeIcon />, onClick: () => router.push(`/coaches/${coach.id}`) }] : []),
-                      ...(canEditRow ? [{ label: "Edit", icon: <EditIcon />, onClick: () => openEdit(coach) }] : []),
-                      ...(canEditRow ? [{
-                        label: coach.stripeConnectOnboarded ? "View Payouts" : "Set Up Payouts",
-                        icon: <CreditCardIcon />,
-                        disabled: payoutLoading === coach.id,
-                        onClick: () => (coach.stripeConnectOnboarded ? handleViewPayouts(coach.id) : handleSetupPayouts(coach.id)),
-                      }] : []),
-                      // Only meaningful for an independent coach — an academy-employed one has no
-                      // reason to pay for this themselves.
-                      ...(user?.role === "coach" && user.coachId === coach.id && !coach.academyId ? [{
-                        label: coach.subPlan === "Coach Pro" ? "Manage Plan" : "Upgrade Plan",
-                        onClick: () => router.push("/coach/subscription"),
-                      }] : []),
-                      // Everything below stays staff-only (never on a coach's own row) — same
-                      // gating the confirm-removal step already had.
-                      ...(isStaff ? [
-                        {
-                          label: coach.status === "Active" ? "Deactivate" : "Activate",
-                          variant: coach.status === "Active" ? "warning" as const : "success" as const,
-                          icon: coach.status === "Active" ? <PowerOffIcon /> : <PowerIcon />,
-                          onClick: () => { setFormError(""); setConfirmStatusToggle({
-                            coachId: coach.id, name: coach.name,
-                            newStatus: coach.status === "Active" ? "Inactive" : "Active",
-                          }); },
-                        },
-                        {
-                          label: coach.marketplaceVisible ? "Hide from Marketplace" : "Show in Marketplace",
-                          icon: coach.marketplaceVisible ? <EyeOffIcon /> : <EyeIcon />,
-                          onClick: () => { setFormError(""); setConfirmMarketplaceToggle({
-                            coachId: coach.id, name: coach.name, newValue: !coach.marketplaceVisible,
-                          }); },
-                        },
-                        ...(coach.email ? [{
-                          label: "Resend Invite",
-                          icon: <MailIcon />,
-                          onClick: () => { setFormError(""); setConfirmResendInvite({ coachId: coach.id, name: coach.name }); },
+        <div className="relative">
+          <div ref={tableScrollRef} className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-zinc-700/60">
+                  {user?.role !== "coach" && (
+                    <th className="text-center px-4 py-3 pl-6 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                        onChange={toggleAll}
+                        className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+                        title="Select all"
+                      />
+                    </th>
+                  )}
+                  <SortableHeader label="Coach" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} className={user?.role !== "coach" ? undefined : "pl-6"} />
+                  <SortableHeader label="Academy" sortKey="academy" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Players" sortKey="players" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Payouts</th>
+                  <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Marketplace</th>
+                  <SortableHeader label="Joined" sortKey="joined" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <th className="text-right text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageCoaches.map((coach) => {
+                  const playerCount = playerCountForCoach(coach.id);
+                  const initials = coach.name.split(" ").map((n) => n[0]).join("");
+                  const canEditRow = user?.role !== "coach" || user.coachId === coach.id;
+                  const isStaff = user?.role !== "coach";
+                  const academy = coach.academyId ? academyById(coach.academyId) : undefined;
+  
+                  const menuItems = coach.loginDisabled
+                    ? (isStaff ? [{
+                        label: "Reinstate Coach", variant: "success" as const,
+                        onClick: () => { setFormError(""); setConfirmReinstate({ coachId: coach.id, name: coach.name }); },
+                      }] : [])
+                    : [
+                        // Gated the same as Edit/Payouts below (own row or staff) — a coach viewing
+                        // a colleague's row has no access to that profile server-side either
+                        // (canAccessCoachServer), so a visible "View" there would just be a dead
+                        // link, and this same gate is what an earlier test already locked in as
+                        // "no menu at all" for that case.
+                        ...(canEditRow ? [{ label: "View", icon: <EyeIcon />, onClick: () => router.push(`/coaches/${coach.id}`) }] : []),
+                        ...(canEditRow ? [{ label: "Edit", icon: <EditIcon />, onClick: () => openEdit(coach) }] : []),
+                        ...(canEditRow ? [{
+                          label: coach.stripeConnectOnboarded ? "View Payouts" : "Set Up Payouts",
+                          icon: <CreditCardIcon />,
+                          disabled: payoutLoading === coach.id,
+                          onClick: () => (coach.stripeConnectOnboarded ? handleViewPayouts(coach.id) : handleSetupPayouts(coach.id)),
                         }] : []),
-                        ...(playerCount > 0 ? [{
-                          label: "Reassign All Players",
-                          icon: <RepeatIcon />,
-                          onClick: () => { setFormError(""); setReassignAllTarget({ coachId: coach.id, name: coach.name, playerCount }); setReassignAllToCoachId(""); },
+                        // Only meaningful for an independent coach — an academy-employed one has no
+                        // reason to pay for this themselves.
+                        ...(user?.role === "coach" && user.coachId === coach.id && !coach.academyId ? [{
+                          label: coach.subPlan === "Coach Pro" ? "Manage Plan" : "Upgrade Plan",
+                          onClick: () => router.push("/coach/subscription"),
                         }] : []),
-                        { label: "Remove Coach", variant: "danger" as const, dividerBefore: true, icon: <TrashIcon />, onClick: () => handleRemoveCoachClick(coach) },
-                      ] : []),
-                    ];
-
-                return (
-                  <tr key={coach.id}
-                    className={`border-b border-zinc-700/40 last:border-0 transition-colors ${
-                      selectedIds.has(coach.id)
-                        ? "bg-blue-500/5"
-                        : saved === coach.id ? "bg-pace-green/5" : "hover:bg-surface/80"
-                    }`}>
-                    {isStaff && (
-                      <td className="px-4 py-4 pl-6 text-center">
-                        <input
-                          type="checkbox"
-                          checked={selectedIds.has(coach.id)}
-                          onChange={() => toggleSelect(coach.id)}
-                          className="w-4 h-4 accent-pace-green cursor-pointer"
-                          title="Select for bulk actions"
-                        />
+                        // Everything below stays staff-only (never on a coach's own row) — same
+                        // gating the confirm-removal step already had.
+                        ...(isStaff ? [
+                          {
+                            label: coach.status === "Active" ? "Deactivate" : "Activate",
+                            variant: coach.status === "Active" ? "warning" as const : "success" as const,
+                            icon: coach.status === "Active" ? <PowerOffIcon /> : <PowerIcon />,
+                            onClick: () => { setFormError(""); setConfirmStatusToggle({
+                              coachId: coach.id, name: coach.name,
+                              newStatus: coach.status === "Active" ? "Inactive" : "Active",
+                            }); },
+                          },
+                          {
+                            label: coach.marketplaceVisible ? "Hide from Marketplace" : "Show in Marketplace",
+                            icon: coach.marketplaceVisible ? <EyeOffIcon /> : <EyeIcon />,
+                            onClick: () => { setFormError(""); setConfirmMarketplaceToggle({
+                              coachId: coach.id, name: coach.name, newValue: !coach.marketplaceVisible,
+                            }); },
+                          },
+                          ...(coach.email ? [{
+                            label: "Resend Invite",
+                            icon: <MailIcon />,
+                            onClick: () => { setFormError(""); setConfirmResendInvite({ coachId: coach.id, name: coach.name }); },
+                          }] : []),
+                          ...(playerCount > 0 ? [{
+                            label: "Reassign All Players",
+                            icon: <RepeatIcon />,
+                            onClick: () => { setFormError(""); setReassignAllTarget({ coachId: coach.id, name: coach.name, playerCount }); setReassignAllToCoachId(""); },
+                          }] : []),
+                          { label: "Remove Coach", variant: "danger" as const, dividerBefore: true, icon: <TrashIcon />, onClick: () => handleRemoveCoachClick(coach) },
+                        ] : []),
+                      ];
+  
+                  return (
+                    <tr key={coach.id}
+                      className={`border-b border-zinc-700/40 last:border-0 transition-colors ${
+                        selectedIds.has(coach.id)
+                          ? "bg-blue-500/5"
+                          : saved === coach.id ? "bg-pace-green/5" : "hover:bg-surface/80"
+                      }`}>
+                      {isStaff && (
+                        <td className="px-4 py-4 pl-6 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(coach.id)}
+                            onChange={() => toggleSelect(coach.id)}
+                            className="w-4 h-4 accent-pace-green cursor-pointer"
+                            title="Select for bulk actions"
+                          />
+                        </td>
+                      )}
+                      <td className={`px-4 py-4 ${isStaff ? "" : "pl-6"}`}>
+                        {/* Clicking the name/avatar opens the coach's profile (view mode) — same
+                            destination as the ⋮ menu's own "View", just a faster path to it.
+                            Scoped to this one control rather than the whole row, so it never fights
+                            the ⋮ menu's own click targets (same convention Players already uses).
+                            Gated by canEditRow, same as View/Edit/Payouts below — a coach viewing a
+                            colleague's row has no server-side access to that profile either
+                            (canAccessCoachServer), so this renders as plain, non-clickable content
+                            for that case rather than a dead link. */}
+                        {(() => {
+                          const identity = (
+                            <>
+                              <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
+                                {initials}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className={`text-white text-sm font-medium whitespace-nowrap ${canEditRow ? "group-hover:text-pace-green transition-colors" : ""}`}>{coach.name}</p>
+                                  {saved === coach.id && <span className="text-pace-green text-xs font-semibold">✓ Saved</span>}
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CERT_STYLES[coach.certificationLevel]}`}>
+                                    {coach.certificationLevel}
+                                  </span>
+                                  {resendInviteSent === coach.id && <span className="text-pace-green text-xs">✓ Invite sent</span>}
+                                </div>
+                                {coach.loginDisabled && (
+                                  <p className="text-zinc-500 text-xs mt-0.5">
+                                    {coach.disabledReason || "Removed by staff"}
+                                    {coach.disabledAt && ` · ${new Date(coach.disabledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
+                                  </p>
+                                )}
+                              </div>
+                            </>
+                          );
+                          return canEditRow ? (
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/coaches/${coach.id}`)}
+                              className="flex items-center gap-3 text-left cursor-pointer group"
+                            >
+                              {identity}
+                            </button>
+                          ) : (
+                            <div className="flex items-center gap-3">{identity}</div>
+                          );
+                        })()}
                       </td>
-                    )}
-                    <td className={`px-4 py-4 ${isStaff ? "" : "pl-6"}`}>
-                      {/* Clicking the name/avatar opens the coach's profile (view mode) — same
-                          destination as the ⋮ menu's own "View", just a faster path to it.
-                          Scoped to this one control rather than the whole row, so it never fights
-                          the ⋮ menu's own click targets (same convention Players already uses).
-                          Gated by canEditRow, same as View/Edit/Payouts below — a coach viewing a
-                          colleague's row has no server-side access to that profile either
-                          (canAccessCoachServer), so this renders as plain, non-clickable content
-                          for that case rather than a dead link. */}
-                      {(() => {
-                        const identity = (
-                          <>
-                            <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
-                              {initials}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <p className={`text-white text-sm font-medium whitespace-nowrap ${canEditRow ? "group-hover:text-pace-green transition-colors" : ""}`}>{coach.name}</p>
-                                {saved === coach.id && <span className="text-pace-green text-xs font-semibold">✓ Saved</span>}
-                              </div>
-                              <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CERT_STYLES[coach.certificationLevel]}`}>
-                                  {coach.certificationLevel}
-                                </span>
-                                {resendInviteSent === coach.id && <span className="text-pace-green text-xs">✓ Invite sent</span>}
-                              </div>
-                              {coach.loginDisabled && (
-                                <p className="text-zinc-500 text-xs mt-0.5">
-                                  {coach.disabledReason || "Removed by staff"}
-                                  {coach.disabledAt && ` · ${new Date(coach.disabledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
-                                </p>
-                              )}
-                            </div>
-                          </>
-                        );
-                        return canEditRow ? (
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/coaches/${coach.id}`)}
-                            className="flex items-center gap-3 text-left cursor-pointer group"
-                          >
-                            {identity}
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-3">{identity}</div>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-4 py-4 text-xs whitespace-nowrap">
-                      {academy ? (
-                        <span className="px-2 py-0.5 rounded-md text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                          🏫 {academy.name}
-                        </span>
-                      ) : (
-                        <span className="text-zinc-500">Independent</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4">
-                      {coach.loginDisabled ? (
-                        <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">Removed</span>
-                      ) : (
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          coach.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
-                        }`}>
-                          {coach.status}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-sm font-bold text-pace-green font-mono">{playerCount}</td>
-                    <td className="px-4 py-4 text-xs whitespace-nowrap">
-                      {canEditRow ? (
-                        <>
-                          <span className={coach.stripeConnectOnboarded ? "text-pace-green font-semibold" : "text-zinc-400"}>
-                            {coach.stripeConnectOnboarded ? "✓ Connected" : coach.stripeConnectAccountId ? "Onboarding incomplete" : "Not set up"}
+                      <td className="px-4 py-4 text-xs whitespace-nowrap">
+                        {academy ? (
+                          <span className="px-2 py-0.5 rounded-md text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            🏫 {academy.name}
                           </span>
-                          {payoutError?.coachId === coach.id && (
-                            <p className="text-red-400 mt-0.5">{payoutError.message}</p>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-zinc-600">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-xs whitespace-nowrap">
-                      {coach.marketplaceVisible ? (
-                        <span className="text-blue-400 font-semibold">✓ Listed</span>
-                      ) : (
-                        <span className="text-zinc-500">Not listed</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-zinc-400 whitespace-nowrap">
-                      {new Date(coach.joinedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                    </td>
-                    <td className="px-4 py-4 pr-6 text-right">
-                      <div className="flex justify-end">
-                        <RowActionsMenu items={menuItems} />
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {filtered.length === 0 && (
-            <div className="px-6 py-16 text-center">
-              <p className="text-zinc-400 text-sm mb-4">No coaches found.</p>
-              <button type="button" onClick={openAdd}
-                className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
-                + Add First Coach
-              </button>
-            </div>
+                        ) : (
+                          <span className="text-zinc-500">Independent</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4">
+                        {coach.loginDisabled ? (
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">Removed</span>
+                        ) : (
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                            coach.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
+                          }`}>
+                            {coach.status}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-sm font-bold text-pace-green font-mono">{playerCount}</td>
+                      <td className="px-4 py-4 text-xs whitespace-nowrap">
+                        {canEditRow ? (
+                          <>
+                            <span className={coach.stripeConnectOnboarded ? "text-pace-green font-semibold" : "text-zinc-400"}>
+                              {coach.stripeConnectOnboarded ? "✓ Connected" : coach.stripeConnectAccountId ? "Onboarding incomplete" : "Not set up"}
+                            </span>
+                            {payoutError?.coachId === coach.id && (
+                              <p className="text-red-400 mt-0.5">{payoutError.message}</p>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-zinc-600">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-xs whitespace-nowrap">
+                        {coach.marketplaceVisible ? (
+                          <span className="text-blue-400 font-semibold">✓ Listed</span>
+                        ) : (
+                          <span className="text-zinc-500">Not listed</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-zinc-400 whitespace-nowrap">
+                        {new Date(coach.joinedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                      </td>
+                      <td className="px-4 py-4 pr-6 text-right">
+                        <div className="flex justify-end">
+                          <RowActionsMenu items={menuItems} />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {filtered.length === 0 && (
+              <div className="px-6 py-16 text-center">
+                <p className="text-zinc-400 text-sm mb-4">No coaches found.</p>
+                <button type="button" onClick={openAdd}
+                  className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
+                  + Add First Coach
+                </button>
+              </div>
+            )}
+          </div>
+          {/* A right-edge fade, not a full scrollbar redesign — just enough to signal "there's
+              more here" before a laptop-width viewport otherwise cuts Payouts/Marketplace/Joined/
+              Actions off with no hint they exist. Tracks real scrollability (via the ResizeObserver
+              above), not just viewport width, so it disappears once actually scrolled to the end. */}
+          {tableCanScrollRight && (
+            <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-10 bg-gradient-to-l from-surface to-transparent" aria-hidden="true" />
           )}
         </div>
         {/* Always visible, same as Players — a fixed spot for the count rather than one that
