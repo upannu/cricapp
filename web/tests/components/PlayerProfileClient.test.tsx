@@ -20,6 +20,9 @@ vi.mock("@/lib/db", () => ({ fetchPlayer, fetchAcademies, fetchCoaches, fetchRep
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 // These render their own fetched data (invoices, messages, badge computations) —
 // stub them so this test stays about PlayerProfileClient's own layout/branching.
 vi.mock("@/components/BadgeStrip", () => ({ BadgeStrip: () => <div data-testid="badge-strip" /> }));
@@ -146,6 +149,28 @@ describe("PlayerProfileClient", () => {
     // "Manage Subscription" still exists exactly once — as the dedicated button already on this
     // page, not repeated as a second, redundant menu item.
     expect(screen.getAllByText("Manage Subscription")).toHaveLength(1);
+  });
+
+  // Action Plans/S&C Log moved out of the visible row into the ⋮ menu, to keep that row to one
+  // line — Edit/View All Reports/Manage Subscription/+New Session stay direct buttons.
+  test("Action Plans and S&C Log live in the ⋮ menu, not as separate buttons in the row", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.queryByRole("link", { name: "Action Plans" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "S&C Log" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Action Plans"));
+    expect(push).toHaveBeenCalledWith("/players/p1/action-plans");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("S&C Log"));
+    expect(push).toHaveBeenCalledWith("/players/p1/sc-log");
   });
 
   test("a coach viewing their own player doesn't get Reassign Coach — nobody else to pick", async () => {
