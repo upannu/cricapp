@@ -273,7 +273,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           )}
           <Link
             href={`/players/${playerId}/new-session`}
-            className="px-5 py-2.5 bg-pace-green text-black rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
+            className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
           >
             + New Session
           </Link>

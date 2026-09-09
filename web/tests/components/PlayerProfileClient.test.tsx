@@ -129,6 +129,19 @@ describe("PlayerProfileClient", () => {
     expect(editLink.closest("div")).toBe(screen.getByRole("link", { name: "View All Reports" }).closest("div"));
   });
 
+  // +New Session matches Edit Player's outlined style — no button in this row is solid-filled.
+  test("+New Session is outlined, matching Edit Player, not solid-filled", async () => {
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    const newSessionLink = screen.getByRole("link", { name: "+ New Session" });
+    expect(newSessionLink).toHaveClass("text-pace-green", "border-pace-green/40");
+    expect(newSessionLink).not.toHaveClass("bg-pace-green");
+  });
+
   // The ⋮ menu brings Send Message/Reassign Coach/Remove/Reinstate onto the profile page —
   // matching Coaches' own profile page, which got the identical treatment first. View/Edit/Manage
   // Subscription are deliberately absent from this menu since they're already dedicated buttons
