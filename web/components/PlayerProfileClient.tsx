@@ -248,12 +248,6 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             own, same convention the search input inside the Players filter bar already follows. */}
         <div className="flex flex-wrap gap-3">
           <Link
-            href={`/players/${playerId}/edit`}
-            className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
-          >
-            Edit Player
-          </Link>
-          <Link
             href={`/players/${playerId}/reports`}
             className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-ink text-white border-zinc-700 hover:bg-surface-hover"
           >
@@ -276,6 +270,12 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
           >
             + New Session
+          </Link>
+          <Link
+            href={`/players/${playerId}/edit`}
+            className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
+          >
+            Edit Player
           </Link>
           {/* Send Message/Reassign Coach/Remove or Reinstate — same actions the list row's own ⋮
               menu offers, minus View/Edit/Manage Subscription (already dedicated buttons on this
