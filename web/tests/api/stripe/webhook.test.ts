@@ -75,6 +75,29 @@ describe("POST /api/stripe/webhook", () => {
     expect(client.tables.bookings.update).toHaveBeenCalledWith({ payment_status: "Paid" });
   });
 
+  // A pack/booking paid through Checkout has its platform-fee cut collected automatically
+  // (application_fee_amount) — a *pending* pack_fee_dues/booking_fee_dues row can only exist from
+  // the other, cash/bank-transfer "Mark Paid" path racing this same payment, and is stale the
+  // moment Stripe confirms the charge. See create-pack/booking-checkout-session's own
+  // application_fee_amount and record-fee-due's own comment for the two halves of this.
+  test("checkout.session.completed / pack_payment clears any stray pending pack_fee_dues row for the same pack", async () => {
+    const res = await POST(signedRequest(event("checkout.session.completed", { metadata: { type: "pack_payment", pack_id: "pack1" } })));
+    expect(res.status).toBe(200);
+    const client = routeMockState.lastServiceClient!;
+    expect(client.tables.pack_fee_dues.delete).toHaveBeenCalled();
+    expect(client.tables.pack_fee_dues.eq).toHaveBeenCalledWith("pack_id", "pack1");
+    expect(client.tables.pack_fee_dues.eq).toHaveBeenCalledWith("status", "pending");
+  });
+
+  test("checkout.session.completed / booking_payment clears any stray pending booking_fee_dues row for the same booking", async () => {
+    const res = await POST(signedRequest(event("checkout.session.completed", { metadata: { type: "booking_payment", booking_id: "b1" } })));
+    expect(res.status).toBe(200);
+    const client = routeMockState.lastServiceClient!;
+    expect(client.tables.booking_fee_dues.delete).toHaveBeenCalled();
+    expect(client.tables.booking_fee_dues.eq).toHaveBeenCalledWith("booking_id", "b1");
+    expect(client.tables.booking_fee_dues.eq).toHaveBeenCalledWith("status", "pending");
+  });
+
   test("checkout.session.completed / assessment_payment increments assessment_credits", async () => {
     routeMockState.tableResponses = { players: { data: { assessment_credits: 2 }, error: null } };
     const res = await POST(signedRequest(event("checkout.session.completed", { metadata: { type: "assessment_payment", player_id: "p1" } })));
