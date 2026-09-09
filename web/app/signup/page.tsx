@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 
 type Role = "academy_admin" | "coach" | "player" | "parent";
+type AgeGroup = "U10" | "U11" | "U12" | "U13" | "U14" | "U16" | "U19" | "Senior";
 
 const ROLE_OPTIONS: { value: Role; label: string; desc: string }[] = [
   { value: "academy_admin", label: "Academy Admin", desc: "Manage your academy, coaches & players" },
@@ -16,6 +17,7 @@ const ROLE_OPTIONS: { value: Role; label: string; desc: string }[] = [
 
 const NEEDS_PLAYER_LOOKUP: Role[] = ["player", "parent"];
 const PREFILLABLE_ROLES: Role[] = ["player", "parent"];
+const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 
 export default function SignUpPage() {
   return (
@@ -44,6 +46,11 @@ function SignUpForm() {
   const [academyName, setAcademyName] = useState("");
   const [academyLocation, setAcademyLocation] = useState("");
   const [playerEmail, setPlayerEmail] = useState(prefillEmail);
+  // "I'm new here" — a player with no coach/academy at all yet, creating their own standalone
+  // player record instead of linking to one a coach already added. Only offered for role ===
+  // "player" (see complete-signup's own comment for why parent stays lookup-only).
+  const [newPlayerMode, setNewPlayerMode] = useState(false);
+  const [newPlayerAgeGroup, setNewPlayerAgeGroup] = useState<AgeGroup>("U14");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -87,11 +94,13 @@ function SignUpForm() {
     return () => { cancelled = true; clearTimeout(handle); };
   }, [email]);
 
+  const isNewPlayer = role === "player" && newPlayerMode;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password !== confirm) { setError("Passwords do not match."); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
-    if (NEEDS_PLAYER_LOOKUP.includes(role) && !playerEmail.trim()) {
+    if (NEEDS_PLAYER_LOOKUP.includes(role) && !isNewPlayer && !playerEmail.trim()) {
       setError("Enter the player's registered email so we can link your account — ask your coach if you're not sure.");
       return;
     }
@@ -103,9 +112,10 @@ function SignUpForm() {
     setError("");
     const { error: err, linked: wasLinked, approved, needsConfirmation, checkEmail } = await signup(
       name.trim(), email.trim(), password, role,
-      NEEDS_PLAYER_LOOKUP.includes(role) ? playerEmail.trim() : undefined,
+      NEEDS_PLAYER_LOOKUP.includes(role) && !isNewPlayer ? playerEmail.trim() : undefined,
       role === "academy_admin" ? academyName.trim() : undefined,
       role === "academy_admin" ? academyLocation.trim() : undefined,
+      isNewPlayer ? newPlayerAgeGroup : undefined,
     );
     if (err) {
       setError(err);
@@ -176,7 +186,9 @@ function SignUpForm() {
                   )}
                 </p>
                 <p className="text-zinc-500 text-xs leading-relaxed mb-6">
-                  Your player record was already on file, so there&apos;s no admin review for this account.
+                  {isNewPlayer
+                    ? "Your player profile has been created — head to Find a Coach once you're signed in to get matched with one."
+                    : "Your player record was already on file, so there's no admin review for this account."}
                 </p>
               </>
             ) : (
@@ -206,7 +218,7 @@ function SignUpForm() {
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setRole(opt.value)}
+                  onClick={() => { setRole(opt.value); setNewPlayerMode(false); }}
                   className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
                     role === opt.value
                       ? "border-pace-green bg-pace-green/10"
@@ -222,7 +234,41 @@ function SignUpForm() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {NEEDS_PLAYER_LOOKUP.includes(role) && (
+              {role === "player" && (
+                <div className="flex gap-1 mb-1">
+                  {([
+                    { value: false, label: "I have a coach" },
+                    { value: true, label: "I'm new here" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={String(opt.value)}
+                      type="button"
+                      onClick={() => { setNewPlayerMode(opt.value); setError(""); }}
+                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        newPlayerMode === opt.value ? "bg-pace-green text-black" : "bg-ink text-zinc-400 hover:text-white border border-zinc-700"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {isNewPlayer ? (
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Age Group</label>
+                  <select
+                    value={newPlayerAgeGroup}
+                    onChange={(e) => setNewPlayerAgeGroup(e.target.value as AgeGroup)}
+                    className="w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer"
+                  >
+                    {AGE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                  <p className="text-zinc-500 text-xs mt-1.5">
+                    No coach yet? That&apos;s fine — you can find one from your account once you&apos;re signed in.
+                  </p>
+                </div>
+              ) : NEEDS_PLAYER_LOOKUP.includes(role) && (
                 <div>
                   <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
                     {role === "parent" ? "Your Child's Registered Email" : "Your Registered Player Email"}
