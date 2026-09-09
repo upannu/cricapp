@@ -90,19 +90,15 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
-      {/* Back + Edit */}
-      <div className="flex items-center justify-between mb-6">
+      {/* Back — Edit now lives in the identity card's own action row below, next to the other
+          per-player actions, matching Coaches' profile page layout (Edit Coach sits beside View
+          Payouts there rather than up in this top bar on its own). */}
+      <div className="mb-6">
         <Link
           href="/players"
           className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
         >
           ← Back to Players
-        </Link>
-        <Link
-          href={`/players/${playerId}/edit`}
-          className="px-4 py-2 text-sm font-semibold text-black bg-pace-green rounded-xl hover:opacity-90 transition-opacity"
-        >
-          Edit Player
         </Link>
       </div>
 
@@ -149,6 +145,12 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             inside this same-colored card, a bg-surface button would have no visible fill of its
             own, same convention the search input inside the Players filter bar already follows. */}
         <div className="flex flex-wrap gap-3">
+          <Link
+            href={`/players/${playerId}/edit`}
+            className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
+          >
+            Edit Player
+          </Link>
           <Link
             href={`/players/${playerId}/reports`}
             className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-ink text-white border-zinc-700 hover:bg-surface-hover"
