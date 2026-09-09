@@ -77,7 +77,11 @@ test.describe("middleware redirect matrix", () => {
   // for the same scope).
   test("Player role's \"I'm new here\" toggle swaps the coach-email lookup for an Age Group picker", async ({ page }) => {
     await page.goto("/signup");
-    await page.getByRole("button", { name: "Player", exact: true }).click();
+    // Not exact: true — the role button's own accessible name is "Player" plus its description
+    // text ("View your own sessions, reports & progress"), so an exact "Player" never matches.
+    // Anchored so it can't accidentally match "Parent / Guardian" (starts with "Parent") or
+    // "Coach" (whose own description happens to contain the word "players").
+    await page.getByRole("button", { name: /^Player/ }).click();
 
     await expect(page.getByPlaceholder("The email your coach has on file")).toBeVisible();
     await expect(page.getByText("Age Group", { exact: true })).not.toBeVisible();
