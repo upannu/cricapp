@@ -262,6 +262,7 @@ export function AcademyClient() {
   // ── 3-dot actions ──────────────────────────────────────────────────────────
   function handleMenuAction(action: "edit" | "toggleStatus", academy: Academy) {
     if (action === "edit") { openEdit(academy); return; }
+    setFormError("");
     setConfirmToggle({
       id: academy.id,
       name: academy.name,
@@ -273,15 +274,20 @@ export function AcademyClient() {
     if (!confirmToggle) return;
     setToggling(true);
     try {
-      await upsertAcademy({ id: confirmToggle.id, status: confirmToggle.newStatus });
+      // upsertAcademy's .upsert() validates as if it were a fresh INSERT even against an existing
+      // row, so a partial payload missing a NOT NULL column (name, description, location, ...)
+      // fails outright — updateAcademyFields does a real UPDATE instead (same fix already made
+      // for the identical bug on Coaches' own status/marketplace toggles).
+      await updateAcademyFields(confirmToggle.id, { status: confirmToggle.newStatus });
       setAcademies((prev) =>
         prev.map((a) => a.id === confirmToggle.id ? { ...a, status: confirmToggle.newStatus } : a)
       );
+      setConfirmToggle(null);
     } catch (err) {
-      console.error(err);
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setToggling(false);
     }
-    setToggling(false);
-    setConfirmToggle(null);
   }
 
   // ── Modal helpers ──────────────────────────────────────────────────────────
@@ -1582,8 +1588,9 @@ export function AcademyClient() {
           confirmLabel={confirmToggle.newStatus === "Inactive" ? "Yes, Deactivate" : "Yes, Activate"}
           confirmVariant={confirmToggle.newStatus === "Inactive" ? "warning" : "default"}
           loading={toggling}
+          error={formError}
           onConfirm={handleConfirmToggle}
-          onCancel={() => setConfirmToggle(null)}
+          onCancel={() => { setConfirmToggle(null); setFormError(""); }}
         />
       )}
 

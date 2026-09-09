@@ -69,6 +69,44 @@ describe("AcademyClient", () => {
     expect(await screen.findByText("Deactivate Academy?")).toBeInTheDocument();
   });
 
+  // upsertAcademy's .upsert() validates as if it were a fresh INSERT even against an existing row
+  // — a partial {id, status} payload is missing NOT NULL columns (name, description, location...)
+  // and fails outright. This confirms the toggle uses a real UPDATE (updateAcademyFields) instead,
+  // same fix already made for the identical bug on Coaches' own status toggle.
+  test("deactivating an academy calls updateAcademyFields with just the status, not a full upsert", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" })]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Deactivate"));
+    await user.click(screen.getByRole("button", { name: "Yes, Deactivate" }));
+
+    expect(updateAcademyFields).toHaveBeenCalledWith("ac1", { status: "Inactive" });
+  });
+
+  test("a failed deactivate shows the real error inside the still-open confirm dialog, not silently", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    updateAcademyFields.mockRejectedValueOnce(new Error("Row-level security denied this update."));
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" })]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Deactivate"));
+    await user.click(screen.getByRole("button", { name: "Yes, Deactivate" }));
+
+    expect(await screen.findByText("Row-level security denied this update.")).toBeInTheDocument();
+    expect(screen.getByText("Deactivate Academy?")).toBeInTheDocument();
+  });
+
   test("scopes the players/coaches fetch to the academy_admin's own academy", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
