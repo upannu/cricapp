@@ -142,6 +142,20 @@ describe("PlayerProfileClient", () => {
     expect(newSessionLink).not.toHaveClass("bg-pace-green");
   });
 
+  // Edit Player moved to the end of the row — View All Reports, Manage Subscription, +New
+  // Session, then Edit, per feedback on the button sequence.
+  test("action row order is View All Reports, Manage Subscription, +New Session, then Edit Player last", async () => {
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    const actionRow = screen.getByRole("link", { name: "View All Reports" }).closest("div") as HTMLElement;
+    const labels = [...actionRow.querySelectorAll("a")].map((a) => a.textContent);
+    expect(labels).toEqual(["View All Reports", "Manage Subscription", "+ New Session", "Edit Player"]);
+  });
+
   // The ⋮ menu brings Send Message/Reassign Coach/Remove/Reinstate onto the profile page —
   // matching Coaches' own profile page, which got the identical treatment first. View/Edit/Manage
   // Subscription are deliberately absent from this menu since they're already dedicated buttons
