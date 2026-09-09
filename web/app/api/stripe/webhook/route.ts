@@ -47,6 +47,17 @@ export async function POST(request: Request) {
             payment_status: "Paid",
             paid_date: new Date(event.created * 1000).toISOString().slice(0, 10),
           }).eq("id", packId);
+
+          // A pack paid through Checkout has its platform-fee cut collected automatically —
+          // application_fee_amount routes it straight to the platform's own Stripe balance at
+          // charge time (see create-pack-checkout-session), no separate reconciliation ever
+          // needed. A pending pack_fee_dues row for this same pack can only exist from the
+          // *other*, cash/bank-transfer "Mark Paid" path (record-fee-due) racing this same pack —
+          // e.g. a coach clicking Mark Paid around the same time a player finishes Checkout. Once
+          // Stripe confirms the charge, that race is resolved in Stripe's favor: the fee really
+          // was collected, just not by the manual ledger, so the stray "still pending, needs a
+          // platform admin to Mark Collected" row it created is simply wrong and gets removed.
+          await supabase.from("pack_fee_dues").delete().eq("pack_id", packId).eq("status", "pending");
         }
         break;
       }
@@ -54,6 +65,11 @@ export async function POST(request: Request) {
         const bookingId = session.metadata?.booking_id;
         if (bookingId) {
           await supabase.from("bookings").update({ payment_status: "Paid" }).eq("id", bookingId);
+          // Same reconciliation as pack_payment above — a booking paid through Checkout already
+          // had its platform-fee cut collected via application_fee_amount, so any pending
+          // booking_fee_dues row for it (created by a "Mark Paid (Cash)" click racing this same
+          // payment) is stale the moment Stripe confirms the charge.
+          await supabase.from("booking_fee_dues").delete().eq("booking_id", bookingId).eq("status", "pending");
         }
         break;
       }

@@ -1310,9 +1310,15 @@ function MarkPaidButton({ onPaid }: { onPaid: (paidDate: string) => void }) {
   }
 
   return (
+    // Labeled explicitly as the cash/bank-transfer path, not just "Mark Paid" — sitting right
+    // next to Pay Online (Stripe) with no distinction invited exactly the mistake this fixes: a
+    // coach clicking this for a pack the player was actually paying online, creating a bogus
+    // "still owes the platform its cut" ledger entry Stripe had already collected automatically
+    // (see the webhook's own reconciliation for the other half of that fix). Matches
+    // BookingsClient's own identically-shaped "Mark Paid (Cash)" button.
     <button type="button" onClick={() => setShowConfirm(true)}
       className="px-4 py-2 text-xs font-bold bg-pace-green text-black rounded-xl hover:opacity-90 cursor-pointer transition-opacity">
-      Mark Paid
+      Mark Paid (Cash)
     </button>
   );
 }
