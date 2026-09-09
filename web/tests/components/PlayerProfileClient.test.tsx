@@ -103,4 +103,22 @@ describe("PlayerProfileClient", () => {
 
     expect(await screen.findByText("⚠ High Injury Risk")).toBeInTheDocument();
   });
+
+  // Edit Player moved out of the top bar into the identity card's own action row (alongside
+  // View All Reports/Action Plans/etc.), outlined rather than solid-filled — matching how Coaches'
+  // own profile page places "Edit Coach" next to its other actions instead of up in the top bar.
+  test("Edit Player sits in the action row, outlined, not solid-filled in the top bar", async () => {
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    const editLink = screen.getByRole("link", { name: "Edit Player" });
+    expect(editLink).toHaveAttribute("href", "/players/p1/edit");
+    expect(editLink).toHaveClass("text-pace-green", "border-pace-green/40");
+    expect(editLink).not.toHaveClass("bg-pace-green");
+    // Lives beside the other per-player actions, not alone up in the top bar next to Back.
+    expect(editLink.closest("div")).toBe(screen.getByRole("link", { name: "View All Reports" }).closest("div"));
+  });
 });
