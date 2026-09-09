@@ -1,10 +1,11 @@
 import { describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { PlayerProfileClient } from "@/components/PlayerProfileClient";
-import { makeAcademy, makeAuthUser, makePlayer } from "../mocks/fixtures";
+import { makeAcademy, makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
 import type { Plan } from "@/lib/types";
 
-const { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans } = vi.hoisted(() => ({
+const { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, updatePlayer } = vi.hoisted(() => ({
   fetchPlayer: vi.fn(),
   fetchAcademies: vi.fn(),
   fetchCoaches: vi.fn(),
@@ -12,8 +13,9 @@ const { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, 
   fetchSessions: vi.fn(),
   fetchSCWorkouts: vi.fn(),
   fetchActivePlans: vi.fn(),
+  updatePlayer: vi.fn(),
 }));
-vi.mock("@/lib/db", () => ({ fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans }));
+vi.mock("@/lib/db", () => ({ fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, updatePlayer }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
@@ -32,6 +34,8 @@ function setupDefaults() {
   fetchSessions.mockResolvedValue([]);
   fetchSCWorkouts.mockResolvedValue([]);
   fetchActivePlans.mockResolvedValue([]);
+  updatePlayer.mockClear();
+  updatePlayer.mockResolvedValue(undefined);
 }
 
 const FREE_PLAN: Plan = {
@@ -120,5 +124,129 @@ describe("PlayerProfileClient", () => {
     expect(editLink).not.toHaveClass("bg-pace-green");
     // Lives beside the other per-player actions, not alone up in the top bar next to Back.
     expect(editLink.closest("div")).toBe(screen.getByRole("link", { name: "View All Reports" }).closest("div"));
+  });
+
+  // The ⋮ menu brings Send Message/Reassign Coach/Remove/Reinstate onto the profile page —
+  // matching Coaches' own profile page, which got the identical treatment first. View/Edit/Manage
+  // Subscription are deliberately absent from this menu since they're already dedicated buttons
+  // on this same page.
+  test("the ⋮ menu offers Send Message, Reassign Coach, and Remove — not View/Edit/Manage Subscription", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByText("Send Message")).toBeInTheDocument();
+    expect(screen.getByText("Reassign Coach")).toBeInTheDocument();
+    expect(screen.getByText("Remove Player")).toBeInTheDocument();
+    expect(screen.queryByText("View")).not.toBeInTheDocument();
+    // "Manage Subscription" still exists exactly once — as the dedicated button already on this
+    // page, not repeated as a second, redundant menu item.
+    expect(screen.getAllByText("Manage Subscription")).toHaveLength(1);
+  });
+
+  test("a coach viewing their own player doesn't get Reassign Coach — nobody else to pick", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler", coachId: "c1" }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByText("Send Message")).toBeInTheDocument();
+    expect(screen.queryByText("Reassign Coach")).not.toBeInTheDocument();
+  });
+
+  test("Send Message opens the message modal", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler", email: "alice@example.com" }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Send Message"));
+
+    expect(await screen.findByText("Message Alice Bowler")).toBeInTheDocument();
+  });
+
+  test("reassigning from the profile page moves the player to the picked coach", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler", coachId: "c1" }));
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" }), makeCoach({ id: "c2", name: "Coach Sam" })]);
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Reassign Coach"));
+    expect(await screen.findByText("Reassign Coach?")).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox", { name: "New coach" }), "Coach Sam");
+    await user.click(screen.getByRole("button", { name: "Reassign" }));
+
+    expect(updatePlayer).toHaveBeenCalledWith("p1", { coach_id: "c2" });
+  });
+
+  test("removing from the profile page soft-deletes the player, shown in place with a Removed badge", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Remove Player"));
+    expect(await screen.findByText("Remove Player?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Yes, Remove" }));
+
+    expect(updatePlayer).toHaveBeenCalledWith("p1", expect.objectContaining({ login_disabled: true }));
+    expect(await screen.findByText("Removed")).toBeInTheDocument();
+  });
+
+  test("a removed player's ⋮ menu offers only Reinstate, which restores them in place", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({
+      id: "p1", name: "Alice Bowler", loginDisabled: true, disabledReason: "Left the club",
+    }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+    expect(screen.getByText("Removed")).toBeInTheDocument();
+    expect(screen.getByText(/Left the club/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByText("Reinstate Player")).toBeInTheDocument();
+    expect(screen.queryByText("Remove Player")).not.toBeInTheDocument();
+    expect(screen.queryByText("Send Message")).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("Reinstate Player"));
+    await user.click(screen.getByRole("button", { name: "Yes, Reinstate" }));
+
+    expect(updatePlayer).toHaveBeenCalledWith("p1", expect.objectContaining({ login_disabled: false }));
+    expect(await screen.findByRole("link", { name: "Edit Player" })).toBeInTheDocument();
+    expect(screen.queryByText("Removed")).not.toBeInTheDocument();
+  });
+
+  test("a coach who can't add players doesn't get Remove Player", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", academyId: "ac1" })]); // academy-employed, not independent
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler", coachId: "c1" }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.queryByText("Remove Player")).not.toBeInTheDocument();
   });
 });
