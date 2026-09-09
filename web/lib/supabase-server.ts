@@ -1,8 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { dbToPlayer, dbToReport, dbToArticle, dbToArticleRead, type DbPlayer, type DbReport, type DbArticle, type DbArticleRead } from "@/lib/db";
+import { dbToPlayer, dbToCoach, dbToReport, dbToArticle, dbToArticleRead, type DbPlayer, type DbCoach, type DbReport, type DbArticle, type DbArticleRead } from "@/lib/db";
 import { STAGE_ORDER } from "@/lib/academy-content";
-import type { Player, Report, Article, ArticleRead } from "@/lib/types";
+import type { Player, Coach, Report, Article, ArticleRead } from "@/lib/types";
 
 async function createClient() {
   const cookieStore = await cookies();
@@ -28,6 +28,12 @@ export async function fetchPlayerServer(id: string): Promise<Player | null> {
   const sb = await createClient();
   const { data } = await sb.from("players").select("*").eq("id", id).single();
   return data ? dbToPlayer(data as DbPlayer) : null;
+}
+
+export async function fetchCoachServer(id: string): Promise<Coach | null> {
+  const sb = await createClient();
+  const { data } = await sb.from("coaches").select("*").eq("id", id).single();
+  return data ? dbToCoach(data as DbCoach) : null;
 }
 
 /**
