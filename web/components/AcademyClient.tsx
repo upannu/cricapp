@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Papa from "papaparse";
 import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan, Net } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
@@ -12,6 +13,10 @@ import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
+import { SortableHeader } from "@/components/SortableHeader";
+import { PaginationFooter } from "@/components/PaginationFooter";
+import { useSort } from "@/lib/useSort";
+import { EditIcon, CreditCardIcon, PowerIcon, PowerOffIcon } from "@/components/icons";
 import { getPlatformFeePercent, isValidEmail } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
@@ -100,14 +105,35 @@ const EMPTY_NEW_COACH: NewCoachDraft = {
   name: "", email: "", phone: "", certificationLevel: "Level 1", specialization: "",
 };
 
-type SortOption = "name" | "players" | "newest" | "stage";
+type AcademySortKey = "name" | "stage" | "status" | "players" | "coaches" | "location";
 type ConfirmToggle = { id: string; name: string; newStatus: "Active" | "Inactive" };
+
+function compareAcademies(a: Academy, b: Academy, sortKey: AcademySortKey): number {
+  switch (sortKey) {
+    case "name":     return a.name.localeCompare(b.name);
+    case "stage":    return STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage);
+    case "status":   return a.status.localeCompare(b.status);
+    case "players":  return a.playerIds.length - b.playerIds.length;
+    case "coaches":  return (a.coachIds?.length ?? 0) - (b.coachIds?.length ?? 0);
+    case "location": return a.location.localeCompare(b.location);
+  }
+}
+
+const DEFAULT_ACADEMIES_PER_PAGE = 10;
 
 type NetDraft = { name: string; dimensions: string };
 const EMPTY_NET_DRAFT: NetDraft = { name: "", dimensions: "" };
 
+// Module-scope (not inside the component body) so a lint pass that flags any impure call
+// (Date.now) reachable from render doesn't mis-flag this — it's only ever invoked from
+// handleSaveNet's own onClick-triggered save, never during render.
+function newNetId(): string {
+  return `net${Date.now()}`;
+}
+
 export function AcademyClient() {
   const { user } = useAuth();
+  const router = useRouter();
 
   // Data
   const [academies,   setAcademies]   = useState<Academy[]>([]);
@@ -188,7 +214,9 @@ export function AcademyClient() {
   const [search,       setSearch]       = useState("");
   const [statusFilter, setStatusFilter] = useState<"All" | "Active" | "Inactive">("All");
   const [stageFilter,  setStageFilter]  = useState<"All" | AcademyStage>("All");
-  const [sortBy,       setSortBy]       = useState<SortOption>("name");
+  const { sortKey, sortDir, handleSort } = useSort<AcademySortKey>("name");
+  const [page, setPage] = useState(1);
+  const [academiesPerPage, setAcademiesPerPage] = useState(DEFAULT_ACADEMIES_PER_PAGE);
 
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
@@ -234,7 +262,7 @@ export function AcademyClient() {
   async function handleSaveNet(academyId: string) {
     if (!netDraft.name.trim()) { setNetError("Please give this net a name."); return; }
     setNetError("");
-    const id = editingNetId ?? `net${Date.now()}`;
+    const id = editingNetId ?? newNetId();
     const net: Net = { id, academyId, name: netDraft.name.trim(), dimensions: netDraft.dimensions.trim() };
     try {
       await upsertNet({ id: net.id, academy_id: academyId, name: net.name, dimensions: net.dimensions });
@@ -941,12 +969,12 @@ export function AcademyClient() {
       return true;
     })
     .sort((a, b) => {
-      if (sortBy === "name")    return a.name.localeCompare(b.name);
-      if (sortBy === "players") return b.playerIds.length - a.playerIds.length;
-      if (sortBy === "newest")  return b.startDate.localeCompare(a.startDate);
-      if (sortBy === "stage")   return STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage);
-      return 0;
+      const cmp = compareAcademies(a, b, sortKey);
+      return sortDir === "asc" ? cmp : -cmp;
     });
+  const totalPages = Math.max(1, Math.ceil(displayed.length / academiesPerPage));
+  const currentPage = Math.min(page, totalPages);
+  const pageAcademies = displayed.slice((currentPage - 1) * academiesPerPage, currentPage * academiesPerPage);
 
   const activeCount = academies.filter((a) => a.status === "Active").length;
   const inactiveCount = academies.filter((a) => a.status === "Inactive").length;
@@ -999,41 +1027,35 @@ export function AcademyClient() {
       <StatsGrid columns={4}>
         <StatCard label="Total academies" value={academies.length} />
         <StatCard label="Active programs" value={activeCount} color="text-pace-green"
-          onClick={() => setStatusFilter("Active")} active={statusFilter === "Active"} />
+          onClick={() => { setStatusFilter((prev) => (prev === "Active" ? "All" : "Active")); setPage(1); }} active={statusFilter === "Active"} />
         <StatCard label="Total players" value={grandTotal} color="text-amber" />
         <StatCard label="Inactive" value={inactiveCount} color="text-zinc-400"
-          onClick={() => setStatusFilter("Inactive")} active={statusFilter === "Inactive"} />
+          onClick={() => { setStatusFilter((prev) => (prev === "Inactive" ? "All" : "Inactive")); setPage(1); }} active={statusFilter === "Inactive"} />
       </StatsGrid>
 
-      {/* Filter bar */}
+      {/* Filter bar — the old "Sort: …" dropdown is gone now that the table's own column headers
+          are click-to-sort (see SortableHeader below), same as Coaches/Players. */}
       <div className="bg-surface rounded-2xl p-4 mb-6 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+          <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search by name or location…"
             className="w-full bg-ink rounded-xl pl-9 pr-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
         </div>
         <div className="flex gap-1">
           {(["All", "Active", "Inactive"] as const).map((s) => (
-            <button key={s} type="button" onClick={() => setStatusFilter(s)}
+            <button key={s} type="button" onClick={() => { setStatusFilter(s); setPage(1); }}
               className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
                 statusFilter === s ? "bg-pace-green text-black" : "bg-ink text-zinc-400 hover:text-white border border-zinc-700"
               }`}>{s}</button>
           ))}
         </div>
-        <select value={stageFilter} onChange={(e) => setStageFilter(e.target.value as "All" | AcademyStage)}
+        <select value={stageFilter} onChange={(e) => { setStageFilter(e.target.value as "All" | AcademyStage); setPage(1); }}
           className="bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer">
           <option value="All">All Stages</option>
           {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)}
-          className="bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer">
-          <option value="name">Sort: Name (A–Z)</option>
-          <option value="players">Sort: Most Players</option>
-          <option value="newest">Sort: Newest First</option>
-          <option value="stage">Sort: Stage</option>
         </select>
       </div>
 
@@ -1043,7 +1065,10 @@ export function AcademyClient() {
         </div>
       )}
 
-      {/* Accordion list */}
+      {/* List — a real table now (sortable columns, sticky Actions, pagination below), matching
+          Coaches/Players. The accordion detail management (Players/Coaches/Pricing/Nets tabs)
+          still lives directly underneath a clicked row exactly as before, unchanged — this phase
+          only replaces the outer shell; dedicated View/Edit pages come in a later phase. */}
       {displayed.length === 0 ? (
         <div className="bg-surface rounded-2xl p-16 text-center">
           <p className="text-zinc-400 text-sm mb-4">No academies found.</p>
@@ -1055,134 +1080,101 @@ export function AcademyClient() {
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          {displayed.map((academy) => {
+        <div className="bg-surface rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-zinc-700/60">
+                  <SortableHeader label="Academy" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} className="pl-6" />
+                  <SortableHeader label="Stage" sortKey="stage" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Players" sortKey="players" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Coaches" sortKey="coaches" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Location" sortKey="location" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <th className="sticky right-0 bg-surface text-right text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap shadow-[-8px_0_8px_-4px_rgba(0,0,0,0.3)]">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+          {pageAcademies.map((academy) => {
             const isExpanded      = expandedId === academy.id;
             const tab             = getTab(academy.id);
             const canManage       = user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === academy.id);
             const assignedPlayers = allPlayers.filter((p) => academy.playerIds.includes(p.id));
             const assignedCoaches = allCoaches.filter((c) => (academy.coachIds ?? []).includes(c.id));
-            const headCoach       = allCoaches.find((c) => c.id === academy.headCoachId);
             const countsByGroup   = assignedPlayers.reduce((acc, p) => {
               acc[p.ageGroup] = (acc[p.ageGroup] ?? 0) + 1; return acc;
             }, {} as Partial<Record<AgeGroup, number>>);
             const ageGroupsPresent = AGE_GROUPS.filter((g) => (countsByGroup[g] ?? 0) > 0);
             const groupViewActive  = activeGroupView?.academyId === academy.id ? activeGroupView.ageGroup : null;
+            const rowBg = savedId === academy.id ? "bg-pace-green/5" : "bg-surface";
+
+            // Billing/Edit Academy/Deactivate collapse into one ⋮ menu for whichever role can act
+            // on this academy — previously Billing+Edit were separate always-visible buttons only
+            // an academy_admin got, and Deactivate lived in a platform_admin-only menu; folding
+            // them together matches Coaches' own row, where every secondary action sits behind one
+            // ⋮ regardless of role, rather than each role getting a different set of loose buttons.
+            const menuItems = [
+              ...(canManage ? [{
+                label: "Billing",
+                icon: <CreditCardIcon width={14} height={14} />,
+                onClick: () => router.push(`/academies/${academy.id}/billing`),
+              }] : []),
+              ...(canManage ? [{
+                label: "Edit Academy",
+                icon: <EditIcon width={14} height={14} />,
+                onClick: () => handleMenuAction("edit", academy),
+              }] : []),
+              ...(user?.role === "platform_admin" ? [{
+                label: academy.status === "Active" ? "Deactivate" : "Activate",
+                dividerBefore: true,
+                variant: academy.status === "Active" ? "warning" as const : "success" as const,
+                icon: academy.status === "Active" ? <PowerOffIcon width={14} height={14} /> : <PowerIcon width={14} height={14} />,
+                onClick: () => handleMenuAction("toggleStatus", academy),
+              }] : []),
+            ];
 
             return (
-              <div key={academy.id}
-                className={`bg-surface rounded-2xl border transition-colors ${
-                  savedId === academy.id ? "border-pace-green/50" : isExpanded ? "border-zinc-600" : "border-transparent"
-                }`}>
-
-                {/* ── Header row ── */}
-                <div className="flex items-center gap-4 px-5 py-4">
-                  {/* Chevron + name — clickable */}
-                  <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer select-none"
-                    onClick={() => toggleExpand(academy.id)}>
+              <Fragment key={academy.id}>
+              <tr
+                className={`border-b border-zinc-700/40 last:border-0 transition-colors cursor-pointer select-none ${
+                  savedId === academy.id ? "bg-pace-green/5" : "hover:bg-surface/80"
+                }`}
+                onClick={() => toggleExpand(academy.id)}
+              >
+                <td className="px-4 py-4 pl-6">
+                  <div className="flex items-center gap-2 min-w-0">
                     <svg className={`text-zinc-500 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
                       width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="m9 18 6-6-6-6"/>
                     </svg>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-white font-bold text-sm">{academy.name}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${STAGE_STYLES[academy.stage]}`}>{academy.stage}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          academy.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
-                        }`}>{academy.status}</span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                        {academy.location && <span className="text-zinc-500 text-xs">📍 {academy.location}</span>}
-                        {headCoach && (
-                          <span className="text-zinc-500 text-xs flex items-center gap-1">
-                            <span className="w-3.5 h-3.5 rounded-full bg-pace-green inline-flex items-center justify-center text-black font-bold text-[8px]">
-                              {headCoach.name[0]}
-                            </span>
-                            {headCoach.name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    <span className="text-white font-medium text-sm whitespace-nowrap">{academy.name}</span>
                   </div>
-
-                  {/* Stats */}
-                  <div className="hidden sm:flex items-center gap-6 flex-shrink-0 cursor-pointer select-none"
-                    onClick={() => toggleExpand(academy.id)}>
-                    <div className="text-center">
-                      <div className="text-sm font-bold text-pace-green">{assignedPlayers.length}</div>
-                      <div className="text-[10px] text-zinc-500">Players</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm font-bold text-blue-400">{assignedCoaches.length}</div>
-                      <div className="text-[10px] text-zinc-500">Coaches</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-sm font-bold text-white">{academy.sessionFeeAud > 0 ? formatMoney(academy.sessionFeeAud, academy.currency) : "—"}</div>
-                      <div className="text-[10px] text-zinc-500">Fee/session</div>
-                    </div>
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STAGE_STYLES[academy.stage]}`}>{academy.stage}</span>
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                    academy.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
+                  }`}>{academy.status}</span>
+                </td>
+                <td className="px-4 py-4 text-sm font-bold text-pace-green font-mono">{assignedPlayers.length}</td>
+                <td className="px-4 py-4 text-sm font-bold text-blue-400 font-mono">{assignedCoaches.length}</td>
+                <td className="px-4 py-4 text-sm text-zinc-400 whitespace-nowrap">{academy.location || <span className="text-zinc-600">—</span>}</td>
+                <td className={`sticky right-0 px-4 py-4 pr-6 text-right transition-colors shadow-[-8px_0_8px_-4px_rgba(0,0,0,0.3)] ${rowBg}`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex justify-end">
+                    <RowActionsMenu items={menuItems} />
                   </div>
+                </td>
+              </tr>
 
-                  {(user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === academy.id)) && (
-                    <Link
-                      href={`/academies/${academy.id}/billing`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors flex-shrink-0"
-                    >
-                      Billing
-                    </Link>
-                  )}
-
-                  {/* An academy_admin had no way to add players/coaches to their own academy at
-                      all — the only edit affordance was the platform_admin-only ⋮ menu below. */}
-                  {user?.role === "academy_admin" && user.academyId === academy.id && (
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); openEdit(academy); }}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors flex-shrink-0 cursor-pointer"
-                    >
-                      Edit
-                    </button>
-                  )}
-
-                  {/* ⋮ menu — the infrequent, platform_admin-only actions (a direct Billing/Edit
-                      button above already covers what gets clicked most). */}
-                  {user?.role === "platform_admin" && (
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <RowActionsMenu items={[
-                        {
-                          label: "Edit Academy",
-                          icon: (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                            </svg>
-                          ),
-                          onClick: () => handleMenuAction("edit", academy),
-                        },
-                        {
-                          label: academy.status === "Active" ? "Deactivate" : "Activate",
-                          dividerBefore: true,
-                          variant: academy.status === "Active" ? "warning" : "success",
-                          icon: academy.status === "Active" ? (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <circle cx="12" cy="12" r="10" /><line x1="8" y1="12" x2="16" y2="12" />
-                            </svg>
-                          ) : (
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <circle cx="12" cy="12" r="10" />
-                              <line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
-                            </svg>
-                          ),
-                          onClick: () => handleMenuAction("toggleStatus", academy),
-                        },
-                      ]} />
-                    </div>
-                  )}
-                </div>
-
-                {/* ── Expanded panel ── */}
+                {/* ── Expanded panel — unchanged from before, just relocated into a full-width
+                    table row instead of a plain div sibling ── */}
                 {isExpanded && (
+                  <tr>
+                  <td colSpan={7} className="p-0">
                   <div className="border-t border-zinc-700/60 px-5 pb-5">
                     <div className="flex gap-1 pt-4 mb-4">
                       {(["players", "coaches", "pricing", "nets"] as const).map((t) => (
@@ -1561,10 +1553,28 @@ export function AcademyClient() {
                       );
                     })()}
                   </div>
+                  </td>
+                  </tr>
                 )}
-              </div>
+              </Fragment>
             );
           })}
+              </tbody>
+            </table>
+          </div>
+          <PaginationFooter
+            label={
+              <p className="text-xs text-zinc-400">
+                Showing {displayed.length === 0 ? 0 : (currentPage - 1) * academiesPerPage + 1}–{Math.min(currentPage * academiesPerPage, displayed.length)} of {displayed.length}
+              </p>
+            }
+            page={currentPage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            itemsPerPage={academiesPerPage}
+            onItemsPerPageChange={(n) => { setAcademiesPerPage(n); setPage(1); }}
+            className="px-6 py-3 border-t border-zinc-700/60"
+          />
         </div>
       )}
 

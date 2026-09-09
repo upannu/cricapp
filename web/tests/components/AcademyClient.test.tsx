@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AcademyClient } from "@/components/AcademyClient";
 import { makeAcademy, makeAuthUser } from "../mocks/fixtures";
@@ -17,6 +17,9 @@ vi.mock("@/lib/db", () => ({
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
+
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 function setupDefaults() {
   fetchPlayers.mockResolvedValue([]);
@@ -337,5 +340,81 @@ describe("AcademyClient", () => {
 
     expect(screen.getByText("Retired Academy")).toBeInTheDocument();
     expect(screen.queryByText("Riverside Academy")).not.toBeInTheDocument();
+  });
+
+  test("paginates the table at 10 academies per page", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue(
+      Array.from({ length: 12 }, (_, i) => makeAcademy({ id: `ac${i + 1}`, name: `Academy ${String(i + 1).padStart(2, "0")}` })),
+    );
+
+    render(<AcademyClient />);
+    await screen.findByText("Academy 01");
+
+    expect(screen.getByText("Showing 1–10 of 12")).toBeInTheDocument();
+    expect(screen.getByText("Academy 10")).toBeInTheDocument();
+    expect(screen.queryByText("Academy 11")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: "← Prev" })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: "Next →" }));
+
+    expect(await screen.findByText("Academy 11")).toBeInTheDocument();
+    expect(screen.getByText("Academy 12")).toBeInTheDocument();
+    expect(screen.queryByText("Academy 01")).not.toBeInTheDocument();
+  });
+
+  test("shows no pagination controls at 10 academies or fewer", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue(
+      Array.from({ length: 10 }, (_, i) => makeAcademy({ id: `ac${i + 1}`, name: `Academy ${String(i + 1).padStart(2, "0")}` })),
+    );
+
+    render(<AcademyClient />);
+    await screen.findByText("Academy 10");
+    expect(screen.getByText("Showing 1–10 of 10")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Pagination" })).not.toBeInTheDocument();
+  });
+
+  test("sorts the table by clicking a column header, matching Coaches' own click-to-sort headers", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([
+      makeAcademy({ id: "ac1", name: "Zenith Academy" }),
+      makeAcademy({ id: "ac2", name: "Alpha Academy" }),
+    ]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Zenith Academy");
+
+    // Default sort is by name ascending — Alpha before Zenith.
+    let names = screen.getAllByText(/Academy$/).map((el) => el.textContent);
+    expect(names.indexOf("Alpha Academy")).toBeLessThan(names.indexOf("Zenith Academy"));
+
+    // Clicking the active column again flips the direction. Scoped to the table header — "+ New
+    // Academy" also matches a loose /Academy/ name query.
+    await user.click(within(screen.getByRole("table")).getByText("Academy"));
+
+    names = screen.getAllByText(/Academy$/).map((el) => el.textContent);
+    expect(names.indexOf("Zenith Academy")).toBeLessThan(names.indexOf("Alpha Academy"));
+  });
+
+  test("a platform admin can also reach Billing through the row's ⋮ menu", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" })]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Billing"));
+
+    expect(push).toHaveBeenCalledWith("/academies/ac1/billing");
   });
 });
