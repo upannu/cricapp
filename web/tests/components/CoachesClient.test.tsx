@@ -871,4 +871,16 @@ describe("CoachesClient", () => {
     clickSpy.mockRestore();
     vi.unstubAllGlobals();
   });
+
+  test("drops the Joined column, and keeps Actions reachable via sticky positioning instead of a width trim", async () => {
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan" })]);
+
+    render(<CoachesClient />);
+    await screen.findByText("Coach Dan");
+
+    expect(screen.queryByRole("columnheader", { name: "Joined" })).not.toBeInTheDocument();
+    const actionsCell = screen.getByRole("button", { name: "More actions" }).closest("td") as HTMLElement;
+    expect(actionsCell).toHaveClass("sticky", "right-0");
+  });
 });

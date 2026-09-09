@@ -22,7 +22,7 @@ import { PowerIcon, PowerOffIcon, EyeIcon, EyeOffIcon, MailIcon, RepeatIcon, Tra
 
 const DEFAULT_COACHES_PER_PAGE = 10;
 
-type CoachSortKey = "name" | "academy" | "status" | "players" | "joined";
+type CoachSortKey = "name" | "academy" | "status" | "players";
 
 function compareCoaches(a: Coach, b: Coach, sortKey: CoachSortKey): number {
   switch (sortKey) {
@@ -30,7 +30,6 @@ function compareCoaches(a: Coach, b: Coach, sortKey: CoachSortKey): number {
     case "academy": return (academyById(a.academyId)?.name ?? "").localeCompare(academyById(b.academyId)?.name ?? "");
     case "status":  return a.status.localeCompare(b.status);
     case "players": return playerCountForCoach(a.id) - playerCountForCoach(b.id);
-    case "joined":  return a.joinedDate.localeCompare(b.joinedDate);
   }
 }
 
@@ -1111,8 +1110,11 @@ export function CoachesClient() {
                   <SortableHeader label="Players" sortKey="players" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                   <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Payouts</th>
                   <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Marketplace</th>
-                  <SortableHeader label="Joined" sortKey="joined" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                  <th className="text-right text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
+                  {/* Sticky, not just narrower — pinned to the card's right edge regardless of how
+                      far the rest of the table scrolls, so the ⋮ menu never needs to be scrolled
+                      to at all. A width trim (like dropping Joined below) only ever buys headroom
+                      up to whatever the widest row happens to need next; this holds regardless. */}
+                  <th className="sticky right-0 bg-surface text-right text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap shadow-[-8px_0_8px_-4px_rgba(0,0,0,0.3)]">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1181,12 +1183,16 @@ export function CoachesClient() {
                         ] : []),
                       ];
   
+                  // Shared with the sticky Actions cell below — a plain "bg-surface" there would
+                  // visibly seam against a selected/saved row's own tint as content scrolls under it.
+                  const rowBg = selectedIds.has(coach.id)
+                    ? "bg-blue-500/5"
+                    : saved === coach.id ? "bg-pace-green/5" : "bg-surface";
+
                   return (
                     <tr key={coach.id}
-                      className={`border-b border-zinc-700/40 last:border-0 transition-colors ${
-                        selectedIds.has(coach.id)
-                          ? "bg-blue-500/5"
-                          : saved === coach.id ? "bg-pace-green/5" : "hover:bg-surface/80"
+                      className={`border-b border-zinc-700/40 last:border-0 transition-colors ${rowBg} ${
+                        selectedIds.has(coach.id) || saved === coach.id ? "" : "hover:bg-surface/80"
                       }`}>
                       {isStaff && (
                         <td className="px-4 py-4 pl-6 text-center">
@@ -1289,10 +1295,7 @@ export function CoachesClient() {
                           <span className="text-zinc-500">Not listed</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-sm text-zinc-400 whitespace-nowrap">
-                        {new Date(coach.joinedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
-                      </td>
-                      <td className="px-4 py-4 pr-6 text-right">
+                      <td className={`sticky right-0 px-4 py-4 pr-6 text-right transition-colors shadow-[-8px_0_8px_-4px_rgba(0,0,0,0.3)] ${rowBg}`}>
                         <div className="flex justify-end">
                           <RowActionsMenu items={menuItems} />
                         </div>
