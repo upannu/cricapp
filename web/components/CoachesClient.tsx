@@ -2,12 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import Papa from "papaparse";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player, Plan } from "@/lib/types";
+import type { Coach, CoachStatus, CertificationLevel, AgeGroup, Academy, Player } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchCoaches, fetchAcademies, fetchPlayers, fetchActivePlans, upsertCoach, updateCoachFields, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
-import { canUseMarketplaceForCoach } from "@/lib/plan-features";
+import { fetchCoaches, fetchAcademies, fetchPlayers, upsertCoach, updateCoachFields, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
 import { DateInput } from "@/components/DateInput";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
@@ -88,7 +86,6 @@ export function CoachesClient() {
   const [tableCanScrollRight, setTableCanScrollRight] = useState(false);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftCoach>(EMPTY_DRAFT);
   const [formError, setFormError] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
@@ -122,7 +119,6 @@ export function CoachesClient() {
   const [removingCoach, setRemovingCoach] = useState(false);
   const [payoutLoading, setPayoutLoading] = useState<string | null>(null);
   const [payoutError, setPayoutError] = useState<{ coachId: string; message: string } | null>(null);
-  const [plans, setPlans] = useState<Plan[]>([]);
   const [confirmStatusToggle, setConfirmStatusToggle] = useState<{ coachId: string; name: string; newStatus: CoachStatus } | null>(null);
   const [confirmMarketplaceToggle, setConfirmMarketplaceToggle] = useState<{ coachId: string; name: string; newValue: boolean } | null>(null);
   const [togglingCoach, setTogglingCoach] = useState(false);
@@ -146,12 +142,10 @@ export function CoachesClient() {
       fetchCoaches(defaultAcademyId || undefined),
       fetchAcademies(),
       fetchPlayers(coachId, defaultAcademyId || undefined),
-      fetchActivePlans(),
-    ]).then(([c, a, p, pl]) => {
+    ]).then(([c, a, p]) => {
       setCoaches(c);
       _coachAcademies = a;
       _coachPlayers = p;
-      setPlans(pl);
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -259,7 +253,6 @@ export function CoachesClient() {
   }
 
   function openAdd() {
-    setEditingId(null);
     setDraft({ ...EMPTY_DRAFT, joinedDate: new Date().toISOString().split("T")[0], academyId: defaultAcademyId });
     setFormError("");
     setSendInvite(true);
@@ -424,32 +417,8 @@ export function CoachesClient() {
     }
   }
 
-  function openEdit(coach: Coach) {
-    setEditingId(coach.id);
-    setDraft({
-      name: coach.name,
-      email: coach.email,
-      phone: coach.phone,
-      specialization: coach.specialization,
-      ageGroupsFocus: [...coach.ageGroupsFocus],
-      location: coach.location,
-      status: coach.status,
-      joinedDate: coach.joinedDate,
-      certificationLevel: coach.certificationLevel,
-      bio: coach.bio,
-      academyId: coach.academyId,
-      marketplaceVisible: coach.marketplaceVisible,
-      available: coach.available,
-      currency: coach.currency,
-    });
-    setFormError("");
-    setShowForm(true);
-    scrollToForm();
-  }
-
   function closeForm() {
     setShowForm(false);
-    setEditingId(null);
     setFormError("");
   }
 
@@ -465,32 +434,28 @@ export function CoachesClient() {
     // Nothing in the schema stops two coach rows sharing an email — and when that happens, every
     // email-based lookup elsewhere (invite approval, login linking) can only ever resolve to one
     // of them, silently orphaning whichever wasn't picked. Catch it here instead.
-    const emailTaken = coaches.some((c) => c.id !== editingId && c.email.toLowerCase() === draft.email.trim().toLowerCase());
+    const emailTaken = coaches.some((c) => c.email.toLowerCase() === draft.email.trim().toLowerCase());
     if (emailTaken) { setFormError(`Another coach already uses ${draft.email.trim()} — each coach needs a unique email.`); return; }
     setFormError("");
     setSaving(true);
 
-    const newId = editingId ?? `c_${Date.now()}`;
-    const existing = editingId ? coaches.find((c) => c.id === editingId) : undefined;
+    const newId = `c_${Date.now()}`;
     const coach: Coach = {
       id: newId, ...draft, name: draft.name.trim(), email: draft.email.trim(),
-      stripeConnectAccountId: existing?.stripeConnectAccountId,
-      stripeConnectOnboarded: existing?.stripeConnectOnboarded ?? false,
-      lat: existing?.lat, lng: existing?.lng,
-      // Billing fields are never touched by this form — preserved as-is from whatever the
-      // subscription flow/webhook last set (defaulting to Free for a brand-new coach).
-      subPlan: existing?.subPlan ?? "Free",
-      stripeCustomerId: existing?.stripeCustomerId,
-      stripeSubscriptionId: existing?.stripeSubscriptionId,
-      subscriptionStatus: existing?.subscriptionStatus,
-      // Never touched by this form — preserved from whatever Remove/Reinstate last set.
-      loginDisabled: existing?.loginDisabled ?? false,
-      disabledAt: existing?.disabledAt ?? null,
-      disabledReason: existing?.disabledReason ?? null,
+      stripeConnectAccountId: undefined,
+      stripeConnectOnboarded: false,
+      lat: undefined, lng: undefined,
+      subPlan: "Free",
+      stripeCustomerId: undefined,
+      stripeSubscriptionId: undefined,
+      subscriptionStatus: undefined,
+      loginDisabled: false,
+      disabledAt: null,
+      disabledReason: null,
     };
 
-    // Re-geocode whenever the location text changes — best-effort, never blocks the save.
-    if (coach.location.trim() && coach.location !== existing?.location) {
+    // Best-effort — never blocks the save.
+    if (coach.location.trim()) {
       try {
         const geoRes = await fetch("/api/geocode", {
           method: "POST",
@@ -527,15 +492,11 @@ export function CoachesClient() {
       return;
     }
 
-    setCoaches((prev) =>
-      editingId
-        ? prev.map((c) => (c.id === editingId ? coach : c))
-        : [coach, ...prev]
-    );
+    setCoaches((prev) => [coach, ...prev]);
     setSaved(newId);
     setSaving(false);
 
-    if (!editingId && sendInvite && coach.email) {
+    if (sendInvite && coach.email) {
       setInviteStatus("sending");
       fetch("/api/invite-coach", {
         method: "POST",
@@ -778,24 +739,15 @@ export function CoachesClient() {
       {/* Form anchor */}
       <div ref={formRef} />
 
-      {/* Create / Edit form */}
-      {showForm && (() => {
-        const editingCoach = editingId ? coaches.find((c) => c.id === editingId) : undefined;
-        // A coach editing their own independent profile needs marketplace access unlocked on
-        // their tier to turn visibility on — staff (who can also reach this form) aren't gated,
-        // since they're not the ones paying for it. Reads the admin-editable Plan Catalog
-        // (marketplaceEnabled on coach-free/coach-pro) via canUseMarketplaceForCoach rather than
-        // hardcoding "must be Coach Pro", so an admin toggling that flag in /admin/plans actually
-        // changes this gate instead of being silently ignored.
-        const marketplaceLocked =
-          user?.role === "coach" && user.coachId === editingId && !editingCoach?.academyId &&
-          !canUseMarketplaceForCoach((editingCoach?.subPlan ?? "Free") as "Free" | "Coach Pro", plans) &&
-          !draft.marketplaceVisible;
-        return (
+      {/* Add form — Edit now lives on its own page (/coaches/[id]/edit), matching Players'
+          own View-vs-Edit split, so this only ever creates a brand-new coach. Marketplace-lock
+          logic (a coach's own Coach-Pro gate) lived here for the same reason the "coach" role
+          disable checks below did: this form used to double as Edit, reachable by a coach editing
+          their own profile. Neither applies anymore — a coach role never reaches "+ Add Coach"
+          at all (see the header button's own gate above). */}
+      {showForm && (
         <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-6">
-            {editingId ? "Edit Coach" : "New Coach"}
-          </h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-6">New Coach</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
             <div>
@@ -806,10 +758,7 @@ export function CoachesClient() {
             <div>
               <label className={lbl}>Email *</label>
               <input type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })}
-                className={inp} placeholder="coach@email.com" disabled={user?.role === "coach"} />
-              {user?.role === "coach" && (
-                <p className="text-xs text-zinc-500 mt-1">Contact your academy admin to change your email.</p>
-              )}
+                className={inp} placeholder="coach@email.com" />
             </div>
             <div>
               <label className={lbl}>Phone</label>
@@ -852,7 +801,7 @@ export function CoachesClient() {
                 value={draft.academyId}
                 onChange={(e) => setDraft({ ...draft, academyId: e.target.value })}
                 className={sel}
-                disabled={user?.role === "academy_admin" || user?.role === "coach"}
+                disabled={user?.role === "academy_admin"}
               >
                 <option value="">— None (independent coach) —</option>
                 {_coachAcademies.map((a) => (
@@ -867,23 +816,16 @@ export function CoachesClient() {
                 placeholder="Background, experience, coaching philosophy…" />
             </div>
             <div className="sm:col-span-2">
-              <label className={`flex items-center gap-2.5 select-none ${marketplaceLocked ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
+              <label className="flex items-center gap-2.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={draft.marketplaceVisible}
-                  disabled={marketplaceLocked}
                   onChange={(e) => setDraft({ ...draft, marketplaceVisible: e.target.checked })}
-                  className="w-4 h-4 rounded accent-pace-green cursor-pointer disabled:cursor-not-allowed"
+                  className="w-4 h-4 rounded accent-pace-green cursor-pointer"
                 />
                 <span className="text-sm text-white font-medium">Visible in the coach marketplace</span>
               </label>
-              {marketplaceLocked ? (
-                <p className="text-xs text-amber mt-1 ml-6">
-                  Requires Coach Pro. <Link href="/coach/subscription" className="underline hover:opacity-80">Upgrade</Link> to become discoverable and get booked by players.
-                </p>
-              ) : (
-                <p className="text-xs text-zinc-500 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
-              )}
+              <p className="text-xs text-zinc-500 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
             </div>
             <div className="sm:col-span-2">
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
@@ -919,40 +861,38 @@ export function CoachesClient() {
             </div>
           </div>
 
-          {!editingId && (
-            <div className="mb-5 p-4 rounded-xl bg-ink border border-zinc-700">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={sendInvite}
-                  onChange={(e) => setSendInvite(e.target.checked)}
-                  className="w-4 h-4 accent-pace-green cursor-pointer"
-                />
-                <div>
-                  <span className="text-sm font-semibold text-white">Send login invite email</span>
-                  <p className="text-xs text-zinc-500 mt-0.5">Coach receives an email with a link to set their password and access CRIC HQ</p>
-                </div>
-              </label>
-              {inviteStatus === "sending" && (
-                <p className="text-xs text-zinc-400 mt-3 flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full border border-zinc-400 border-t-transparent animate-spin inline-block" />
-                  Sending invite…
-                </p>
-              )}
-              {inviteStatus === "sent" && (
-                <div className="flex items-center justify-between mt-3">
-                  <p className="text-xs text-pace-green font-semibold">✓ Invite sent to {draft.email}</p>
-                  <button type="button" onClick={closeForm} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Close</button>
-                </div>
-              )}
-              {inviteStatus === "error" && (
-                <div className="flex items-center justify-between mt-3">
-                  <p className="text-xs text-red-400">{inviteError}</p>
-                  <button type="button" onClick={closeForm} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Close</button>
-                </div>
-              )}
-            </div>
-          )}
+          <div className="mb-5 p-4 rounded-xl bg-ink border border-zinc-700">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sendInvite}
+                onChange={(e) => setSendInvite(e.target.checked)}
+                className="w-4 h-4 accent-pace-green cursor-pointer"
+              />
+              <div>
+                <span className="text-sm font-semibold text-white">Send login invite email</span>
+                <p className="text-xs text-zinc-500 mt-0.5">Coach receives an email with a link to set their password and access CRIC HQ</p>
+              </div>
+            </label>
+            {inviteStatus === "sending" && (
+              <p className="text-xs text-zinc-400 mt-3 flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full border border-zinc-400 border-t-transparent animate-spin inline-block" />
+                Sending invite…
+              </p>
+            )}
+            {inviteStatus === "sent" && (
+              <div className="flex items-center justify-between mt-3">
+                <p className="text-xs text-pace-green font-semibold">✓ Invite sent to {draft.email}</p>
+                <button type="button" onClick={closeForm} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Close</button>
+              </div>
+            )}
+            {inviteStatus === "error" && (
+              <div className="flex items-center justify-between mt-3">
+                <p className="text-xs text-red-400">{inviteError}</p>
+                <button type="button" onClick={closeForm} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Close</button>
+              </div>
+            )}
+          </div>
 
           {formError && <p className="text-red-400 text-sm mb-3">{formError}</p>}
 
@@ -960,7 +900,7 @@ export function CoachesClient() {
             <button type="button" onClick={handleSave}
               disabled={saving || inviteStatus === "sending"}
               className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer disabled:opacity-60">
-              {saving ? "Saving…" : editingId ? "Save Changes" : "Create Coach"}
+              {saving ? "Saving…" : "Create Coach"}
             </button>
             <button type="button" onClick={closeForm}
               className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
@@ -968,8 +908,7 @@ export function CoachesClient() {
             </button>
           </div>
         </div>
-        );
-      })()}
+      )}
 
       {/* Success banner */}
       {saved && !showForm && (
@@ -1137,7 +1076,7 @@ export function CoachesClient() {
                         // link, and this same gate is what an earlier test already locked in as
                         // "no menu at all" for that case.
                         ...(canEditRow ? [{ label: "View", icon: <EyeIcon />, onClick: () => router.push(`/coaches/${coach.id}`) }] : []),
-                        ...(canEditRow ? [{ label: "Edit", icon: <EditIcon />, onClick: () => openEdit(coach) }] : []),
+                        ...(canEditRow ? [{ label: "Edit", icon: <EditIcon />, onClick: () => router.push(`/coaches/${coach.id}/edit`) }] : []),
                         ...(canEditRow ? [{
                           label: coach.stripeConnectOnboarded ? "View Payouts" : "Set Up Payouts",
                           icon: <CreditCardIcon />,
