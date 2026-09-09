@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans } from "@/lib/db";
+import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, updatePlayer } from "@/lib/db";
 import { formatDate, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { PlayerMessages } from "@/components/PlayerMessages";
@@ -12,7 +12,13 @@ import { Sparkline } from "@/components/Sparkline";
 import { BadgeStrip } from "@/components/BadgeStrip";
 import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
 import { InfoCard, InfoRow } from "@/components/InfoCard";
+import { RowActionsMenu } from "@/components/RowActionsMenu";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { MessageModal } from "@/components/MessageModal";
+import { MessageIcon, RepeatIcon, TrashIcon } from "@/components/icons";
 import type { Academy, Coach, Player, PlayerStatus, Plan } from "@/lib/types";
+
+const PLAYER_REMOVED_REASON = "Removed by staff";
 
 const DIRECTION_LABEL: Record<InjuryRiskTrend["direction"], string> = {
   worsening: "↑ Worsening",
@@ -33,6 +39,15 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
   const [reportCount, setReportCount] = useState(0);
   const [lastPayment, setLastPayment] = useState<{ date: string; source: "manual" | "pack" | "stripe" } | null | undefined>(undefined);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [confirmReassign, setConfirmReassign] = useState(false);
+  const [reassignToCoachId, setReassignToCoachId] = useState("");
+  const [reassigning, setReassigning] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [confirmReinstate, setConfirmReinstate] = useState(false);
+  const [reinstating, setReinstating] = useState(false);
+  const [formError, setFormError] = useState("");
 
   useEffect(() => {
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
@@ -88,6 +103,76 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
     .map((n) => n[0] ?? "")
     .join("");
 
+  // Same eligibility Players' own list page uses for Remove/Reinstate — a coach can only remove
+  // players off their own independent roster, an academy_admin/platform_admin always can.
+  const ownCoach = user?.role === "coach" ? coaches.find((c) => c.id === user.coachId) : undefined;
+  const isIndependentCoach = user?.role === "coach" && !!user.coachId && !ownCoach?.academyId;
+  const canAddPlayers = isIndependentCoach || (user?.role === "academy_admin" && !!user.academyId) || user?.role === "platform_admin";
+
+  async function handleConfirmReassign() {
+    setReassigning(true);
+    try {
+      const newCoachId = reassignToCoachId || null;
+      await updatePlayer(playerId, { coach_id: newCoachId });
+      setPlayer((prev) => (prev ? { ...prev, coachId: newCoachId ?? "" } : prev));
+      setConfirmReassign(false);
+      setReassignToCoachId("");
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setReassigning(false);
+    }
+  }
+
+  async function handleConfirmRemove() {
+    setRemoving(true);
+    const disabledAt = new Date().toISOString();
+    try {
+      await updatePlayer(playerId, { login_disabled: true, disabled_at: disabledAt, disabled_reason: PLAYER_REMOVED_REASON });
+      setPlayer((prev) => (prev ? { ...prev, loginDisabled: true, disabledAt, disabledReason: PLAYER_REMOVED_REASON } : prev));
+      setConfirmRemove(false);
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  async function handleConfirmReinstate() {
+    setReinstating(true);
+    try {
+      await updatePlayer(playerId, { login_disabled: false, disabled_at: null, disabled_reason: null });
+      setPlayer((prev) => (prev ? { ...prev, loginDisabled: false, disabledAt: null, disabledReason: null } : prev));
+      setConfirmReinstate(false);
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setReinstating(false);
+    }
+  }
+
+  // Same set Players' own list row menu offers, minus View/Edit/Manage Subscription — those are
+  // already dedicated buttons right above this menu on this exact page, so repeating them here
+  // would just be a second way to do the same thing rather than a new capability.
+  const menuItems = player.loginDisabled
+    ? (canAddPlayers ? [{
+        label: "Reinstate Player", variant: "success" as const,
+        onClick: () => { setFormError(""); setConfirmReinstate(true); },
+      }] : [])
+    : [
+        { label: "Send Message", icon: <MessageIcon />, onClick: () => setShowMessageModal(true) },
+        // Only makes sense for someone who manages more than one coach — a coach viewing their
+        // own single-coach roster has nobody else to pick, same gate the list page uses.
+        ...(user?.role !== "coach" ? [{
+          label: "Reassign Coach", icon: <RepeatIcon />,
+          onClick: () => { setFormError(""); setConfirmReassign(true); setReassignToCoachId(""); },
+        }] : []),
+        ...(canAddPlayers ? [{
+          label: "Remove Player", variant: "danger" as const, dividerBefore: true, icon: <TrashIcon />,
+          onClick: () => { setFormError(""); setConfirmRemove(true); },
+        }] : []),
+      ];
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
       {/* Back — Edit now lives in the identity card's own action row below, next to the other
@@ -114,6 +199,9 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
               <h1 className="text-2xl font-bold text-white">{player.name}</h1>
+              {player.loginDisabled && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">Removed</span>
+              )}
               {!isAcademyPlayer && (
                 <>
                   <PlanBadge plan={player.subscription.plan} />
@@ -138,6 +226,12 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             <span className="text-pace-green font-mono font-bold text-sm">
               ⚡ {player.xp.toLocaleString()} XP
             </span>
+            {player.loginDisabled && (
+              <p className="text-zinc-500 text-xs mt-1">
+                {player.disabledReason || "Removed by staff"}
+                {player.disabledAt && ` · ${formatDate(player.disabledAt)}`}
+              </p>
+            )}
           </div>
         </div>
 
@@ -187,8 +281,18 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           >
             + New Session
           </Link>
+          {/* Send Message/Reassign Coach/Remove or Reinstate — same actions the list row's own ⋮
+              menu offers, minus View/Edit/Manage Subscription (already dedicated buttons on this
+              exact page), so staff never has to go back to the list to act on the player they're
+              already looking at. Matches Coaches' own profile page treatment. */}
+          <RowActionsMenu items={menuItems} />
         </div>
       </div>
+      {formError && !confirmReassign && !confirmRemove && !confirmReinstate && (
+        <div className="mb-4 px-5 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
+          {formError}
+        </div>
+      )}
 
       {/* 2×2 info grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -477,6 +581,77 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
         playerPhone={player.phone}
       />
 
+      {showMessageModal && (
+        <MessageModal
+          playerId={player.id}
+          playerName={player.name}
+          playerEmail={player.email}
+          playerPhone={player.phone}
+          onClose={() => setShowMessageModal(false)}
+        />
+      )}
+
+      {confirmReassign && (
+        <ConfirmModal
+          icon={<RepeatIcon width={22} height={22} className="text-blue-400" />}
+          iconBg="bg-blue-500/20"
+          title="Reassign Coach?"
+          message={`"${player.name}" will move to whoever you pick below.`}
+          confirmLabel="Reassign"
+          confirmBusyLabel="Reassigning…"
+          loading={reassigning}
+          error={formError}
+          onConfirm={handleConfirmReassign}
+          onCancel={() => { setConfirmReassign(false); setFormError(""); }}
+        >
+          <select
+            value={reassignToCoachId}
+            onChange={(e) => setReassignToCoachId(e.target.value)}
+            className="w-full bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+            aria-label="New coach"
+          >
+            <option value="">— No Coach Assigned —</option>
+            {coaches.filter((c) => c.id !== player.coachId).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </ConfirmModal>
+      )}
+
+      {confirmRemove && (
+        <ConfirmModal
+          icon={<TrashIcon width={22} height={22} className="text-red-400" />}
+          iconBg="bg-red-500/20"
+          title="Remove Player?"
+          message={`"${player.name}" will be locked out and hidden from the roster's active use — their history and data are all preserved, and this can be undone any time with Reinstate.`}
+          confirmLabel="Yes, Remove"
+          confirmBusyLabel="Removing…"
+          confirmVariant="danger"
+          loading={removing}
+          error={formError}
+          onConfirm={handleConfirmRemove}
+          onCancel={() => { setConfirmRemove(false); setFormError(""); }}
+        />
+      )}
+
+      {confirmReinstate && (
+        <ConfirmModal
+          icon={
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          }
+          iconBg="bg-pace-green/20"
+          title="Reinstate Player?"
+          message={`Restores "${player.name}"'s login and brings them back into normal view — nothing else about their profile changes.`}
+          confirmLabel="Yes, Reinstate"
+          confirmBusyLabel="Reinstating…"
+          loading={reinstating}
+          error={formError}
+          onConfirm={handleConfirmReinstate}
+          onCancel={() => { setConfirmReinstate(false); setFormError(""); }}
+        />
+      )}
     </div>
   );
 }
