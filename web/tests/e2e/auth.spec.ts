@@ -68,4 +68,31 @@ test.describe("middleware redirect matrix", () => {
     await expect(page.getByText(/No player found/i)).not.toBeVisible();
     await expect(page.getByText(/Checking…/i)).not.toBeVisible();
   });
+
+  // A player with no coach/academy yet used to have no way through /signup at all — the Player
+  // role always demanded an email a coach had already put on file, and silently went nowhere for
+  // anyone else (see complete-signup's own comment). The "I'm new here" toggle is the fix; this
+  // pins down the UI swap, not a full account-creation round trip (no other e2e spec here
+  // completes a real signup either — see request-signup-link's own enumeration-safety test above
+  // for the same scope).
+  test("Player role's \"I'm new here\" toggle swaps the coach-email lookup for an Age Group picker", async ({ page }) => {
+    await page.goto("/signup");
+    // Not exact: true — the role button's own accessible name is "Player" plus its description
+    // text ("View your own sessions, reports & progress"), so an exact "Player" never matches.
+    // Anchored so it can't accidentally match "Parent / Guardian" (starts with "Parent") or
+    // "Coach" (whose own description happens to contain the word "players").
+    await page.getByRole("button", { name: /^Player/ }).click();
+
+    await expect(page.getByPlaceholder("The email your coach has on file")).toBeVisible();
+    await expect(page.getByText("Age Group", { exact: true })).not.toBeVisible();
+
+    await page.getByRole("button", { name: "I'm new here" }).click();
+
+    await expect(page.getByPlaceholder("The email your coach has on file")).not.toBeVisible();
+    await expect(page.getByText("Age Group", { exact: true })).toBeVisible();
+
+    // Switching back to the lookup mode restores the original field.
+    await page.getByRole("button", { name: "I have a coach" }).click();
+    await expect(page.getByPlaceholder("The email your coach has on file")).toBeVisible();
+  });
 });

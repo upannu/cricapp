@@ -1,22 +1,30 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { dbToPlan, type DbPlan } from "@/lib/db";
+import { sessionsLimitForPlan } from "@/lib/plan-features";
+import { DEFAULT_CURRENCY } from "@/lib/currency";
+import type { AgeGroup } from "@/lib/types";
 
 const SELF_SERVE_ROLES = ["academy_admin", "coach", "player", "parent"];
+const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19", "Senior"];
 
 /** Runs immediately after `supabase.auth.signUp()` to establish the account's real identity —
  * role/approved/player_id etc. live in app_metadata (server-only, never client-writable), so
  * signUp()'s client-supplied options.data can only ever set the display-only `name`. This route
  * is the sole place a brand-new self-serve account's role and approval status get decided.
  *
- * Player/parent auto-approve immediately (their player must already exist in our database, proven
- * by the email lookup below) — there's nothing for a human to review. Academy admin/coach still go
- * into the pending queue for manual approval. platform_admin is never reachable here — it's not in
- * SELF_SERVE_ROLES, so no signup can ever grant it. */
+ * Player/parent auto-approve immediately — there's nothing for a human to review, whether they
+ * linked to a player a coach already added (proven by the email lookup below) or, for a player
+ * with no coach at all yet (newPlayerAgeGroup set instead of playerLookupEmail — see the "new
+ * here" toggle on /signup), just created their own standalone player record. Academy admin/coach
+ * still go into the pending queue for manual approval. platform_admin is never reachable here —
+ * it's not in SELF_SERVE_ROLES, so no signup can ever grant it. */
 export async function POST(request: Request) {
-  const { userId, name, email, role, playerLookupEmail, academyName, academyLocation } =
+  const { userId, name, email, role, playerLookupEmail, newPlayerAgeGroup, academyName, academyLocation } =
     (await request.json()) as {
       userId?: string; name?: string; email?: string; role?: string;
-      playerLookupEmail?: string; academyName?: string; academyLocation?: string;
+      playerLookupEmail?: string; newPlayerAgeGroup?: string;
+      academyName?: string; academyLocation?: string;
     };
   if (!userId || !name || !email || !role) {
     return NextResponse.json({ error: "userId, name, email, and role are required." }, { status: 400 });
@@ -50,6 +58,46 @@ export async function POST(request: Request) {
   // wiping out whatever role/approval/academy_id the first signup already established.
   if (userData.user.app_metadata?.role) {
     return NextResponse.json({ error: "This email already has an account. Sign in instead, or use 'request an additional role' from your account settings." }, { status: 409 });
+  }
+
+  // A brand-new player with no coach/academy at all yet — "I'm new here" on /signup's Player
+  // step, instead of the usual "link to a player a coach already added" lookup below. Only
+  // offered for role === "player" (not "parent"): a young child realistically gets added by a
+  // coach or their own parent, not by self-registering, so this stays scoped to an
+  // old-enough-to-sign-up-themselves player creating their own standalone record — no academy,
+  // no coach, same starting point independent coaches get, with /portal/find-coach as the next
+  // step. Free-tier defaults mirror AcademyClient/CoachesClient's own "+ Add Player" shape.
+  if (role === "player" && newPlayerAgeGroup) {
+    if (!AGE_GROUPS.includes(newPlayerAgeGroup as AgeGroup)) {
+      return NextResponse.json({ error: "Invalid age group." }, { status: 400 });
+    }
+    const { data: planRows } = await supabase.from("plans").select("*").eq("active", true).order("sort_order");
+    const plans = ((planRows ?? []) as DbPlan[]).map(dbToPlan);
+    const freeSessionsLimit = sessionsLimitForPlan("Free", plans);
+    const now = new Date().toISOString().split("T")[0];
+    const newPlayerId = `p_${userId}`;
+
+    const { error: insertError } = await supabase.from("players").insert({
+      id: newPlayerId, name, email, phone: "",
+      bowling_style: "Right Arm Fast", age_group: newPlayerAgeGroup, club: "",
+      coach_id: null, guardian_consent_status: "Pending",
+      added_date: now, sessions_count: 0, last_active: now, xp: 0,
+      sub_plan: "Free", sub_start_date: now,
+      sub_end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      sub_sessions_used: 0, sub_sessions_limit: freeSessionsLimit,
+      bio_ball_speed_kmh: 0, bio_front_knee_angle_deg: 0, bio_action_type: "Side-on",
+      bio_injury_risk: "Low", bio_last_session: now,
+      acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
+      acad_xp: 0, acad_articles_read: 0,
+      currency: DEFAULT_CURRENCY,
+    });
+    if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+
+    const { error: metaErr } = await supabase.auth.admin.updateUserById(userId, {
+      app_metadata: { role, approved: true, player_id: newPlayerId },
+    });
+    if (metaErr) return NextResponse.json({ error: metaErr.message }, { status: 500 });
+    return NextResponse.json({ success: true, approved: true });
   }
 
   if (role === "player" || role === "parent") {

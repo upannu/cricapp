@@ -13,7 +13,7 @@ interface AuthContextValue {
   loaded: boolean;
   login: (email: string, password: string) => Promise<string | null>;
   resendConfirmation: (email: string) => Promise<string | null>;
-  signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string, academyName?: string, academyLocation?: string) => Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean; approved?: boolean; checkEmail?: string }>;
+  signup: (name: string, email: string, password: string, role: SignupRole, playerLookupEmail?: string, academyName?: string, academyLocation?: string, newPlayerAgeGroup?: string) => Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean; approved?: boolean; checkEmail?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 }
@@ -125,6 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     playerLookupEmail?: string,
     academyName?: string,
     academyLocation?: string,
+    newPlayerAgeGroup?: string,
   ): Promise<{ error: string | null; needsConfirmation: boolean; linked?: boolean; approved?: boolean; checkEmail?: string }> {
     // An email that already has an account can't go through signUp() again (Supabase returns an
     // ambiguous "ghost" response for a duplicate email rather than a clean error) — check first
@@ -146,12 +147,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: null, needsConfirmation: false, linked: true };
     }
 
-    // player/parent both require typing someone else's (a child's) already-registered email to
-    // link against — that lookup must never reveal whether an arbitrary email matches anything
-    // (see api/request-signup-link's own comment), so it goes through a dedicated route that
-    // always responds the same way and only actually reveals a match via an email sent to that
-    // address, not to this response.
-    if (role === "player" || role === "parent") {
+    // player/parent both normally require typing someone else's (a child's) already-registered
+    // email to link against — that lookup must never reveal whether an arbitrary email matches
+    // anything (see api/request-signup-link's own comment), so it goes through a dedicated route
+    // that always responds the same way and only actually reveals a match via an email sent to
+    // that address, not to this response.
+    //
+    // The exception is a brand-new player with no coach/academy at all — newPlayerAgeGroup set
+    // instead of playerLookupEmail (see /signup's "I'm new here" toggle). There's no third
+    // party's email being looked up, so none of the enumeration risk above applies; this falls
+    // straight through to the normal signUp() + complete-signup path below, same as coach/
+    // academy_admin, and /api/complete-signup creates the new player row itself.
+    if ((role === "player" || role === "parent") && !newPlayerAgeGroup) {
       const res = await fetch("/api/request-signup-link", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -179,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({
           userId: data.user.id, name, email, role,
           playerLookupEmail: playerLookupEmail || null,
+          newPlayerAgeGroup: newPlayerAgeGroup || null,
           academyName: academyName || null,
           academyLocation: academyLocation || null,
         }),
