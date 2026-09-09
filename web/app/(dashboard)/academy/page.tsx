@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { AcademyClient } from "@/components/AcademyClient";
 
 export default function AcademyPage() {
-  return <AcademyClient />;
+  return (
+    <Suspense fallback={null}>
+      <AcademyClient />
+    </Suspense>
+  );
 }
