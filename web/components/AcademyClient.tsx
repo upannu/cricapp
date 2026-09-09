@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
-import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan, Net } from "@/lib/types";
+import type { Academy, AgeGroup, AcademyStage, Player, BowlingStyle, Coach, Plan } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, insertPlayers, updateAcademyFields, fetchActivePlans, fetchNets, upsertNet, deleteNet } from "@/lib/db";
+import { fetchAcademies, fetchPlayers, fetchCoaches, upsertAcademy, upsertCoach, setCoachesAcademy, insertPlayer, insertPlayers, updateAcademyFields, fetchActivePlans } from "@/lib/db";
 import type { CertificationLevel } from "@/lib/types";
 import { DateInput } from "@/components/DateInput";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
@@ -17,7 +17,7 @@ import { SortableHeader } from "@/components/SortableHeader";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { useSort } from "@/lib/useSort";
 import { EditIcon, CreditCardIcon, PowerIcon, PowerOffIcon } from "@/components/icons";
-import { getPlatformFeePercent, isValidEmail } from "@/lib/utils";
+import { getPlatformFeePercent } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
 
@@ -121,19 +121,10 @@ function compareAcademies(a: Academy, b: Academy, sortKey: AcademySortKey): numb
 
 const DEFAULT_ACADEMIES_PER_PAGE = 10;
 
-type NetDraft = { name: string; dimensions: string };
-const EMPTY_NET_DRAFT: NetDraft = { name: "", dimensions: "" };
-
-// Module-scope (not inside the component body) so a lint pass that flags any impure call
-// (Date.now) reachable from render doesn't mis-flag this — it's only ever invoked from
-// handleSaveNet's own onClick-triggered save, never during render.
-function newNetId(): string {
-  return `net${Date.now()}`;
-}
-
 export function AcademyClient() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Data
   const [academies,   setAcademies]   = useState<Academy[]>([]);
@@ -141,24 +132,6 @@ export function AcademyClient() {
   const [allCoaches,  setAllCoaches]  = useState<Coach[]>([]);
   const [orgPlans,    setOrgPlans]    = useState<Plan[]>([]);
   const [allPlans,    setAllPlans]    = useState<Plan[]>([]);
-  const [nets,        setNets]        = useState<Net[]>([]);
-
-  // Accordion — an academy_admin only ever sees their own single academy in this list (filtered
-  // below), so there's no "which one" ambiguity to click through; start it expanded. A
-  // platform_admin sees every academy, where the same default would just open a random one of
-  // many, so that view keeps starting fully collapsed.
-  const [expandedId,      setExpandedId]      = useState<string | null>(
-    () => (user?.role === "academy_admin" ? user.academyId ?? null : null)
-  );
-  const [tabMap,          setTabMap]          = useState<Record<string, "players" | "coaches" | "pricing" | "nets">>({});
-  const [activeGroupView, setActiveGroupView] = useState<{ academyId: string; ageGroup: AgeGroup } | null>(null);
-
-  // Nets inline add/edit form
-  const [showNetForm,  setShowNetForm]  = useState<string | null>(null); // holds academyId while open
-  const [editingNetId, setEditingNetId] = useState<string | null>(null);
-  const [netDraft,     setNetDraft]     = useState<NetDraft>(EMPTY_NET_DRAFT);
-  const [netError,     setNetError]     = useState("");
-  const [confirmDeleteNetId, setConfirmDeleteNetId] = useState<string | null>(null);
 
   // Confirm status toggle
   const [confirmToggle, setConfirmToggle] = useState<ConfirmToggle | null>(null);
@@ -187,21 +160,6 @@ export function AcademyClient() {
   const [newPlayerDraft,  setNewPlayerDraft]  = useState<NewPlayerDraft>(EMPTY_NEW_PLAYER);
   const [newPlayerError,  setNewPlayerError]  = useState("");
 
-  // Inline "add player"/"add coach" directly from an expanded academy row's Players/Coaches tab
-  // — separate state from the Edit Academy modal's own forms above, since these persist
-  // immediately against the real academy row (there's no surrounding "Save Changes" step here to
-  // defer to, same reasoning as the CSV import path below).
-  const [tabAddPlayerFor, setTabAddPlayerFor] = useState<string | null>(null); // holds academyId while open
-  const [tabPlayerDraft,  setTabPlayerDraft]  = useState<NewPlayerDraft>(EMPTY_NEW_PLAYER);
-  const [tabPlayerError,  setTabPlayerError]  = useState("");
-  const [tabSavingPlayer, setTabSavingPlayer] = useState(false);
-  const [tabAddCoachFor,  setTabAddCoachFor]  = useState<string | null>(null); // holds academyId while open
-  const [tabCoachDraft,   setTabCoachDraft]   = useState<NewCoachDraft>(EMPTY_NEW_COACH);
-  const [tabCoachError,   setTabCoachError]   = useState("");
-  const [tabSavingCoach,  setTabSavingCoach]  = useState(false);
-  const [addingSelfFor,   setAddingSelfFor]   = useState<string | null>(null); // holds academyId while "Add Yourself as Head Coach" is in flight
-  const [addSelfError,    setAddSelfError]    = useState("");
-
   // CSV import
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [csvRows,       setCsvRows]       = useState<ParsedCsvRow[]>([]);
@@ -221,71 +179,12 @@ export function AcademyClient() {
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
-    Promise.all([fetchAcademies(), fetchPlayers(coachId, academyId), fetchCoaches(academyId), fetchActivePlans(), fetchNets()]).then(([a, p, c, plans, n]) => {
+    Promise.all([fetchAcademies(), fetchPlayers(coachId, academyId), fetchCoaches(academyId), fetchActivePlans()]).then(([a, p, c, plans]) => {
       setAcademies(a); setAllPlayers(p); setAllCoaches(c);
       setOrgPlans(plans.filter((x) => x.audience === "organization"));
       setAllPlans(plans);
-      setNets(n);
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Accordion ──────────────────────────────────────────────────────────────
-  // An academy_admin's own academy auto-expands (see the expandedId initializer above) straight
-  // to Pricing rather than Players — the session-fee/age-group rates are what they open this page
-  // to check most often, and unlike Players/Coaches there's no other page that surfaces it.
-  function getTab(id: string) {
-    if (tabMap[id]) return tabMap[id];
-    return user?.role === "academy_admin" && user.academyId === id ? "pricing" : "players";
-  }
-  function setTab(id: string, tab: "players" | "coaches" | "pricing" | "nets") {
-    setTabMap((prev) => ({ ...prev, [id]: tab }));
-  }
-
-  // ── Nets ────────────────────────────────────────────────────────────────
-  function openAddNet(academyId: string) {
-    setEditingNetId(null);
-    setNetDraft(EMPTY_NET_DRAFT);
-    setNetError("");
-    setShowNetForm(academyId);
-  }
-  function openEditNet(net: Net) {
-    setEditingNetId(net.id);
-    setNetDraft({ name: net.name, dimensions: net.dimensions });
-    setNetError("");
-    setShowNetForm(net.academyId);
-  }
-  function closeNetForm() {
-    setShowNetForm(null);
-    setEditingNetId(null);
-    setNetError("");
-  }
-  async function handleSaveNet(academyId: string) {
-    if (!netDraft.name.trim()) { setNetError("Please give this net a name."); return; }
-    setNetError("");
-    const id = editingNetId ?? newNetId();
-    const net: Net = { id, academyId, name: netDraft.name.trim(), dimensions: netDraft.dimensions.trim() };
-    try {
-      await upsertNet({ id: net.id, academy_id: academyId, name: net.name, dimensions: net.dimensions });
-    } catch (err) {
-      setNetError((err as { message?: string })?.message ?? String(err));
-      return;
-    }
-    setNets((prev) => (editingNetId ? prev.map((n) => (n.id === editingNetId ? net : n)) : [...prev, net]));
-    closeNetForm();
-  }
-  async function handleDeleteNet(id: string) {
-    try {
-      await deleteNet(id);
-      setNets((prev) => prev.filter((n) => n.id !== id));
-    } catch (err) {
-      setNetError((err as { message?: string })?.message ?? String(err));
-    }
-    setConfirmDeleteNetId(null);
-  }
-  function toggleExpand(id: string) {
-    setExpandedId((prev) => (prev === id ? null : id));
-    setActiveGroupView(null);
-  }
 
   // ── 3-dot actions ──────────────────────────────────────────────────────────
   function handleMenuAction(action: "edit" | "toggleStatus", academy: Academy) {
@@ -351,6 +250,19 @@ export function AcademyClient() {
     setFormError(""); setOwnerMissing(false); setOwnerSuggested(suggested);
     setShowModal(true);
   }
+
+  // A row click now navigates straight to /academies/[id] instead of expanding inline — but Edit
+  // Academy has no dedicated page of its own yet (unlike Coach/Player), so the profile page's own
+  // "Edit Academy" button routes back here with ?edit=<id> to reopen this same modal, once the
+  // academy list has actually loaded.
+  useEffect(() => {
+    if (academies.length === 0) return;
+    const editId = searchParams.get("edit");
+    if (!editId) return;
+    const academy = academies.find((a) => a.id === editId);
+    if (academy) openEdit(academy);
+    router.replace("/academy");
+  }, [academies, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function closeModal() {
     setShowModal(false); setEditingId(null);
@@ -542,184 +454,6 @@ export function AcademyClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerIds: [newId] }),
       }).catch(() => {});
-    }
-  }
-
-  // Same shape as handleAddNewPlayer above, but for the inline form in an expanded academy row's
-  // own Players tab — writes straight to the real academy row instead of staging into `draft`,
-  // since there's no modal/Save-Changes step wrapping this one.
-  async function handleTabAddPlayer(academyId: string) {
-    if (!tabPlayerDraft.name.trim()) { setTabPlayerError("Name is required."); return; }
-    const email = tabPlayerDraft.email.trim();
-    if (email && !isValidEmail(email)) { setTabPlayerError("Enter a valid email address, or leave it blank."); return; }
-    const academy = academies.find((a) => a.id === academyId);
-    if (!academy) return;
-    setTabPlayerError(""); setTabSavingPlayer(true);
-    const newId = `p_${Date.now()}`;
-    const now = new Date().toISOString().split("T")[0];
-    const freeSessionsLimit = sessionsLimitForPlan("Free", allPlans);
-    const newPlayer: Player = {
-      id: newId, name: tabPlayerDraft.name.trim(), email,
-      phone: "", ageGroup: tabPlayerDraft.ageGroup, bowlingStyle: tabPlayerDraft.bowlingStyle,
-      battingHand: "Right Hand", playingLevel: "Club", heightCm: null, weightKg: null,
-      club: tabPlayerDraft.club.trim(), addedDate: now, coachId: "",
-      currency: academy.currency,
-      guardianConsentStatus: "Pending",
-      subscription: {
-        plan: "Free", startDate: now,
-        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-        sessionsUsed: 0, sessionsLimit: freeSessionsLimit,
-      },
-      biomechanics: { ballSpeedKmh: 0, frontKneeAngleDeg: 0, actionType: "Side-on", injuryRisk: "Low", lastSession: now },
-      academy: { stage: "Foundation", completionPercent: 0, totalSessions: 0, xp: 0, articlesRead: 0 },
-      sessionsCount: 0, lastActive: now, xp: 0,
-      tipStreakCount: 0, tipBestStreak: 0,
-      assessmentCredits: 0,
-      loginDisabled: false, disabledAt: null, disabledReason: null,
-    };
-    try {
-      await insertPlayer({
-        id: newId, name: newPlayer.name, email: newPlayer.email, phone: "",
-        bowling_style: newPlayer.bowlingStyle, age_group: newPlayer.ageGroup,
-        club: newPlayer.club, coach_id: null, guardian_consent_status: "Pending",
-        added_date: now, sessions_count: 0, last_active: now, xp: 0,
-        sub_plan: "Free", sub_start_date: now, sub_end_date: newPlayer.subscription.endDate,
-        sub_sessions_used: 0, sub_sessions_limit: freeSessionsLimit,
-        bio_ball_speed_kmh: 0, bio_front_knee_angle_deg: 0, bio_action_type: "Side-on",
-        bio_injury_risk: "Low", bio_last_session: now,
-        acad_stage: "Foundation", acad_completion_percent: 0, acad_total_sessions: 0,
-        acad_xp: 0, acad_articles_read: 0,
-        currency: newPlayer.currency,
-      });
-
-      const mergedPlayerIds = [...new Set([...academy.playerIds, newId])];
-      const playerCounts: Partial<Record<AgeGroup, number>> = {};
-      const allForCount = [...allPlayers, newPlayer].filter((p) => mergedPlayerIds.includes(p.id));
-      for (const p of allForCount) playerCounts[p.ageGroup] = (playerCounts[p.ageGroup] ?? 0) + 1;
-      await updateAcademyFields(academyId, {
-        player_ids: mergedPlayerIds,
-        player_counts: playerCounts as Record<string, number>,
-      });
-
-      setAllPlayers((prev) => [...prev, newPlayer]);
-      setAcademies((prev) => prev.map((a) =>
-        a.id === academyId ? { ...a, playerIds: mergedPlayerIds, playerCounts: playerCounts as Partial<Record<AgeGroup, number>> } : a
-      ));
-      setTabPlayerDraft(EMPTY_NEW_PLAYER);
-      setTabAddPlayerFor(null);
-
-      if (newPlayer.email.trim()) {
-        fetch("/api/players/notify-added", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerId: newId, academyId }),
-        }).catch(() => {});
-        // See handleAddNewPlayer above for why this exists.
-        fetch("/api/players/relink-guardians", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ playerIds: [newId] }),
-        }).catch(() => {});
-      }
-    } catch (err) {
-      setTabPlayerError((err as { message?: string })?.message ?? String(err));
-    } finally {
-      setTabSavingPlayer(false);
-    }
-  }
-
-  // Same shape as handleAddNewCoach below, but for the inline form in an expanded academy row's
-  // own Coaches tab — writes straight to the real academy row instead of staging into `draft`.
-  async function handleTabAddCoach(academyId: string) {
-    if (!tabCoachDraft.name.trim()) { setTabCoachError("Name is required."); return; }
-    const academy = academies.find((a) => a.id === academyId);
-    if (!academy) return;
-    const email = tabCoachDraft.email.trim();
-    if (email && allCoaches.some((c) => c.email.toLowerCase() === email.toLowerCase())) {
-      setTabCoachError(`Another coach already uses ${email} — each coach needs a unique email.`);
-      return;
-    }
-    setTabCoachError(""); setTabSavingCoach(true);
-    const newId = `c_${Date.now()}`;
-    const now = new Date().toISOString().split("T")[0];
-    const newCoach: Coach = {
-      id: newId, name: tabCoachDraft.name.trim(), email, phone: tabCoachDraft.phone.trim(),
-      specialization: tabCoachDraft.specialization.trim(), ageGroupsFocus: [], location: "",
-      status: "Active", joinedDate: now, certificationLevel: tabCoachDraft.certificationLevel,
-      bio: "", academyId: "", marketplaceVisible: false, available: true,
-      stripeConnectOnboarded: false, currency: academy.currency, subPlan: "Free",
-      loginDisabled: false, disabledAt: null, disabledReason: null,
-    };
-    try {
-      await upsertCoach({
-        id: newId, name: newCoach.name, email: newCoach.email, phone: newCoach.phone,
-        specialization: newCoach.specialization, age_groups_focus: [],
-        location: "", status: "Active", joined_date: now,
-        certification_level: newCoach.certificationLevel, bio: "", academy_id: null,
-        marketplace_visible: false, currency: academy.currency,
-      });
-
-      // Auto-set as head coach, same as the Edit Academy modal's own "+ Create New Coach" does.
-      const mergedCoachIds = academy.coachIds.includes(newId) ? academy.coachIds : [...academy.coachIds, newId];
-      await updateAcademyFields(academyId, { coach_ids: mergedCoachIds, head_coach_id: newId });
-
-      setAllCoaches((prev) => [...prev, newCoach]);
-      setAcademies((prev) => prev.map((a) =>
-        a.id === academyId ? { ...a, coachIds: mergedCoachIds, headCoachId: newId } : a
-      ));
-      setTabCoachDraft(EMPTY_NEW_COACH);
-      setTabAddCoachFor(null);
-    } catch (err) {
-      setTabCoachError((err as { message?: string })?.message ?? String(err));
-    } finally {
-      setTabSavingCoach(false);
-    }
-  }
-
-  // One-click alternative to handleTabAddCoach for the common case: the person setting up the
-  // academy IS the head coach. Creates a coaches row from the signed-in user's own name/email —
-  // no separate form, nothing to re-type — and sets it as owner exactly like handleTabAddCoach
-  // does. Only ever offered while the roster is empty (see the render below), so there's no
-  // existing owner this could accidentally displace.
-  async function handleAddSelfAsCoach(academyId: string) {
-    if (!user) return;
-    const academy = academies.find((a) => a.id === academyId);
-    if (!academy) return;
-    if (allCoaches.some((c) => c.email.toLowerCase() === user.email.toLowerCase())) {
-      setAddSelfError(`You already have a coach profile (${user.email}) — assign it as owner from the dropdown in Edit Academy instead.`);
-      return;
-    }
-    setAddSelfError(""); setAddingSelfFor(academyId);
-    const newId = `c_${Date.now()}`;
-    const now = new Date().toISOString().split("T")[0];
-    const newCoach: Coach = {
-      id: newId, name: user.name, email: user.email, phone: "",
-      specialization: "", ageGroupsFocus: [], location: "",
-      status: "Active", joinedDate: now, certificationLevel: "Level 1",
-      bio: "", academyId: "", marketplaceVisible: false, available: true,
-      stripeConnectOnboarded: false, currency: academy.currency, subPlan: "Free",
-      loginDisabled: false, disabledAt: null, disabledReason: null,
-    };
-    try {
-      await upsertCoach({
-        id: newId, name: newCoach.name, email: newCoach.email, phone: newCoach.phone,
-        specialization: newCoach.specialization, age_groups_focus: [],
-        location: "", status: "Active", joined_date: now,
-        certification_level: newCoach.certificationLevel, bio: "", academy_id: null,
-        marketplace_visible: false, currency: academy.currency,
-      });
-
-      const mergedCoachIds = academy.coachIds.includes(newId) ? academy.coachIds : [...academy.coachIds, newId];
-      await updateAcademyFields(academyId, { coach_ids: mergedCoachIds, head_coach_id: newId });
-
-      setAllCoaches((prev) => [...prev, newCoach]);
-      setAcademies((prev) => prev.map((a) =>
-        a.id === academyId ? { ...a, coachIds: mergedCoachIds, headCoachId: newId } : a
-      ));
-    } catch (err) {
-      setAddSelfError((err as { message?: string })?.message ?? String(err));
-    } finally {
-      setAddingSelfFor(null);
     }
   }
 
@@ -1096,16 +830,9 @@ export function AcademyClient() {
               </thead>
               <tbody>
           {pageAcademies.map((academy) => {
-            const isExpanded      = expandedId === academy.id;
-            const tab             = getTab(academy.id);
             const canManage       = user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === academy.id);
             const assignedPlayers = allPlayers.filter((p) => academy.playerIds.includes(p.id));
             const assignedCoaches = allCoaches.filter((c) => (academy.coachIds ?? []).includes(c.id));
-            const countsByGroup   = assignedPlayers.reduce((acc, p) => {
-              acc[p.ageGroup] = (acc[p.ageGroup] ?? 0) + 1; return acc;
-            }, {} as Partial<Record<AgeGroup, number>>);
-            const ageGroupsPresent = AGE_GROUPS.filter((g) => (countsByGroup[g] ?? 0) > 0);
-            const groupViewActive  = activeGroupView?.academyId === academy.id ? activeGroupView.ageGroup : null;
             const rowBg = savedId === academy.id ? "bg-pace-green/5" : "bg-surface";
 
             // Billing/Edit Academy/Deactivate collapse into one ⋮ menu for whichever role can act
@@ -1134,21 +861,14 @@ export function AcademyClient() {
             ];
 
             return (
-              <Fragment key={academy.id}>
-              <tr
+              <tr key={academy.id}
                 className={`border-b border-zinc-700/40 last:border-0 transition-colors cursor-pointer select-none ${
                   savedId === academy.id ? "bg-pace-green/5" : "hover:bg-surface/80"
                 }`}
-                onClick={() => toggleExpand(academy.id)}
+                onClick={() => router.push(`/academies/${academy.id}`)}
               >
                 <td className="px-4 py-4 pl-6">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <svg className={`text-zinc-500 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
-                      width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                      <path d="m9 18 6-6-6-6"/>
-                    </svg>
-                    <span className="text-white font-medium text-sm whitespace-nowrap">{academy.name}</span>
-                  </div>
+                  <span className="text-white font-medium text-sm whitespace-nowrap">{academy.name}</span>
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STAGE_STYLES[academy.stage]}`}>{academy.stage}</span>
@@ -1169,394 +889,6 @@ export function AcademyClient() {
                   </div>
                 </td>
               </tr>
-
-                {/* ── Expanded panel — unchanged from before, just relocated into a full-width
-                    table row instead of a plain div sibling ── */}
-                {isExpanded && (
-                  <tr>
-                  <td colSpan={7} className="p-0">
-                  <div className="border-t border-zinc-700/60 px-5 pb-5">
-                    <div className="flex gap-1 pt-4 mb-4">
-                      {(["players", "coaches", "pricing", "nets"] as const).map((t) => (
-                        <button key={t} type="button" onClick={() => setTab(academy.id, t)}
-                          className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors cursor-pointer ${
-                            tab === t ? "bg-pace-green text-black" : "bg-ink text-zinc-400 hover:text-white"
-                          }`}>
-                          {t === "players" ? `Players (${assignedPlayers.length})`
-                            : t === "coaches" ? `Coaches (${assignedCoaches.length})`
-                            : t === "pricing" ? "Pricing"
-                            : `Nets (${nets.filter((n) => n.academyId === academy.id).length})`}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Players tab */}
-                    {tab === "players" && (
-                      <>
-                        {canManage && (
-                          <div className="flex justify-end mb-3">
-                            <button type="button"
-                              onClick={() => { setTabAddPlayerFor(tabAddPlayerFor === academy.id ? null : academy.id); setTabPlayerError(""); }}
-                              className="text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer">
-                              {tabAddPlayerFor === academy.id ? "Cancel" : "+ Add Player"}
-                            </button>
-                          </div>
-                        )}
-                        {tabAddPlayerFor === academy.id && (
-                          <div className="bg-ink rounded-xl p-4 mb-3 border border-pace-green/30">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-3">New Player</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                              <div>
-                                <label className={lbl}>Full Name *</label>
-                                <input type="text" value={tabPlayerDraft.name}
-                                  onChange={(e) => setTabPlayerDraft({ ...tabPlayerDraft, name: e.target.value })}
-                                  className={inp} placeholder="Player name" />
-                              </div>
-                              <div>
-                                <label className={lbl}>Email</label>
-                                <input type="email" value={tabPlayerDraft.email}
-                                  onChange={(e) => setTabPlayerDraft({ ...tabPlayerDraft, email: e.target.value })}
-                                  className={inp} placeholder="player@email.com" />
-                              </div>
-                              <div>
-                                <label className={lbl}>Age Group</label>
-                                <select value={tabPlayerDraft.ageGroup}
-                                  onChange={(e) => setTabPlayerDraft({ ...tabPlayerDraft, ageGroup: e.target.value as AgeGroup })}
-                                  className={sel}>
-                                  {AGE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
-                                </select>
-                              </div>
-                              <div>
-                                <label className={lbl}>Bowling Style</label>
-                                <select value={tabPlayerDraft.bowlingStyle}
-                                  onChange={(e) => setTabPlayerDraft({ ...tabPlayerDraft, bowlingStyle: e.target.value as BowlingStyle })}
-                                  className={sel}>
-                                  {BOWLING_STYLES.map((s) => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                              </div>
-                              <div className="sm:col-span-2">
-                                <label className={lbl}>Club</label>
-                                <input type="text" value={tabPlayerDraft.club}
-                                  onChange={(e) => setTabPlayerDraft({ ...tabPlayerDraft, club: e.target.value })}
-                                  className={inp} placeholder="Club name" />
-                              </div>
-                            </div>
-                            {tabPlayerError && <p className="text-red-400 text-xs mb-2">{tabPlayerError}</p>}
-                            <button type="button" onClick={() => handleTabAddPlayer(academy.id)} disabled={tabSavingPlayer}
-                              className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-60">
-                              {tabSavingPlayer ? "Adding…" : "Create & Assign"}
-                            </button>
-                          </div>
-                        )}
-                        {assignedPlayers.length === 0 ? (
-                          <p className="text-zinc-500 text-sm py-8 text-center">No players assigned yet.</p>
-                        ) : (
-                          <>
-                          {ageGroupsPresent.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mb-4">
-                              {ageGroupsPresent.map((g) => {
-                                const isActive = groupViewActive === g;
-                                return (
-                                  <button key={g} type="button"
-                                    onClick={() => setActiveGroupView(isActive ? null : { academyId: academy.id, ageGroup: g })}
-                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
-                                      isActive
-                                        ? "bg-pace-green/20 border-pace-green text-pace-green"
-                                        : "bg-ink border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                                    }`}>
-                                    <span>{g}</span>
-                                    <span className={`font-bold ${isActive ? "text-pace-green" : "text-white"}`}>{countsByGroup[g]}</span>
-                                  </button>
-                                );
-                              })}
-                              {groupViewActive && (
-                                <button type="button" onClick={() => setActiveGroupView(null)}
-                                  className="px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-white cursor-pointer">
-                                  Show all
-                                </button>
-                              )}
-                            </div>
-                          )}
-                          <div className="space-y-2">
-                            {(groupViewActive
-                              ? assignedPlayers.filter((p) => p.ageGroup === groupViewActive)
-                              : assignedPlayers
-                            ).map((p) => (
-                              <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-ink rounded-xl">
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className="w-8 h-8 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-xs font-bold flex-shrink-0">
-                                    {p.name.split(" ").map((n) => n[0]).join("")}
-                                  </div>
-                                  <div className="min-w-0">
-                                    <div className="text-sm font-semibold text-white truncate">{p.name}</div>
-                                    <div className="text-xs text-zinc-400">{p.ageGroup} · {p.bowlingStyle}</div>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-3 flex-shrink-0">
-                                  <span className="text-xs text-zinc-500 hidden sm:block">
-                                    Active {new Date(p.lastActive).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-                                  </span>
-                                  <Link href={`/players/${p.id}`} className="text-xs text-pace-green hover:underline">View →</Link>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          </>
-                        )}
-                      </>
-                    )}
-
-                    {/* Coaches tab */}
-                    {tab === "coaches" && (
-                      <>
-                        {canManage && (
-                          <div className="flex justify-end mb-3">
-                            <button type="button"
-                              onClick={() => { setTabAddCoachFor(tabAddCoachFor === academy.id ? null : academy.id); setTabCoachError(""); }}
-                              className="text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer">
-                              {tabAddCoachFor === academy.id ? "Cancel" : "+ Add Coach"}
-                            </button>
-                          </div>
-                        )}
-                        {tabAddCoachFor === academy.id && (
-                          <div className="bg-ink rounded-xl p-4 mb-3 border border-pace-green/30">
-                            <p className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-3">New Coach</p>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                              <div>
-                                <label className={lbl}>Full Name *</label>
-                                <input type="text" value={tabCoachDraft.name}
-                                  onChange={(e) => setTabCoachDraft({ ...tabCoachDraft, name: e.target.value })}
-                                  className={inp} placeholder="Coach full name" />
-                              </div>
-                              <div>
-                                <label className={lbl}>Email</label>
-                                <input type="email" value={tabCoachDraft.email}
-                                  onChange={(e) => setTabCoachDraft({ ...tabCoachDraft, email: e.target.value })}
-                                  className={inp} placeholder="coach@email.com" />
-                              </div>
-                              <div>
-                                <label className={lbl}>Phone</label>
-                                <input type="tel" value={tabCoachDraft.phone}
-                                  onChange={(e) => setTabCoachDraft({ ...tabCoachDraft, phone: e.target.value })}
-                                  className={inp} placeholder="04xx xxx xxx" />
-                              </div>
-                              <div>
-                                <label className={lbl}>Certification Level</label>
-                                <select value={tabCoachDraft.certificationLevel}
-                                  onChange={(e) => setTabCoachDraft({ ...tabCoachDraft, certificationLevel: e.target.value as CertificationLevel })}
-                                  className={sel}>
-                                  {CERT_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                                </select>
-                              </div>
-                              <div className="sm:col-span-2">
-                                <label className={lbl}>Specialization</label>
-                                <input type="text" value={tabCoachDraft.specialization}
-                                  onChange={(e) => setTabCoachDraft({ ...tabCoachDraft, specialization: e.target.value })}
-                                  className={inp} placeholder="e.g. Fast Bowling, Biomechanics" />
-                              </div>
-                            </div>
-                            {tabCoachError && <p className="text-red-400 text-xs mb-2">{tabCoachError}</p>}
-                            <button type="button" onClick={() => handleTabAddCoach(academy.id)} disabled={tabSavingCoach}
-                              className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-60">
-                              {tabSavingCoach ? "Adding…" : "Create & Assign"}
-                            </button>
-                          </div>
-                        )}
-                        {assignedCoaches.length === 0 ? (
-                          canManage && tabAddCoachFor !== academy.id ? (
-                            <div className="space-y-2">
-                              {addSelfError && <p className="text-red-400 text-xs">{addSelfError}</p>}
-                              <button type="button"
-                                onClick={() => handleAddSelfAsCoach(academy.id)}
-                                disabled={addingSelfFor === academy.id}
-                                className="w-full flex items-center gap-3 px-4 py-3 bg-ink border border-zinc-700 rounded-xl hover:border-pace-green transition-colors cursor-pointer disabled:opacity-60 text-left">
-                                <span className="w-8 h-8 rounded-lg bg-pace-green/15 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">★</span>
-                                <span className="min-w-0">
-                                  <span className="block text-sm font-semibold text-white">
-                                    {addingSelfFor === academy.id ? "Adding…" : "Add Yourself as Head Coach"}
-                                  </span>
-                                  <span className="block text-xs text-zinc-500">Uses your own name &amp; email — one click</span>
-                                </span>
-                              </button>
-                              <button type="button"
-                                onClick={() => { setTabAddCoachFor(academy.id); setTabCoachError(""); }}
-                                className="w-full flex items-center gap-3 px-4 py-3 bg-ink border border-zinc-700 rounded-xl hover:border-pace-green transition-colors cursor-pointer text-left">
-                                <span className="w-8 h-8 rounded-lg bg-zinc-700/60 text-zinc-400 flex items-center justify-center text-sm font-bold flex-shrink-0">+</span>
-                                <span className="min-w-0">
-                                  <span className="block text-sm font-semibold text-white">Create New Coach</span>
-                                  <span className="block text-xs text-zinc-500">For someone you&apos;ve hired to coach here</span>
-                                </span>
-                              </button>
-                            </div>
-                          ) : !canManage ? (
-                            <p className="text-zinc-500 text-sm py-8 text-center">No coaches assigned yet.</p>
-                          ) : null
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {assignedCoaches.map((c) => {
-                            const isOwner = c.id === academy.headCoachId;
-                            return (
-                              <div key={c.id} className={`bg-ink rounded-xl p-4 flex items-start gap-3 ${isOwner ? "border border-pace-green/30" : ""}`}>
-                                <div className="relative flex-shrink-0">
-                                  <div className="w-10 h-10 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm">
-                                    {c.name.split(" ").map((n) => n[0]).join("")}
-                                  </div>
-                                  {isOwner && (
-                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-pace-green rounded-full flex items-center justify-center text-black text-[8px] font-bold">★</span>
-                                  )}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                    <span className="text-white font-semibold text-sm">{c.name}</span>
-                                    {isOwner && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-pace-green/20 text-pace-green">Owner</span>}
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                      c.certificationLevel === "Elite" ? "bg-pace-green/20 text-pace-green" :
-                                      c.certificationLevel === "Level 3" ? "bg-amber/20 text-amber" : "bg-zinc-700 text-zinc-400"
-                                    }`}>{c.certificationLevel}</span>
-                                  </div>
-                                  <p className="text-zinc-400 text-xs mb-1">{c.specialization || "—"}</p>
-                                  <p className="text-zinc-500 text-xs">{c.email}</p>
-                                  {c.ageGroupsFocus.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-1.5">
-                                      {c.ageGroupsFocus.map((g) => (
-                                        <span key={g} className="px-1.5 py-0.5 rounded bg-surface text-zinc-400 text-[10px]">{g}</span>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        )}
-                      </>
-                    )}
-
-                    {/* Pricing tab */}
-                    {tab === "pricing" && (
-                      <div className="space-y-4">
-                        <div className="bg-ink rounded-xl p-4">
-                          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Default Session Fee</p>
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-2xl font-bold text-pace-green">
-                              {academy.sessionFeeAud > 0 ? formatMoney(academy.sessionFeeAud, academy.currency) : "—"}
-                            </span>
-                            {academy.sessionFeeAud > 0 && <span className="text-zinc-400 text-sm">{academy.currency.toUpperCase()} per session</span>}
-                          </div>
-                          {academy.sessionFeeAud > 0 && (() => {
-                            const feePct = getPlatformFeePercent(academy.id, academies, orgPlans);
-                            return (
-                              <div className="flex gap-6 mt-1.5 text-xs text-zinc-400">
-                                <span>Platform fee ({feePct}%): <span className="text-amber font-semibold">{formatMoney(academy.sessionFeeAud * (feePct / 100), academy.currency)}</span></span>
-                                <span>Academy receives: <span className="text-pace-green font-semibold">{formatMoney(academy.sessionFeeAud * (1 - feePct / 100), academy.currency)}</span></span>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                        {Object.entries(academy.sessionTypeFees).some(([, v]) => (v ?? 0) > 0) && (
-                          <div className="bg-ink rounded-xl p-4">
-                            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Fee by Session Type</p>
-                            <div className="grid grid-cols-2 gap-y-2 gap-x-4">
-                              {Object.entries(academy.sessionTypeFees).map(([type, fee]) =>
-                                (fee ?? 0) > 0 ? (
-                                  <div key={type} className="flex items-center justify-between">
-                                    <span className="text-xs text-zinc-400">{type}</span>
-                                    <span className="text-xs font-bold text-white">{formatMoney(fee ?? 0, academy.currency)}</span>
-                                  </div>
-                                ) : null
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {Object.keys(academy.ageFees).length > 0 && (
-                          <div className="bg-ink rounded-xl p-4">
-                            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Fee by Age Group</p>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                              {AGE_GROUPS.filter((g) => (academy.ageFees[g] ?? 0) > 0).map((g) => (
-                                <div key={g} className="bg-surface rounded-lg p-2 text-center">
-                                  <div className="text-xs text-zinc-400 mb-0.5">{g}</div>
-                                  <div className="text-sm font-bold text-pace-green">{formatMoney(academy.ageFees[g] ?? 0, academy.currency)}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Nets tab */}
-                    {tab === "nets" && (() => {
-                      const academyNets = nets.filter((n) => n.academyId === academy.id);
-                      return (
-                        <div className="space-y-3">
-                          {academyNets.length === 0 && showNetForm !== academy.id && (
-                            <p className="text-zinc-500 text-sm py-4 text-center">No nets configured yet. Bookings for this academy will use free-text location until you add one.</p>
-                          )}
-                          {academyNets.map((net) => (
-                            <div key={net.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-ink rounded-xl">
-                              <div className="min-w-0">
-                                <div className="text-sm font-semibold text-white truncate">{net.name}</div>
-                                {net.dimensions && <div className="text-xs text-zinc-400">{net.dimensions}</div>}
-                              </div>
-                              <div className="flex items-center gap-3 flex-shrink-0">
-                                {confirmDeleteNetId === net.id ? (
-                                  <>
-                                    <span className="text-xs text-zinc-400">Delete this net?</span>
-                                    <button type="button" onClick={() => handleDeleteNet(net.id)} className="text-xs font-semibold text-red-400 hover:underline cursor-pointer">Confirm</button>
-                                    <button type="button" onClick={() => setConfirmDeleteNetId(null)} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Cancel</button>
-                                  </>
-                                ) : (
-                                  <>
-                                    <button type="button" onClick={() => openEditNet(net)} className="text-xs text-pace-green hover:underline cursor-pointer">Edit</button>
-                                    <button type="button" onClick={() => setConfirmDeleteNetId(net.id)} className="text-xs text-red-400 hover:underline cursor-pointer">Delete</button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-
-                          {showNetForm === academy.id ? (
-                            <div className="bg-ink rounded-xl p-4 space-y-3">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Name *</label>
-                                  <input type="text" value={netDraft.name} onChange={(e) => setNetDraft({ ...netDraft, name: e.target.value })}
-                                    className="w-full bg-surface rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
-                                    placeholder="e.g. Net 1" />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Dimensions</label>
-                                  <input type="text" value={netDraft.dimensions} onChange={(e) => setNetDraft({ ...netDraft, dimensions: e.target.value })}
-                                    className="w-full bg-surface rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
-                                    placeholder="e.g. 30m x 3.5m" />
-                                </div>
-                              </div>
-                              {netError && <p className="text-red-400 text-xs">{netError}</p>}
-                              <div className="flex items-center gap-3">
-                                <button type="button" onClick={() => handleSaveNet(academy.id)}
-                                  className="px-4 py-2 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
-                                  {editingNetId ? "Save Changes" : "Add Net"}
-                                </button>
-                                <button type="button" onClick={closeNetForm}
-                                  className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer">
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button type="button" onClick={() => openAddNet(academy.id)}
-                              className="px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/30 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer">
-                              + Add Net
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                  </td>
-                  </tr>
-                )}
-              </Fragment>
             );
           })}
               </tbody>

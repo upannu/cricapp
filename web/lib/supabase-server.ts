@@ -85,6 +85,23 @@ export async function canAccessCoachServer(targetCoachId: string): Promise<boole
 }
 
 /**
+ * Ownership check for /academies/[id] — the academy profile page hosts the same
+ * Players/Coaches/Pricing/Nets management the list page's accordion used to, so this stays as
+ * tight as canAccessCoachServer: platform_admin sees every academy, academy_admin only their own,
+ * and coach/player/parent get nothing (a coach's own read of this list is informational only,
+ * scoped client-side — this page lets you add/remove players and coaches, which is staff-only).
+ */
+export async function canAccessAcademyServer(targetAcademyId: string): Promise<boolean> {
+  const sb = await createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return false;
+  const role = user.app_metadata?.role as string | undefined;
+  if (role === "platform_admin") return true;
+  if (role === "academy_admin") return user.app_metadata?.academy_id === targetAcademyId;
+  return false;
+}
+
+/**
  * Academy players get their access through the academy's own plan — the personal
  * Player Pro/Coach Pro subscription page doesn't apply to them.
  */
