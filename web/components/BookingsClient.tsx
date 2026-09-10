@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import type { Booking, BookingStatus, BookingType, Player, Coach, SessionPack, Academy, Plan, BookingFeeDue, Net } from "@/lib/types";
+import type { Booking, BookingStatus, BookingType, Player, Coach, Academy, Plan, BookingFeeDue, Net } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchActivePlans, upsertBooking, updateBookingStatus, deleteBooking, updatePackPaymentStatus, markBookingPaid, fetchBookingFeeDues, fetchNets } from "@/lib/db";
+import { fetchBookings, fetchPlayers, fetchCoaches, fetchAcademies, fetchActivePlans, upsertBooking, updateBookingStatus, deleteBooking, markBookingPaid, fetchBookingFeeDues, fetchNets } from "@/lib/db";
 import { formatDate, getSessionFee, getPlatformFeePercent } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 import { StatsGrid } from "@/components/StatsGrid";
@@ -150,15 +150,10 @@ const EMPTY_DRAFT: DraftBooking = {
 };
 
 let _players: Player[] = [];
-let _packs: SessionPack[] = [];
 
 function playerById(id: string) { return _players.find((p) => p.id === id); }
 function coachById(id: string) { return _coaches.find((c) => c.id === id); }
 function academyById(id: string) { return _academies.find((a) => a.id === id); }
-// Only used for the Cancelled-booking "credit back to pack" flow below — Bookings are always
-// 1-on-1 sessions charged at the coach's full rate; packs are exclusively for group sessions and
-// are never offered/drawn from when creating or editing a booking.
-function packForPlayer(playerId: string) { return _packs.find((pk) => pk.playerId === playerId && pk.status === "Active"); }
 
 function isUpcoming(b: Booking) { return b.date >= today && b.status !== "Cancelled"; }
 function isPast(b: Booking)     { return b.date < today && b.status !== "Cancelled"; }
@@ -200,10 +195,9 @@ export function BookingsClient() {
     ]).then(([pl, co, ac, plans, nt]) => {
       _players = pl; _coaches = co; _academies = ac; _plans = plans; _nets = nt;
       const scopedPlayerIds = academyId ? pl.map((p) => p.id) : undefined;
-      return Promise.all([fetchBookings(coachId, undefined, scopedPlayerIds), fetchSessionPacks(scopedPlayerIds)]);
-    }).then(([bk, pk]) => {
+      return fetchBookings(coachId, undefined, scopedPlayerIds);
+    }).then((bk) => {
       setBookings(bk);
-      _packs = pk;
     });
     // Fee dues are visible/actionable for staff only — RLS already scopes what comes back
     // (platform_admin sees all, academy_admin their own academy, coach their own bookings), and a
@@ -281,7 +275,7 @@ export function BookingsClient() {
 
   function openEdit(b: Booking) {
     setEditingId(b.id);
-    setDraft({ playerId: b.playerId, coachId: b.coachId, date: b.date, time: b.time, durationMins: b.durationMins, type: b.type, status: b.status, location: b.location, notes: b.notes, feeAud: b.feeAud, packId: b.packId, netId: b.netId, paymentStatus: b.paymentStatus });
+    setDraft({ playerId: b.playerId, coachId: b.coachId, date: b.date, time: b.time, durationMins: b.durationMins, type: b.type, status: b.status, location: b.location, notes: b.notes, feeAud: b.feeAud, netId: b.netId, paymentStatus: b.paymentStatus });
     setFormError("");
     setShowForm(true);
     scrollToForm();
@@ -311,12 +305,10 @@ export function BookingsClient() {
     setFormError("");
 
     const newId = editingId ?? `b_${Date.now()}`;
-    // A pack-drawn booking is already paid for — the pack itself carries the payment status.
-    const paymentStatus = draft.packId ? "Paid" : draft.paymentStatus;
-    const booking: Booking = { id: newId, ...draft, paymentStatus };
+    const booking: Booking = { id: newId, ...draft };
 
     try {
-      await upsertBooking({ id: booking.id, player_id: booking.playerId, coach_id: booking.coachId, date: booking.date, time: booking.time, duration_mins: booking.durationMins, type: booking.type, status: booking.status, location: booking.location, notes: booking.notes, fee_aud: booking.feeAud, pack_id: booking.packId ?? null, net_id: booking.netId ?? null, payment_status: booking.paymentStatus });
+      await upsertBooking({ id: booking.id, player_id: booking.playerId, coach_id: booking.coachId, date: booking.date, time: booking.time, duration_mins: booking.durationMins, type: booking.type, status: booking.status, location: booking.location, notes: booking.notes, fee_aud: booking.feeAud, pack_id: null, net_id: booking.netId ?? null, payment_status: booking.paymentStatus });
     } catch (err) {
       setFormError((err as { message?: string })?.message ?? String(err));
       return;
@@ -819,15 +811,12 @@ function BookingCard({
 }) {
   const { user } = useAuth();
   const [expanded, setExpanded] = useState(false);
-  const [credited, setCredited] = useState(false);
-  const [creditError, setCreditError] = useState("");
   const [completingOpen, setCompletingOpen] = useState(false);
   const [completeNotes, setCompleteNotes] = useState(b.notes);
   const [completing, setCompleting] = useState(false);
   const [completeError, setCompleteError] = useState("");
   const player = playerById(b.playerId);
   const coach = coachById(b.coachId);
-  const activePack = b.playerId ? packForPlayer(b.playerId) : undefined;
   const initials = player?.name.split(" ").map((n) => n[0]).join("") ?? "?";
   const endTime = (() => {
     const [h, m] = b.time.split(":").map(Number);
@@ -926,7 +915,7 @@ function BookingCard({
               {b.feeAud === 0 && feesWaivedForCoach(b.coachId) && (
                 <p className="text-xs text-pace-green mt-3 pt-3 border-t border-zinc-700/50">✓ Covered by the academy's plan — no session fee</p>
               )}
-              {b.feeAud > 0 && !b.packId && (
+              {b.feeAud > 0 && (
                 <div className="mt-3 pt-3 border-t border-zinc-700/50 flex items-center justify-between gap-3">
                   <span className={`text-xs font-semibold ${b.paymentStatus === "Paid" ? "text-pace-green" : "text-amber"}`}>
                     {b.paymentStatus === "Paid" ? "✓ Paid" : "Payment pending"}
@@ -985,9 +974,6 @@ function BookingCard({
                 placeholder="Session notes — what was covered, observations, focus areas…"
                 className="w-full bg-surface rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none resize-none h-20"
               />
-              {b.packId && (
-                <p className="text-xs text-blue-400">This will use 1 session from the player&apos;s active pack.</p>
-              )}
               {completeError && <p className="text-xs text-red-400">{completeError}</p>}
               <div className="flex items-center gap-2">
                 <button type="button" onClick={handleComplete} disabled={completing}
@@ -1002,36 +988,6 @@ function BookingCard({
             </div>
           )}
 
-          {/* Credit to Pack (cancelled bookings with active pack) */}
-          {b.status === "Cancelled" && activePack && (
-            <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl px-4 py-3 flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold text-blue-400 mb-0.5">Player has an active session pack</p>
-                <p className="text-xs text-zinc-500">Credit 1 session back so the player can rebook.</p>
-              </div>
-              {credited ? (
-                <span className="text-xs font-semibold text-blue-400 flex items-center gap-1.5 flex-shrink-0">
-                  <span>✓</span> Session credited
-                </span>
-              ) : (
-                <button type="button"
-                  onClick={async () => {
-                    setCreditError("");
-                    try {
-                      await updatePackPaymentStatus(activePack.id, activePack.paymentStatus);
-                      setCredited(true);
-                    } catch (err) {
-                      setCreditError((err as { message?: string })?.message ?? String(err));
-                    }
-                  }}
-                  className="px-4 py-2 text-xs font-bold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer flex-shrink-0">
-                  Credit to Pack
-                </button>
-              )}
-            </div>
-          )}
-          {creditError && <p className="text-xs text-red-400">{creditError}</p>}
-
           {/* Actions */}
           <div className="flex items-center gap-3 pt-1">
             <button type="button" onClick={onEdit}
@@ -1045,7 +1001,7 @@ function BookingCard({
               </Link>
             )}
             {player && (
-              <Link href={`/players/${player.id}/new-session`}
+              <Link href={`/players/${player.id}/new-session?bookingId=${b.id}`}
                 className="px-4 py-2 text-xs font-semibold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity">
                 + New Session
               </Link>

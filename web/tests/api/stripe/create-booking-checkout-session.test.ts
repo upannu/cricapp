@@ -34,13 +34,6 @@ describe("POST /api/stripe/create-booking-checkout-session", () => {
     expect(res.status).toBe(403);
   });
 
-  test("400 when the booking is already covered by a session pack", async () => {
-    routeMockState.cookieUser = rawUser({ role: "platform_admin" });
-    routeMockState.tableResponses = { bookings: { data: { ...BOOKING, pack_id: "pack1" }, error: null } };
-    const res = await POST(jsonRequest(URL, { bookingId: "b1" }));
-    expect(res.status).toBe(400);
-  });
-
   test("400 when the booking is already paid", async () => {
     routeMockState.cookieUser = rawUser({ role: "platform_admin" });
     routeMockState.tableResponses = { bookings: { data: { ...BOOKING, payment_status: "Paid" }, error: null } };

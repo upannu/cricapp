@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Player, Session, SessionVideo, SessionPack, Plan } from "@/lib/types";
-import { insertSession, recordSessionCompletion, fetchSessionPacks, fetchActivePlans } from "@/lib/db";
+import type { Player, SessionVideo, Plan } from "@/lib/types";
+import { insertSession, recordSessionCompletion, updateBookingStatus, fetchActivePlans } from "@/lib/db";
 import { createClient } from "@/lib/supabase";
 import { probeVideoQuality, MIN_LONG_EDGE_PX, MIN_SHORT_EDGE_PX, MIN_FPS, type VideoQualityResult } from "@/lib/video-quality";
 import { transcodeToH264 } from "@/lib/transcode";
@@ -60,7 +60,10 @@ interface AngleState {
 
 const EMPTY_ANGLE: AngleState = { file: null, status: "idle" };
 
-export function NewSessionForm({ player }: { player: Player }) {
+// `bookingId` is set only when this form was opened from a specific booking's "+ New Session"
+// button — see BookingsClient. It ties the logged session back to that booking and marks the
+// booking Completed on save, so the two records aren't left floating apart.
+export function NewSessionForm({ player, bookingId }: { player: Player; bookingId?: string }) {
   const router = useRouter();
   const supabase = createClient();
   const today = new Date().toISOString().split("T")[0];
@@ -75,28 +78,19 @@ export function NewSessionForm({ player }: { player: Player }) {
   const [submitting, setSubmitting]   = useState(false);
   const [submitted,  setSubmitted]    = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [activePack, setActivePack] = useState<SessionPack | null>(null);
-  const [drawFromPack, setDrawFromPack] = useState(true);
   const [plans, setPlans] = useState<Plan[]>([]);
 
   useEffect(() => {
-    fetchSessionPacks([player.id]).then((packs) => {
-      setActivePack(packs.find((pk) => pk.status === "Active") ?? null);
-    });
     fetchActivePlans().then(setPlans);
   }, [player.id]);
 
-  // Remaining credits = what was purchased plus any comp/bonus credits, minus what's been drawn down.
-  const packRemaining = activePack ? activePack.totalSessions - activePack.sessionsUsed + activePack.sessionCredits : 0;
-  const canUsePack = !!activePack && packRemaining > 0;
-
   const sessionsLimit = sessionsLimitForPlan(player.subscription.plan, plans);
-  // A player drawing from a prepaid pack already paid for this session through the academy —
-  // the Free-plan monthly cap shouldn't also block them from logging it.
+  // An individually logged session always counts against the player's own plan allowance — a
+  // Session Pack's credits belong to the weekly group net it was bought for and are drawn down
+  // there (by the nightly pack-auto-consume job), never here.
   const limitReached =
     sessionsLimit !== null &&
-    player.subscription.sessionsUsed >= sessionsLimit &&
-    !(canUsePack && drawFromPack);
+    player.subscription.sessionsUsed >= sessionsLimit;
 
   const initials = player.name.split(" ").map((n) => n[0] ?? "").join("");
   const selectedCount = Object.values(angles).filter((a) => a.file && a.status !== "invalid").length;
@@ -236,8 +230,14 @@ export function NewSessionForm({ player }: { player: Player }) {
         front_knee_angle_deg: null,
         xp_earned: xpEarned,
         rpe,
+        booking_id: bookingId ?? null,
       });
-      await recordSessionCompletion(player.id, xpEarned, canUsePack && drawFromPack ? activePack!.id : undefined);
+      await recordSessionCompletion(player.id, xpEarned);
+      // Opened from a booking — close it out too, so it doesn't sit un-Completed with a session
+      // already logged against it. Best-effort: a status hiccup shouldn't lose the saved session.
+      if (bookingId) {
+        try { await updateBookingStatus(bookingId, "Completed"); } catch { /* non-fatal */ }
+      }
     } catch (err) {
       const msg = (err as { message?: string })?.message ?? String(err);
       setSubmitError(`Failed to save session: ${msg}`);
@@ -246,7 +246,7 @@ export function NewSessionForm({ player }: { player: Player }) {
     }
 
     setSubmitted(true);
-    setTimeout(() => router.push(`/players/${player.id}`), 1200);
+    setTimeout(() => router.push(bookingId ? "/bookings" : `/players/${player.id}`), 1200);
   }
 
   return (
@@ -312,21 +312,6 @@ export function NewSessionForm({ player }: { player: Player }) {
                 ))}
               </select>
             </Field>
-            {canUsePack && (
-              <div className="sm:col-span-2">
-                <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={drawFromPack}
-                    onChange={(e) => setDrawFromPack(e.target.checked)}
-                    className="accent-pace-green cursor-pointer"
-                  />
-                  Draw from active pack ({packRemaining}{" "}
-                  {packRemaining === 1 ? "session" : "sessions"}{" "}
-                  remaining) — won&apos;t count against the plan&apos;s monthly limit
-                </label>
-              </div>
-            )}
             <div className="sm:col-span-2">
               <Field label="Coach Notes">
                 <textarea
