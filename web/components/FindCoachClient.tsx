@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayer, fetchCoaches, fetchAcademies, fetchActivePlans, upsertBooking } from "@/lib/db";
-import { getSessionFee, getInitials, distanceKm } from "@/lib/utils";
+import { fetchPlayer, fetchCoaches, fetchAcademies, fetchActivePlans } from "@/lib/db";
+import { getInitials, distanceKm } from "@/lib/utils";
 import { canUseMarketplace } from "@/lib/plan-features";
 import { formatMoney, DEFAULT_CURRENCY } from "@/lib/currency";
 import type { Player, Coach, Academy, AgeGroup, BookingType, Plan } from "@/lib/types";
@@ -251,9 +251,6 @@ export function FindCoachClient() {
       {requestCoach && (
         <RequestBookingModal
           coach={requestCoach}
-          player={player}
-          academies={academies}
-          plans={plans}
           onClose={() => setRequestCoach(null)}
         />
       )}
@@ -263,15 +260,9 @@ export function FindCoachClient() {
 
 function RequestBookingModal({
   coach,
-  player,
-  academies,
-  plans,
   onClose,
 }: {
   coach: Coach;
-  player: Player;
-  academies: Academy[];
-  plans: Plan[];
   onClose: () => void;
 }) {
   const today = new Date().toISOString().split("T")[0];
@@ -283,22 +274,50 @@ function RequestBookingModal({
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
-  const fee = getSessionFee(coach, academies, type, plans);
-  const academy = academies.find((a) => a.id === coach.academyId);
-  const feesWaived = !!academy?.planId && !!plans.find((p) => p.id === academy.planId)?.waivesSessionFees;
+  // The fee is computed server-side (see api/marketplace/request-booking) — it lives on the
+  // coach's academy row, which RLS hides from a player who isn't a member, so it can't be worked
+  // out on the client. Re-fetched whenever the session type changes; `estimating` is derived so
+  // the effect never has to setState synchronously.
+  const [estimate, setEstimate] = useState<{ type: BookingType; fee: number | null; currency: string; feesWaived: boolean } | null>(null);
+  const current = estimate?.type === type ? estimate : null;
+  const estimating = current === null;
+  const fee = current?.fee ?? null;
+  const currency = current?.currency ?? DEFAULT_CURRENCY;
+  const feesWaived = current?.feesWaived ?? false;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/marketplace/request-booking", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ coachId: coach.id, type, estimateOnly: true }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setEstimate({
+          type,
+          fee: typeof data.fee === "number" ? data.fee : null,
+          currency: data.currency ?? DEFAULT_CURRENCY,
+          feesWaived: !!data.feesWaived,
+        });
+      })
+      .catch(() => { if (!cancelled) setEstimate({ type, fee: null, currency: DEFAULT_CURRENCY, feesWaived: false }); });
+    return () => { cancelled = true; };
+  }, [coach.id, type]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
     try {
-      const id = `b_${Date.now()}`;
-      await upsertBooking({
-        id, player_id: player.id, coach_id: coach.id,
-        date, time, duration_mins: 60, type, status: "Pending",
-        location: coach.location, notes, fee_aud: fee,
-        source: "marketplace",
+      const res = await fetch("/api/marketplace/request-booking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coachId: coach.id, type, date, time, notes }),
       });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error ?? "Could not send the request.");
       setDone(true);
     } catch (err) {
       setError((err as { message?: string })?.message ?? String(err));
@@ -358,7 +377,15 @@ function RequestBookingModal({
 
               <div className="flex items-center justify-between bg-ink rounded-xl px-4 py-3">
                 <span className="text-xs text-zinc-400">{feesWaived ? "Session fee" : "Estimated fee"}</span>
-                <span className="text-pace-green font-mono font-bold text-sm">{feesWaived ? "Covered by academy plan" : formatMoney(fee, academy?.currency ?? DEFAULT_CURRENCY)}</span>
+                <span className="text-pace-green font-mono font-bold text-sm">
+                  {estimating
+                    ? "…"
+                    : feesWaived
+                      ? "Covered by academy plan"
+                      : fee === null
+                        ? "Confirmed by coach"
+                        : formatMoney(fee, currency)}
+                </span>
               </div>
 
               {error && <p className="text-red-400 text-xs">{error}</p>}
