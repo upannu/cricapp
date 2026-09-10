@@ -11,10 +11,14 @@ import {
 import { matchPlayerByNameOrEmail } from "@/lib/utils";
 import type { GroupSession, Player, Coach, SessionPack, BookingType, AttendanceStatus, AttendanceRecord } from "@/lib/types";
 
-const SESSION_TYPES: BookingType[] = [
-  "Net Session", "Individual Coaching", "Video Review",
-  "Fitness Assessment", "Match Practice", "Warm-up / Conditioning",
-];
+// Only "Net Session" — a Group Session's roster is funded by Session Packs, and every pack is a
+// Net Session pack (SessionPacksClient hard-codes it, there's no type picker). Offering other
+// types here was a dead end: hasActivePackFor() gates the roster on a pack whose sessionType
+// matches the group's, and no such pack can be created, so a non-Net group could never take a
+// single player. Extending packs to other types is a bigger call (fee calc, payouts, the
+// pack-auto-consume cron all assume Net Session) — flag it as a product decision if that's a
+// real need, rather than re-opening this picker.
+const SESSION_TYPES: BookingType[] = ["Net Session"];
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const WEEKS_AHEAD = 8;

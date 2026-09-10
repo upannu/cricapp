@@ -70,8 +70,21 @@ describe("AttendanceClient", () => {
     // Only one coach exists, so it's already pre-selected by openAdd()'s default.
     await user.click(screen.getByRole("button", { name: "Create Group" }));
 
-    expect(upsertGroupSession).toHaveBeenCalledWith(expect.objectContaining({ name: "U16 Friday Nets", coach_id: "coach-1" }));
+    expect(upsertGroupSession).toHaveBeenCalledWith(expect.objectContaining({ name: "U16 Friday Nets", coach_id: "coach-1", session_type: "Net Session" }));
     expect(setGroupSessionRoster).toHaveBeenCalled();
+  });
+
+  // A Group Session's roster is funded by Session Packs, and every pack is a Net Session pack —
+  // offering other types here was a dead end (no matching pack could ever be created).
+  test("the Group Session type picker only offers Net Session", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByRole("button", { name: "+ New Group" }));
+
+    const typeSelect = screen.getByDisplayValue("Net Session");
+    expect([...typeSelect.querySelectorAll("option")].map((o) => o.textContent)).toEqual(["Net Session"]);
   });
 
   test("taking attendance marks a player present and saves it", async () => {
