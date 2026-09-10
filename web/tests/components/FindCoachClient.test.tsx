@@ -54,6 +54,54 @@ describe("FindCoachClient", () => {
     expect(screen.queryByText("Inactive Coach")).not.toBeInTheDocument();
   });
 
+  // A player who just self-registered via /signup's "I'm new here" path (see complete-signup)
+  // lands on the Free plan with no coach and no academy at all — and Free doesn't get
+  // marketplace_enabled (see plans.free.marketplace_enabled = false in the live schema). Without
+  // this exemption they'd have no way to ever get a coach, and no session-logging path either
+  // (a coach logs sessions, not the player), so their Free plan's "1 session" allowance would be
+  // permanently unusable with no upgrade able to fix it (a coach is the actual prerequisite, not
+  // a higher tier).
+  test("a Free-tier player with no coach and no academy at all can still reach the marketplace, unpaywalled", async () => {
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({
+      id: "p1", coachId: "",
+      subscription: { plan: "Free", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 0, sessionsLimit: 1 },
+    }));
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", marketplaceVisible: true })]);
+
+    render(<FindCoachClient />);
+    expect(await screen.findByText("Coach Dan")).toBeInTheDocument();
+    expect(screen.queryByText("Find a Coach is a Player Pro feature")).not.toBeInTheDocument();
+  });
+
+  test("a Free-tier player who already has an academy still hits the Player Pro paywall — the exemption is for having no coach at all, not just being Free", async () => {
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({
+      id: "p1", coachId: "",
+      subscription: { plan: "Free", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 0, sessionsLimit: 1 },
+    }));
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", playerIds: ["p1"] })]);
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", marketplaceVisible: true })]);
+
+    render(<FindCoachClient />);
+    expect(await screen.findByText("Find a Coach is a Player Pro feature")).toBeInTheDocument();
+    expect(screen.queryByText("Coach Dan")).not.toBeInTheDocument();
+  });
+
+  test("a Free-tier player with a direct coachId (but no academy) still hits the paywall too", async () => {
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({
+      id: "p1", coachId: "coach-1",
+      subscription: { plan: "Free", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 0, sessionsLimit: 1 },
+    }));
+    fetchAcademies.mockResolvedValue([]);
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Coach Dan", marketplaceVisible: true })]);
+
+    render(<FindCoachClient />);
+    expect(await screen.findByText("Find a Coach is a Player Pro feature")).toBeInTheDocument();
+  });
+
   test("location search geocodes via the API and shows an error on failure", async () => {
     const user = userEvent.setup();
     setupDefaults();

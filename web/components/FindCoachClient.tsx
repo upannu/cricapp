@@ -87,7 +87,17 @@ export function FindCoachClient() {
     );
   }
 
-  if (!canUseMarketplace(player.subscription.plan, plans)) {
+  const myAcademy = academies.find((a) => a.playerIds.includes(player.id));
+  // A player with literally no coach and no academy at all — e.g. someone who just self-registered
+  // via /signup's "I'm new here" path — has no other route to ever getting one: sessions are
+  // logged by a coach, not the player themselves, so without this exemption their Free plan's
+  // "1 session" allowance can never actually be used, and there's no paid tier to "upgrade" out of
+  // that dead end either (a coach is a prerequisite for the plan to mean anything at all). The
+  // Player Pro paywall below is about finding *additional*/alternative coaches once you already
+  // have one — it was never meant to gate finding your very first one.
+  const hasNoCoachAtAll = !player.coachId && !myAcademy;
+
+  if (!hasNoCoachAtAll && !canUseMarketplace(player.subscription.plan, plans)) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
         <div className="w-14 h-14 rounded-full bg-pace-green/10 border border-pace-green/30 flex items-center justify-center mx-auto mb-5 text-2xl">🔒</div>
@@ -100,7 +110,6 @@ export function FindCoachClient() {
     );
   }
 
-  const myAcademy = academies.find((a) => a.playerIds.includes(player.id));
   // The whole point of this page (see the upgrade-prompt copy above) is finding coaches *beyond*
   // your own academy assignment — a player already has full access to their own academy's coaches
   // through the normal relationship, so re-surfacing them here isn't useful and used to be the only
