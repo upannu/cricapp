@@ -1001,7 +1001,7 @@ function BookingCard({
               </Link>
             )}
             {player && (
-              <Link href={`/players/${player.id}/new-session?bookingId=${b.id}`}
+              <Link href={`/players/${player.id}/new-session?bookingId=${b.id}&coachId=${b.coachId}&time=${b.time}&durationMins=${b.durationMins}`}
                 className="px-4 py-2 text-xs font-semibold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity">
                 + New Session
               </Link>

@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Player, SessionVideo, Plan } from "@/lib/types";
-import { insertSession, recordSessionCompletion, updateBookingStatus, fetchActivePlans } from "@/lib/db";
+import type { Player, SessionVideo, Plan, Coach } from "@/lib/types";
+import { insertSession, recordSessionCompletion, updateBookingStatus, fetchActivePlans, fetchCoaches } from "@/lib/db";
+import { useAuth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase";
 import { probeVideoQuality, MIN_LONG_EDGE_PX, MIN_SHORT_EDGE_PX, MIN_FPS, type VideoQualityResult } from "@/lib/video-quality";
 import { transcodeToH264 } from "@/lib/transcode";
@@ -47,6 +48,8 @@ const CAMERA_ANGLES = [
   },
 ] as const;
 
+const DURATIONS = [30, 45, 60, 90, 120];
+
 type AngleId = "front" | "side" | "back";
 type AngleStatus = "idle" | "checking" | "invalid" | "ready" | "transcoding" | "uploading" | "done" | "error";
 
@@ -62,9 +65,19 @@ const EMPTY_ANGLE: AngleState = { file: null, status: "idle" };
 
 // `bookingId` is set only when this form was opened from a specific booking's "+ New Session"
 // button — see BookingsClient. It ties the logged session back to that booking and marks the
-// booking Completed on save, so the two records aren't left floating apart.
-export function NewSessionForm({ player, bookingId }: { player: Player; bookingId?: string }) {
+// booking Completed on save. `bookingCoachId`/`bookingTime`/`bookingDurationMins` come along the
+// same way, to prefill this form from the booking rather than re-entering it.
+export function NewSessionForm({
+  player, bookingId, bookingCoachId, bookingTime, bookingDurationMins,
+}: {
+  player: Player;
+  bookingId?: string;
+  bookingCoachId?: string;
+  bookingTime?: string;
+  bookingDurationMins?: number;
+}) {
   const router = useRouter();
+  const { user } = useAuth();
   const supabase = createClient();
   const today = new Date().toISOString().split("T")[0];
 
@@ -79,9 +92,20 @@ export function NewSessionForm({ player, bookingId }: { player: Player; bookingI
   const [submitted,  setSubmitted]    = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [coaches, setCoaches] = useState<Coach[]>([]);
+  // Default: the booking's coach if this came from one, then the player's own assigned coach,
+  // then the signed-in coach filling it in, then blank.
+  const [coachId, setCoachId] = useState<string>(
+    bookingCoachId || player.coachId || (user?.role === "coach" ? user.coachId ?? "" : ""),
+  );
+  const [time, setTime] = useState<string>(bookingTime ?? "");
+  const [durationMins, setDurationMins] = useState<number | "">(bookingDurationMins ?? "");
 
   useEffect(() => {
     fetchActivePlans().then(setPlans);
+    // Keep Inactive coaches in the list — a retroactively logged session may well have been run
+    // by one — but drop removed (login-disabled) ones.
+    fetchCoaches().then((c) => setCoaches(c.filter((co) => !co.loginDisabled)));
   }, [player.id]);
 
   const sessionsLimit = sessionsLimitForPlan(player.subscription.plan, plans);
@@ -231,6 +255,9 @@ export function NewSessionForm({ player, bookingId }: { player: Player; bookingI
         xp_earned: xpEarned,
         rpe,
         booking_id: bookingId ?? null,
+        coach_id: coachId || null,
+        time: time || null,
+        duration_mins: durationMins === "" ? null : durationMins,
       });
       await recordSessionCompletion(player.id, xpEarned);
       // Opened from a booking — close it out too, so it doesn't sit un-Completed with a session
@@ -312,6 +339,42 @@ export function NewSessionForm({ player, bookingId }: { player: Player; bookingI
                 ))}
               </select>
             </Field>
+            <Field label="Coach">
+              <select
+                value={coachId}
+                onChange={(e) => setCoachId(e.target.value)}
+                className={selectCls}
+              >
+                <option value="">— Not recorded —</option>
+                {coaches.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.status !== "Active" ? ` (${c.status})` : ""}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Start time">
+                <input
+                  type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Duration">
+                <select
+                  value={durationMins === "" ? "" : String(durationMins)}
+                  onChange={(e) => setDurationMins(e.target.value === "" ? "" : Number(e.target.value))}
+                  className={selectCls}
+                >
+                  <option value="">— Not recorded —</option>
+                  {DURATIONS.map((d) => (
+                    <option key={d} value={d}>{d} min</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
             <div className="sm:col-span-2">
               <Field label="Coach Notes">
                 <textarea

@@ -476,6 +476,13 @@ export interface Session {
   bookingId?: string;
   /** Rate of Perceived Exertion, 1 (very easy) - 10 (maximal effort) — logged by the coach or the player. */
   rpe?: number | null;
+  /** Who ran the session. Optional — sessions logged before this field existed, or for a player
+   * with no coach, have none. A session created from a booking inherits the booking's coach. */
+  coachId?: string | null;
+  /** Start time (HH:MM) and length, both optional — a retroactively logged session often won't
+   * have them; a booking-completed one inherits the booking's. */
+  time?: string | null;
+  durationMins?: number | null;
 }
 
 export interface Player {

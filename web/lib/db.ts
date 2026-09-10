@@ -104,6 +104,7 @@ export interface DbSession {
   ball_speed_kmh: number | null; front_knee_angle_deg: number | null;
   xp_earned: number; booking_id?: string | null;
   rpe?: number | null;
+  coach_id?: string | null; time?: string | null; duration_mins?: number | null;
 }
 
 export interface DbSessionPack {
@@ -275,6 +276,9 @@ export function dbToSession(r: DbSession): Session {
     xpEarned: r.xp_earned,
     bookingId: r.booking_id ?? undefined,
     rpe: r.rpe ?? null,
+    coachId: r.coach_id ?? null,
+    time: r.time ?? null,
+    durationMins: r.duration_mins ?? null,
   };
 }
 
