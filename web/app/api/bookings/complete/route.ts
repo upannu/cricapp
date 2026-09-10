@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
-    .select("id, player_id, date, type, status")
+    .select("id, player_id, coach_id, date, time, duration_mins, type, status")
     .eq("id", bookingId)
     .single();
   if (bookingError || !booking) {
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This booking is already completed." }, { status: 400 });
   }
 
-  // 1. Log the session, linked back to this booking
+  // 1. Log the session, linked back to this booking and inheriting its coach and timing.
   const sessionId = `s_${Date.now()}`;
   const { error: sessionError } = await supabase.from("sessions").insert({
     id: sessionId,
@@ -48,6 +48,9 @@ export async function POST(request: Request) {
     front_knee_angle_deg: null,
     xp_earned: 50,
     booking_id: bookingId,
+    coach_id: booking.coach_id ?? null,
+    time: booking.time ?? null,
+    duration_mins: booking.duration_mins ?? null,
   });
   if (sessionError) {
     return NextResponse.json({ error: `Could not log session: ${sessionError.message}` }, { status: 500 });

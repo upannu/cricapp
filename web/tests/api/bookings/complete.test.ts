@@ -4,7 +4,7 @@ import { routeMockState } from "../../setup/api";
 import { rawUser, jsonRequest } from "../../mocks/caller";
 
 const URL = "http://localhost/api/bookings/complete";
-const BOOKING = { id: "b1", player_id: "p1", date: "2026-01-01", type: "Net Session", pack_id: null, status: "Confirmed" };
+const BOOKING = { id: "b1", player_id: "p1", coach_id: "coach1", date: "2026-01-01", time: "16:00", duration_mins: 60, type: "Net Session", pack_id: null, status: "Confirmed" };
 const PLAYER_ROW = { xp: 100, sessions_count: 5, sub_sessions_used: 2 };
 
 describe("POST /api/bookings/complete", () => {
@@ -51,7 +51,11 @@ describe("POST /api/bookings/complete", () => {
     expect(typeof body.sessionId).toBe("string");
 
     const client = routeMockState.lastServiceClient!;
-    expect(client.tables.sessions.insert).toHaveBeenCalledWith(expect.objectContaining({ player_id: "p1", booking_id: "b1", xp_earned: 50, notes: "Great session" }));
+    // The logged session inherits the booking's coach and timing, not just its player/date/type.
+    expect(client.tables.sessions.insert).toHaveBeenCalledWith(expect.objectContaining({
+      player_id: "p1", booking_id: "b1", xp_earned: 50, notes: "Great session",
+      coach_id: "coach1", time: "16:00", duration_mins: 60,
+    }));
     expect(client.tables.bookings.update).toHaveBeenCalledWith({ status: "Completed" });
     // No pack_id on this booking, so the subscription's session quota is consumed.
     expect(client.tables.players.update).toHaveBeenCalledWith(

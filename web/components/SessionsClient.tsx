@@ -441,6 +441,9 @@ export function SessionsClient() {
             const player = playerById(session.playerId);
             const isExpanded = expandedId === session.id;
             const initials = player?.name.split(" ").map((n) => n[0]).join("") ?? "?";
+            // Prefer the coach actually recorded on the session; fall back to the player's
+            // assigned coach/academy label for sessions logged before that field existed.
+            const sessionCoach = session.coachId ? _sessCoaches.find((c) => c.id === session.coachId) : undefined;
 
             return (
               <div
@@ -482,9 +485,15 @@ export function SessionsClient() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-zinc-400">
-                        {player && (
+                        {(sessionCoach || player) && (
                           <>
-                            <span className="text-zinc-500">👤 {getCoachOrAcademyLabel(player, _sessCoaches, _sessAcademies)}</span>
+                            <span className="text-zinc-500">👤 {sessionCoach ? sessionCoach.name : player ? getCoachOrAcademyLabel(player, _sessCoaches, _sessAcademies) : ""}</span>
+                            <span className="text-zinc-700">·</span>
+                          </>
+                        )}
+                        {session.time && (
+                          <>
+                            <span className="text-zinc-500">{session.time}{session.durationMins ? ` · ${session.durationMins}m` : ""}</span>
                             <span className="text-zinc-700">·</span>
                           </>
                         )}
@@ -548,6 +557,11 @@ export function SessionsClient() {
                           <MetricRow
                             label="Videos"
                             value={`${session.videos.length} / 3`}
+                          />
+                          <MetricRow label="Coach" value={sessionCoach?.name ?? "—"} />
+                          <MetricRow
+                            label="Time"
+                            value={session.time ? `${session.time}${session.durationMins ? ` · ${session.durationMins} min` : ""}` : "—"}
                           />
                           <div className="flex items-center justify-between gap-4">
                             <span className="text-xs text-zinc-400">RPE</span>

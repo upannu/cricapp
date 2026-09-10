@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SessionsClient } from "@/components/SessionsClient";
-import { makeAuthUser, makePlayer, makeSession } from "../mocks/fixtures";
+import { makeAuthUser, makeCoach, makePlayer, makeSession } from "../mocks/fixtures";
 
 // SessionsClient embeds the full video-upload -> pose -> biomechanics pipeline
 // behind its "Generate Report" button (extractPoseSequence/computeBiomechanics/
@@ -67,6 +67,20 @@ describe("SessionsClient", () => {
     expect(screen.getAllByText("Net Session").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Match Practice").length).toBeGreaterThan(0);
     expect(screen.getByText("125.0 km/h")).toBeInTheDocument(); // avg of 120/130
+  });
+
+  test("shows the coach recorded on the session and its start time / duration", async () => {
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "coach1", name: "Coach Dan" })]);
+    fetchSessions.mockResolvedValue([
+      makeSession({ id: "s1", playerId: "p1", type: "Net Session", coachId: "coach1", time: "16:00", durationMins: 45 }),
+    ]);
+
+    render(<SessionsClient />);
+    await screen.findByText("Showing 1–1 of 1 sessions");
+
+    expect(screen.getAllByText(/Coach Dan/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/16:00 · 45m/)).toBeInTheDocument();
   });
 
   test("filtering by session type narrows the list", async () => {
