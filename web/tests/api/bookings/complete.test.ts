@@ -59,7 +59,10 @@ describe("POST /api/bookings/complete", () => {
     );
   });
 
-  test("draws down a session pack and does NOT touch the subscription quota when the booking is pack-funded", async () => {
+  // Bookings no longer touch Session Packs at all — a pack's credits belong to the weekly group
+  // net it was bought for. Even a historical booking that still has a pack_id set gets treated
+  // like any other: it counts against the player's own plan quota, and session_packs is untouched.
+  test("never touches a session pack — a completed booking always counts against the plan quota", async () => {
     routeMockState.cookieUser = rawUser({ role: "platform_admin" });
     routeMockState.tableResponses = {
       bookings: { data: { ...BOOKING, pack_id: "pack1" }, error: null },
@@ -71,9 +74,10 @@ describe("POST /api/bookings/complete", () => {
     expect(res.status).toBe(200);
 
     const client = routeMockState.lastServiceClient!;
-    const playersUpdateArg = client.tables.players.update.mock.calls[0][0];
-    expect(playersUpdateArg).not.toHaveProperty("sub_sessions_used");
-    expect(client.tables.session_packs.update).toHaveBeenCalledWith({ sessions_used: 4 });
+    expect(client.tables.players.update).toHaveBeenCalledWith(
+      expect.objectContaining({ xp: 150, sessions_count: 6, sub_sessions_used: 3 }),
+    );
+    expect(client.tables.session_packs).toBeUndefined();
   });
 
   test("500 when logging the session fails", async () => {

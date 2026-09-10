@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
-    .select("id, player_id, date, type, pack_id, status")
+    .select("id, player_id, date, type, status")
     .eq("id", bookingId)
     .single();
   if (bookingError || !booking) {
@@ -59,9 +59,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Could not update booking status: ${statusError.message}` }, { status: 500 });
   }
 
-  // 2b. Credit the player's XP and session counts — previously never happened here either.
-  // A booking drawing from a prepaid pack doesn't also burn the subscription's monthly quota —
-  // that would double-charge the player for one session (once via the pack, once via the cap).
+  // 2b. Credit the player's XP and session counts. A completed booking is an individual session —
+  // it counts against the player's own monthly plan allowance. Session Packs are exclusively for
+  // the weekly group nets and are drawn down there (the nightly pack-auto-consume job), never
+  // from a booking.
   const { data: playerRow } = await supabase
     .from("players")
     .select("xp, sessions_count, sub_sessions_used")
@@ -71,23 +72,8 @@ export async function POST(request: Request) {
     await supabase.from("players").update({
       xp: (playerRow.xp ?? 0) + 50,
       sessions_count: (playerRow.sessions_count ?? 0) + 1,
-      ...(booking.pack_id ? {} : { sub_sessions_used: (playerRow.sub_sessions_used ?? 0) + 1 }),
+      sub_sessions_used: (playerRow.sub_sessions_used ?? 0) + 1,
     }).eq("id", booking.player_id);
-  }
-
-  // 3. Draw down the linked pack, if any
-  if (booking.pack_id) {
-    const { data: pack, error: packFetchError } = await supabase
-      .from("session_packs")
-      .select("sessions_used")
-      .eq("id", booking.pack_id)
-      .single();
-    if (!packFetchError && pack) {
-      await supabase
-        .from("session_packs")
-        .update({ sessions_used: pack.sessions_used + 1 })
-        .eq("id", booking.pack_id);
-    }
   }
 
   return NextResponse.json({ success: true, sessionId });

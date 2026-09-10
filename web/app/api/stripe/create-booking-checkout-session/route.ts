@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   const { data: booking, error: bookingError } = await supabase
     .from("bookings")
-    .select("id, player_id, coach_id, type, fee_aud, pack_id, payment_status")
+    .select("id, player_id, coach_id, type, fee_aud, payment_status")
     .eq("id", bookingId)
     .single();
   if (bookingError || !booking) {
@@ -50,9 +50,6 @@ export async function POST(request: Request) {
   }
   if (!isStaff && role !== "player" && role !== "parent") {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
-  }
-  if (booking.pack_id) {
-    return NextResponse.json({ error: "This booking is already covered by a session pack." }, { status: 400 });
   }
   if (booking.payment_status === "Paid") {
     return NextResponse.json({ error: "This booking is already paid." }, { status: 400 });
