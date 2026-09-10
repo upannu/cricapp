@@ -102,6 +102,39 @@ describe("FindCoachClient", () => {
     expect(await screen.findByText("Find a Coach is a Player Pro feature")).toBeInTheDocument();
   });
 
+  // The fee lives on the coach's academy row, which RLS hides from a marketplace player — so the
+  // modal asks the server for it (api/marketplace/request-booking) rather than computing 0.
+  test("Request Booking shows the server-computed fee and sends the request through the marketplace route", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "c1", name: "Maz Sheikh", marketplaceVisible: true })]);
+    const fetchMock = vi.fn(async (_url: string, opts: { body: string }) => {
+      const parsed = JSON.parse(opts.body);
+      return {
+        ok: true,
+        json: async () =>
+          parsed.estimateOnly
+            ? { fee: 100, currency: "aud", feesWaived: false }
+            : { success: true, bookingId: "b_1", fee: 100, currency: "aud" },
+      };
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    render(<FindCoachClient />);
+    await user.click(await screen.findByRole("button", { name: "Request Booking" }));
+
+    expect(await screen.findByText(/\$100\.00/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Send Request" }));
+    expect(await screen.findByText("Request sent")).toBeInTheDocument();
+
+    const createCall = fetchMock.mock.calls.find(([, o]) => !JSON.parse((o as { body: string }).body).estimateOnly);
+    expect(createCall?.[0]).toBe("/api/marketplace/request-booking");
+    expect(JSON.parse((createCall![1] as { body: string }).body)).toMatchObject({ coachId: "c1", type: "Net Session" });
+
+    global.fetch = originalFetch;
+  });
+
   test("location search geocodes via the API and shows an error on failure", async () => {
     const user = userEvent.setup();
     setupDefaults();
