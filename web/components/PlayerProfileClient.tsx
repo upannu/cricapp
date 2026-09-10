@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, updatePlayer } from "@/lib/db";
+import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, fetchSessionPacks, updatePlayer } from "@/lib/db";
 import { formatDate, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { PlayerMessages } from "@/components/PlayerMessages";
@@ -17,7 +17,7 @@ import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { MessageModal } from "@/components/MessageModal";
 import { MessageIcon, RepeatIcon, TrashIcon } from "@/components/icons";
-import type { Academy, Coach, Player, PlayerStatus, Plan } from "@/lib/types";
+import type { Academy, Coach, Player, PlayerStatus, Plan, SessionPack } from "@/lib/types";
 
 const PLAYER_REMOVED_REASON = "Removed by staff";
 
@@ -41,6 +41,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
   const [reportCount, setReportCount] = useState(0);
   const [lastPayment, setLastPayment] = useState<{ date: string; source: "manual" | "pack" | "stripe" } | null | undefined>(undefined);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [packs, setPacks] = useState<SessionPack[]>([]);
   const [showMessageModal, setShowMessageModal] = useState(false);
   const [confirmReassign, setConfirmReassign] = useState(false);
   const [reassignToCoachId, setReassignToCoachId] = useState("");
@@ -53,7 +54,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
 
   useEffect(() => {
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
-    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches(academyId), fetchReports(playerId), fetchSessions(undefined, [playerId]), fetchSCWorkouts(playerId), fetchActivePlans()]).then(([p, a, c, reports, sessions, scWorkouts, pl]) => {
+    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches(academyId), fetchReports(playerId), fetchSessions(undefined, [playerId]), fetchSCWorkouts(playerId), fetchActivePlans(), fetchSessionPacks([playerId])]).then(([p, a, c, reports, sessions, scWorkouts, pl, pk]) => {
       if (!p) setNotFound(true);
       else setPlayer(p);
       setAcademies(a);
@@ -63,6 +64,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
       setSCLoadSummary(computeSCLoadSummary(scWorkouts));
       setReportCount(reports.length);
       setPlans(pl);
+      setPacks(pk);
     });
   }, [playerId, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -71,6 +73,14 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
   // (see lib/plan-features.ts) — this is the same source NewSessionForm already uses to actually
   // enforce the cap, so what's displayed here can never drift from what's really being enforced.
   const liveSessionsLimit = player ? sessionsLimitForPlan(player.subscription.plan, plans) : null;
+
+  // A player's weekly group-net standing lives on a Session Pack, separate from the personal
+  // plan allowance above — surfacing both here so a coach doesn't have to cross-check the Packs
+  // page. Remaining = purchased + comp/bonus credits − drawn down.
+  const activePack = packs.find((pk) => pk.status === "Active") ?? null;
+  const packRemaining = activePack
+    ? activePack.totalSessions - activePack.sessionsUsed + activePack.sessionCredits
+    : 0;
 
   // Staff-only, same as the field it replaces — pulls whichever of (manually recorded date, a
   // pack's own paid_date, Stripe's payment history) is most recent, so this doesn't just reflect
@@ -345,6 +355,40 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             />
           </InfoCard>
         )}
+
+        {/* Group Net Pack — the player's prepaid standing for the weekly group, drawn down by the
+            nightly pack-auto-consume job. Shown for everyone: it's how most academy players are
+            actually funded, and a coach checking where a player stands shouldn't have to open the
+            Packs page to see it. */}
+        <InfoCard title="Group Net Pack">
+          {activePack ? (
+            <>
+              <InfoRow
+                label="Credits remaining"
+                value={
+                  <span className={packRemaining <= 1 ? "text-amber font-semibold" : "text-pace-green font-semibold"}>
+                    {packRemaining} / {activePack.totalSessions + activePack.sessionCredits}
+                  </span>
+                }
+              />
+              <InfoRow label="Session type" value={activePack.sessionType} />
+              <InfoRow
+                label="Agreed days"
+                value={activePack.agreedDays.length > 0 ? activePack.agreedDays.join(", ") : "—"}
+              />
+              <InfoRow
+                label="Payment"
+                value={
+                  <span className={activePack.paymentStatus === "Paid" ? "text-pace-green font-semibold" : "text-amber font-semibold"}>
+                    {activePack.paymentStatus}
+                  </span>
+                }
+              />
+            </>
+          ) : (
+            <InfoRow label="Status" value={<span className="text-zinc-500">No active pack</span>} />
+          )}
+        </InfoCard>
 
         {/* Biomechanics */}
         <InfoCard title="Latest Biomechanics">

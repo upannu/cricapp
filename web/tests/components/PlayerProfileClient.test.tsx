@@ -2,10 +2,10 @@ import { describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { PlayerProfileClient } from "@/components/PlayerProfileClient";
-import { makeAcademy, makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
+import { makeAcademy, makeAuthUser, makeCoach, makePlayer, makeSessionPack } from "../mocks/fixtures";
 import type { Plan } from "@/lib/types";
 
-const { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, updatePlayer } = vi.hoisted(() => ({
+const { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, fetchSessionPacks, updatePlayer } = vi.hoisted(() => ({
   fetchPlayer: vi.fn(),
   fetchAcademies: vi.fn(),
   fetchCoaches: vi.fn(),
@@ -13,9 +13,10 @@ const { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, 
   fetchSessions: vi.fn(),
   fetchSCWorkouts: vi.fn(),
   fetchActivePlans: vi.fn(),
+  fetchSessionPacks: vi.fn(),
   updatePlayer: vi.fn(),
 }));
-vi.mock("@/lib/db", () => ({ fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, updatePlayer }));
+vi.mock("@/lib/db", () => ({ fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, fetchSessionPacks, updatePlayer }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
@@ -37,6 +38,7 @@ function setupDefaults() {
   fetchSessions.mockResolvedValue([]);
   fetchSCWorkouts.mockResolvedValue([]);
   fetchActivePlans.mockResolvedValue([]);
+  fetchSessionPacks.mockResolvedValue([]);
   updatePlayer.mockClear();
   updatePlayer.mockResolvedValue(undefined);
 }
@@ -98,6 +100,33 @@ describe("PlayerProfileClient", () => {
 
     expect(screen.getByText("1 / 1")).toBeInTheDocument();
     expect(screen.queryByText("1 / 4")).not.toBeInTheDocument();
+  });
+
+  test("surfaces the player's active Session Pack standing without opening the Packs page", async () => {
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+    fetchSessionPacks.mockResolvedValue([
+      makeSessionPack({ playerId: "p1", status: "Active", sessionType: "Net Session", totalSessions: 10, sessionsUsed: 3, sessionCredits: 0, agreedDays: ["Tue", "Thu"], paymentStatus: "Pending" }),
+    ]);
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.getByText("Group Net Pack")).toBeInTheDocument();
+    expect(screen.getByText("7 / 10")).toBeInTheDocument();
+    expect(screen.getByText("Tue, Thu")).toBeInTheDocument();
+    expect(screen.getByText("Pending")).toBeInTheDocument();
+  });
+
+  test("the Group Net Pack card reads 'No active pack' when the player has none", async () => {
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.getByText("Group Net Pack")).toBeInTheDocument();
+    expect(screen.getByText("No active pack")).toBeInTheDocument();
   });
 
   test("shows an injury-risk warning badge when risk is elevated", async () => {
