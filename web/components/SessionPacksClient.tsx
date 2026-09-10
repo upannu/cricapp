@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
 import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan, PackFeeDue } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
@@ -88,8 +89,11 @@ type PageTab = "Packs" | "Fees Due" | "Platform Fees";
 
 export function SessionPacksClient() {
   const { user } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const formRef = useRef<HTMLDivElement>(null);
 
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [packs, setPacks] = useState<SessionPack[]>([]);
   const [feeDues, setFeeDues] = useState<PackFeeDue[]>([]);
   const [pageTab, setPageTab] = useState<PageTab>("Packs");
@@ -122,6 +126,7 @@ export function SessionPacksClient() {
       return Promise.all([fetchSessionPacks(scopedPlayerIds), fetchBookings(undefined, undefined, scopedPlayerIds)]);
     }).then(([pk, bk]) => {
       setPacks(pk); _packBookings = bk;
+      setDataLoaded(true);
     });
     fetchPackFeeDues().then(setFeeDues).catch(() => {
       // RLS naturally scopes this to what the caller can see (platform_admin sees all, an
@@ -129,6 +134,17 @@ export function SessionPacksClient() {
       // player/parent role who has no rows to see anyway.
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Opened from Attendance's "no active pack for this player" dead-end
+  // (/session-packs?playerId=…) — jump straight into the New Pack form for that player, the same
+  // prefill the per-row "+ New Pack" button does.
+  useEffect(() => {
+    if (!dataLoaded || user?.role === "coach") return;
+    const pid = searchParams.get("playerId");
+    if (!pid || !_packPlayers.some((p) => p.id === pid)) return;
+    openAddForPlayer(pid);
+    router.replace("/session-packs");
+  }, [dataLoaded, searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function resolvedPaymentStatus(pk: SessionPack): PaymentStatus {
     return pk.paymentStatus;
@@ -210,6 +226,19 @@ export function SessionPacksClient() {
     const defaultAcademy = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
     const fee = defaultAcademy ? feeForAcademyAndType(defaultAcademy, "Net Session") : 0;
     setDraft({ ...EMPTY_DRAFT, purchaseDate: today, academyId: defaultAcademy, sessionType: "Net Session", feePerSession: fee });
+    setFormError("");
+    setShowForm(true);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
+
+  // Open the New Pack form already scoped to one player — used by the per-row "+ New Pack" button
+  // and by the ?playerId= deep link from Attendance's "no active pack" dead-end.
+  function openAddForPlayer(playerId: string) {
+    setDraft({
+      ...EMPTY_DRAFT, playerId, purchaseDate: today,
+      academyId: user?.role === "academy_admin" ? (user.academyId ?? "") : "",
+      feePerSession: 0,
+    });
     setFormError("");
     setShowForm(true);
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
@@ -1060,14 +1089,7 @@ export function SessionPacksClient() {
                 </div>
                 <div className="flex items-center gap-2">
                   {!pack && canAddPack && (
-                    <button type="button" onClick={() => {
-                      setDraft({ ...EMPTY_DRAFT, playerId: player.id, purchaseDate: today,
-                        academyId: user?.role === "academy_admin" ? (user.academyId ?? "") : "",
-                        feePerSession: 0,
-                      });
-                      setFormError(""); setShowForm(true);
-                      setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-                    }}
+                    <button type="button" onClick={() => openAddForPlayer(player.id)}
                       className="px-3 py-1.5 text-xs font-semibold text-pace-green border border-pace-green/40 rounded-lg hover:bg-pace-green/10 transition-colors cursor-pointer">
                       + New Pack
                     </button>

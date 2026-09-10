@@ -17,7 +17,18 @@ vi.mock("@/lib/db", () => ({
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
 
+const { routerReplace, searchParamsGet } = vi.hoisted(() => ({
+  routerReplace: vi.fn(),
+  searchParamsGet: vi.fn((_key: string) => null as string | null),
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: routerReplace }),
+  useSearchParams: () => ({ get: searchParamsGet }),
+}));
+
 function setupDefaults() {
+  routerReplace.mockClear();
+  searchParamsGet.mockReturnValue(null);
   useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
   fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
   fetchAcademies.mockResolvedValue([]);
@@ -73,6 +84,31 @@ describe("SessionPacksClient", () => {
     await user.type(screen.getByPlaceholderText("Search by player name…"), "Bob");
     expect(await screen.findByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+  });
+
+  test("?playerId= (from Attendance's no-pack dead-end) auto-opens the New Pack form prefilled for that player", async () => {
+    setupDefaults();
+    searchParamsGet.mockImplementation((key: string) => (key === "playerId" ? "p1" : null));
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+
+    render(<SessionPacksClient />);
+
+    expect(await screen.findByRole("heading", { name: "New Session Pack" })).toBeInTheDocument();
+    expect((screen.getAllByRole("combobox")[0] as HTMLSelectElement).value).toBe("p1");
+    // strips the query param so a refresh / back doesn't re-trigger
+    expect(routerReplace).toHaveBeenCalledWith("/session-packs");
+  });
+
+  test("ignores ?playerId= for a coach (they can't create packs)", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
+    searchParamsGet.mockImplementation((key: string) => (key === "playerId" ? "p1" : null));
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.queryByRole("heading", { name: "New Session Pack" })).not.toBeInTheDocument();
   });
 
   test("clicking the Active packs stat card filters the list to players with an active pack", async () => {

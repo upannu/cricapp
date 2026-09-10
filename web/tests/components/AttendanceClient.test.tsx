@@ -126,6 +126,22 @@ describe("AttendanceClient", () => {
     expect(screen.queryByText(`${past[17].label} ✓`)).not.toBeInTheDocument();
   });
 
+  test("rejecting a roster-add for a player with no pack offers a 'Create a pack' shortcut to that player", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchSessionPacks.mockResolvedValue([]); // no active pack for anyone
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByRole("button", { name: "+ New Group" }));
+
+    await user.click(screen.getByRole("button", { name: /Alice Bowler/ }));
+
+    expect(screen.getByText(/no active session pack/i)).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /Create a pack/ });
+    expect(link).toHaveAttribute("href", "/session-packs?playerId=p1");
+  });
+
   test("searches groups by name", async () => {
     const user = userEvent.setup();
     setupDefaults();
