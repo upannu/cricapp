@@ -76,7 +76,7 @@ describe("POST /api/cron/pack-reminders", () => {
     expect(res.status).toBe(200);
     expect(body.results).toEqual([{ packId: "pk1", action: "reminder_7d_sent" }]);
     expect(sendMail).toHaveBeenCalledTimes(1);
-    expect(sendMail.mock.calls[0][0]).toMatchObject({ subject: "Your session pack payment is due in 1 week" });
+    expect(sendMail.mock.calls[0][0]).toMatchObject({ subject: "Your membership payment is due in 1 week" });
 
     const client = routeMockState.lastServiceClient!;
     expect(client.tables.session_packs.update).toHaveBeenCalledWith(expect.objectContaining({ reminder_7d_sent_at: expect.any(String) }));
@@ -106,7 +106,7 @@ describe("POST /api/cron/pack-reminders", () => {
     const body = await res.json();
 
     expect(body.results).toEqual([{ packId: "pk1", action: "reminder_2d_sent" }]);
-    expect(sendMail.mock.calls[0][0]).toMatchObject({ subject: "Your session pack payment is due in 2 days" });
+    expect(sendMail.mock.calls[0][0]).toMatchObject({ subject: "Your membership payment is due in 2 days" });
   });
 
   test("due-today notice emails and SMS-notifies both the player and their coach", async () => {
@@ -120,7 +120,7 @@ describe("POST /api/cron/pack-reminders", () => {
     const body = await res.json();
 
     expect(body.results).toEqual([{ packId: "pk1", action: "reminder_due_sent" }]);
-    expect(sendMail.mock.calls[0][0]).toMatchObject({ subject: "Your session pack payment is due today", cc: "coach@example.com" });
+    expect(sendMail.mock.calls[0][0]).toMatchObject({ subject: "Your membership payment is due today", cc: "coach@example.com" });
     // One SMS to the player, one to the resolved coach.
     expect(sendSms).toHaveBeenCalledTimes(2);
     expect(sendSms).toHaveBeenCalledWith("0412345678", expect.stringContaining("due today"));
@@ -157,7 +157,7 @@ describe("POST /api/cron/pack-reminders", () => {
       expect(body.results).toEqual(expect.arrayContaining([{ packId: "pk1", action: "login_disabled" }]));
       const client = routeMockState.lastServiceClient!;
       expect(client.tables.players.update).toHaveBeenCalledWith(
-        expect.objectContaining({ login_disabled: true, disabled_reason: "Overdue session pack payment" }),
+        expect.objectContaining({ login_disabled: true, disabled_reason: "Overdue membership payment" }),
       );
       // Player + coach + platform admin = 3 lock-notice emails.
       expect(sendMail).toHaveBeenCalledTimes(3);

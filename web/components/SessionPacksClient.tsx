@@ -93,8 +93,8 @@ const EMPTY_DRAFT: DraftPack = {
   agreedDays: [],
 };
 
-type FilterType = "All" | "Active" | "Exhausted" | "No Pack";
-type PageTab = "Packs" | "Fees Due" | "Platform Fees";
+type FilterType = "All" | "Active" | "Exhausted" | "No Membership";
+type PageTab = "Memberships" | "Fees Due" | "Platform Fees";
 
 export function SessionPacksClient() {
   const { user } = useAuth();
@@ -106,7 +106,7 @@ export function SessionPacksClient() {
   const [packs, setPacks] = useState<SessionPack[]>([]);
   const [packActivity, setPackActivity] = useState<PackActivityEntry[]>([]);
   const [feeDues, setFeeDues] = useState<PackFeeDue[]>([]);
-  const [pageTab, setPageTab] = useState<PageTab>("Packs");
+  const [pageTab, setPageTab] = useState<PageTab>("Memberships");
   const [filter, setFilter] = useState<FilterType>("All");
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -228,7 +228,7 @@ export function SessionPacksClient() {
       const pack = scopedPacks.find((pk) => pk.playerId === p.id);
       if (filter === "Active")   { if (pack?.status !== "Active") return false; }
       else if (filter === "Exhausted") { if (pack?.status !== "Exhausted") return false; }
-      else if (filter === "No Pack")  { if (pack) return false; }
+      else if (filter === "No Membership")  { if (pack) return false; }
       if (searchTerm && !p.name.toLowerCase().includes(searchTerm)) return false;
       return true;
     });
@@ -282,7 +282,7 @@ export function SessionPacksClient() {
     const blob = new Blob([PACK_CSV_TEMPLATE], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = "packs-template.csv";
+    a.href = url; a.download = "memberships-template.csv";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -320,7 +320,7 @@ export function SessionPacksClient() {
                 pk.playerId === player.id && pk.academyId === bulkSettings.academyId
                 && pk.sessionType === "Net Session" && pk.status === "Active");
               if (hasActivePack) {
-                issue = "Already has an active pack for this academy — creating another would break attendance recording";
+                issue = "Already has an active membership for this academy — creating another would break attendance recording";
                 csvStatus = "duplicate";
               }
             }
@@ -484,17 +484,17 @@ export function SessionPacksClient() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Session Packs</h1>
+          <h1 className="text-2xl font-bold text-white mb-1">Memberships</h1>
         </div>
         {canAddPack && (
           <div className="flex gap-3">
             <button type="button" onClick={openBulkAdd}
               className="px-5 py-2.5 text-pace-green text-sm font-bold rounded-xl border border-pace-green/40 hover:bg-pace-green/10 transition-colors cursor-pointer">
-              Bulk Import Packs
+              Bulk Import Memberships
             </button>
             <button type="button" onClick={openAdd}
               className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
-              + New Pack
+              + New Membership
             </button>
           </div>
         )}
@@ -502,9 +502,9 @@ export function SessionPacksClient() {
 
       {/* Stats */}
       <StatsGrid columns={4}>
-        <StatCard label="Active packs" value={String(activePacks.length)} color="text-pace-green"
-          onClick={() => { setPageTab("Packs"); setFilter("Active"); }}
-          active={pageTab === "Packs" && filter === "Active"} />
+        <StatCard label="Active memberships" value={String(activePacks.length)} color="text-pace-green"
+          onClick={() => { setPageTab("Memberships"); setFilter("Active"); }}
+          active={pageTab === "Memberships" && filter === "Active"} />
         <StatCard label="Sessions remaining" value={String(totalRemain)} color="text-white" />
         <StatCard label="Fees outstanding" value={sumMoneyByCurrency(feesDuePacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))} color={totalOutstanding > 0 ? "text-red-400" : "text-zinc-500"} />
         <StatCard label="Gross revenue" value={sumMoneyByCurrency(scopedPacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))} color="text-amber" />
@@ -512,7 +512,7 @@ export function SessionPacksClient() {
 
       {/* Page tabs */}
       <div className="flex gap-2 mb-6">
-        {(["Packs", "Fees Due", "Platform Fees"] as PageTab[]).map((t) => {
+        {(["Memberships", "Fees Due", "Platform Fees"] as PageTab[]).map((t) => {
           const isActive = pageTab === t;
           const pendingFeeDues = feeDues.filter((d) => d.status === "pending").length;
           const badge = t === "Fees Due" ? (feesDuePacks.length > 0 ? feesDuePacks.length : null)
@@ -540,8 +540,8 @@ export function SessionPacksClient() {
       {/* Bulk import packs form */}
       {showBulkForm && (
         <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-1">Bulk Import Packs</h2>
-          <p className="text-xs text-zinc-500 mb-6">Set the shared pack details below, then upload a player list — every matched player gets an identical Net Session pack (session count can be overridden per row).</p>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-1">Bulk Import Memberships</h2>
+          <p className="text-xs text-zinc-500 mb-6">Set the shared membership details below, then upload a player list — every matched player gets an identical Net Session membership (session count can be overridden per row).</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
             <div>
@@ -565,7 +565,7 @@ export function SessionPacksClient() {
               />
             </div>
             <div>
-              <label className={lbl}>Default Sessions per Pack</label>
+              <label className={lbl}>Default Sessions per Membership</label>
               <select
                 value={bulkSettings.totalSessions}
                 onChange={(e) => setBulkSettings({ ...bulkSettings, totalSessions: parseInt(e.target.value) })}
@@ -611,7 +611,7 @@ export function SessionPacksClient() {
             )}
             {packCsvError && <p className="text-red-400 text-xs mb-2">{packCsvError}</p>}
             {packCsvImportedCount !== null && (
-              <p className="text-pace-green text-xs mb-2">✓ Imported {packCsvImportedCount} pack{packCsvImportedCount === 1 ? "" : "s"} from {packCsvFileName}.</p>
+              <p className="text-pace-green text-xs mb-2">✓ Imported {packCsvImportedCount} membership{packCsvImportedCount === 1 ? "" : "s"} from {packCsvFileName}.</p>
             )}
             {packCsvRows.length > 0 && (
               <div className="border border-zinc-700 rounded-xl overflow-hidden mb-4">
@@ -647,7 +647,7 @@ export function SessionPacksClient() {
             <button type="button" onClick={handlePackCsvImport}
               disabled={packCsvImporting || packCsvRows.filter((r) => r.csvStatus === "ready").length === 0}
               className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
-              {packCsvImporting ? "Importing…" : `Import ${packCsvRows.filter((r) => r.csvStatus === "ready").length} Pack${packCsvRows.filter((r) => r.csvStatus === "ready").length === 1 ? "" : "s"}`}
+              {packCsvImporting ? "Importing…" : `Import ${packCsvRows.filter((r) => r.csvStatus === "ready").length} Membership${packCsvRows.filter((r) => r.csvStatus === "ready").length === 1 ? "" : "s"}`}
             </button>
             <button type="button" onClick={() => setShowBulkForm(false)}
               className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
@@ -660,7 +660,7 @@ export function SessionPacksClient() {
       {/* New pack form */}
       {showForm && (
         <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-6">New Session Pack</h2>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-6">New Membership</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
             <div className="sm:col-span-2">
@@ -681,7 +681,7 @@ export function SessionPacksClient() {
               <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES["Net Session"]}`}>
                 Net Session
               </span>
-              <p className="text-xs text-zinc-500 mt-1.5">Packs are only used for group net sessions — individual bookings are paid per session.</p>
+              <p className="text-xs text-zinc-500 mt-1.5">Memberships are only used for group net sessions — individual bookings are paid per session.</p>
             </div>
 
             <div>
@@ -711,7 +711,7 @@ export function SessionPacksClient() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-              <p className="text-xs text-zinc-500 mt-1">Who this pack's revenue pays out to, if the academy splits payouts by coach.</p>
+              <p className="text-xs text-zinc-500 mt-1">Who this membership's revenue pays out to, if the academy splits payouts by coach.</p>
             </div>
 
             <div>
@@ -724,7 +724,7 @@ export function SessionPacksClient() {
             </div>
 
             <div>
-              <label className={lbl}>Sessions in Pack</label>
+              <label className={lbl}>Sessions in Membership</label>
               <select
                 value={draft.totalSessions}
                 onChange={(e) => setDraft({ ...draft, totalSessions: parseInt(e.target.value) })}
@@ -820,7 +820,7 @@ export function SessionPacksClient() {
           <div className="flex items-center gap-3">
             <button type="button" onClick={handleSave}
               className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
-              Create Pack
+              Create Membership
             </button>
             <button type="button" onClick={() => setShowForm(false)}
               className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
@@ -837,7 +837,7 @@ export function SessionPacksClient() {
             <div className="bg-surface rounded-2xl p-16 text-center">
               <p className="text-pace-green text-2xl mb-2">✓</p>
               <p className="text-white font-semibold mb-1">All fees collected</p>
-              <p className="text-zinc-400 text-sm">No outstanding payments across your packs.</p>
+              <p className="text-zinc-400 text-sm">No outstanding payments across your memberships.</p>
             </div>
           ) : (
             <>
@@ -958,7 +958,7 @@ export function SessionPacksClient() {
         <div className="space-y-4">
           {feeDues.length === 0 ? (
             <div className="bg-surface rounded-2xl p-16 text-center">
-              <p className="text-zinc-400 text-sm">No cash/bank-transfer packs owe a platform fee.</p>
+              <p className="text-zinc-400 text-sm">No cash/bank-transfer memberships owe a platform fee.</p>
             </div>
           ) : (
             <>
@@ -1015,7 +1015,7 @@ export function SessionPacksClient() {
       )}
 
       {/* ── PACKS TAB ───────────────────────────────────────────────────────── */}
-      {pageTab === "Packs" && <>
+      {pageTab === "Memberships" && <>
       {/* Search */}
       <div className="relative mb-4 max-w-md">
         <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1028,7 +1028,7 @@ export function SessionPacksClient() {
 
       {/* Filter tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
-        {(["All", "Active", "Exhausted", "No Pack"] as FilterType[]).map((f) => (
+        {(["All", "Active", "Exhausted", "No Membership"] as FilterType[]).map((f) => (
           <button key={f} type="button" onClick={() => setFilter(f)}
             className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
               filter === f ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
@@ -1096,7 +1096,7 @@ export function SessionPacksClient() {
                         )}
                       </div>
                     ) : (
-                      <span className="text-zinc-600 text-xs">No pack purchased</span>
+                      <span className="text-zinc-600 text-xs">No membership purchased</span>
                     )}
                   </div>
                 </div>
@@ -1104,7 +1104,7 @@ export function SessionPacksClient() {
                   {!pack && canAddPack && (
                     <button type="button" onClick={() => openAddForPlayer(player.id)}
                       className="px-3 py-1.5 text-xs font-semibold text-pace-green border border-pace-green/40 rounded-lg hover:bg-pace-green/10 transition-colors cursor-pointer">
-                      + New Pack
+                      + New Membership
                     </button>
                   )}
                   {pack?.status === "Exhausted" && canAddPack && (
@@ -1118,7 +1118,7 @@ export function SessionPacksClient() {
                       setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
                     }}
                       className="px-3 py-1.5 text-xs font-semibold text-amber border border-amber/40 rounded-lg hover:bg-amber/10 transition-colors cursor-pointer">
-                      Renew Pack
+                      Renew Membership
                     </button>
                   )}
                   <Link href={`/players/${player.id}`}
@@ -1270,8 +1270,8 @@ export function SessionPacksClient() {
                 </div>
               ) : (
                 <div className="bg-ink rounded-xl p-5 text-center">
-                  <p className="text-zinc-400 text-sm mb-1">No session pack purchased yet</p>
-                  <p className="text-zinc-600 text-xs">Create a pack to start tracking upfront payments and session credits.</p>
+                  <p className="text-zinc-400 text-sm mb-1">No membership purchased yet</p>
+                  <p className="text-zinc-600 text-xs">Create a membership to start tracking upfront payments and session credits.</p>
                 </div>
               )}
 
@@ -1282,9 +1282,9 @@ export function SessionPacksClient() {
                 const activity = packActivity.filter((a) => a.packId === pack.id);
                 return (
                   <div className="mt-4 pt-4 border-t border-zinc-800">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Pack Activity</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Membership Activity</p>
                     {activity.length === 0 ? (
-                      <p className="text-zinc-600 text-xs">No sessions drawn from this pack yet.</p>
+                      <p className="text-zinc-600 text-xs">No sessions drawn from this membership yet.</p>
                     ) : (
                       <div className="space-y-1.5">
                         {activity.slice(0, 5).map((a) => (
@@ -1481,7 +1481,7 @@ function CreditButton({ packId, remaining, expired, onCredit }: {
   if (expired) {
     return (
       <p className="text-xs text-zinc-500">
-        This pack's agreed weekly window has passed — credits can no longer be issued.
+        This membership's agreed weekly window has passed — credits can no longer be issued.
       </p>
     );
   }
@@ -1505,7 +1505,7 @@ function CreditButton({ packId, remaining, expired, onCredit }: {
   if (showConfirm) {
     return (
       <div className="flex items-center gap-3">
-        <span className="text-zinc-300 text-xs">Credit 1 session back to this player's pack?</span>
+        <span className="text-zinc-300 text-xs">Credit 1 session back to this player's membership?</span>
         <button type="button" onClick={confirm}
           className="px-3 py-1.5 text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 cursor-pointer transition-colors">
           Yes, credit it

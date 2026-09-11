@@ -41,28 +41,28 @@ function setupDefaults() {
 }
 
 describe("SessionPacksClient", () => {
-  test("shows a player with no purchased pack", async () => {
+  test("shows a player with no purchased membership", async () => {
     setupDefaults();
     render(<SessionPacksClient />);
 
-    expect(await screen.findByRole("heading", { name: "Session Packs" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Memberships" })).toBeInTheDocument();
     expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
-    expect(screen.getByText("No pack purchased")).toBeInTheDocument();
+    expect(screen.getByText("No membership purchased")).toBeInTheDocument();
   });
 
-  test("shows pack details for a player with an active pack", async () => {
+  test("shows membership details for a player with an active membership", async () => {
     setupDefaults();
     fetchSessionPacks.mockResolvedValue([makeSessionPack({ playerId: "p1", totalSessions: 10, sessionsUsed: 3 })]);
 
     render(<SessionPacksClient />);
 
     expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
-    expect(screen.queryByText("No pack purchased")).not.toBeInTheDocument();
+    expect(screen.queryByText("No membership purchased")).not.toBeInTheDocument();
   });
 
   // The "why did my balance drop" answer — every credit this pack has spent, and which of the
   // three mechanisms (manual mark, CSV import, unattended cron) spent it.
-  test("shows Pack Activity with each entry's recorded-by attribution", async () => {
+  test("shows Membership Activity with each entry's recorded-by attribution", async () => {
     setupDefaults();
     fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", totalSessions: 10, sessionsUsed: 3 })]);
     fetchPackActivity.mockResolvedValue([
@@ -73,21 +73,21 @@ describe("SessionPacksClient", () => {
 
     render(<SessionPacksClient />);
 
-    expect(await screen.findByText("Pack Activity")).toBeInTheDocument();
+    expect(await screen.findByText("Membership Activity")).toBeInTheDocument();
     expect(screen.getByText("Marked by coach")).toBeInTheDocument();
     expect(screen.getByText("Auto (no-show)")).toBeInTheDocument();
     expect(screen.getByText("Unattributed")).toBeInTheDocument();
   });
 
-  test("shows an empty state when a pack has no activity recorded yet", async () => {
+  test("shows an empty state when a membership has no activity recorded yet", async () => {
     setupDefaults();
     fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", totalSessions: 10, sessionsUsed: 0 })]);
     fetchPackActivity.mockResolvedValue([]);
 
     render(<SessionPacksClient />);
 
-    expect(await screen.findByText("Pack Activity")).toBeInTheDocument();
-    expect(screen.getByText("No sessions drawn from this pack yet.")).toBeInTheDocument();
+    expect(await screen.findByText("Membership Activity")).toBeInTheDocument();
+    expect(screen.getByText("No sessions drawn from this membership yet.")).toBeInTheDocument();
   });
 
   test("scopes the fetch to the academy_admin's own academy", async () => {
@@ -95,7 +95,7 @@ describe("SessionPacksClient", () => {
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "academy-9" }) });
 
     render(<SessionPacksClient />);
-    await screen.findByRole("heading", { name: "Session Packs" });
+    await screen.findByRole("heading", { name: "Memberships" });
 
     expect(fetchPlayers).toHaveBeenCalledWith(undefined, "academy-9");
   });
@@ -117,20 +117,20 @@ describe("SessionPacksClient", () => {
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
   });
 
-  test("?playerId= (from Attendance's no-pack dead-end) auto-opens the New Pack form prefilled for that player", async () => {
+  test("?playerId= (from Attendance's no-membership dead-end) auto-opens the New Membership form prefilled for that player", async () => {
     setupDefaults();
     searchParamsGet.mockImplementation((key: string) => (key === "playerId" ? "p1" : null));
     fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
 
     render(<SessionPacksClient />);
 
-    expect(await screen.findByRole("heading", { name: "New Session Pack" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "New Membership" })).toBeInTheDocument();
     expect((screen.getAllByRole("combobox")[0] as HTMLSelectElement).value).toBe("p1");
     // strips the query param so a refresh / back doesn't re-trigger
     expect(routerReplace).toHaveBeenCalledWith("/session-packs");
   });
 
-  test("ignores ?playerId= for a coach (they can't create packs)", async () => {
+  test("ignores ?playerId= for a coach (they can't create memberships)", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach", coachId: "c1" }) });
     searchParamsGet.mockImplementation((key: string) => (key === "playerId" ? "p1" : null));
@@ -139,10 +139,10 @@ describe("SessionPacksClient", () => {
     render(<SessionPacksClient />);
     await screen.findByText("Alice Bowler");
 
-    expect(screen.queryByRole("heading", { name: "New Session Pack" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "New Membership" })).not.toBeInTheDocument();
   });
 
-  test("clicking the Active packs stat card filters the list to players with an active pack", async () => {
+  test("clicking the Active memberships stat card filters the list to players with an active membership", async () => {
     const user = userEvent.setup();
     setupDefaults();
     fetchPlayers.mockResolvedValue([
@@ -154,7 +154,7 @@ describe("SessionPacksClient", () => {
     render(<SessionPacksClient />);
     await screen.findByText("Alice Bowler");
 
-    await user.click(screen.getByRole("button", { name: /^Active packs 1$/ }));
+    await user.click(screen.getByRole("button", { name: /^Active memberships 1$/ }));
 
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.queryByText("Bob Seamer")).not.toBeInTheDocument();

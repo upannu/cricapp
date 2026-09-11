@@ -421,7 +421,7 @@ export function PlansAdminClient() {
                 />
                 <span>
                   <span className="block text-white font-medium">Waives player session fees</span>
-                  <span className="block text-xs text-zinc-500">Players never pay for bookings or packs — the academy's own subscription covers it. Existing academies on this plan pick this up automatically.</span>
+                  <span className="block text-xs text-zinc-500">Players never pay for bookings or memberships — the academy's own subscription covers it. Existing academies on this plan pick this up automatically.</span>
                 </span>
               </label>
             </div>
@@ -449,7 +449,7 @@ export function PlansAdminClient() {
                 onChange={(e) => setDraft({ ...draft, platformFeePercent: e.target.value })}
                 placeholder="10"
               />
-              <p className="text-xs text-zinc-500 mt-1">Share of session-pack/booking revenue the platform takes via Stripe for academies on this plan. Defaults to 10% — lower it for an academy paying well upfront.</p>
+              <p className="text-xs text-zinc-500 mt-1">Share of membership/booking revenue the platform takes via Stripe for academies on this plan. Defaults to 10% — lower it for an academy paying well upfront.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

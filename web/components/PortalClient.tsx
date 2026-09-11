@@ -222,7 +222,7 @@ export function PortalClient() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {activePack && (
             <div className="bg-surface rounded-2xl p-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">My Session Pack</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">My Membership</p>
               <div className="space-y-2 text-sm">
                 <Row
                   label="Credits remaining"
@@ -493,8 +493,8 @@ function UnpaidPackCard({ pack, currency }: { pack: SessionPack; currency: Curre
       <div>
         <p className={`text-sm font-semibold ${overdue ? "text-red-400" : "text-amber"}`}>
           {overdue
-            ? "Your session pack payment is overdue — pay now to avoid losing access to your account."
-            : `Payment due for your ${pack.sessionType} pack — ${pack.totalSessions} sessions × ${formatMoney(pack.feePerSession, currency)}.`}
+            ? "Your membership payment is overdue — pay now to avoid losing access to your account."
+            : `Payment due for your ${pack.sessionType} membership — ${pack.totalSessions} sessions × ${formatMoney(pack.feePerSession, currency)}.`}
         </p>
         <p className={`text-xs mt-0.5 ${overdue ? "text-red-300" : "text-amber/80"}`}>
           {formatMoney(total, currency)} total · due {formatDate(pack.paymentDueDate)}

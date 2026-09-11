@@ -91,7 +91,7 @@ export function AttendanceClient() {
   const [saving, setSaving] = useState(false);
   const [allPacks, setAllPacks] = useState<SessionPack[]>([]);
   const [rosterError, setRosterError] = useState("");
-  // The player the roster-add was rejected for — drives the "Create a pack" shortcut link.
+  // The player the roster-add was rejected for — drives the "Create a membership" shortcut link.
   const [rosterErrorPlayerId, setRosterErrorPlayerId] = useState<string | null>(null);
 
   const [attendanceFor, setAttendanceFor] = useState<{ group: GroupSession; date: string } | null>(null);
@@ -178,7 +178,7 @@ export function AttendanceClient() {
   function toggleDraftPlayer(playerId: string) {
     const isAdding = !draft.playerIds.includes(playerId);
     if (isAdding && !hasActivePackFor(playerId)) {
-      setRosterError(`${playerName(playerId)} has no active session pack for ${draft.sessionType}.`);
+      setRosterError(`${playerName(playerId)} has no active membership for ${draft.sessionType}.`);
       setRosterErrorPlayerId(playerId);
       return;
     }
@@ -237,7 +237,7 @@ export function AttendanceClient() {
     setDraft((prev) => ({ ...prev, playerIds: [...new Set([...prev.playerIds, ...withPack.map((p) => p.id)])] }));
     setRosterError(
       withoutPack.length > 0
-        ? `Skipped ${withoutPack.length} player${withoutPack.length === 1 ? "" : "s"} with no active ${draft.sessionType} pack: ${withoutPack.map((p) => p.name).join(", ")}`
+        ? `Skipped ${withoutPack.length} player${withoutPack.length === 1 ? "" : "s"} with no active ${draft.sessionType} membership: ${withoutPack.map((p) => p.name).join(", ")}`
         : ""
     );
     setRosterCsvRows([]);
@@ -664,7 +664,7 @@ export function AttendanceClient() {
                     {rosterError}{" "}
                     {rosterErrorPlayerId && user?.role !== "coach" && (
                       <Link href={`/session-packs?playerId=${rosterErrorPlayerId}`} className="text-pace-green font-semibold hover:underline">
-                        Create a pack →
+                        Create a membership →
                       </Link>
                     )}
                   </p>
@@ -675,7 +675,7 @@ export function AttendanceClient() {
                     const packOk = selected || hasActivePackFor(p.id);
                     return (
                       <button key={p.id} type="button" onClick={() => toggleDraftPlayer(p.id)}
-                        title={packOk ? undefined : `No active ${draft.sessionType} pack`}
+                        title={packOk ? undefined : `No active ${draft.sessionType} membership`}
                         className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors cursor-pointer text-left ${
                           selected ? "border-pace-green/50 bg-pace-green/10"
                             : packOk ? "border-zinc-700 bg-ink hover:border-zinc-500"
@@ -685,7 +685,7 @@ export function AttendanceClient() {
                           {p.name.split(" ").map((n) => n[0]).join("")}
                         </div>
                         <span className="text-sm text-white">{p.name}</span>
-                        {!packOk && <span className="text-[10px] text-red-400 ml-auto flex-shrink-0">No active pack</span>}
+                        {!packOk && <span className="text-[10px] text-red-400 ml-auto flex-shrink-0">No active membership</span>}
                       </button>
                     );
                   })}
@@ -730,7 +730,7 @@ export function AttendanceClient() {
                     <div className="min-w-0">
                       <div className="text-sm font-semibold text-white truncate">{playerName(playerId)}</div>
                       <div className="text-xs text-zinc-500">
-                        {pack ? `${pack.sessionsUsed}/${pack.totalSessions} sessions used` : "No active pack — won't consume a session"}
+                        {pack ? `${pack.sessionsUsed}/${pack.totalSessions} sessions used` : "No active membership — won't consume a session"}
                       </div>
                     </div>
                     <div className="flex gap-1.5 flex-shrink-0">

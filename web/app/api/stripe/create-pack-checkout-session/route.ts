@@ -149,7 +149,7 @@ export async function POST(request: Request) {
           currency,
           unit_amount: totalCents,
           product_data: {
-            name: `${pack.total_sessions}-session pack — ${pack.session_type}`,
+            name: `${pack.total_sessions}-session membership — ${pack.session_type}`,
             description: `${academy.name}`,
           },
         },

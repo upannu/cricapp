@@ -102,7 +102,7 @@ describe("PlayerProfileClient", () => {
     expect(screen.queryByText("1 / 4")).not.toBeInTheDocument();
   });
 
-  test("surfaces the player's active Session Pack standing without opening the Packs page", async () => {
+  test("surfaces the player's active membership standing without opening the Memberships page", async () => {
     setupDefaults();
     fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
     fetchSessionPacks.mockResolvedValue([
@@ -112,21 +112,21 @@ describe("PlayerProfileClient", () => {
     render(<PlayerProfileClient playerId="p1" />);
     await screen.findByText("Alice Bowler");
 
-    expect(screen.getByText("Group Net Pack")).toBeInTheDocument();
+    expect(screen.getByText("Group Net Membership")).toBeInTheDocument();
     expect(screen.getByText("7 / 10")).toBeInTheDocument();
     expect(screen.getByText("Tue, Thu")).toBeInTheDocument();
     expect(screen.getByText("Pending")).toBeInTheDocument();
   });
 
-  test("the Group Net Pack card reads 'No active pack' when the player has none", async () => {
+  test("the Group Net Membership card reads 'No active membership' when the player has none", async () => {
     setupDefaults();
     fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
 
     render(<PlayerProfileClient playerId="p1" />);
     await screen.findByText("Alice Bowler");
 
-    expect(screen.getByText("Group Net Pack")).toBeInTheDocument();
-    expect(screen.getByText("No active pack")).toBeInTheDocument();
+    expect(screen.getByText("Group Net Membership")).toBeInTheDocument();
+    expect(screen.getByText("No active membership")).toBeInTheDocument();
   });
 
   test("shows an injury-risk warning badge when risk is elevated", async () => {

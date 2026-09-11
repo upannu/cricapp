@@ -360,7 +360,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             nightly pack-auto-consume job. Shown for everyone: it's how most academy players are
             actually funded, and a coach checking where a player stands shouldn't have to open the
             Packs page to see it. */}
-        <InfoCard title="Group Net Pack">
+        <InfoCard title="Group Net Membership">
           {activePack ? (
             <>
               <InfoRow
@@ -386,7 +386,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
               />
             </>
           ) : (
-            <InfoRow label="Status" value={<span className="text-zinc-500">No active pack</span>} />
+            <InfoRow label="Status" value={<span className="text-zinc-500">No active membership</span>} />
           )}
         </InfoCard>
 
@@ -541,7 +541,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
                     ? <>
                         {formatDate(lastPayment.date)}{" "}
                         <span className="text-zinc-600 text-xs">
-                          ({lastPayment.source === "stripe" ? "via Stripe" : lastPayment.source === "pack" ? "pack payment" : "manual"})
+                          ({lastPayment.source === "stripe" ? "via Stripe" : lastPayment.source === "pack" ? "membership payment" : "manual"})
                         </span>
                       </>
                     : <span className="text-zinc-600">Not recorded</span>

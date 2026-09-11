@@ -15,7 +15,7 @@ export default function TermsPage() {
       <Section title="1. The Service">
         <p>
           CRIC HQ lets cricket academies manage players, coaches, and sessions; lets coaches and players
-          book and pay for individual coaching sessions and session packs; provides AI-assisted bowling
+          book and pay for individual coaching sessions and memberships; provides AI-assisted bowling
           biomechanics video analysis and coaching reports; and includes a marketplace for players to
           find coaches.
         </p>
@@ -33,7 +33,7 @@ export default function TermsPage() {
 
       <Section title="3. Payments & Subscriptions">
         <p>
-          Session fees, session packs, individual subscriptions ("Player Pro" / "Coach Pro"), and academy
+          Session fees, memberships, individual subscriptions ("Player Pro" / "Coach Pro"), and academy
           licenses are processed through Stripe. We do not store your full card details. Prices are shown
           in AUD unless stated otherwise. Fees for services already delivered are generally
           non-refundable, except where required by the Australian Consumer Law or at our discretion.

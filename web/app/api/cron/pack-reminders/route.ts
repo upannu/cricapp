@@ -81,13 +81,13 @@ export async function POST(request: Request) {
     if (!player?.email) continue;
 
     const daysToDue = daysUntil(pk.payment_due_date, today);
-    const dueText = `A payment of your session pack is due on ${pk.payment_due_date}. Please arrange payment to keep your sessions active.`;
+    const dueText = `A payment of your membership is due on ${pk.payment_due_date}. Please arrange payment to keep your sessions active.`;
 
     if (daysToDue === 7 && !pk.reminder_7d_sent_at) {
       try {
         await transporter.sendMail({
           from: emailFrom(gmailUser), to: player.email,
-          subject: "Your session pack payment is due in 1 week",
+          subject: "Your membership payment is due in 1 week",
           text: `Hi ${player.name},\n\n${dueText}\n\n— CRIC HQ`,
         });
         await supabase.from("session_packs").update({ reminder_7d_sent_at: new Date().toISOString() }).eq("id", pk.id);
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       try {
         await transporter.sendMail({
           from: emailFrom(gmailUser), to: player.email,
-          subject: "Your session pack payment is due in 2 days",
+          subject: "Your membership payment is due in 2 days",
           text: `Hi ${player.name},\n\n${dueText}\n\n— CRIC HQ`,
         });
         await supabase.from("session_packs").update({ reminder_2d_sent_at: new Date().toISOString() }).eq("id", pk.id);
@@ -113,8 +113,8 @@ export async function POST(request: Request) {
         await transporter.sendMail({
           from: emailFrom(gmailUser), to: player.email,
           cc: notifyTarget?.email || undefined,
-          subject: "Your session pack payment is due today",
-          text: `Hi ${player.name},\n\nYour session pack payment is due today (${pk.payment_due_date}). Please pay today to avoid losing access.\n\n— CRIC HQ`,
+          subject: "Your membership payment is due today",
+          text: `Hi ${player.name},\n\nYour membership payment is due today (${pk.payment_due_date}). Please pay today to avoid losing access.\n\n— CRIC HQ`,
         });
         await supabase.from("session_packs").update({ reminder_due_sent_at: new Date().toISOString() }).eq("id", pk.id);
         results.push({ packId: pk.id, action: "reminder_due_sent" });
@@ -122,13 +122,13 @@ export async function POST(request: Request) {
         // best-effort — will retry on the next cron run
       }
       try {
-        await sendSms(player.phone, `Hi ${player.name}, your session pack payment is due today. Please pay today to avoid losing access. — CRIC HQ`);
+        await sendSms(player.phone, `Hi ${player.name}, your membership payment is due today. Please pay today to avoid losing access. — CRIC HQ`);
       } catch {
         // best-effort — SMS failure never blocks the rest of the loop
       }
       if (notifyTarget) {
         try {
-          await sendSms(notifyTarget.phone, `Hi ${notifyTarget.name}, ${player.name}'s session pack payment is due today. — CRIC HQ`);
+          await sendSms(notifyTarget.phone, `Hi ${notifyTarget.name}, ${player.name}'s membership payment is due today. — CRIC HQ`);
         } catch {
           // best-effort
         }
@@ -142,17 +142,17 @@ export async function POST(request: Request) {
       await supabase.from("players").update({
         login_disabled: true,
         disabled_at: new Date().toISOString(),
-        disabled_reason: "Overdue session pack payment",
+        disabled_reason: "Overdue membership payment",
       }).eq("id", player.id);
 
       const lockTarget = await resolveNotifyTarget(player.coach_id, pk.academy_id);
       const notifyList = [player.email, lockTarget?.email, process.env.PLATFORM_ADMIN_EMAIL].filter(Boolean) as string[];
-      const lockText = `${player.name}'s login has been locked after ${PACK_PAYMENT_GRACE_DAYS} days of non-payment on their session pack (due ${pk.payment_due_date}). A staff member must reactivate the account from Session Packs → Fees Due once payment is received.\n\n— CRIC HQ`;
+      const lockText = `${player.name}'s login has been locked after ${PACK_PAYMENT_GRACE_DAYS} days of non-payment on their membership (due ${pk.payment_due_date}). A staff member must reactivate the account from Memberships → Fees Due once payment is received.\n\n— CRIC HQ`;
       for (const to of notifyList) {
         try {
           await transporter.sendMail({
             from: emailFrom(gmailUser), to,
-            subject: `Account locked — overdue session pack payment (${player.name})`,
+            subject: `Account locked — overdue membership payment (${player.name})`,
             text: lockText,
           });
         } catch {
@@ -160,13 +160,13 @@ export async function POST(request: Request) {
         }
       }
       try {
-        await sendSms(player.phone, `Your CRIC HQ login has been locked after ${PACK_PAYMENT_GRACE_DAYS} days of non-payment on your session pack. Contact your academy to resolve this. — CRIC HQ`);
+        await sendSms(player.phone, `Your CRIC HQ login has been locked after ${PACK_PAYMENT_GRACE_DAYS} days of non-payment on your membership. Contact your academy to resolve this. — CRIC HQ`);
       } catch {
         // best-effort
       }
       if (lockTarget) {
         try {
-          await sendSms(lockTarget.phone, `${player.name}'s CRIC HQ login has been locked for overdue session pack payment. — CRIC HQ`);
+          await sendSms(lockTarget.phone, `${player.name}'s CRIC HQ login has been locked for overdue membership payment. — CRIC HQ`);
         } catch {
           // best-effort
         }
