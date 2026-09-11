@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import Papa from "papaparse";
 import { useAuth } from "@/lib/auth";
 import {
@@ -105,6 +106,8 @@ export function AttendanceClient() {
   const [saving, setSaving] = useState(false);
   const [allPacks, setAllPacks] = useState<SessionPack[]>([]);
   const [rosterError, setRosterError] = useState("");
+  // The player the roster-add was rejected for — drives the "Create a pack" shortcut link.
+  const [rosterErrorPlayerId, setRosterErrorPlayerId] = useState<string | null>(null);
 
   const [attendanceFor, setAttendanceFor] = useState<{ group: GroupSession; date: string } | null>(null);
   const [attendanceDraft, setAttendanceDraft] = useState<Record<string, AttendanceStatus>>({});
@@ -151,6 +154,7 @@ export function AttendanceClient() {
     setDraft({ ...EMPTY_DRAFT, coachId: coachId ?? coaches[0]?.id ?? "" });
     setFormError("");
     setRosterError("");
+    setRosterErrorPlayerId(null);
     setShowForm(true);
     setShowRosterCsv(false);
     setRosterCsvRows([]);
@@ -165,6 +169,7 @@ export function AttendanceClient() {
     });
     setFormError("");
     setRosterError("");
+    setRosterErrorPlayerId(null);
     setShowForm(true);
     setShowRosterCsv(false);
     setRosterCsvRows([]);
@@ -188,10 +193,12 @@ export function AttendanceClient() {
   function toggleDraftPlayer(playerId: string) {
     const isAdding = !draft.playerIds.includes(playerId);
     if (isAdding && !hasActivePackFor(playerId)) {
-      setRosterError(`${playerName(playerId)} has no active session pack for ${draft.sessionType} — create one first.`);
+      setRosterError(`${playerName(playerId)} has no active session pack for ${draft.sessionType}.`);
+      setRosterErrorPlayerId(playerId);
       return;
     }
     setRosterError("");
+    setRosterErrorPlayerId(null);
     setDraft((prev) => ({
       ...prev,
       playerIds: prev.playerIds.includes(playerId)
@@ -667,7 +674,16 @@ export function AttendanceClient() {
                     )}
                   </div>
                 )}
-                {rosterError && <p className="text-red-400 text-xs mb-2">{rosterError}</p>}
+                {rosterError && (
+                  <p className="text-red-400 text-xs mb-2">
+                    {rosterError}{" "}
+                    {rosterErrorPlayerId && user?.role !== "coach" && (
+                      <Link href={`/session-packs?playerId=${rosterErrorPlayerId}`} className="text-pace-green font-semibold hover:underline">
+                        Create a pack →
+                      </Link>
+                    )}
+                  </p>
+                )}
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                   {players.map((p) => {
                     const selected = draft.playerIds.includes(p.id);
