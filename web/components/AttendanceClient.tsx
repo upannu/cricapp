@@ -9,7 +9,7 @@ import {
   fetchPlayers, fetchCoaches, fetchSessionPacks, fetchPastOccurrences,
   fetchAttendanceForDate, saveAttendance,
 } from "@/lib/db";
-import { matchPlayerByNameOrEmail } from "@/lib/utils";
+import { matchPlayerByNameOrEmail, occurrenceDatesInRange } from "@/lib/utils";
 import type { GroupSession, Player, Coach, SessionPack, BookingType, AttendanceStatus, AttendanceRecord } from "@/lib/types";
 
 // Only "Net Session" — a Group Session's roster is funded by Session Packs, and every pack is a
@@ -71,21 +71,6 @@ const EMPTY_DRAFT: DraftGroup = {
 
 function todayIso(): string {
   return new Date().toISOString().split("T")[0];
-}
-
-/** Every occurrence date for a weekly recurring group between two ISO dates, inclusive. */
-function occurrenceDatesInRange(dayOfWeek: number, fromIso: string, toIso: string): string[] {
-  const dates: string[] = [];
-  const from = new Date(fromIso + "T00:00:00");
-  const to = new Date(toIso + "T00:00:00");
-  const cursor = new Date(from);
-  const offset = (dayOfWeek - cursor.getDay() + 7) % 7;
-  cursor.setDate(cursor.getDate() + offset);
-  while (cursor <= to) {
-    dates.push(cursor.toISOString().split("T")[0]);
-    cursor.setDate(cursor.getDate() + 7);
-  }
-  return dates;
 }
 
 export function AttendanceClient() {
