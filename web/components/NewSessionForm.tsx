@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Player, SessionVideo, Plan, Coach } from "@/lib/types";
+import type { Player, SessionVideo, Plan, Coach, BookingStatus } from "@/lib/types";
 import { insertSession, recordSessionCompletion, updateBookingStatus, fetchActivePlans, fetchCoaches } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
 import { createClient } from "@/lib/supabase";
@@ -63,18 +63,21 @@ interface AngleState {
 
 const EMPTY_ANGLE: AngleState = { file: null, status: "idle" };
 
-// `bookingId` is set only when this form was opened from a specific booking's "+ New Session"
+// `bookingId` is set only when this form was opened from a specific booking's "+ Log Session"
 // button — see BookingsClient. It ties the logged session back to that booking and marks the
 // booking Completed on save. `bookingCoachId`/`bookingTime`/`bookingDurationMins` come along the
-// same way, to prefill this form from the booking rather than re-entering it.
+// same way, to prefill this form from the booking rather than re-entering it. `bookingStatus`
+// comes along too, purely to decide whether the booking is solid enough to waive the plan's
+// monthly session limit below (a Pending/Cancelled booking doesn't count).
 export function NewSessionForm({
-  player, bookingId, bookingCoachId, bookingTime, bookingDurationMins,
+  player, bookingId, bookingCoachId, bookingTime, bookingDurationMins, bookingStatus,
 }: {
   player: Player;
   bookingId?: string;
   bookingCoachId?: string;
   bookingTime?: string;
   bookingDurationMins?: number;
+  bookingStatus?: BookingStatus;
 }) {
   const router = useRouter();
   const { user } = useAuth();
@@ -111,10 +114,15 @@ export function NewSessionForm({
   const sessionsLimit = sessionsLimitForPlan(player.subscription.plan, plans);
   // An individually logged session always counts against the player's own plan allowance — a
   // Session Pack's credits belong to the weekly group net it was bought for and are drawn down
-  // there (by the nightly pack-auto-consume job), never here.
+  // there (by the nightly pack-auto-consume job), never here. The one exception: a session logged
+  // against a Confirmed booking is already paid for via that booking's own fee, so it shouldn't
+  // also need plan headroom — a Pending/Cancelled booking doesn't count, since it isn't a
+  // guaranteed paid appointment yet.
+  const bookingWaivesLimit = bookingStatus === "Confirmed";
   const limitReached =
     sessionsLimit !== null &&
-    player.subscription.sessionsUsed >= sessionsLimit;
+    player.subscription.sessionsUsed >= sessionsLimit &&
+    !bookingWaivesLimit;
 
   const initials = player.name.split(" ").map((n) => n[0] ?? "").join("");
   const selectedCount = Object.values(angles).filter((a) => a.file && a.status !== "invalid").length;
@@ -294,10 +302,16 @@ export function NewSessionForm({
           {initials}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white">New Session</h1>
+          <h1 className="text-xl font-bold text-white">Log Session</h1>
           <p className="text-zinc-400 text-sm">{player.name} · {player.bowlingStyle}</p>
         </div>
       </div>
+
+      {bookingWaivesLimit && (
+        <p className="text-xs text-pace-green mb-4">
+          ✓ Linked to a confirmed booking — does not count against {player.name}&apos;s monthly session limit.
+        </p>
+      )}
 
       {limitReached ? (
         <div className="bg-surface rounded-2xl p-8 text-center">
@@ -305,6 +319,11 @@ export function NewSessionForm({
           <p className="text-zinc-400 text-sm mb-6">
             {player.name} has used {player.subscription.sessionsUsed}/{sessionsLimit} sessions on the Free plan this month. Upgrade to Player Pro for unlimited session logging.
           </p>
+          {bookingId && (
+            <p className="text-zinc-400 text-sm mb-6">
+              This session is linked to a booking that is not confirmed yet — confirming it will let this go through without upgrading.
+            </p>
+          )}
           <Link
             href={`/players/${player.id}/subscription`}
             className="inline-block px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity"

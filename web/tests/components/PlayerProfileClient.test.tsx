@@ -158,22 +158,22 @@ describe("PlayerProfileClient", () => {
     expect(editLink.closest("div")).toBe(screen.getByRole("link", { name: "View All Reports" }).closest("div"));
   });
 
-  // +New Session matches Edit Player's outlined style — no button in this row is solid-filled.
-  test("+New Session is outlined, matching Edit Player, not solid-filled", async () => {
+  // +Log Session matches Edit Player's outlined style — no button in this row is solid-filled.
+  test("+Log Session is outlined, matching Edit Player, not solid-filled", async () => {
     setupDefaults();
     fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
 
     render(<PlayerProfileClient playerId="p1" />);
     await screen.findByText("Alice Bowler");
 
-    const newSessionLink = screen.getByRole("link", { name: "+ New Session" });
+    const newSessionLink = screen.getByRole("link", { name: "+ Log Session" });
     expect(newSessionLink).toHaveClass("text-pace-green", "border-pace-green/40");
     expect(newSessionLink).not.toHaveClass("bg-pace-green");
   });
 
-  // Edit Player moved to the end of the row — View All Reports, Manage Subscription, +New
+  // Edit Player moved to the end of the row — View All Reports, Manage Subscription, +Log
   // Session, then Edit, per feedback on the button sequence.
-  test("action row order is View All Reports, Manage Subscription, +New Session, then Edit Player last", async () => {
+  test("action row order is View All Reports, Manage Subscription, +Log Session, then Edit Player last", async () => {
     setupDefaults();
     fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
 
@@ -182,7 +182,7 @@ describe("PlayerProfileClient", () => {
 
     const actionRow = screen.getByRole("link", { name: "View All Reports" }).closest("div") as HTMLElement;
     const labels = [...actionRow.querySelectorAll("a")].map((a) => a.textContent);
-    expect(labels).toEqual(["View All Reports", "Manage Subscription", "+ New Session", "Edit Player"]);
+    expect(labels).toEqual(["View All Reports", "Manage Subscription", "+ Log Session", "Edit Player"]);
   });
 
   // The ⋮ menu brings Send Message/Reassign Coach/Remove/Reinstate onto the profile page —
