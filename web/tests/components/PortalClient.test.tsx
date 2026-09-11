@@ -147,7 +147,7 @@ describe("PortalClient", () => {
 
   // The player's prepaid squad-net standing, drawn down by the nightly pack-auto-consume job —
   // shown regardless of payment status, unlike the unpaid-pack nudge banner above it.
-  test("shows an active session pack's standing, even while its payment is still Overdue", async () => {
+  test("shows an active membership's standing, even while its payment is still Overdue", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: "p1" }) });
     fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
@@ -161,12 +161,12 @@ describe("PortalClient", () => {
 
     render(<PortalClient />);
 
-    expect(await screen.findByText("My Session Pack")).toBeInTheDocument();
+    expect(await screen.findByText("My Membership")).toBeInTheDocument();
     expect(screen.getByText("7 / 10")).toBeInTheDocument();
     expect(screen.getByText("Tuesday, Thursday")).toBeInTheDocument();
   });
 
-  test("omits the session pack card entirely when there is no active pack", async () => {
+  test("omits the membership card entirely when there is no active membership", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: "p1" }) });
     fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
@@ -175,7 +175,7 @@ describe("PortalClient", () => {
     render(<PortalClient />);
     await screen.findByText("Alice Bowler");
 
-    expect(screen.queryByText("My Session Pack")).not.toBeInTheDocument();
+    expect(screen.queryByText("My Membership")).not.toBeInTheDocument();
   });
 
   // group_sessions has no player-facing RLS policy, so this goes through /api/portal/squad-training

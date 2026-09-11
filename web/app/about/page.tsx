@@ -15,7 +15,7 @@ export default function AboutPage() {
           CRIC HQ turns a phone video of a bowling delivery into AI-assisted biomechanics
           analysis — no lab, no lasers, no specialist equipment. Alongside that, the platform gives
           academies and coaches the day-to-day tools to run a coaching business: player and coach
-          management, session bookings and packs, attendance, progress tracking, and a marketplace
+          management, session bookings and memberships, attendance, progress tracking, and a marketplace
           where players can discover and book coaches directly.
         </p>
       </Section>

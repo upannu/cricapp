@@ -22,7 +22,7 @@ const NAV_ALL = [
   { label: "Squad Training", href: "/attendance" },
   { label: "Academy",  href: "/academy" },
   { label: "Bookings", href: "/bookings" },
-  { label: "Packs",    href: "/session-packs" },
+  { label: "Memberships", href: "/session-packs" },
   { label: "Coaches",  href: "/coaches" },
   { label: "Reports",  href: "/reports" },
   { label: "Performance", href: "/performance" },

@@ -521,7 +521,7 @@ export function BookingsClient() {
                 {BOOKING_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
               <p className="text-xs text-zinc-500 mt-1.5">
-                Marketplace bookings are billed per appointment — even Net Session here means this one paid slot, not a Squad Training pack credit.
+                Marketplace bookings are billed per appointment — even Net Session here means this one paid slot, not a Squad Training membership credit.
               </p>
             </div>
 

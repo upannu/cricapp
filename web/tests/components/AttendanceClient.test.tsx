@@ -139,19 +139,19 @@ describe("AttendanceClient", () => {
     expect(screen.queryByText(`${past[17].label} ✓`)).not.toBeInTheDocument();
   });
 
-  test("rejecting a roster-add for a player with no pack offers a 'Create a pack' shortcut to that player", async () => {
+  test("rejecting a roster-add for a player with no membership offers a 'Create a membership' shortcut to that player", async () => {
     const user = userEvent.setup();
     setupDefaults();
     fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
-    fetchSessionPacks.mockResolvedValue([]); // no active pack for anyone
+    fetchSessionPacks.mockResolvedValue([]); // no active membership for anyone
 
     render(<AttendanceClient />);
     await user.click(await screen.findByRole("button", { name: "+ New Group" }));
 
     await user.click(screen.getByRole("button", { name: /Alice Bowler/ }));
 
-    expect(screen.getByText(/no active session pack/i)).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /Create a pack/ });
+    expect(screen.getByText(/Alice Bowler has no active membership/i)).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /Create a membership/ });
     expect(link).toHaveAttribute("href", "/session-packs?playerId=p1");
   });
 

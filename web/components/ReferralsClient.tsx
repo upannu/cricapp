@@ -304,8 +304,8 @@ function ReferralForm({
           <div>
             <label className={lbl}>Revenue Source</label>
             <select value={draft.ongoingRevenueSource} onChange={(e) => setDraft({ ...draft, ongoingRevenueSource: e.target.value as ReferralRevenueSource })} className={sel}>
-              <option value="both">Packs + Bookings</option>
-              <option value="session_packs">Session Packs only</option>
+              <option value="both">Memberships + Bookings</option>
+              <option value="session_packs">Memberships only</option>
               <option value="bookings">Bookings only</option>
             </select>
           </div>

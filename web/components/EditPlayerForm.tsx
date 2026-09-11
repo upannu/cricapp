@@ -381,11 +381,11 @@ export function EditPlayerForm({ player }: { player: Player }) {
                 />
                 <p className="text-xs text-zinc-500 mt-1.5">
                   {detectedPayment === undefined ? (
-                    "Staff-only fallback — checking for a recorded pack or Stripe payment…"
+                    "Staff-only fallback — checking for a recorded membership or Stripe payment…"
                   ) : detectedPayment && detectedPayment.source !== "manual" ? (
-                    <>Staff-only fallback — a {detectedPayment.source === "stripe" ? "Stripe" : "pack"} payment on {formatDate(detectedPayment.date)} already takes priority over this on the profile; only set this for payments with no other record (e.g. cash).</>
+                    <>Staff-only fallback — a {detectedPayment.source === "stripe" ? "Stripe" : "membership"} payment on {formatDate(detectedPayment.date)} already takes priority over this on the profile; only set this for payments with no other record (e.g. cash).</>
                   ) : (
-                    "Staff-only fallback — no pack or Stripe payment found yet, so this manual date is what shows on the profile."
+                    "Staff-only fallback — no membership or Stripe payment found yet, so this manual date is what shows on the profile."
                   )}
                 </p>
               </Field>

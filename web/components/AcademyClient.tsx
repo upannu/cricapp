@@ -1316,7 +1316,7 @@ export function AcademyClient() {
                     />
                     <span>
                       <span className="text-sm text-white font-medium block">Split by Servicing Coach</span>
-                      <span className="text-xs text-zinc-500">Each coach receives revenue for the bookings and packs tied to them directly.</span>
+                      <span className="text-xs text-zinc-500">Each coach receives revenue for the bookings and memberships tied to them directly.</span>
                     </span>
                   </label>
                 </div>
