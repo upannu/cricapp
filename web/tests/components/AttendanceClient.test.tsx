@@ -155,6 +155,30 @@ describe("AttendanceClient", () => {
     expect(link).toHaveAttribute("href", "/session-packs?playerId=p1");
   });
 
+  test("attributes a CSV-imported attendance record as csv-import, distinct from a manual mark", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", playerIds: ["p1"] })]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler", email: "alice@example.com" })]);
+    saveAttendance.mockResolvedValue(undefined);
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByText("U14 Nets")); // expand the group
+    await user.click(await screen.findByRole("button", { name: "Import Attendance CSV" }));
+
+    const csv = "date,player,status\n2026-01-06,Alice Bowler,Present\n";
+    const file = new File([csv], "attendance.csv", { type: "text/csv" });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(fileInput, file);
+
+    await user.click(await screen.findByRole("button", { name: "Import 1 Record" }));
+
+    expect(saveAttendance).toHaveBeenCalledWith(
+      "gs1", "2026-01-06", "Net Session", "academy-1",
+      [{ playerId: "p1", status: "Present" }], "csv-import",
+    );
+  });
+
   test("searches groups by name", async () => {
     const user = userEvent.setup();
     setupDefaults();

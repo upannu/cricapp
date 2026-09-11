@@ -382,7 +382,7 @@ export function AttendanceClient() {
       // Sequential, not Promise.all — concurrent saveAttendance calls for the same player would
       // race on session_packs.sessions_used (read-then-write, no row lock).
       for (const [date, records] of byDate) {
-        await saveAttendance(attendanceCsvFor.id, date, attendanceCsvFor.sessionType, attendanceCsvFor.academyId, records);
+        await saveAttendance(attendanceCsvFor.id, date, attendanceCsvFor.sessionType, attendanceCsvFor.academyId, records, "csv-import");
       }
       const occ = await fetchPastOccurrences(attendanceCsvFor.id);
       setPastDates((prev) => ({ ...prev, [attendanceCsvFor.id]: occ }));

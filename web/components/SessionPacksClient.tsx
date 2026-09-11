@@ -4,9 +4,9 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
-import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan, PackFeeDue } from "@/lib/types";
+import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan, PackFeeDue, PackActivityEntry, AttendanceRecordedBy } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid } from "@/lib/db";
+import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, fetchPackActivity, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired, matchPlayerByNameOrEmail } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 import { StatsGrid } from "@/components/StatsGrid";
@@ -14,6 +14,15 @@ import { StatCard } from "@/components/StatCard";
 import { DEFAULT_CURRENCY, formatMoney, sumMoneyByCurrency } from "@/lib/currency";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+
+// Labels for attendance_records.recorded_by — null covers rows written before this attribution
+// existed, so they're shown as unattributed rather than guessed at.
+const RECORDED_BY_LABEL: Record<AttendanceRecordedBy | "unknown", string> = {
+  manual: "Marked by coach",
+  "csv-import": "CSV import",
+  "auto-cron": "Auto (no-show)",
+  unknown: "Unattributed",
+};
 
 const PACK_CSV_TEMPLATE = "player,totalSessions\nJohn Smith,10\njane@example.com,\n";
 type PackCsvStatus = "ready" | "duplicate" | "skipped";
@@ -95,6 +104,7 @@ export function SessionPacksClient() {
 
   const [dataLoaded, setDataLoaded] = useState(false);
   const [packs, setPacks] = useState<SessionPack[]>([]);
+  const [packActivity, setPackActivity] = useState<PackActivityEntry[]>([]);
   const [feeDues, setFeeDues] = useState<PackFeeDue[]>([]);
   const [pageTab, setPageTab] = useState<PageTab>("Packs");
   const [filter, setFilter] = useState<FilterType>("All");
@@ -127,6 +137,9 @@ export function SessionPacksClient() {
     }).then(([pk, bk]) => {
       setPacks(pk); _packBookings = bk;
       setDataLoaded(true);
+      // Best-effort — the "Pack Activity" list is a nice-to-have explanation of the balance
+      // above it, not something that should block the page rendering if it fails.
+      fetchPackActivity(pk.map((p) => p.id)).then(setPackActivity).catch(() => setPackActivity([]));
     });
     fetchPackFeeDues().then(setFeeDues).catch(() => {
       // RLS naturally scopes this to what the caller can see (platform_admin sees all, an
@@ -1261,6 +1274,33 @@ export function SessionPacksClient() {
                   <p className="text-zinc-600 text-xs">Create a pack to start tracking upfront payments and session credits.</p>
                 </div>
               )}
+
+              {/* Pack Activity — every credit this pack has actually spent, and why, so "why did
+                  my balance drop" is answerable without guessing between a coach's own mark, a
+                  bulk CSV import, or the unattended pack-auto-consume cron. */}
+              {pack && (() => {
+                const activity = packActivity.filter((a) => a.packId === pack.id);
+                return (
+                  <div className="mt-4 pt-4 border-t border-zinc-800">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Pack Activity</p>
+                    {activity.length === 0 ? (
+                      <p className="text-zinc-600 text-xs">No sessions drawn from this pack yet.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {activity.slice(0, 5).map((a) => (
+                          <div key={a.id} className="flex items-center justify-between text-xs bg-ink rounded-lg px-3 py-2">
+                            <span className="text-zinc-300">{formatDate(a.date)} · {a.status}</span>
+                            <span className="text-zinc-500">{RECORDED_BY_LABEL[a.recordedBy ?? "unknown"]}</span>
+                          </div>
+                        ))}
+                        {activity.length > 5 && (
+                          <p className="text-xs text-zinc-500 text-center pt-1">+{activity.length - 5} more</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         })}

@@ -4,12 +4,12 @@ import userEvent from "@testing-library/user-event";
 import { SessionPacksClient } from "@/components/SessionPacksClient";
 import { makeAuthUser, makePlayer, makeSessionPack } from "../mocks/fixtures";
 
-const { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues } = vi.hoisted(() => ({
+const { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, fetchPackActivity } = vi.hoisted(() => ({
   fetchSessionPacks: vi.fn(), fetchPlayers: vi.fn(), fetchAcademies: vi.fn(),
-  fetchCoaches: vi.fn(), fetchBookings: vi.fn(), fetchActivePlans: vi.fn(), fetchPackFeeDues: vi.fn(),
+  fetchCoaches: vi.fn(), fetchBookings: vi.fn(), fetchActivePlans: vi.fn(), fetchPackFeeDues: vi.fn(), fetchPackActivity: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
-  fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues,
+  fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, fetchPackActivity,
   upsertSessionPack: vi.fn(), updatePackPaymentStatus: vi.fn(), updatePackAgreedDays: vi.fn(), markPackPaid: vi.fn(),
   insertSessionPacks: vi.fn(),
 }));
@@ -37,6 +37,7 @@ function setupDefaults() {
   fetchActivePlans.mockResolvedValue([]);
   fetchSessionPacks.mockResolvedValue([]);
   fetchPackFeeDues.mockResolvedValue([]);
+  fetchPackActivity.mockResolvedValue([]);
 }
 
 describe("SessionPacksClient", () => {
@@ -57,6 +58,36 @@ describe("SessionPacksClient", () => {
 
     expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.queryByText("No pack purchased")).not.toBeInTheDocument();
+  });
+
+  // The "why did my balance drop" answer — every credit this pack has spent, and which of the
+  // three mechanisms (manual mark, CSV import, unattended cron) spent it.
+  test("shows Pack Activity with each entry's recorded-by attribution", async () => {
+    setupDefaults();
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", totalSessions: 10, sessionsUsed: 3 })]);
+    fetchPackActivity.mockResolvedValue([
+      { id: "att1", packId: "pack1", playerId: "p1", groupSessionId: "gs1", date: "2026-01-13", status: "Present", recordedBy: "manual" },
+      { id: "att2", packId: "pack1", playerId: "p1", groupSessionId: "gs1", date: "2026-01-06", status: "Absent", recordedBy: "auto-cron" },
+      { id: "att3", packId: "pack1", playerId: "p1", groupSessionId: "gs1", date: "2025-12-30", status: "Present", recordedBy: null },
+    ]);
+
+    render(<SessionPacksClient />);
+
+    expect(await screen.findByText("Pack Activity")).toBeInTheDocument();
+    expect(screen.getByText("Marked by coach")).toBeInTheDocument();
+    expect(screen.getByText("Auto (no-show)")).toBeInTheDocument();
+    expect(screen.getByText("Unattributed")).toBeInTheDocument();
+  });
+
+  test("shows an empty state when a pack has no activity recorded yet", async () => {
+    setupDefaults();
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", totalSessions: 10, sessionsUsed: 0 })]);
+    fetchPackActivity.mockResolvedValue([]);
+
+    render(<SessionPacksClient />);
+
+    expect(await screen.findByText("Pack Activity")).toBeInTheDocument();
+    expect(screen.getByText("No sessions drawn from this pack yet.")).toBeInTheDocument();
   });
 
   test("scopes the fetch to the academy_admin's own academy", async () => {

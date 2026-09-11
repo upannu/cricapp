@@ -102,7 +102,7 @@ export async function POST(request: Request) {
     const recordId = `att_${occurrenceId}_${pk.player_id}`;
     const { error: attError } = await supabase.from("attendance_records").upsert({
       id: recordId, occurrence_id: occurrenceId, player_id: pk.player_id,
-      status: "Absent", pack_id: hasRoom ? pk.id : null,
+      status: "Absent", pack_id: hasRoom ? pk.id : null, recorded_by: "auto-cron",
     });
     if (attError) continue;
 
