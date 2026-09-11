@@ -120,6 +120,36 @@ export function matchPlayerByNameOrEmail(players: Player[], value: string): Play
       ?? players.find((p) => p.name.trim().toLowerCase() === v);
 }
 
+/** Every occurrence date for a weekly recurring group between two ISO dates, inclusive. Shared by
+ * Attendance (building each group's full past-occurrence history) and the player Portal (finding
+ * a player's next squad training dates) — both need the same weekly-recurrence math.
+ *
+ * Renders each occurrence from the cursor's own local date parts, not toISOString() — every
+ * academy on this platform is Australian (ahead of UTC), so a local midnight converted via
+ * toISOString() lands on the *previous* UTC calendar day, silently shifting every returned date
+ * back by one in any browser actually running this. Caught while adding a new caller; fixing it
+ * here also corrects Attendance's own "upcoming" date chips, which had the same off-by-one. */
+export function occurrenceDatesInRange(dayOfWeek: number, fromIso: string, toIso: string): string[] {
+  const dates: string[] = [];
+  const from = new Date(fromIso + 'T00:00:00');
+  const to = new Date(toIso + 'T00:00:00');
+  const cursor = new Date(from);
+  const offset = (dayOfWeek - cursor.getDay() + 7) % 7;
+  cursor.setDate(cursor.getDate() + offset);
+  while (cursor <= to) {
+    dates.push(localIsoDate(cursor));
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  return dates;
+}
+
+function localIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 /** Deliberately loose shape check (something@something.something), not full RFC 5322 — the point
  * isn't to reject every technically-invalid address, it's to catch the case that actually happens
  * (a name or fragment typed into the email field by mistake, with no "@" at all) before it saves a

@@ -1,7 +1,9 @@
-import { describe, expect, test, vi } from "vitest";
+import { afterAll, describe, expect, test, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { PortalClient } from "@/components/PortalClient";
-import { makeAuthUser, makeCoach, makePlayer } from "../mocks/fixtures";
+import { makeAuthUser, makeCoach, makeGroupSession, makePlayer, makeSessionPack } from "../mocks/fixtures";
+
+const originalFetch = global.fetch;
 
 const {
   fetchPlayer, fetchSessions, fetchReports, fetchTodaysTip, recordTipView, fetchSessionPacks,
@@ -38,9 +40,14 @@ function setupDefaults() {
   fetchCoach.mockResolvedValue(null);
   fetchBookings.mockResolvedValue([]);
   fetchActionPlans.mockResolvedValue([]);
+  // /api/portal/squad-training — group_sessions has no player-facing RLS policy, so this is a
+  // plain fetch() rather than a lib/db.ts call; default to "in no groups" unless a test overrides it.
+  global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ groups: [] }) }) as unknown as typeof fetch;
 }
 
 describe("PortalClient", () => {
+  afterAll(() => { global.fetch = originalFetch; });
+
   test("shows a 'no player linked' message for an account with no playerId", () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: undefined }) });
@@ -125,6 +132,79 @@ describe("PortalClient", () => {
 
     render(<PortalClient />);
     expect(await screen.findByText("No upcoming sessions scheduled.")).toBeInTheDocument();
+  });
+
+  test("titles the booking card 'Next Booking', not 'Next Session'", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: "p1" }) });
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+
+    render(<PortalClient />);
+
+    expect(await screen.findByText("Next Booking")).toBeInTheDocument();
+    expect(screen.queryByText("Next Session")).not.toBeInTheDocument();
+  });
+
+  // The player's prepaid squad-net standing, drawn down by the nightly pack-auto-consume job —
+  // shown regardless of payment status, unlike the unpaid-pack nudge banner above it.
+  test("shows an active session pack's standing, even while its payment is still Overdue", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: "p1" }) });
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+    fetchSessionPacks.mockResolvedValue([
+      makeSessionPack({
+        playerId: "p1", status: "Active", paymentStatus: "Overdue",
+        sessionType: "Net Session", totalSessions: 10, sessionsUsed: 3, sessionCredits: 0,
+        agreedDays: ["Tuesday", "Thursday"],
+      }),
+    ]);
+
+    render(<PortalClient />);
+
+    expect(await screen.findByText("My Session Pack")).toBeInTheDocument();
+    expect(screen.getByText("7 / 10")).toBeInTheDocument();
+    expect(screen.getByText("Tuesday, Thursday")).toBeInTheDocument();
+  });
+
+  test("omits the session pack card entirely when there is no active pack", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: "p1" }) });
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({ playerId: "p1", status: "Exhausted" })]);
+
+    render(<PortalClient />);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.queryByText("My Session Pack")).not.toBeInTheDocument();
+  });
+
+  // group_sessions has no player-facing RLS policy, so this goes through /api/portal/squad-training
+  // rather than a lib/db.ts call — the test's global.fetch mock stands in for that route.
+  test("shows the next squad training date(s) for a group this player is rostered on", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: "p1" }) });
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+    const group = makeGroupSession({ id: "gs1", name: "U14 Tuesday Nets", dayOfWeek: new Date().getDay(), time: "16:00", location: "Riverside Nets" });
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ groups: [group] }) }) as unknown as typeof fetch;
+
+    render(<PortalClient />);
+
+    expect(await screen.findByText("Upcoming Squad Training")).toBeInTheDocument();
+    // A player rostered on only one weekly group still sees up to 2 upcoming dates for it.
+    const entries = await screen.findAllByText("U14 Tuesday Nets");
+    expect(entries.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Riverside Nets/).length).toBe(entries.length);
+  });
+
+  test("omits the squad training card entirely when the player is in no groups", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: "p1" }) });
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+
+    render(<PortalClient />);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.queryByText("Upcoming Squad Training")).not.toBeInTheDocument();
   });
 
   test("locks the Reports section behind an upgrade prompt for a Free player with no reports", async () => {

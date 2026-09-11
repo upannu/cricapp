@@ -7,12 +7,22 @@ import {
   fetchPlayer, fetchSessions, fetchReports, fetchTodaysTip, recordTipView, fetchSessionPacks,
   fetchActivePlans, fetchAcademies, fetchCoach, fetchBookings, fetchActionPlans,
 } from "@/lib/db";
-import { formatDate, getReportPdfUrl, getInitials } from "@/lib/utils";
+import { formatDate, getReportPdfUrl, getInitials, occurrenceDatesInRange } from "@/lib/utils";
 import { formatMoney, type Currency } from "@/lib/currency";
 import { aiReportsIncludedForPlayer } from "@/lib/plan-features";
 import { BadgeStrip } from "@/components/BadgeStrip";
 import { InvoiceHistoryList } from "@/components/InvoiceHistoryList";
-import type { Player, Session, Report, DailyTip, SessionPack, Plan, Academy, Coach, Booking, ActionPlan } from "@/lib/types";
+import type { Player, Session, Report, DailyTip, SessionPack, Plan, Academy, Coach, Booking, ActionPlan, GroupSession } from "@/lib/types";
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** Local (not UTC) calendar date, N days from now — see occurrenceDatesInRange's own comment on
+ * why toISOString() on a local Date is the wrong tool here for every Australian-timezone viewer. */
+function isoDateDaysFromNow(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const PRIORITY_STYLES: Record<string, string> = {
   High: "bg-fire/10 text-fire border-fire/30",
@@ -40,6 +50,7 @@ export function PortalClient() {
   const [coach, setCoach] = useState<Coach | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [actionPlans, setActionPlans] = useState<ActionPlan[]>([]);
+  const [squadGroups, setSquadGroups] = useState<GroupSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
   const [consentError, setConsentError] = useState("");
@@ -69,6 +80,14 @@ export function PortalClient() {
       setActionPlans(aps);
       setLoading(false);
       recordTipView(user.playerId!);
+      // Separate from the batch above — group_sessions has no RLS policy for a player/parent at
+      // all (only platform_admin/academy_admin/coach can read it), so this goes through its own
+      // service-role-backed route rather than a lib/db.ts call that would just come back empty
+      // under RLS. A failure here shouldn't block the rest of the Portal from rendering.
+      fetch("/api/portal/squad-training")
+        .then((res) => res.ok ? res.json() : { groups: [] })
+        .then((data) => setSquadGroups(data.groups ?? []))
+        .catch(() => setSquadGroups([]));
       // Separate from the batch above — we don't know which coach until the player itself loads.
       if (p?.coachId) fetchCoach(p.coachId).then(setCoach);
     });
@@ -113,6 +132,23 @@ export function PortalClient() {
   const unpaidPacks = packs
     .filter((pk) => pk.status === "Active" && pk.paymentStatus !== "Paid")
     .sort((a, b) => (a.paymentStatus === b.paymentStatus ? 0 : a.paymentStatus === "Overdue" ? -1 : 1));
+
+  // The player's prepaid standing for their weekly squad net, drawn down by the nightly
+  // pack-auto-consume job — shown regardless of payment status (that's the unpaid banner above's
+  // job); this is just "where do I stand" for whoever already has a pack.
+  const activePack = packs.find((pk) => pk.status === "Active") ?? null;
+  const packRemaining = activePack ? activePack.totalSessions - activePack.sessionsUsed + activePack.sessionCredits : 0;
+
+  // Next 1-2 squad training dates across every group this player is actually rostered on, within
+  // a two-week lookahead — enough that even a weekly group almost always has something to show.
+  const upcomingSquadTraining = (() => {
+    const fromIso = isoDateDaysFromNow(0);
+    const toIso = isoDateDaysFromNow(13);
+    return squadGroups
+      .flatMap((g) => occurrenceDatesInRange(g.dayOfWeek, fromIso, toIso).slice(0, 2).map((date) => ({ group: g, date })))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(0, 2);
+  })();
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
@@ -163,10 +199,10 @@ export function PortalClient() {
           )}
         </div>
         <div className="bg-surface rounded-2xl p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Next Session</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Next Booking</p>
           {(() => {
             const upcoming = bookings
-              .filter((b) => b.status !== "Cancelled" && b.date >= new Date().toISOString().split("T")[0])
+              .filter((b) => b.status !== "Cancelled" && b.date >= isoDateDaysFromNow(0))
               .sort((a, b) => (a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date)))[0];
             if (!upcoming) return <p className="text-zinc-500 text-sm">No upcoming sessions scheduled.</p>;
             return (
@@ -179,6 +215,50 @@ export function PortalClient() {
           })()}
         </div>
       </div>
+
+      {/* Session pack standing + upcoming squad training — only relevant to a player who's
+          actually funded/rostered on one, so both are omitted entirely rather than shown empty. */}
+      {(activePack || squadGroups.length > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {activePack && (
+            <div className="bg-surface rounded-2xl p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">My Session Pack</p>
+              <div className="space-y-2 text-sm">
+                <Row
+                  label="Credits remaining"
+                  value={
+                    <span className={packRemaining <= 1 ? "text-amber font-semibold" : "text-pace-green font-semibold"}>
+                      {packRemaining} / {activePack.totalSessions + activePack.sessionCredits}
+                    </span>
+                  }
+                />
+                <Row label="Session type" value={activePack.sessionType} />
+                <Row label="Agreed days" value={activePack.agreedDays.length > 0 ? activePack.agreedDays.join(", ") : "—"} />
+              </div>
+            </div>
+          )}
+          {squadGroups.length > 0 && (
+            <div className="bg-surface rounded-2xl p-5">
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Upcoming Squad Training</p>
+              {upcomingSquadTraining.length === 0 ? (
+                <p className="text-zinc-500 text-sm">No squad training scheduled in the next two weeks.</p>
+              ) : (
+                <div className="space-y-2">
+                  {upcomingSquadTraining.map(({ group, date }) => (
+                    <div key={`${group.id}-${date}`} className="text-sm">
+                      <div className="text-white font-semibold">{group.name}</div>
+                      <div className="text-zinc-400 text-xs mt-0.5">
+                        {DAY_NAMES[group.dayOfWeek]} {formatDate(date)} · {group.time}
+                        {group.location && ` · ${group.location}`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Daily tip */}
       {tip && (
@@ -431,7 +511,7 @@ function UnpaidPackCard({ pack, currency }: { pack: SessionPack; currency: Curre
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-zinc-500">{label}</span>
