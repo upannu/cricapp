@@ -18,8 +18,8 @@ const ADMIN_TOOLS = [
 
 const NAV_ALL = [
   { label: "Players",  href: "/players" },
-  { label: "Sessions", href: "/sessions" },
-  { label: "Attendance", href: "/attendance" },
+  { label: "Coaching Sessions", href: "/sessions" },
+  { label: "Squad Training", href: "/attendance" },
   { label: "Academy",  href: "/academy" },
   { label: "Bookings", href: "/bookings" },
   { label: "Packs",    href: "/session-packs" },

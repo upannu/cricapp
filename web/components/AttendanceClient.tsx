@@ -471,7 +471,7 @@ export function AttendanceClient() {
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-white mb-1">Attendance</h1>
+          <h1 className="text-xl font-bold text-white mb-1">Squad Training</h1>
         </div>
         <button type="button" onClick={openAdd}
           className="px-4 py-2 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer flex-shrink-0">

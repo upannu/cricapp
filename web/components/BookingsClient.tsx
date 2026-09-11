@@ -520,6 +520,9 @@ export function BookingsClient() {
               >
                 {BOOKING_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
+              <p className="text-xs text-zinc-500 mt-1.5">
+                Marketplace bookings are billed per appointment — even Net Session here means this one paid slot, not a Squad Training pack credit.
+              </p>
             </div>
 
             {/* Fee */}
@@ -1001,9 +1004,9 @@ function BookingCard({
               </Link>
             )}
             {player && (
-              <Link href={`/players/${player.id}/new-session?bookingId=${b.id}&coachId=${b.coachId}&time=${b.time}&durationMins=${b.durationMins}`}
+              <Link href={`/players/${player.id}/new-session?bookingId=${b.id}&coachId=${b.coachId}&time=${b.time}&durationMins=${b.durationMins}&status=${b.status}`}
                 className="px-4 py-2 text-xs font-semibold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity">
-                + New Session
+                + Log Session
               </Link>
             )}
           </div>
