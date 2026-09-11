@@ -257,6 +257,11 @@ export interface GroupSession {
 
 export type AttendanceStatus = 'Present' | 'Absent';
 
+/** Which mechanism actually spent the pack credit for a given attendance_records row — set only
+ * once, at creation (a later Present/Absent edit never re-attributes it). Null on rows recorded
+ * before this attribution existed. */
+export type AttendanceRecordedBy = 'manual' | 'csv-import' | 'auto-cron';
+
 export interface AttendanceRecord {
   id: string;
   occurrenceId: string;
@@ -264,7 +269,20 @@ export interface AttendanceRecord {
   status: AttendanceStatus;
   /** Set only when this attendance actually drew down a SessionPack session. */
   packId: string | null;
+  recordedBy: AttendanceRecordedBy | null;
   recordedAt: string;
+}
+
+/** One row of a SessionPack's debit history — the "Pack Activity" list on Session Packs, so a
+ * coach can see exactly why a credit was spent instead of just watching the balance drop. */
+export interface PackActivityEntry {
+  id: string;
+  packId: string;
+  playerId: string;
+  groupSessionId: string;
+  date: string;
+  status: AttendanceStatus;
+  recordedBy: AttendanceRecordedBy | null;
 }
 
 export type MessageChannel = 'email' | 'sms';

@@ -9,7 +9,7 @@ import type {
   VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
   Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
   Plan, EmailTemplate,
-  GroupSession, AttendanceStatus, AttendanceRecord, Net,
+  GroupSession, AttendanceStatus, AttendanceRecord, AttendanceRecordedBy, PackActivityEntry, Net,
   Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, ReferralStatus, ReferralPayoutStatus,
   PackFeeDue, PackFeeDueStatus, BookingFeeDue,
 } from "@/lib/types";
@@ -721,13 +721,15 @@ export async function setGroupSessionRoster(groupSessionId: string, playerIds: s
 
 export interface DbAttendanceRecord {
   id: string; occurrence_id: string; player_id: string; status: string;
-  pack_id: string | null; recorded_at?: string;
+  pack_id: string | null; recorded_by?: string | null; recorded_at?: string;
 }
 
 export function dbToAttendanceRecord(r: DbAttendanceRecord): AttendanceRecord {
   return {
     id: r.id, occurrenceId: r.occurrence_id, playerId: r.player_id,
-    status: r.status as AttendanceStatus, packId: r.pack_id, recordedAt: r.recorded_at ?? "",
+    status: r.status as AttendanceStatus, packId: r.pack_id,
+    recordedBy: (r.recorded_by ?? null) as AttendanceRecordedBy | null,
+    recordedAt: r.recorded_at ?? "",
   };
 }
 
@@ -757,6 +759,11 @@ export async function fetchPastOccurrences(groupSessionId: string): Promise<{ id
  * Absent on an already-recorded occurrence doesn't re-consume or refund a session; a coach who
  * wants to excuse an absence uses the separate "Credit a Session" action instead (see
  * SessionPacksClient's CreditButton), which is subject to its own expiry window.
+ *
+ * `recordedBy` is only ever applied when a record is first created — an edit to an existing one
+ * (the toggle case above) preserves whatever attribution it already had, since no new credit is
+ * actually being spent by that edit. This is the manual/CSV half of the "who spent this credit"
+ * picture; the nightly pack-auto-consume cron writes its own rows with "auto-cron" directly.
  */
 export async function saveAttendance(
   groupSessionId: string,
@@ -764,6 +771,7 @@ export async function saveAttendance(
   sessionType: string,
   academyId: string,
   records: { playerId: string; status: AttendanceStatus }[],
+  recordedBy: "manual" | "csv-import" = "manual",
 ): Promise<void> {
   const sb = createClient();
 
@@ -785,6 +793,7 @@ export async function saveAttendance(
   for (const rec of records) {
     const existing = existingByPlayer[rec.playerId];
     let packId: string | null = existing?.pack_id ?? null;
+    let recordedByToSave: string | null = existing?.recorded_by ?? null;
 
     if (!existing) {
       // First time this occurrence is recorded for this player — the agreed slot is booked
@@ -795,16 +804,49 @@ export async function saveAttendance(
         .eq("status", "Active").maybeSingle();
       packId = pack && pack.sessions_used < pack.total_sessions ? pack.id : null;
       if (packId) await sb.from("session_packs").update({ sessions_used: pack!.sessions_used + 1 }).eq("id", packId);
+      recordedByToSave = recordedBy;
     }
-    // Toggling Present <-> Absent on an already-recorded occurrence leaves packId (and the
-    // consumed session) untouched — both statuses consume the same slot now.
+    // Toggling Present <-> Absent on an already-recorded occurrence leaves packId, and its
+    // attribution, untouched — both statuses consume the same slot now.
 
     const id = existing?.id ?? `att_${occurrenceId}_${rec.playerId}`;
     const { error } = await sb.from("attendance_records").upsert({
       id, occurrence_id: occurrenceId, player_id: rec.playerId, status: rec.status, pack_id: packId,
+      recorded_by: recordedByToSave,
     });
     if (error) throw error;
   }
+}
+
+/** Every attendance_records row that actually drew down one of the given packs — the "Pack
+ * Activity" list on Session Packs, newest first. A plain two-query join (not a nested Supabase
+ * select) to match every other multi-table fetch in this file. */
+export async function fetchPackActivity(packIds: string[]): Promise<PackActivityEntry[]> {
+  if (packIds.length === 0) return [];
+  const sb = createClient();
+
+  const { data: records, error } = await sb.from("attendance_records").select("*")
+    .in("pack_id", packIds).order("recorded_at", { ascending: false });
+  if (error) throw error;
+  const rows = (records ?? []) as DbAttendanceRecord[];
+  if (rows.length === 0) return [];
+
+  const occurrenceIds = [...new Set(rows.map((r) => r.occurrence_id))];
+  const { data: occs, error: occError } = await sb.from("group_session_occurrences")
+    .select("id, group_session_id, date").in("id", occurrenceIds);
+  if (occError) throw occError;
+  const occById: Record<string, { group_session_id: string; date: string }> = {};
+  for (const o of (occs ?? []) as { id: string; group_session_id: string; date: string }[]) occById[o.id] = o;
+
+  return rows.map((r) => ({
+    id: r.id,
+    packId: r.pack_id!,
+    playerId: r.player_id,
+    groupSessionId: occById[r.occurrence_id]?.group_session_id ?? "",
+    date: occById[r.occurrence_id]?.date ?? "",
+    status: r.status as AttendanceStatus,
+    recordedBy: (r.recorded_by ?? null) as AttendanceRecordedBy | null,
+  }));
 }
 
 export async function fetchMessages(playerId: string): Promise<Message[]> {
