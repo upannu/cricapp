@@ -7,7 +7,7 @@ import { makeAuthUser, makeCoach, makeGroupSession, makePlayer, makeSessionPack 
 const {
   fetchGroupSessions, upsertGroupSession, setGroupSessionRoster,
   fetchPlayers, fetchCoaches, fetchSessionPacks, fetchPastOccurrences,
-  fetchAttendanceForDate, saveAttendance,
+  fetchAttendanceForDate, saveAttendance, cancelOccurrence,
 } = vi.hoisted(() => ({
   fetchGroupSessions: vi.fn(),
   upsertGroupSession: vi.fn(),
@@ -18,11 +18,12 @@ const {
   fetchPastOccurrences: vi.fn(),
   fetchAttendanceForDate: vi.fn(),
   saveAttendance: vi.fn(),
+  cancelOccurrence: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
   fetchGroupSessions, upsertGroupSession, setGroupSessionRoster,
   fetchPlayers, fetchCoaches, fetchSessionPacks, fetchPastOccurrences,
-  fetchAttendanceForDate, saveAttendance,
+  fetchAttendanceForDate, saveAttendance, cancelOccurrence,
 }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
@@ -36,6 +37,7 @@ function setupDefaults() {
   fetchPastOccurrences.mockResolvedValue([]);
   fetchAttendanceForDate.mockResolvedValue([]);
   fetchSessionPacks.mockResolvedValue([]);
+  cancelOccurrence.mockClear().mockResolvedValue(undefined);
 }
 
 describe("AttendanceClient", () => {
@@ -251,5 +253,51 @@ describe("AttendanceClient", () => {
     expect(await screen.findByText("Coach not found")).toBeInTheDocument();
     expect(screen.getByText(/Invalid day/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create 1 Group" })).toBeInTheDocument();
+  });
+
+  // The coach is away and the session never happened — nobody should be charged, unlike marking
+  // everyone Absent (which would draw down a session per player).
+  test("cancels a session for the whole roster after confirming, and closes the modal", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", dayOfWeek: new Date().getUTCDay(), playerIds: ["p1", "p2"] })]);
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer" }),
+    ]);
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByText("U14 Nets"));
+    const dateButtons = await screen.findAllByRole("button", { name: /\w{3}/ });
+    await user.click(dateButtons.find((b) => b.textContent && /^\d{2} \w{3}$/.test(b.textContent))!);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "Cancel Session (coach unavailable)" }));
+    expect(screen.getByText(/Cancel this session for all 2 players\?/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Yes, cancel session" }));
+
+    expect(cancelOccurrence).toHaveBeenCalledWith("gs1", expect.any(String), ["p1", "p2"]);
+    expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
+  });
+
+  test("backing out of the cancel confirmation leaves the session untouched", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", dayOfWeek: new Date().getUTCDay(), playerIds: ["p1"] })]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByText("U14 Nets"));
+    const dateButtons = await screen.findAllByRole("button", { name: /\w{3}/ });
+    await user.click(dateButtons.find((b) => b.textContent && /^\d{2} \w{3}$/.test(b.textContent))!);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "Cancel Session (coach unavailable)" }));
+    await user.click(screen.getByRole("button", { name: "Never mind" }));
+
+    expect(screen.queryByText(/Cancel this session for all/)).not.toBeInTheDocument();
+    expect(cancelOccurrence).not.toHaveBeenCalled();
+    expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
   });
 });
