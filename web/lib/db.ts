@@ -631,6 +631,12 @@ export async function fetchSessionPacks(playerIds?: string[]): Promise<SessionPa
   return (data as DbSessionPack[]).map(dbToSessionPack);
 }
 
+export async function fetchSessionPack(id: string): Promise<SessionPack | null> {
+  const sb = createClient();
+  const { data } = await sb.from("session_packs").select("*").eq("id", id).maybeSingle();
+  return data ? dbToSessionPack(data as DbSessionPack) : null;
+}
+
 export async function upsertSessionPack(pk: Partial<DbSessionPack> & { id: string }): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("session_packs").upsert(pk);
