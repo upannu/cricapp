@@ -131,6 +131,9 @@ export function SessionPacksClient() {
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState<DraftPack>(EMPTY_DRAFT);
   const [formError, setFormError] = useState("");
+  // Which existing pack's Squad Training Sessions checklist is in edit mode — read-only
+  // otherwise, see the render below for why.
+  const [editingSquadSessionsFor, setEditingSquadSessionsFor] = useState<string | null>(null);
 
   // Bulk pack CSV import
   const [showBulkForm, setShowBulkForm] = useState(false);
@@ -1227,35 +1230,64 @@ export function SessionPacksClient() {
                       Agreed sessions ({upcoming.length})
                     </p>
 
-                    {/* Squad training sessions — toggling adds/removes the player from that
-                        session's real roster (group_session_players), not just a freeform day. */}
-                    <div className="bg-ink rounded-xl px-4 py-3 mb-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2.5">Squad training sessions</p>
-                      {groupSessionsForAcademy(pack.academyId).length === 0 ? (
-                        <p className="text-xs text-zinc-600">No active squad training sessions at this academy yet.</p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {groupSessionsForAcademy(pack.academyId).map((g) => {
-                            const checked = g.playerIds.includes(player.id);
-                            // Does any upcoming booking fall on this session's weekday?
-                            const hasBooking = upcoming.some((b) => {
-                              const d = new Date(b.date);
-                              return d.toLocaleDateString("en-GB", { weekday: "short" }) === DAY_TOKENS[g.dayOfWeek];
-                            });
-                            return (
-                              <label key={g.id} className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 cursor-pointer transition-colors ${
-                                checked ? "bg-pace-green/10" : "hover:bg-surface"
-                              }`}>
-                                <input type="checkbox" checked={checked} onChange={() => handleToggleGroupSessionForPack(pack, g)} className="accent-pace-green" />
-                                <span className={`text-xs font-semibold flex-1 truncate ${checked ? "text-pace-green" : "text-zinc-300"}`}>{g.name}</span>
-                                <span className="text-[10px] text-zinc-500 flex-shrink-0">{DAY_TOKENS[g.dayOfWeek]} {g.time}</span>
-                                {hasBooking && <span className="w-1.5 h-1.5 rounded-full bg-pace-green flex-shrink-0" />}
-                              </label>
-                            );
-                          })}
+                    {/* Squad training sessions — read-only by default (a bare checkbox sitting in
+                        a summary card invites an accidental roster change on a stray click); only
+                        the explicit Edit toggle below exposes the checkboxes that actually add/
+                        remove the player from a session's real roster (group_session_players). */}
+                    {(() => {
+                      const allGroupSessions = groupSessionsForAcademy(pack.academyId);
+                      const enrolledSessions = allGroupSessions.filter((g) => g.playerIds.includes(player.id));
+                      const isEditing = editingSquadSessionsFor === pack.id;
+                      const hasBookingOn = (g: GroupSession) => upcoming.some((b) => {
+                        const d = new Date(b.date);
+                        return d.toLocaleDateString("en-GB", { weekday: "short" }) === DAY_TOKENS[g.dayOfWeek];
+                      });
+                      return (
+                        <div className="bg-ink rounded-xl px-4 py-3 mb-3">
+                          <div className="flex items-center justify-between mb-2.5">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Squad training sessions</p>
+                            {allGroupSessions.length > 0 && (
+                              <button type="button" onClick={() => setEditingSquadSessionsFor(isEditing ? null : pack.id)}
+                                className="text-[10px] font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer">
+                                {isEditing ? "Done" : "Edit"}
+                              </button>
+                            )}
+                          </div>
+                          {allGroupSessions.length === 0 ? (
+                            <p className="text-xs text-zinc-600">No active squad training sessions at this academy yet.</p>
+                          ) : isEditing ? (
+                            <div className="space-y-1.5">
+                              {allGroupSessions.map((g) => {
+                                const checked = g.playerIds.includes(player.id);
+                                return (
+                                  <label key={g.id} className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 cursor-pointer transition-colors ${
+                                    checked ? "bg-pace-green/10" : "hover:bg-surface"
+                                  }`}>
+                                    <input type="checkbox" checked={checked} onChange={() => handleToggleGroupSessionForPack(pack, g)} className="accent-pace-green" />
+                                    <span className={`text-xs font-semibold flex-1 truncate ${checked ? "text-pace-green" : "text-zinc-300"}`}>{g.name}</span>
+                                    <span className="text-[10px] text-zinc-500 flex-shrink-0">{DAY_TOKENS[g.dayOfWeek]} {g.time}</span>
+                                    {hasBookingOn(g) && <span className="w-1.5 h-1.5 rounded-full bg-pace-green flex-shrink-0" />}
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          ) : enrolledSessions.length === 0 ? (
+                            <p className="text-xs text-zinc-600">Not enrolled in any squad training session yet.</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {enrolledSessions.map((g) => (
+                                <div key={g.id} className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 bg-pace-green/10">
+                                  <span className="text-pace-green text-xs flex-shrink-0">✓</span>
+                                  <span className="text-xs font-semibold flex-1 truncate text-pace-green">{g.name}</span>
+                                  <span className="text-[10px] text-zinc-500 flex-shrink-0">{DAY_TOKENS[g.dayOfWeek]} {g.time}</span>
+                                  {hasBookingOn(g) && <span className="w-1.5 h-1.5 rounded-full bg-pace-green flex-shrink-0" />}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      );
+                    })()}
 
                     {/* Upcoming booking list */}
                     {upcoming.length === 0 ? (

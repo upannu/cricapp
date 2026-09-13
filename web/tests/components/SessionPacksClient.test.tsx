@@ -234,9 +234,40 @@ describe("SessionPacksClient", () => {
     render(<SessionPacksClient />);
     await screen.findByText("Alice Bowler");
 
+    // Read-only until Edit is clicked — a bare checkbox in the summary card would let a stray
+    // click silently drop the player from a session's roster.
+    expect(screen.getByText("Not enrolled in any squad training session yet.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(screen.getByText("U14 Tuesday Nets"));
 
     await waitFor(() => expect(setGroupSessionRoster).toHaveBeenCalledWith("gs1", ["p1"]));
     expect(updatePackAgreedDays).toHaveBeenCalledWith("pack1", ["Tue"]);
+  });
+
+  test("shows enrolled squad training sessions read-only until Edit is clicked, then Done returns to read-only", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([
+      makeGroupSession({ id: "gs1", academyId: "academy-1", name: "U14 Tuesday Nets", dayOfWeek: 2, time: "16:00", playerIds: ["p1"] }),
+      makeGroupSession({ id: "gs2", academyId: "academy-1", name: "U13 Thursday Nets", dayOfWeek: 4, time: "17:00", playerIds: [] }),
+    ]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", academyId: "academy-1", agreedDays: ["Tue"] })]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+
+    // Read-only view shows only the session the player is actually enrolled in, no checkbox.
+    expect(screen.getByText("U14 Tuesday Nets")).toBeInTheDocument();
+    expect(screen.queryByText("U13 Thursday Nets")).not.toBeInTheDocument();
+    expect(document.querySelector('input[type="checkbox"]')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    expect(screen.getByText("U13 Thursday Nets")).toBeInTheDocument();
+    expect(document.querySelectorAll('input[type="checkbox"]').length).toBe(2);
+
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.queryByText("U13 Thursday Nets")).not.toBeInTheDocument();
+    expect(document.querySelector('input[type="checkbox"]')).not.toBeInTheDocument();
   });
 });
