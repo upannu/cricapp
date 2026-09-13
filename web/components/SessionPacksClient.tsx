@@ -4,16 +4,15 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
-import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan, PackFeeDue, PackActivityEntry, AttendanceRecordedBy } from "@/lib/types";
+import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan, PackFeeDue, PackActivityEntry, AttendanceRecordedBy, GroupSession } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, fetchPackActivity, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid } from "@/lib/db";
+import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, fetchPackActivity, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid, fetchGroupSessions, setGroupSessionRoster } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired, matchPlayerByNameOrEmail } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
 import { DEFAULT_CURRENCY, formatMoney, sumMoneyByCurrency } from "@/lib/currency";
-
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+import { DAY_TOKENS } from "@/lib/cron-time";
 
 // Labels for attendance_records.recorded_by — null covers rows written before this attribution
 // existed, so they're shown as unattributed rather than guessed at.
@@ -30,7 +29,7 @@ type PackCsvRow = {
   rowNum: number; playerInput: string; player: Player | undefined;
   totalSessions: number; feePerSession: number; csvStatus: PackCsvStatus; issue: string;
 };
-type BulkPackSettings = { academyId: string; purchaseDate: string; totalSessions: number; agreedDays: string[] };
+type BulkPackSettings = { academyId: string; purchaseDate: string; totalSessions: number; agreedDays: string[]; groupSessionIds: string[] };
 
 const TYPE_STYLES: Record<BookingType, string> = {
   "Net Session":            "bg-pace-green/15 text-pace-green",
@@ -46,6 +45,25 @@ let _packAcademies: Academy[] = [];
 let _packCoaches: Coach[] = [];
 let _packBookings: Booking[] = [];
 let _packPlans: Plan[] = [];
+let _packGroupSessions: GroupSession[] = [];
+
+// A Membership is always for "Net Session" (see the fixed badge in the form below) — so the
+// squad training sessions it can bind to are this academy's active Net Session group sessions.
+// Binding to a real GroupSession (rather than a freeform weekday picker) is what keeps a
+// player's agreedDays in sync with a session that actually exists and that they're actually
+// rostered on — see group-session-players sync in handleSave/handlePackCsvImport/
+// handleToggleGroupSessionForPack below.
+function groupSessionsForAcademy(academyId: string): GroupSession[] {
+  return _packGroupSessions.filter((g) => g.academyId === academyId && g.active && g.sessionType === "Net Session");
+}
+
+function deriveAgreedDays(groupSessionIds: string[]): string[] {
+  const days = groupSessionIds
+    .map((id) => _packGroupSessions.find((g) => g.id === id))
+    .filter((g): g is GroupSession => !!g)
+    .map((g) => DAY_TOKENS[g.dayOfWeek]);
+  return Array.from(new Set(days));
+}
 
 function academyWaivesFees(academyId: string): boolean {
   const academy = _packAcademies.find((a) => a.id === academyId);
@@ -79,7 +97,7 @@ function initials(name: string) {
   return name.split(" ").map((n) => n[0]).join("");
 }
 
-type DraftPack = Omit<SessionPack, "id" | "status" | "sessionsUsed" | "sessionCredits" | "paidDate">;
+type DraftPack = Omit<SessionPack, "id" | "status" | "sessionsUsed" | "sessionCredits" | "paidDate"> & { groupSessionIds: string[] };
 
 const EMPTY_DRAFT: DraftPack = {
   playerId: "",
@@ -91,6 +109,7 @@ const EMPTY_DRAFT: DraftPack = {
   paymentStatus: "Pending",
   paymentDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
   agreedDays: [],
+  groupSessionIds: [],
 };
 
 type FilterType = "All" | "Active" | "Exhausted" | "No Membership";
@@ -115,7 +134,7 @@ export function SessionPacksClient() {
 
   // Bulk pack CSV import
   const [showBulkForm, setShowBulkForm] = useState(false);
-  const [bulkSettings, setBulkSettings] = useState<BulkPackSettings>({ academyId: "", purchaseDate: today, totalSessions: 10, agreedDays: [] });
+  const [bulkSettings, setBulkSettings] = useState<BulkPackSettings>({ academyId: "", purchaseDate: today, totalSessions: 10, agreedDays: [], groupSessionIds: [] });
   const [packCsvRows, setPackCsvRows] = useState<PackCsvRow[]>([]);
   const [packCsvFileName, setPackCsvFileName] = useState("");
   const [packCsvError, setPackCsvError] = useState("");
@@ -130,8 +149,9 @@ export function SessionPacksClient() {
       fetchAcademies(),
       fetchCoaches(academyId),
       fetchActivePlans(),
-    ]).then(([pl, ac, co, plans]) => {
-      _packPlayers = pl; _packAcademies = ac; _packCoaches = co; _packPlans = plans;
+      fetchGroupSessions(academyId, coachId),
+    ]).then(([pl, ac, co, plans, gs]) => {
+      _packPlayers = pl; _packAcademies = ac; _packCoaches = co; _packPlans = plans; _packGroupSessions = gs;
       const scopedPlayerIds = (coachId || academyId) ? pl.map((p) => p.id) : undefined;
       return Promise.all([fetchSessionPacks(scopedPlayerIds), fetchBookings(undefined, undefined, scopedPlayerIds)]);
     }).then(([pk, bk]) => {
@@ -189,12 +209,21 @@ export function SessionPacksClient() {
     setPacks((prev) => [...prev]);
   }
 
-  function handleToggleDay(pack: SessionPack, day: string) {
-    const updated = pack.agreedDays.includes(day)
-      ? pack.agreedDays.filter((d) => d !== day)
-      : [...pack.agreedDays, day];
-    updatePackAgreedDays(pack.id, updated);
-    setPacks((prev) => prev.map((pk) => pk.id === pack.id ? { ...pk, agreedDays: updated } : pk));
+  // The player's own roster membership on a real GroupSession is the source of truth here — not
+  // a freeform day pick — so toggling adds/removes them from that session's actual roster
+  // (group_session_players), then recomputes agreedDays from every Net Session group session
+  // they're still rostered on at this academy (keeps the cron jobs' existing agreed_days lookup
+  // working unchanged; see pack-auto-consume/session-reminders).
+  async function handleToggleGroupSessionForPack(pack: SessionPack, gs: GroupSession) {
+    const onRoster = gs.playerIds.includes(pack.playerId);
+    const updatedRoster = onRoster ? gs.playerIds.filter((id) => id !== pack.playerId) : [...gs.playerIds, pack.playerId];
+    await setGroupSessionRoster(gs.id, updatedRoster);
+    _packGroupSessions = _packGroupSessions.map((g) => g.id === gs.id ? { ...g, playerIds: updatedRoster } : g);
+
+    const stillRostered = groupSessionsForAcademy(pack.academyId).filter((g) => g.playerIds.includes(pack.playerId));
+    const agreedDays = Array.from(new Set(stillRostered.map((g) => DAY_TOKENS[g.dayOfWeek])));
+    updatePackAgreedDays(pack.id, agreedDays);
+    setPacks((prev) => prev.map((pk) => pk.id === pack.id ? { ...pk, agreedDays } : pk));
   }
 
   const scopedPlayers = useMemo(() => _packPlayers, [packs]);
@@ -265,17 +294,19 @@ export function SessionPacksClient() {
   // ── Bulk pack CSV import ────────────────────────────────────────────────
   function openBulkAdd() {
     const defaultAcademy = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
-    setBulkSettings({ academyId: defaultAcademy, purchaseDate: today, totalSessions: 10, agreedDays: [] });
+    setBulkSettings({ academyId: defaultAcademy, purchaseDate: today, totalSessions: 10, agreedDays: [], groupSessionIds: [] });
     setPackCsvRows([]); setPackCsvFileName(""); setPackCsvError(""); setPackCsvImportedCount(null);
     setShowBulkForm(true);
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }
 
-  function handleToggleBulkDay(day: string) {
-    setBulkSettings((prev) => ({
-      ...prev,
-      agreedDays: prev.agreedDays.includes(day) ? prev.agreedDays.filter((d) => d !== day) : [...prev.agreedDays, day],
-    }));
+  function handleToggleBulkGroupSession(groupSessionId: string) {
+    setBulkSettings((prev) => {
+      const groupSessionIds = prev.groupSessionIds.includes(groupSessionId)
+        ? prev.groupSessionIds.filter((id) => id !== groupSessionId)
+        : [...prev.groupSessionIds, groupSessionId];
+      return { ...prev, groupSessionIds, agreedDays: deriveAgreedDays(groupSessionIds) };
+    });
   }
 
   function downloadPackCsvTemplate() {
@@ -343,7 +374,7 @@ export function SessionPacksClient() {
 
   async function handlePackCsvImport() {
     if (!bulkSettings.academyId) { setPackCsvError("Please select an academy first."); return; }
-    if (bulkSettings.agreedDays.length === 0) { setPackCsvError("Please select at least one session day."); return; }
+    if (bulkSettings.groupSessionIds.length === 0) { setPackCsvError("Please select at least one squad training session."); return; }
     const ready = packCsvRows.filter((r) => r.csvStatus === "ready" && r.player);
     if (ready.length === 0) return;
     setPackCsvImporting(true);
@@ -378,6 +409,18 @@ export function SessionPacksClient() {
         agreed_days: p.agreedDays,
       })));
 
+      // Roster sync — every imported player needs to actually be on each selected squad
+      // training session's roster, not just have a pack that claims those days.
+      for (const gsId of bulkSettings.groupSessionIds) {
+        const gs = _packGroupSessions.find((g) => g.id === gsId);
+        if (!gs) continue;
+        const newIds = ready.map((r) => r.player!.id).filter((id) => !gs.playerIds.includes(id));
+        if (newIds.length === 0) continue;
+        const updatedRoster = [...gs.playerIds, ...newIds];
+        await setGroupSessionRoster(gsId, updatedRoster);
+        _packGroupSessions = _packGroupSessions.map((g) => g.id === gsId ? { ...g, playerIds: updatedRoster } : g);
+      }
+
       setPacks((prev) => [...newPacks, ...prev]);
       setPackCsvImportedCount(newPacks.length);
       setPackCsvRows([]);
@@ -389,11 +432,11 @@ export function SessionPacksClient() {
     }
   }
 
-  function handleToggleDraftDay(day: string) {
-    const agreedDays = draft.agreedDays.includes(day)
-      ? draft.agreedDays.filter((d) => d !== day)
-      : [...draft.agreedDays, day];
-    setDraft({ ...draft, agreedDays });
+  function handleToggleDraftGroupSession(groupSessionId: string) {
+    const groupSessionIds = draft.groupSessionIds.includes(groupSessionId)
+      ? draft.groupSessionIds.filter((id) => id !== groupSessionId)
+      : [...draft.groupSessionIds, groupSessionId];
+    setDraft({ ...draft, groupSessionIds, agreedDays: deriveAgreedDays(groupSessionIds) });
   }
 
   function handlePlayerChange(playerId: string) {
@@ -404,15 +447,15 @@ export function SessionPacksClient() {
     setDraft({ ...draft, playerId, feePerSession: fee || draft.feePerSession, coachId: player?.coachId ?? draft.coachId });
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!draft.playerId) { setFormError("Please select a player."); return; }
     if (!draft.academyId) { setFormError("Please select an academy."); return; }
     if (draft.feePerSession <= 0 && !academyWaivesFees(draft.academyId)) {
       setFormError("Session fee must be greater than $0.");
       return;
     }
-    if (draft.agreedDays.length === 0) {
-      setFormError("Please select at least one session day.");
+    if (draft.groupSessionIds.length === 0) {
+      setFormError("Please select at least one squad training session.");
       return;
     }
     setFormError("");
@@ -448,6 +491,16 @@ export function SessionPacksClient() {
       payment_status: paymentStatus, payment_due_date: newPack.paymentDueDate,
       agreed_days: newPack.agreedDays,
     });
+
+    // Roster sync — the player needs to actually be on each selected squad training session's
+    // roster, not just have a pack that claims those days (see groupSessionsForAcademy).
+    for (const gsId of draft.groupSessionIds) {
+      const gs = _packGroupSessions.find((g) => g.id === gsId);
+      if (!gs || gs.playerIds.includes(draft.playerId)) continue;
+      const updatedRoster = [...gs.playerIds, draft.playerId];
+      await setGroupSessionRoster(gsId, updatedRoster);
+      _packGroupSessions = _packGroupSessions.map((g) => g.id === gsId ? { ...g, playerIds: updatedRoster } : g);
+    }
 
     setPacks((prev) => {
       const existing = prev.findIndex((pk) => pk.playerId === draft.playerId);
@@ -574,21 +627,14 @@ export function SessionPacksClient() {
                 {[5, 10, 15, 20].map((n) => <option key={n} value={n}>{n} sessions</option>)}
               </select>
             </div>
-            <div>
-              <label className={lbl}>Session Days *</label>
-              <div className="flex gap-1.5 flex-wrap">
-                {DAYS.map((day) => {
-                  const checked = bulkSettings.agreedDays.includes(day);
-                  return (
-                    <button key={day} type="button" onClick={() => handleToggleBulkDay(day)}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                        checked ? "bg-pace-green text-black" : "bg-ink text-zinc-400 border border-zinc-700 hover:text-white"
-                      }`}>
-                      {day}
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="sm:col-span-2">
+              <label className={lbl}>Squad Training Session(s) *</label>
+              <GroupSessionPicker
+                academyId={bulkSettings.academyId}
+                selectedIds={bulkSettings.groupSessionIds}
+                coaches={_packCoaches}
+                onToggle={handleToggleBulkGroupSession}
+              />
             </div>
           </div>
 
@@ -735,26 +781,13 @@ export function SessionPacksClient() {
             </div>
 
             <div className="sm:col-span-2">
-              <label className={lbl}>Session Days *</label>
-              <div className="flex gap-1.5 flex-wrap">
-                {DAYS.map((day) => {
-                  const checked = draft.agreedDays.includes(day);
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => handleToggleDraftDay(day)}
-                      className={`w-11 py-2 rounded-lg text-[11px] font-bold transition-colors cursor-pointer border ${
-                        checked
-                          ? "bg-pace-green text-black border-pace-green"
-                          : "bg-ink text-zinc-500 border-zinc-700 hover:border-zinc-500 hover:text-zinc-300"
-                      }`}
-                    >
-                      {day}
-                    </button>
-                  );
-                })}
-              </div>
+              <label className={lbl}>Squad Training Session(s) *</label>
+              <GroupSessionPicker
+                academyId={draft.academyId}
+                selectedIds={draft.groupSessionIds}
+                coaches={_packCoaches}
+                onToggle={handleToggleDraftGroupSession}
+              />
               {draft.agreedDays.length > 0 && (
                 <p className="text-xs text-zinc-500 mt-1.5">
                   ≈{Math.ceil(draft.totalSessions / draft.agreedDays.length)} weeks at {draft.agreedDays.length} day{draft.agreedDays.length > 1 ? "s" : ""}/week
@@ -1113,6 +1146,7 @@ export function SessionPacksClient() {
                         totalSessions: 10, feePerSession: pack.feePerSession, paymentStatus: "Pending",
                         paymentDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
                         agreedDays: pack.agreedDays,
+                        groupSessionIds: groupSessionsForAcademy(pack.academyId).filter((g) => g.playerIds.includes(player.id)).map((g) => g.id),
                       });
                       setFormError(""); setShowForm(true);
                       setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
@@ -1193,37 +1227,34 @@ export function SessionPacksClient() {
                       Agreed sessions ({upcoming.length})
                     </p>
 
-                    {/* Weekday checkboxes */}
+                    {/* Squad training sessions — toggling adds/removes the player from that
+                        session's real roster (group_session_players), not just a freeform day. */}
                     <div className="bg-ink rounded-xl px-4 py-3 mb-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2.5">Session days</p>
-                      <div className="flex gap-1.5 flex-wrap">
-                        {DAYS.map((day) => {
-                          const checked = pack.agreedDays.includes(day);
-                          // Does any upcoming booking fall on this weekday?
-                          const hasBooking = upcoming.some((b) => {
-                            const d = new Date(b.date);
-                            return d.toLocaleDateString("en-GB", { weekday: "short" }) === day;
-                          });
-                          return (
-                            <button
-                              key={day}
-                              type="button"
-                              onClick={() => handleToggleDay(pack, day)}
-                              className={`relative flex flex-col items-center gap-1 w-9 py-2 rounded-lg text-[11px] font-bold transition-colors cursor-pointer border ${
-                                checked
-                                  ? "bg-pace-green text-black border-pace-green"
-                                  : "bg-surface text-zinc-500 border-zinc-700 hover:border-zinc-500 hover:text-zinc-300"
-                              }`}
-                            >
-                              {day}
-                              {hasBooking && (
-                                <span className={`w-1.5 h-1.5 rounded-full ${checked ? "bg-black/40" : "bg-pace-green"}`} />
-                              )}
-                              {!hasBooking && <span className="w-1.5 h-1.5" />}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2.5">Squad training sessions</p>
+                      {groupSessionsForAcademy(pack.academyId).length === 0 ? (
+                        <p className="text-xs text-zinc-600">No active squad training sessions at this academy yet.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {groupSessionsForAcademy(pack.academyId).map((g) => {
+                            const checked = g.playerIds.includes(player.id);
+                            // Does any upcoming booking fall on this session's weekday?
+                            const hasBooking = upcoming.some((b) => {
+                              const d = new Date(b.date);
+                              return d.toLocaleDateString("en-GB", { weekday: "short" }) === DAY_TOKENS[g.dayOfWeek];
+                            });
+                            return (
+                              <label key={g.id} className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 cursor-pointer transition-colors ${
+                                checked ? "bg-pace-green/10" : "hover:bg-surface"
+                              }`}>
+                                <input type="checkbox" checked={checked} onChange={() => handleToggleGroupSessionForPack(pack, g)} className="accent-pace-green" />
+                                <span className={`text-xs font-semibold flex-1 truncate ${checked ? "text-pace-green" : "text-zinc-300"}`}>{g.name}</span>
+                                <span className="text-[10px] text-zinc-500 flex-shrink-0">{DAY_TOKENS[g.dayOfWeek]} {g.time}</span>
+                                {hasBooking && <span className="w-1.5 h-1.5 rounded-full bg-pace-green flex-shrink-0" />}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
 
                     {/* Upcoming booking list */}
@@ -1523,6 +1554,46 @@ function CreditButton({ packId, remaining, expired, onCredit }: {
       className="px-4 py-2 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer">
       Credit a Session (player no-show / cancellation)
     </button>
+  );
+}
+
+// ─── Group Session Picker (Membership creation / bulk import) ────────────────
+// Lets staff bind a Membership to real, pre-created squad training sessions instead of a
+// freeform weekday pick — see groupSessionsForAcademy's own doc comment for why.
+
+function GroupSessionPicker({ academyId, selectedIds, coaches, onToggle }: {
+  academyId: string; selectedIds: string[]; coaches: Coach[]; onToggle: (groupSessionId: string) => void;
+}) {
+  if (!academyId) return <p className="text-xs text-zinc-500">Select an academy first.</p>;
+  const sessions = groupSessionsForAcademy(academyId);
+  if (sessions.length === 0) {
+    return (
+      <div className="bg-ink rounded-xl p-4">
+        <p className="text-xs text-zinc-400 mb-1">This academy has no active squad training sessions yet.</p>
+        <Link href="/attendance" className="text-xs text-pace-green font-semibold hover:underline">Create one in Attendance →</Link>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2">
+      {sessions.map((g) => {
+        const checked = selectedIds.includes(g.id);
+        return (
+          <label key={g.id} className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 cursor-pointer transition-colors ${
+            checked ? "border-pace-green bg-pace-green/5" : "border-zinc-700 hover:border-zinc-500"
+          }`}>
+            <input type="checkbox" checked={checked} onChange={() => onToggle(g.id)} className="accent-pace-green" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-white truncate">{g.name}</p>
+              <p className="text-xs text-zinc-500">
+                {DAY_TOKENS[g.dayOfWeek]} · {g.time} · {coaches.find((c) => c.id === g.coachId)?.name ?? "Unassigned"}
+                {g.location ? ` · ${g.location}` : ""}
+              </p>
+            </div>
+          </label>
+        );
+      })}
+    </div>
   );
 }
 
