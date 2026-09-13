@@ -1158,6 +1158,12 @@ export function SessionPacksClient() {
                       Renew Membership
                     </button>
                   )}
+                  {pack && (
+                    <Link href={`/session-packs/${pack.id}`}
+                      className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
+                      View Membership
+                    </Link>
+                  )}
                   <Link href={`/players/${player.id}`}
                     className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
                     View Profile
