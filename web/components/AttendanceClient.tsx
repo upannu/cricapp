@@ -29,6 +29,7 @@ const PAST_DATES_PREVIEW_COUNT = 16;
 
 const ROSTER_CSV_TEMPLATE = "name,email\nJohn Smith,john@example.com\n";
 const ATTENDANCE_CSV_TEMPLATE = "date,player,status\n2026-08-04,John Smith,Present\n2026-08-04,jane@example.com,Absent\n";
+const GROUP_CSV_TEMPLATE = "name,dayOfWeek,time,coach,location,durationMins\nU14 Tuesday Nets,Tuesday,16:00,coach@example.com,Main Oval,60\nU13 Thursday Nets,Thursday,17:00,Jane Coach,Main Oval,60\n";
 
 type RosterCsvRow = { rowNum: number; input: string; player: Player | undefined };
 
@@ -38,6 +39,33 @@ type AttendanceCsvRow = {
   player: Player | undefined; statusInput: string; status: AttendanceStatus | null;
   csvStatus: AttendanceCsvStatus; issue: string;
 };
+
+type GroupCsvStatus = "ready" | "duplicate" | "skipped";
+type GroupCsvRow = {
+  rowNum: number; name: string; dayOfWeekInput: string; dayOfWeek: number | null;
+  time: string; coachInput: string; coach: Coach | undefined; location: string;
+  durationMins: number; csvStatus: GroupCsvStatus; issue: string;
+};
+
+const DAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** Accepts a numeral 0-6, a full weekday name, or its 3-letter abbreviation — a coach's
+ * spreadsheet is more likely to have "Tue" or "Tuesday" than the raw day_of_week integer. */
+function parseDayOfWeek(raw: string): number | null {
+  const v = raw.trim().toLowerCase();
+  if (/^[0-6]$/.test(v)) return parseInt(v, 10);
+  const fullIdx = DAY_NAMES.findIndex((d) => d.toLowerCase() === v);
+  if (fullIdx >= 0) return fullIdx;
+  const abbrIdx = DAY_ABBR.findIndex((d) => d.toLowerCase() === v);
+  return abbrIdx >= 0 ? abbrIdx : null;
+}
+
+function matchCoachByNameOrEmail(coaches: Coach[], value: string): Coach | undefined {
+  const v = value.trim().toLowerCase();
+  if (!v) return undefined;
+  return coaches.find((c) => c.email.trim().toLowerCase() === v)
+      ?? coaches.find((c) => c.name.trim().toLowerCase() === v);
+}
 
 /** Accepts the app's own YYYY-MM-DD as well as DD/MM/YYYY, since that's what a coach's spreadsheet
  * is more likely to contain. Returns null if neither pattern matches. */
@@ -104,6 +132,15 @@ export function AttendanceClient() {
   const [showRosterCsv, setShowRosterCsv] = useState(false);
   const [rosterCsvRows, setRosterCsvRows] = useState<RosterCsvRow[]>([]);
   const [rosterCsvError, setRosterCsvError] = useState("");
+
+  // Bulk Group Session creation CSV — lets an academy pre-create several squad training slots
+  // (e.g. one per age group) in one upload instead of the New Group form one at a time.
+  const [showBulkGroupForm, setShowBulkGroupForm] = useState(false);
+  const [bulkGroupCsvRows, setBulkGroupCsvRows] = useState<GroupCsvRow[]>([]);
+  const [bulkGroupCsvFileName, setBulkGroupCsvFileName] = useState("");
+  const [bulkGroupCsvError, setBulkGroupCsvError] = useState("");
+  const [bulkGroupCsvImporting, setBulkGroupCsvImporting] = useState(false);
+  const [bulkGroupCsvImportedCount, setBulkGroupCsvImportedCount] = useState<number | null>(null);
 
   // Attendance history CSV import — one group at a time, from the expanded panel
   const [attendanceCsvFor, setAttendanceCsvFor] = useState<GroupSession | null>(null);
@@ -283,6 +320,111 @@ export function AttendanceClient() {
     setSaving(false);
   }
 
+  function openBulkGroupImport() {
+    setShowBulkGroupForm(true);
+    setBulkGroupCsvRows([]);
+    setBulkGroupCsvFileName("");
+    setBulkGroupCsvError("");
+    setBulkGroupCsvImportedCount(null);
+  }
+
+  function downloadGroupCsvTemplate() {
+    const blob = new Blob([GROUP_CSV_TEMPLATE], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "group-sessions-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleBulkGroupCsvFile(file: File) {
+    setBulkGroupCsvError(""); setBulkGroupCsvImportedCount(null); setBulkGroupCsvFileName(file.name);
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (results.errors.length > 0) {
+          setBulkGroupCsvError(`Could not parse the file: ${results.errors[0].message}`);
+          setBulkGroupCsvRows([]);
+          return;
+        }
+        const seenKeys = new Set<string>();
+        const rows: GroupCsvRow[] = results.data.map((raw, i) => {
+          const get = (key: string) => raw[key] ?? raw[key.toLowerCase()] ?? raw[key.toUpperCase()] ?? "";
+          const name = get("name").trim();
+          const dayOfWeekInput = (get("dayOfWeek") || get("day")).trim();
+          const time = get("time").trim();
+          const coachInput = get("coach").trim();
+          const location = get("location").trim();
+          const durationRaw = get("durationMins").trim();
+          const durationMins = durationRaw ? (parseInt(durationRaw, 10) || 60) : 60;
+          const dayOfWeek = parseDayOfWeek(dayOfWeekInput);
+
+          let csvStatus: GroupCsvStatus = "ready";
+          let issue = "";
+          if (!name) { issue = "Missing name"; csvStatus = "skipped"; }
+          else if (dayOfWeek === null) { issue = "Invalid day — use a weekday name (e.g. Tuesday) or 0-6"; csvStatus = "skipped"; }
+          else if (!/^\d{1,2}:\d{2}$/.test(time)) { issue = "Invalid time — use HH:MM (24-hour)"; csvStatus = "skipped"; }
+
+          let coach: Coach | undefined;
+          if (csvStatus !== "skipped") {
+            coach = matchCoachByNameOrEmail(coaches, coachInput);
+            if (!coach) { issue = "Coach not found"; csvStatus = "skipped"; }
+          }
+
+          if (csvStatus === "ready" && coach) {
+            const key = `${name.toLowerCase()}__${dayOfWeek}__${time}`;
+            if (seenKeys.has(key)) { issue = "Duplicate name + day + time in this file — first occurrence used"; csvStatus = "duplicate"; }
+            else seenKeys.add(key);
+          }
+
+          return { rowNum: i + 2, name, dayOfWeekInput, dayOfWeek, time, coachInput, coach, location, durationMins, csvStatus, issue };
+        });
+        setBulkGroupCsvRows(rows);
+      },
+      error: (err) => {
+        setBulkGroupCsvError(err.message);
+        setBulkGroupCsvRows([]);
+      },
+    });
+  }
+
+  async function handleBulkGroupCsvImport() {
+    const ready = bulkGroupCsvRows.filter((r) => r.csvStatus === "ready" && r.coach && r.dayOfWeek !== null);
+    if (ready.length === 0) return;
+    setBulkGroupCsvImporting(true);
+    setBulkGroupCsvError("");
+    try {
+      const created: GroupSession[] = [];
+      for (let i = 0; i < ready.length; i++) {
+        const row = ready[i];
+        const id = `gs_${Date.now()}_${i}`;
+        // Each row's own matched coach carries the academy it belongs to — same fallback the
+        // single-create form uses (coaches.find(...)?.academyId) — so no separate academy picker
+        // is needed here even for a platform_admin importing across academies.
+        const resolvedAcademyId = row.coach!.academyId;
+        await upsertGroupSession({
+          id, academy_id: resolvedAcademyId, coach_id: row.coach!.id, name: row.name,
+          session_type: "Net Session", day_of_week: row.dayOfWeek!, time: row.time,
+          duration_mins: row.durationMins, location: row.location || null, active: true,
+        });
+        created.push({
+          id, academyId: resolvedAcademyId, coachId: row.coach!.id, name: row.name,
+          sessionType: "Net Session", dayOfWeek: row.dayOfWeek!, time: row.time,
+          durationMins: row.durationMins, location: row.location, active: true, playerIds: [],
+        });
+      }
+      setGroups((prev) => [...created, ...prev]);
+      setBulkGroupCsvImportedCount(created.length);
+      setBulkGroupCsvRows([]);
+      setBulkGroupCsvFileName("");
+    } catch (err) {
+      setBulkGroupCsvError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setBulkGroupCsvImporting(false);
+    }
+  }
+
   async function toggleExpand(group: GroupSession) {
     if (expandedId === group.id) { setExpandedId(null); return; }
     setExpandedId(group.id);
@@ -458,10 +600,16 @@ export function AttendanceClient() {
         <div>
           <h1 className="text-xl font-bold text-white mb-1">Squad Training</h1>
         </div>
-        <button type="button" onClick={openAdd}
-          className="px-4 py-2 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer flex-shrink-0">
-          + New Group
-        </button>
+        <div className="flex gap-3 flex-shrink-0">
+          <button type="button" onClick={openBulkGroupImport}
+            className="px-4 py-2 rounded-xl text-sm font-bold text-pace-green border border-pace-green/40 hover:bg-pace-green/10 transition-colors cursor-pointer">
+            Bulk Import Groups
+          </button>
+          <button type="button" onClick={openAdd}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer">
+            + New Group
+          </button>
+        </div>
       </div>
 
       {groups.length > 0 && (
@@ -833,6 +981,79 @@ export function AttendanceClient() {
                 {attendanceCsvImporting ? "Importing…" : `Import ${attendanceCsvRows.filter((r) => r.csvStatus === "ready").length} Record${attendanceCsvRows.filter((r) => r.csvStatus === "ready").length === 1 ? "" : "s"}`}
               </button>
               <button type="button" onClick={() => setAttendanceCsvFor(null)}
+                className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk import group sessions modal */}
+      {showBulkGroupForm && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto" onClick={() => setShowBulkGroupForm(false)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div className="relative bg-surface rounded-2xl w-full max-w-2xl shadow-2xl border border-zinc-700/60 my-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-700/50">
+              <div>
+                <h2 className="text-white font-bold">Bulk Import Group Sessions</h2>
+                <p className="text-zinc-400 text-xs">Create several recurring squad training sessions at once — e.g. one per age group.</p>
+              </div>
+              <button type="button" onClick={() => setShowBulkGroupForm(false)} className="text-zinc-400 hover:text-white transition-colors cursor-pointer text-xl leading-none p-1 flex-shrink-0">✕</button>
+            </div>
+            <div className="px-6 py-5 space-y-3 max-h-[65vh] overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-zinc-500">Columns: name, dayOfWeek (name or 0-6), time (HH:MM), coach (name or email), location (optional), durationMins (optional, default 60).</p>
+                <button type="button" onClick={downloadGroupCsvTemplate}
+                  className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer flex-shrink-0 ml-2">
+                  Template
+                </button>
+              </div>
+              <input type="file" accept=".csv,text/csv"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleBulkGroupCsvFile(f); }}
+                className="text-sm text-zinc-300 w-full" />
+              {bulkGroupCsvError && <p className="text-red-400 text-xs">{bulkGroupCsvError}</p>}
+              {bulkGroupCsvImportedCount !== null && (
+                <p className="text-pace-green text-xs">✓ Created {bulkGroupCsvImportedCount} group session{bulkGroupCsvImportedCount === 1 ? "" : "s"} from {bulkGroupCsvFileName}.</p>
+              )}
+              {bulkGroupCsvRows.length > 0 && (
+                <div className="border border-zinc-700 rounded-xl overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-ink text-zinc-500">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-semibold">Name</th>
+                        <th className="text-left px-3 py-2 font-semibold">Day</th>
+                        <th className="text-left px-3 py-2 font-semibold">Time</th>
+                        <th className="text-left px-3 py-2 font-semibold">Coach</th>
+                        <th className="text-left px-3 py-2 font-semibold">Result</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bulkGroupCsvRows.map((r) => (
+                        <tr key={r.rowNum} className="border-t border-zinc-800">
+                          <td className="px-3 py-2 text-zinc-300 truncate max-w-[160px]">{r.name || "—"}</td>
+                          <td className="px-3 py-2 text-zinc-300">{r.dayOfWeek !== null ? DAY_NAMES[r.dayOfWeek] : r.dayOfWeekInput || "—"}</td>
+                          <td className="px-3 py-2 text-zinc-300">{r.time || "—"}</td>
+                          <td className="px-3 py-2 text-zinc-300 truncate max-w-[140px]">{r.coach?.name ?? r.coachInput}</td>
+                          <td className="px-3 py-2">
+                            {r.csvStatus === "ready" && <span className="text-pace-green">Ready</span>}
+                            {r.csvStatus === "duplicate" && <span className="text-amber" title={r.issue}>{r.issue}</span>}
+                            {r.csvStatus === "skipped" && <span className="text-red-400" title={r.issue}>{r.issue}</span>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3 px-6 pb-6 pt-2">
+              <button type="button" onClick={handleBulkGroupCsvImport}
+                disabled={bulkGroupCsvImporting || bulkGroupCsvRows.filter((r) => r.csvStatus === "ready").length === 0}
+                className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+                {bulkGroupCsvImporting ? "Importing…" : `Create ${bulkGroupCsvRows.filter((r) => r.csvStatus === "ready").length} Group${bulkGroupCsvRows.filter((r) => r.csvStatus === "ready").length === 1 ? "" : "s"}`}
+              </button>
+              <button type="button" onClick={() => setShowBulkGroupForm(false)}
                 className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
                 Close
               </button>
