@@ -23,11 +23,6 @@ describe("POST /api/portal/log-session", () => {
     expect((await POST(jsonRequest(URL, { ...VALID_BODY, type: "Coffee" }))).status).toBe(400);
   });
 
-  test("400 when no videos are attached", async () => {
-    const res = await POST(jsonRequest(URL, { ...VALID_BODY, videos: [] }));
-    expect(res.status).toBe(400);
-  });
-
   test("400 when a video is missing a url or has an invalid angle", async () => {
     const res = await POST(jsonRequest(URL, { ...VALID_BODY, videos: [{ angle: "bogus", url: "https://x" }] }));
     expect(res.status).toBe(400);
@@ -97,6 +92,25 @@ describe("POST /api/portal/log-session", () => {
     expect(res.status).toBe(403);
     expect(body.error).toMatch(/used all 2 of your self-logged sessions/);
     expect(routeMockState.lastServiceClient!.tables.sessions.insert).not.toHaveBeenCalled();
+  });
+
+  // A Warm-up / Conditioning or Fitness Assessment session has no bowling action to analyze —
+  // a video is optional here, same as when a coach logs a session in NewSessionForm.
+  test("200 when no video is attached (e.g. a warm-up/conditioning session)", async () => {
+    routeMockState.cookieUser = rawUser({ role: "player", player_id: "p1" });
+    routeMockState.tableResponses = {
+      players: { data: { id: "p1", sub_plan: "Player Pro" }, error: null },
+      plans: { data: [PRO_PLAN], error: null },
+      sessions: { data: [], error: null },
+    };
+
+    const res = await POST(jsonRequest(URL, { ...VALID_BODY, type: "Warm-up / Conditioning", videos: [] }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.xpEarned).toBe(50);
+    const client = routeMockState.lastServiceClient!;
+    expect(client.tables.sessions.insert).toHaveBeenCalledWith(expect.objectContaining({ videos: [] }));
   });
 
   test("a parent account can also self-log for their child", async () => {

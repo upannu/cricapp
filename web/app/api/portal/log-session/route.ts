@@ -31,9 +31,12 @@ export async function POST(request: Request) {
   if (!date || !type || !BOOKING_TYPES.includes(type as BookingType)) {
     return NextResponse.json({ error: "A valid date and session type are required." }, { status: 400 });
   }
-  if (!Array.isArray(videos) || videos.length === 0 || videos.some((v) => !v.url || !["front", "side", "back"].includes(v.angle ?? ""))) {
-    return NextResponse.json({ error: "At least one uploaded camera angle is required." }, { status: 400 });
+  // A video is optional here, same as a coach logging a session in NewSessionForm — not every
+  // session type (Warm-up / Conditioning, Fitness Assessment) has a bowling action to analyze.
+  if (videos !== undefined && (!Array.isArray(videos) || videos.some((v) => !v.url || !["front", "side", "back"].includes(v.angle ?? "")))) {
+    return NextResponse.json({ error: "Each uploaded video must have a valid camera angle." }, { status: 400 });
   }
+  const safeVideos = videos ?? [];
   if (rpe != null && (typeof rpe !== "number" || rpe < 1 || rpe > 10)) {
     return NextResponse.json({ error: "RPE must be between 1 and 10." }, { status: 400 });
   }
@@ -87,11 +90,11 @@ export async function POST(request: Request) {
   const sessionId = `sess_${Date.now()}`;
   // Same XP formula as a coach-logged session (NewSessionForm) — self-logging shouldn't earn
   // more or less than the equivalent coach-run one.
-  const xpEarned = 50 + videos.length * 20;
+  const xpEarned = 50 + safeVideos.length * 20;
 
   const { error: insertError } = await supabase.from("sessions").insert({
     id: sessionId, player_id: playerId, date, type, notes: notes ?? "",
-    videos: videos.map((v) => ({
+    videos: safeVideos.map((v) => ({
       angle: v.angle, label: v.label ?? "", url: v.url,
       width: v.width, height: v.height, durationSec: v.durationSec, fps: v.fps ?? null, transcoded: v.transcoded,
     })),

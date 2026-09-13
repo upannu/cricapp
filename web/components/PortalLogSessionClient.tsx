@@ -43,7 +43,7 @@ export function PortalLogSessionClient() {
   const [submitting, setSubmitting] = useState(false);
   const [submitStage, setSubmitStage] = useState("");
   const [submitError, setSubmitError] = useState("");
-  const [result, setResult] = useState<{ xpEarned: number; selfLogRemaining: number; reportError: string | null } | null>(null);
+  const [result, setResult] = useState<{ xpEarned: number; selfLogRemaining: number; reportError: string | null; hadVideo: boolean } | null>(null);
 
   useEffect(() => {
     if (!user?.playerId) return;
@@ -54,7 +54,6 @@ export function PortalLogSessionClient() {
     });
   }, [user]);
 
-  const selectedCount = Object.values(angles).filter((a) => a.file && a.status !== "invalid").length;
   const isBusy = Object.values(angles).some((a) => a.status === "checking" || a.status === "transcoding" || a.status === "uploading");
   const hasInvalid = Object.values(angles).some((a) => a.status === "invalid");
 
@@ -86,7 +85,6 @@ export function PortalLogSessionClient() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!player) return;
-    if (selectedCount === 0) { setSubmitError("Select at least one camera angle."); return; }
     if (hasInvalid) { setSubmitError("Fix or remove the flagged video before saving."); return; }
     if (Object.values(angles).some((a) => a.status === "checking")) { setSubmitError("Still checking video quality — please wait a moment."); return; }
 
@@ -127,20 +125,23 @@ export function PortalLogSessionClient() {
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error ?? "Failed to save your session.");
 
-      // Best-effort — a report failure shouldn't undo the session that's already saved.
+      // Best-effort, and only attempted at all when there's a video to analyze — a Warm-up /
+      // Conditioning or Fitness Assessment session has nothing for the pipeline to work with.
       let reportError: string | null = null;
-      try {
-        const session: Session = {
-          id: data.sessionId, playerId: player.id, date: sessionDate, type: sessionType,
-          notes, videos, ballSpeedKmh: null, frontKneeAngleDeg: null, xpEarned: data.xpEarned,
-          rpe, coachId: null,
-        };
-        await runReportPipeline({ session, player, academies, onProgress: setSubmitStage });
-      } catch (err) {
-        reportError = (err as { message?: string })?.message ?? String(err);
+      if (videos.length > 0) {
+        try {
+          const session: Session = {
+            id: data.sessionId, playerId: player.id, date: sessionDate, type: sessionType,
+            notes, videos, ballSpeedKmh: null, frontKneeAngleDeg: null, xpEarned: data.xpEarned,
+            rpe, coachId: null,
+          };
+          await runReportPipeline({ session, player, academies, onProgress: setSubmitStage });
+        } catch (err) {
+          reportError = (err as { message?: string })?.message ?? String(err);
+        }
       }
 
-      setResult({ xpEarned: data.xpEarned, selfLogRemaining: data.selfLogRemaining, reportError });
+      setResult({ xpEarned: data.xpEarned, selfLogRemaining: data.selfLogRemaining, reportError, hadVideo: videos.length > 0 });
     } catch (err) {
       setSubmitError((err as { message?: string })?.message ?? String(err));
     } finally {
@@ -174,8 +175,10 @@ export function PortalLogSessionClient() {
         <p className="text-zinc-400 text-sm mb-1">+{result.xpEarned} XP · {result.selfLogRemaining} self-logged session{result.selfLogRemaining === 1 ? "" : "s"} left this month</p>
         {result.reportError ? (
           <p className="text-amber text-sm mt-4">Report generation did not complete: {result.reportError}. Your session is still saved — a coach can generate the report later from Sessions.</p>
-        ) : (
+        ) : result.hadVideo ? (
           <p className="text-pace-green text-sm mt-4">Your AI biomechanics report is ready in Reports.</p>
+        ) : (
+          <p className="text-zinc-400 text-sm mt-4">No video was attached, so there&apos;s no AI report for this one — add a delivery video next time you want your action analyzed.</p>
         )}
         <button type="button" onClick={() => router.push("/portal")}
           className="mt-6 px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
@@ -189,7 +192,7 @@ export function PortalLogSessionClient() {
     <div className="max-w-2xl mx-auto px-6 py-8">
       <h1 className="text-xl font-bold text-white mb-1">Log My Own Session</h1>
       <p className="text-zinc-400 text-sm mb-6">
-        No coach available right now? Upload your own delivery video(s) and we&apos;ll still run the AI biomechanics analysis.
+        No coach available right now? Log any session yourself — add a delivery video too if you want an AI biomechanics analysis.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -227,8 +230,8 @@ export function PortalLogSessionClient() {
         </div>
 
         <div className="bg-surface rounded-2xl p-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Camera Angles</p>
-          <p className="text-xs text-zinc-500 mb-4">Side-on gives the most accurate analysis — front and back are optional extras.</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Camera Angles (optional)</p>
+          <p className="text-xs text-zinc-500 mb-4">Only needed if you want an AI biomechanics report — skip this for a Warm-up / Conditioning or Fitness Assessment session. Side-on gives the most accurate analysis when you do add one.</p>
           <div className="space-y-3">
             {CAMERA_ANGLES.map((cam) => {
               const angleState = angles[cam.id];
