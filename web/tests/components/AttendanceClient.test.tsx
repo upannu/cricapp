@@ -194,4 +194,62 @@ describe("AttendanceClient", () => {
     expect(await screen.findByText("U16 Friday Nets")).toBeInTheDocument();
     expect(screen.queryByText("U14 Tuesday Nets")).not.toBeInTheDocument();
   });
+
+  // Lets an academy pre-create several squad training sessions (e.g. one per age group) in one
+  // upload instead of the New Group form one at a time.
+  test("bulk-imports group sessions from a CSV, resolving each row's academy from its matched coach", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([
+      makeCoach({ id: "coach-1", name: "Coach Dan", email: "dan@example.com", academyId: "academy-1" }),
+      makeCoach({ id: "coach-2", name: "Jane Coach", email: "jane@example.com", academyId: "academy-2" }),
+    ]);
+    upsertGroupSession.mockResolvedValue(undefined);
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByRole("button", { name: "Bulk Import Groups" }));
+
+    const csv = "name,dayOfWeek,time,coach,location,durationMins\n"
+      + "U14 Tuesday Nets,Tuesday,16:00,dan@example.com,Main Oval,60\n"
+      + "U13 Thursday Nets,Thu,17:00,Jane Coach,,45\n";
+    const file = new File([csv], "groups.csv", { type: "text/csv" });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(fileInput, file);
+
+    await user.click(await screen.findByRole("button", { name: "Create 2 Groups" }));
+
+    expect(upsertGroupSession).toHaveBeenCalledWith(expect.objectContaining({
+      academy_id: "academy-1", coach_id: "coach-1", name: "U14 Tuesday Nets",
+      session_type: "Net Session", day_of_week: 2, time: "16:00",
+      duration_mins: 60, location: "Main Oval", active: true,
+    }));
+    expect(upsertGroupSession).toHaveBeenCalledWith(expect.objectContaining({
+      academy_id: "academy-2", coach_id: "coach-2", name: "U13 Thursday Nets",
+      day_of_week: 4, time: "17:00", duration_mins: 45, location: null,
+    }));
+    expect(await screen.findByText(/Created 2 group sessions/)).toBeInTheDocument();
+    expect(await screen.findByText("U14 Tuesday Nets")).toBeInTheDocument();
+    expect(screen.getByText("U13 Thursday Nets")).toBeInTheDocument();
+  });
+
+  test("flags an unmatched coach and an invalid day without blocking the rest of the file", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchCoaches.mockResolvedValue([makeCoach({ id: "coach-1", name: "Coach Dan", academyId: "academy-1" })]);
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByRole("button", { name: "Bulk Import Groups" }));
+
+    const csv = "name,dayOfWeek,time,coach\n"
+      + "U14 Tuesday Nets,Tuesday,16:00,Coach Dan\n"
+      + "Unknown Coach Session,Tuesday,16:00,Nobody\n"
+      + "Bad Day Session,Notaday,16:00,Coach Dan\n";
+    const file = new File([csv], "groups.csv", { type: "text/csv" });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(fileInput, file);
+
+    expect(await screen.findByText("Coach not found")).toBeInTheDocument();
+    expect(screen.getByText(/Invalid day/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create 1 Group" })).toBeInTheDocument();
+  });
 });
