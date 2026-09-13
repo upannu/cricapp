@@ -162,6 +162,25 @@ export function buildBookingEmailHtml(opts: {
   });
 }
 
+/** Sent right after a new Membership (SessionPack) is created — see api/packs/notify-created.
+ * Same shell/details-box shape as buildBookingEmailHtml, but its own heading/CTA since a
+ * membership isn't a booking (points at /portal, where the family can actually pay). */
+export function buildPackEmailHtml(opts: {
+  appUrl: string;
+  heading: string;
+  intro: string;
+  rows: Array<{ label: string; value: string }>;
+}): string {
+  return shell({
+    appUrl: opts.appUrl,
+    heading: opts.heading,
+    intro: opts.intro,
+    contentHtml: infoBox("Membership details", detailRowsHtml(opts.rows)),
+    ctaLabel: "View in CRIC HQ",
+    ctaHref: `${opts.appUrl}/portal`,
+  });
+}
+
 /** Sent to a *player's* registered email (not the account email the signer-upper typed for
  * themselves) when a player/parent signup's lookup email matches an existing player record — see
  * api/request-signup-link/route.ts. The account already exists (unconfirmed) by the time this

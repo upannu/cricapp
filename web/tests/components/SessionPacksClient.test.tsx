@@ -48,6 +48,7 @@ function setupDefaults() {
   upsertSessionPack.mockClear();
   updatePackAgreedDays.mockClear();
   insertSessionPacks.mockClear().mockResolvedValue(undefined);
+  global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true }) }) as unknown as typeof fetch;
 }
 
 describe("SessionPacksClient", () => {
@@ -201,6 +202,40 @@ describe("SessionPacksClient", () => {
 
     await waitFor(() => expect(setGroupSessionRoster).toHaveBeenCalledWith("gs1", ["p1"]));
     expect(upsertSessionPack).toHaveBeenCalledWith(expect.objectContaining({ agreed_days: ["Tue"] }));
+    expect(global.fetch).toHaveBeenCalledWith("/api/packs/notify-created", expect.objectContaining({
+      body: expect.stringContaining('"packId"'),
+    }));
+  });
+
+  test("skips the payment-due notification for a fee-waived membership", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "academy-1", name: "Fast Bowlers Academy", planId: "plan-1" })]);
+    fetchActivePlans.mockResolvedValue([{
+      id: "plan-1", slug: "waived", name: "Waived Plan", audience: "academy", billingType: "subscription",
+      billingInterval: "month", priceAud: 0, seatCap: null, accessDurationMonths: null, includedNotes: null,
+      waivesSessionFees: true, platformAdminOnly: false, platformFeePercent: 10, active: true, sortOrder: 0,
+      sessionsPerMonthLimit: null, selfLogSessionsPerMonthLimit: 4, chatMessagesPerDayLimit: null,
+      aiReportsEnabled: true, marketplaceEnabled: true, locked: true,
+    }]);
+    fetchGroupSessions.mockResolvedValue([
+      makeGroupSession({ id: "gs1", academyId: "academy-1", name: "U14 Tuesday Nets", dayOfWeek: 2, time: "16:00", playerIds: [] }),
+    ]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+    await user.click(screen.getAllByRole("button", { name: "+ New Membership" })[0]);
+
+    const selects = screen.getAllByRole("combobox");
+    await user.selectOptions(selects[0], "p1");
+    await user.selectOptions(selects[1], "academy-1");
+    await screen.findByText("U14 Tuesday Nets");
+    await user.click(screen.getByText("U14 Tuesday Nets"));
+    await user.click(screen.getByRole("button", { name: "Create Membership" }));
+
+    await waitFor(() => expect(upsertSessionPack).toHaveBeenCalled());
+    expect(global.fetch).not.toHaveBeenCalledWith("/api/packs/notify-created", expect.anything());
   });
 
   test("shows an empty state with a link to Attendance when the selected academy has no active squad training sessions", async () => {

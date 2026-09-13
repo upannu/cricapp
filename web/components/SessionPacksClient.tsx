@@ -412,6 +412,16 @@ export function SessionPacksClient() {
         agreed_days: p.agreedDays,
       })));
 
+      // Best-effort, one per newly created pack — a failed notification should never undo or
+      // error the import itself. Skipped entirely when the academy waives fees (nothing owed).
+      if (!waived) {
+        for (const p of newPacks) {
+          fetch("/api/packs/notify-created", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ packId: p.id }),
+          }).catch(() => {});
+        }
+      }
+
       // Roster sync — every imported player needs to actually be on each selected squad
       // training session's roster, not just have a pack that claims those days.
       for (const gsId of bulkSettings.groupSessionIds) {
@@ -494,6 +504,14 @@ export function SessionPacksClient() {
       payment_status: paymentStatus, payment_due_date: newPack.paymentDueDate,
       agreed_days: newPack.agreedDays,
     });
+
+    // Best-effort — a failed notification email/SMS should never undo or error the pack itself.
+    // Skipped for a waived pack: nothing's actually owed, so there's nothing to notify about.
+    if (!waived) {
+      fetch("/api/packs/notify-created", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ packId: newPack.id }),
+      }).catch(() => {});
+    }
 
     // Roster sync — the player needs to actually be on each selected squad training session's
     // roster, not just have a pack that claims those days (see groupSessionsForAcademy).
