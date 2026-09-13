@@ -818,6 +818,54 @@ export async function saveAttendance(
   }
 }
 
+/**
+ * Cancels an entire occurrence at once (e.g. the coach is away) — unlike saveAttendance, this
+ * always applies to every rostered player, never one at a time. Nobody should be charged a
+ * session for a slot that never actually ran: a player not yet recorded for this date gets a
+ * `Canceled` row with no pack_id (no session was ever drawn down); a player already recorded
+ * (and so already drew one down) gets that session credited back via the same session_credits
+ * mechanism as the manual "Credit a Session" button, so the net effect on their remaining count
+ * is zero either way.
+ */
+export async function cancelOccurrence(
+  groupSessionId: string,
+  date: string,
+  playerIds: string[],
+): Promise<void> {
+  const sb = createClient();
+
+  let occurrenceId: string;
+  const { data: existingOcc } = await sb.from("group_session_occurrences").select("id")
+    .eq("group_session_id", groupSessionId).eq("date", date).maybeSingle();
+  if (existingOcc) {
+    occurrenceId = existingOcc.id;
+  } else {
+    occurrenceId = `gso_${groupSessionId}_${date}`;
+    const { error } = await sb.from("group_session_occurrences").insert({ id: occurrenceId, group_session_id: groupSessionId, date });
+    if (error) throw error;
+  }
+
+  const { data: existingRecords } = await sb.from("attendance_records").select("*").eq("occurrence_id", occurrenceId);
+  const existingByPlayer: Record<string, DbAttendanceRecord> = {};
+  for (const r of (existingRecords ?? []) as DbAttendanceRecord[]) existingByPlayer[r.player_id] = r;
+
+  for (const playerId of playerIds) {
+    const existing = existingByPlayer[playerId];
+
+    if (existing?.pack_id) {
+      const { data: pack } = await sb.from("session_packs").select("id, session_credits").eq("id", existing.pack_id).maybeSingle();
+      if (pack) await sb.from("session_packs").update({ session_credits: pack.session_credits + 1 }).eq("id", pack.id);
+    }
+
+    const id = existing?.id ?? `att_${occurrenceId}_${playerId}`;
+    const { error } = await sb.from("attendance_records").upsert({
+      id, occurrence_id: occurrenceId, player_id: playerId, status: "Canceled",
+      pack_id: existing?.pack_id ?? null, recorded_by: existing?.recorded_by ?? "manual",
+    });
+    if (error) throw error;
+  }
+}
+
 /** Every attendance_records row that actually drew down one of the given packs — the "Pack
  * Activity" list on Session Packs, newest first. A plain two-query join (not a nested Supabase
  * select) to match every other multi-table fetch in this file. */

@@ -261,7 +261,9 @@ export interface GroupSession {
   playerIds: string[];
 }
 
-export type AttendanceStatus = 'Present' | 'Absent';
+/** 'Canceled' means the whole occurrence never ran (e.g. the coach was away) — set on every
+ * rostered player at once via cancelOccurrence, never per-player like Present/Absent. */
+export type AttendanceStatus = 'Present' | 'Absent' | 'Canceled';
 
 /** Which mechanism actually spent the pack credit for a given attendance_records row — set only
  * once, at creation (a later Present/Absent edit never re-attributes it). Null on rows recorded

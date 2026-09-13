@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 import {
   fetchGroupSessions, upsertGroupSession, setGroupSessionRoster,
   fetchPlayers, fetchCoaches, fetchSessionPacks, fetchPastOccurrences,
-  fetchAttendanceForDate, saveAttendance,
+  fetchAttendanceForDate, saveAttendance, cancelOccurrence,
 } from "@/lib/db";
 import { matchPlayerByNameOrEmail, occurrenceDatesInRange } from "@/lib/utils";
 import type { GroupSession, Player, Coach, SessionPack, BookingType, AttendanceStatus, AttendanceRecord } from "@/lib/types";
@@ -126,6 +126,8 @@ export function AttendanceClient() {
   const [attendanceDraft, setAttendanceDraft] = useState<Record<string, AttendanceStatus>>({});
   const [rosterPacks, setRosterPacks] = useState<SessionPack[]>([]);
   const [savingAttendance, setSavingAttendance] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [cancelingSession, setCancelingSession] = useState(false);
   const [savedDate, setSavedDate] = useState<string | null>(null);
 
   // Roster CSV import — inside the create/edit group modal
@@ -540,6 +542,7 @@ export function AttendanceClient() {
 
   async function openAttendance(group: GroupSession, date: string) {
     setSavedDate(null);
+    setShowCancelConfirm(false);
     setAttendanceFor({ group, date });
     const [existing, packs] = await Promise.all([
       fetchAttendanceForDate(group.id, date),
@@ -571,6 +574,24 @@ export function AttendanceClient() {
       alert((err as { message?: string })?.message ?? String(err));
     }
     setSavingAttendance(false);
+  }
+
+  // The coach is away and the whole session never happened — every rostered player is marked
+  // Canceled and made whole (a fresh credit, or a refunded one if attendance was already taken),
+  // never Absent, which would otherwise silently cost them a session for no fault of their own.
+  async function handleCancelSession() {
+    if (!attendanceFor) return;
+    setCancelingSession(true);
+    try {
+      await cancelOccurrence(attendanceFor.group.id, attendanceFor.date, attendanceFor.group.playerIds);
+      const occ = await fetchPastOccurrences(attendanceFor.group.id);
+      setPastDates((prev) => ({ ...prev, [attendanceFor.group.id]: occ }));
+      setAttendanceFor(null);
+      setShowCancelConfirm(false);
+    } catch (err) {
+      alert((err as { message?: string })?.message ?? String(err));
+    }
+    setCancelingSession(false);
   }
 
   const upcomingByGroup = useMemo(() => {
@@ -902,6 +923,30 @@ export function AttendanceClient() {
                 <p className="text-zinc-500 text-sm text-center py-4">No players in this group&apos;s roster yet — edit the group to add some.</p>
               )}
             </div>
+            {attendanceFor.group.playerIds.length > 0 && (
+              <div className="px-6 pb-2 flex justify-end">
+                {showCancelConfirm ? (
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <span className="text-xs text-zinc-300">
+                      Cancel this session for all {attendanceFor.group.playerIds.length} player{attendanceFor.group.playerIds.length === 1 ? "" : "s"}? Nobody will be charged a session.
+                    </span>
+                    <button type="button" onClick={handleCancelSession} disabled={cancelingSession}
+                      className="px-3 py-1.5 text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 cursor-pointer transition-colors disabled:opacity-60 flex-shrink-0">
+                      {cancelingSession ? "Canceling…" : "Yes, cancel session"}
+                    </button>
+                    <button type="button" onClick={() => setShowCancelConfirm(false)}
+                      className="text-xs text-zinc-500 hover:text-white cursor-pointer flex-shrink-0">
+                      Never mind
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setShowCancelConfirm(true)}
+                    className="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors cursor-pointer">
+                    Cancel Session (coach unavailable)
+                  </button>
+                )}
+              </div>
+            )}
             <div className="flex items-center gap-3 px-6 pb-6 pt-2">
               <button type="button" onClick={handleSaveAttendance} disabled={savingAttendance || attendanceFor.group.playerIds.length === 0}
                 className={`px-6 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer disabled:opacity-60 ${
