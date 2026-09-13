@@ -65,7 +65,9 @@ describe("PortalLogSessionClient", () => {
     expect(screen.getByText("Back Camera")).toBeInTheDocument();
   });
 
-  test("blocks submitting with no video selected", async () => {
+  // e.g. a Warm-up / Conditioning or Fitness Assessment session — nothing for the pipeline to
+  // analyze, so it must save without a video and without attempting a report.
+  test("allows submitting with no video selected, and skips the report pipeline", async () => {
     const user = userEvent.setup();
     setupDefaults();
     render(<PortalLogSessionClient />);
@@ -73,8 +75,11 @@ describe("PortalLogSessionClient", () => {
 
     await user.click(screen.getByRole("button", { name: "Save Session" }));
 
-    expect(screen.getByText("Select at least one camera angle.")).toBeInTheDocument();
-    expect(global.fetch).not.toHaveBeenCalled();
+    expect(await screen.findByText("Session saved")).toBeInTheDocument();
+    expect(runReportPipeline).not.toHaveBeenCalled();
+    const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body);
+    expect(body.videos).toEqual([]);
+    expect(screen.getByText(/No video was attached/)).toBeInTheDocument();
   });
 
   test("uploads the selected angle, saves the session, runs the report pipeline, and shows the result", async () => {
