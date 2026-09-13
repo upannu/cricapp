@@ -1,17 +1,22 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SessionPacksClient } from "@/components/SessionPacksClient";
-import { makeAuthUser, makePlayer, makeSessionPack } from "../mocks/fixtures";
+import { makeAuthUser, makePlayer, makeSessionPack, makeGroupSession, makeAcademy } from "../mocks/fixtures";
 
-const { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, fetchPackActivity } = vi.hoisted(() => ({
+const {
+  fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, fetchPackActivity,
+  fetchGroupSessions, setGroupSessionRoster, upsertSessionPack, updatePackAgreedDays, insertSessionPacks,
+} = vi.hoisted(() => ({
   fetchSessionPacks: vi.fn(), fetchPlayers: vi.fn(), fetchAcademies: vi.fn(),
   fetchCoaches: vi.fn(), fetchBookings: vi.fn(), fetchActivePlans: vi.fn(), fetchPackFeeDues: vi.fn(), fetchPackActivity: vi.fn(),
+  fetchGroupSessions: vi.fn(), setGroupSessionRoster: vi.fn(),
+  upsertSessionPack: vi.fn(), updatePackAgreedDays: vi.fn(), insertSessionPacks: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
   fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, fetchPackActivity,
-  upsertSessionPack: vi.fn(), updatePackPaymentStatus: vi.fn(), updatePackAgreedDays: vi.fn(), markPackPaid: vi.fn(),
-  insertSessionPacks: vi.fn(),
+  fetchGroupSessions, setGroupSessionRoster, upsertSessionPack, updatePackAgreedDays, insertSessionPacks,
+  updatePackPaymentStatus: vi.fn(), markPackPaid: vi.fn(),
 }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
@@ -38,6 +43,11 @@ function setupDefaults() {
   fetchSessionPacks.mockResolvedValue([]);
   fetchPackFeeDues.mockResolvedValue([]);
   fetchPackActivity.mockResolvedValue([]);
+  fetchGroupSessions.mockResolvedValue([]);
+  setGroupSessionRoster.mockClear().mockResolvedValue(undefined);
+  upsertSessionPack.mockClear();
+  updatePackAgreedDays.mockClear();
+  insertSessionPacks.mockClear().mockResolvedValue(undefined);
 }
 
 describe("SessionPacksClient", () => {
@@ -158,5 +168,75 @@ describe("SessionPacksClient", () => {
 
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.queryByText("Bob Seamer")).not.toBeInTheDocument();
+  });
+
+  // A Membership must bind to a real, pre-created squad training session (not a freeform
+  // weekday pick) — see groupSessionsForAcademy's own doc comment for why.
+  test("New Membership form lists the academy's real squad training sessions, requires picking one, and syncs the player onto its roster on save", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "academy-1", name: "Fast Bowlers Academy" })]);
+    fetchGroupSessions.mockResolvedValue([
+      makeGroupSession({ id: "gs1", academyId: "academy-1", name: "U14 Tuesday Nets", dayOfWeek: 2, time: "16:00", playerIds: [] }),
+    ]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+    await user.click(screen.getAllByRole("button", { name: "+ New Membership" })[0]);
+
+    const selects = screen.getAllByRole("combobox");
+    await user.selectOptions(selects[0], "p1");
+    await user.selectOptions(selects[1], "academy-1");
+
+    expect(await screen.findByText("U14 Tuesday Nets")).toBeInTheDocument();
+    expect(screen.getByText(/Tue · 16:00/)).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText("0.00"), "20");
+    await user.click(screen.getByRole("button", { name: "Create Membership" }));
+    expect(screen.getByText("Please select at least one squad training session.")).toBeInTheDocument();
+
+    await user.click(screen.getByText("U14 Tuesday Nets"));
+    await user.click(screen.getByRole("button", { name: "Create Membership" }));
+
+    await waitFor(() => expect(setGroupSessionRoster).toHaveBeenCalledWith("gs1", ["p1"]));
+    expect(upsertSessionPack).toHaveBeenCalledWith(expect.objectContaining({ agreed_days: ["Tue"] }));
+  });
+
+  test("shows an empty state with a link to Attendance when the selected academy has no active squad training sessions", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "academy-1", name: "Fast Bowlers Academy" })]);
+    fetchGroupSessions.mockResolvedValue([]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+    await user.click(screen.getAllByRole("button", { name: "+ New Membership" })[0]);
+
+    const selects = screen.getAllByRole("combobox");
+    await user.selectOptions(selects[1], "academy-1");
+
+    expect(await screen.findByText(/no active squad training sessions yet/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Create one in Attendance/ })).toHaveAttribute("href", "/attendance");
+  });
+
+  test("toggling a squad training session on an existing membership syncs the roster and recomputes agreedDays", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "academy-1", name: "Fast Bowlers Academy" })]);
+    fetchGroupSessions.mockResolvedValue([
+      makeGroupSession({ id: "gs1", academyId: "academy-1", name: "U14 Tuesday Nets", dayOfWeek: 2, time: "16:00", playerIds: [] }),
+    ]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", academyId: "academy-1", agreedDays: [] })]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByText("U14 Tuesday Nets"));
+
+    await waitFor(() => expect(setGroupSessionRoster).toHaveBeenCalledWith("gs1", ["p1"]));
+    expect(updatePackAgreedDays).toHaveBeenCalledWith("pack1", ["Tue"]);
   });
 });
