@@ -58,6 +58,12 @@ export interface Plan {
    * on the three fixed tier plans (slug `free`/`player-pro`/`coach-pro`); see [[PlanTier]]. */
   sessionsPerMonthLimit: number | null;
   chatMessagesPerDayLimit: number | null;
+  /** How many sessions a player may log *themselves* per month with no coach involved (see
+   * app/api/portal/log-session). Deliberately has no "unlimited" (null) option, unlike every
+   * other cap on this type — coachLogged sessions are naturally rate-limited by a real coach's
+   * time; self-logged ones aren't, so this is the only thing standing between "Player Pro" and
+   * unbounded AI-report spend. Always a real number, admin-adjustable per plan. */
+  selfLogSessionsPerMonthLimit: number;
   aiReportsEnabled: boolean;
   marketplaceEnabled: boolean;
   /** True only for the three seeded tier plans — their slug/audience/billing type can't be

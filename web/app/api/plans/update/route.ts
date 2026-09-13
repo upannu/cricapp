@@ -22,6 +22,7 @@ interface PlanInput {
   active?: boolean;
   sortOrder?: number;
   sessionsPerMonthLimit?: number | null;
+  selfLogSessionsPerMonthLimit?: number;
   chatMessagesPerDayLimit?: number | null;
   aiReportsEnabled?: boolean;
   marketplaceEnabled?: boolean;
@@ -50,6 +51,11 @@ export async function POST(request: Request) {
   }
   if (input.sessionsPerMonthLimit != null && (typeof input.sessionsPerMonthLimit !== "number" || input.sessionsPerMonthLimit < 0)) {
     return NextResponse.json({ error: "Sessions/month limit must be a non-negative number, or left blank for unlimited." }, { status: 400 });
+  }
+  // Unlike every other cap here, this one has no "blank = unlimited" option — a self-logged
+  // session has no coach naturally rate-limiting it, so it must always resolve to a real number.
+  if (input.selfLogSessionsPerMonthLimit !== undefined && (typeof input.selfLogSessionsPerMonthLimit !== "number" || input.selfLogSessionsPerMonthLimit < 0)) {
+    return NextResponse.json({ error: "Self-logged sessions/month limit must be a non-negative number — it can't be left unlimited." }, { status: 400 });
   }
   if (input.chatMessagesPerDayLimit != null && (typeof input.chatMessagesPerDayLimit !== "number" || input.chatMessagesPerDayLimit < 0)) {
     return NextResponse.json({ error: "Chat messages/day limit must be a non-negative number, or left blank for unlimited." }, { status: 400 });
@@ -98,6 +104,7 @@ export async function POST(request: Request) {
     active: input.active ?? true,
     sort_order: input.sortOrder ?? 0,
     sessions_per_month_limit: input.sessionsPerMonthLimit ?? null,
+    self_log_sessions_per_month_limit: input.selfLogSessionsPerMonthLimit ?? 4,
     chat_messages_per_day_limit: input.chatMessagesPerDayLimit ?? null,
     ai_reports_enabled: input.aiReportsEnabled ?? true,
     marketplace_enabled: input.marketplaceEnabled ?? true,

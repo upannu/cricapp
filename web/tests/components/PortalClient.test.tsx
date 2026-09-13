@@ -68,6 +68,20 @@ describe("PortalClient", () => {
     expect(recordTipView).toHaveBeenCalledWith("p1");
   });
 
+  // The self-serve escape hatch for a coachless player whose Player Pro subscription otherwise
+  // has no way to actually get used — always shown, not conditional on having no coach, so anyone
+  // without a coach handy right now can still reach it.
+  test("links to the self-log-session page", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: "p1" }) });
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+
+    render(<PortalClient />);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.getByRole("link", { name: /Log My Own Session/ })).toHaveAttribute("href", "/portal/log-session");
+  });
+
   test("shows today's tip when one is returned", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "parent", playerId: "p1" }) });

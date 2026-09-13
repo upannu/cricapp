@@ -178,6 +178,20 @@ export function PortalClient() {
         <BadgeStrip player={player} reportCount={reports.length} />
       </div>
 
+      {/* No coach available right now (or just want to record one yourself) — upload your own
+          delivery video and still get the AI biomechanics report, capped separately from a normal
+          coach-logged session (see selfLogSessionsLimitForPlan). */}
+      <Link href="/portal/log-session"
+        className="block bg-surface rounded-2xl p-5 border border-pace-green/30 hover:border-pace-green/60 transition-colors">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-white font-semibold text-sm">Log My Own Session</p>
+            <p className="text-zinc-500 text-xs mt-0.5">No coach around? Upload your own delivery video for AI analysis.</p>
+          </div>
+          <span className="text-pace-green text-sm font-bold flex-shrink-0">+ Log Session →</span>
+        </div>
+      </Link>
+
       {/* Coach + next session — the two things a parent/player actually opens this page to check */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-surface rounded-2xl p-5">
