@@ -5,16 +5,16 @@ import { SessionPacksClient } from "@/components/SessionPacksClient";
 import { makeAuthUser, makePlayer, makeSessionPack, makeGroupSession, makeAcademy } from "../mocks/fixtures";
 
 const {
-  fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, fetchPackActivity,
+  fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, fetchPackFeeDues,
   fetchGroupSessions, setGroupSessionRoster, upsertSessionPack, updatePackAgreedDays, insertSessionPacks,
 } = vi.hoisted(() => ({
   fetchSessionPacks: vi.fn(), fetchPlayers: vi.fn(), fetchAcademies: vi.fn(),
-  fetchCoaches: vi.fn(), fetchBookings: vi.fn(), fetchActivePlans: vi.fn(), fetchPackFeeDues: vi.fn(), fetchPackActivity: vi.fn(),
+  fetchCoaches: vi.fn(), fetchActivePlans: vi.fn(), fetchPackFeeDues: vi.fn(),
   fetchGroupSessions: vi.fn(), setGroupSessionRoster: vi.fn(),
   upsertSessionPack: vi.fn(), updatePackAgreedDays: vi.fn(), insertSessionPacks: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
-  fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, fetchPackActivity,
+  fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, fetchPackFeeDues,
   fetchGroupSessions, setGroupSessionRoster, upsertSessionPack, updatePackAgreedDays, insertSessionPacks,
   updatePackPaymentStatus: vi.fn(), markPackPaid: vi.fn(),
 }));
@@ -22,27 +22,27 @@ vi.mock("@/lib/db", () => ({
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
 
-const { routerReplace, searchParamsGet } = vi.hoisted(() => ({
+const { routerPush, routerReplace, searchParamsGet } = vi.hoisted(() => ({
+  routerPush: vi.fn(),
   routerReplace: vi.fn(),
   searchParamsGet: vi.fn((_key: string) => null as string | null),
 }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: routerReplace }),
+  useRouter: () => ({ push: routerPush, replace: routerReplace }),
   useSearchParams: () => ({ get: searchParamsGet }),
 }));
 
 function setupDefaults() {
+  routerPush.mockClear();
   routerReplace.mockClear();
   searchParamsGet.mockReturnValue(null);
   useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
   fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
   fetchAcademies.mockResolvedValue([]);
   fetchCoaches.mockResolvedValue([]);
-  fetchBookings.mockResolvedValue([]);
   fetchActivePlans.mockResolvedValue([]);
   fetchSessionPacks.mockResolvedValue([]);
   fetchPackFeeDues.mockResolvedValue([]);
-  fetchPackActivity.mockResolvedValue([]);
   fetchGroupSessions.mockResolvedValue([]);
   setGroupSessionRoster.mockClear().mockResolvedValue(undefined);
   upsertSessionPack.mockClear();
@@ -58,7 +58,7 @@ describe("SessionPacksClient", () => {
 
     expect(await screen.findByRole("heading", { name: "Memberships" })).toBeInTheDocument();
     expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
-    expect(screen.getByText("No membership purchased")).toBeInTheDocument();
+    expect(screen.getByText("No Membership")).toBeInTheDocument();
   });
 
   test("shows membership details for a player with an active membership", async () => {
@@ -68,37 +68,7 @@ describe("SessionPacksClient", () => {
     render(<SessionPacksClient />);
 
     expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
-    expect(screen.queryByText("No membership purchased")).not.toBeInTheDocument();
-  });
-
-  // The "why did my balance drop" answer — every credit this pack has spent, and which of the
-  // three mechanisms (manual mark, CSV import, unattended cron) spent it.
-  test("shows Membership Activity with each entry's recorded-by attribution", async () => {
-    setupDefaults();
-    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", totalSessions: 10, sessionsUsed: 3 })]);
-    fetchPackActivity.mockResolvedValue([
-      { id: "att1", packId: "pack1", playerId: "p1", groupSessionId: "gs1", date: "2026-01-13", status: "Present", recordedBy: "manual" },
-      { id: "att2", packId: "pack1", playerId: "p1", groupSessionId: "gs1", date: "2026-01-06", status: "Absent", recordedBy: "auto-cron" },
-      { id: "att3", packId: "pack1", playerId: "p1", groupSessionId: "gs1", date: "2025-12-30", status: "Present", recordedBy: null },
-    ]);
-
-    render(<SessionPacksClient />);
-
-    expect(await screen.findByText("Membership Activity")).toBeInTheDocument();
-    expect(screen.getByText("Marked by coach")).toBeInTheDocument();
-    expect(screen.getByText("Auto (no-show)")).toBeInTheDocument();
-    expect(screen.getByText("Unattributed")).toBeInTheDocument();
-  });
-
-  test("shows an empty state when a membership has no activity recorded yet", async () => {
-    setupDefaults();
-    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", totalSessions: 10, sessionsUsed: 0 })]);
-    fetchPackActivity.mockResolvedValue([]);
-
-    render(<SessionPacksClient />);
-
-    expect(await screen.findByText("Membership Activity")).toBeInTheDocument();
-    expect(screen.getByText("No sessions drawn from this membership yet.")).toBeInTheDocument();
+    expect(screen.queryByText("No Membership")).not.toBeInTheDocument();
   });
 
   test("scopes the fetch to the academy_admin's own academy", async () => {
@@ -256,53 +226,61 @@ describe("SessionPacksClient", () => {
     expect(screen.getByRole("link", { name: /Create one in Attendance/ })).toHaveAttribute("href", "/attendance");
   });
 
-  test("toggling a squad training session on an existing membership syncs the roster and recomputes agreedDays", async () => {
+  // Existing-membership squad-training-session view/edit (read-only until Edit, roster diffing on
+  // toggle) now lives entirely on MembershipProfileClient's own View page — see
+  // tests/components/MembershipProfileClient.test.tsx for that coverage.
+
+  test("a row's Actions menu links View/Edit to the membership's own pages", async () => {
     const user = userEvent.setup();
     setupDefaults();
-    fetchAcademies.mockResolvedValue([makeAcademy({ id: "academy-1", name: "Fast Bowlers Academy" })]);
-    fetchGroupSessions.mockResolvedValue([
-      makeGroupSession({ id: "gs1", academyId: "academy-1", name: "U14 Tuesday Nets", dayOfWeek: 2, time: "16:00", playerIds: [] }),
-    ]);
-    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
-    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", academyId: "academy-1", agreedDays: [] })]);
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", paymentStatus: "Paid" })]);
 
     render(<SessionPacksClient />);
     await screen.findByText("Alice Bowler");
 
-    // Read-only until Edit is clicked — a bare checkbox in the summary card would let a stray
-    // click silently drop the player from a session's roster.
-    expect(screen.getByText("Not enrolled in any squad training session yet.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    await user.click(screen.getByText("U14 Tuesday Nets"));
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByRole("button", { name: "View" }));
+    expect(routerPush).toHaveBeenCalledWith("/session-packs/pack1");
 
-    await waitFor(() => expect(setGroupSessionRoster).toHaveBeenCalledWith("gs1", ["p1"]));
-    expect(updatePackAgreedDays).toHaveBeenCalledWith("pack1", ["Tue"]);
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    expect(routerPush).toHaveBeenCalledWith("/session-packs/pack1/edit");
   });
 
-  test("shows enrolled squad training sessions read-only until Edit is clicked, then Done returns to read-only", async () => {
+  test("Mark Paid (Cash) on a pending membership opens a confirm, then records payment", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", paymentStatus: "Pending" })]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByRole("button", { name: "Mark Paid (Cash)" }));
+
+    expect(await screen.findByText("Mark as Paid (Cash)?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Mark Paid" }));
+
+    await waitFor(() => expect(screen.queryByText("Mark as Paid (Cash)?")).not.toBeInTheDocument());
+  });
+
+  test("Renew Membership on an Exhausted pack prefills the New Membership form", async () => {
     const user = userEvent.setup();
     setupDefaults();
     fetchGroupSessions.mockResolvedValue([
       makeGroupSession({ id: "gs1", academyId: "academy-1", name: "U14 Tuesday Nets", dayOfWeek: 2, time: "16:00", playerIds: ["p1"] }),
-      makeGroupSession({ id: "gs2", academyId: "academy-1", name: "U13 Thursday Nets", dayOfWeek: 4, time: "17:00", playerIds: [] }),
     ]);
-    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
-    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", academyId: "academy-1", agreedDays: ["Tue"] })]);
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({
+      id: "pack1", playerId: "p1", academyId: "academy-1", status: "Exhausted", feePerSession: 25, agreedDays: ["Tue"],
+    })]);
 
     render(<SessionPacksClient />);
     await screen.findByText("Alice Bowler");
 
-    // Read-only view shows only the session the player is actually enrolled in, no checkbox.
-    expect(screen.getByText("U14 Tuesday Nets")).toBeInTheDocument();
-    expect(screen.queryByText("U13 Thursday Nets")).not.toBeInTheDocument();
-    expect(document.querySelector('input[type="checkbox"]')).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByRole("button", { name: "Renew Membership" }));
 
-    await user.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByText("U13 Thursday Nets")).toBeInTheDocument();
-    expect(document.querySelectorAll('input[type="checkbox"]').length).toBe(2);
-
-    await user.click(screen.getByRole("button", { name: "Done" }));
-    expect(screen.queryByText("U13 Thursday Nets")).not.toBeInTheDocument();
-    expect(document.querySelector('input[type="checkbox"]')).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "New Membership" })).toBeInTheDocument();
+    expect(screen.getByDisplayValue("25")).toBeInTheDocument();
   });
 });

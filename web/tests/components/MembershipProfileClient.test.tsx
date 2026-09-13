@@ -43,6 +43,34 @@ describe("MembershipProfileClient", () => {
     expect(screen.getByRole("link", { name: "← Back to Memberships" })).toHaveAttribute("href", "/session-packs");
   });
 
+  // The "why did my balance drop" answer — every credit this pack has spent, and which of the
+  // three mechanisms (manual mark, CSV import, unattended cron) spent it.
+  test("shows Membership Activity with each entry's recorded-by attribution", async () => {
+    setupDefaults();
+    fetchPackActivity.mockResolvedValue([
+      { id: "att1", packId: "pack1", playerId: "p1", groupSessionId: "gs1", date: "2026-01-13", status: "Present", recordedBy: "manual" },
+      { id: "att2", packId: "pack1", playerId: "p1", groupSessionId: "gs1", date: "2026-01-06", status: "Absent", recordedBy: "auto-cron" },
+      { id: "att3", packId: "pack1", playerId: "p1", groupSessionId: "gs1", date: "2025-12-30", status: "Present", recordedBy: null },
+    ]);
+
+    render(<MembershipProfileClient packId="pack1" />);
+
+    expect(await screen.findByText("Membership Activity")).toBeInTheDocument();
+    expect(screen.getByText("Marked by coach")).toBeInTheDocument();
+    expect(screen.getByText("Auto (no-show)")).toBeInTheDocument();
+    expect(screen.getByText("Unattributed")).toBeInTheDocument();
+  });
+
+  test("shows an empty state when a membership has no activity recorded yet", async () => {
+    setupDefaults();
+    fetchPackActivity.mockResolvedValue([]);
+
+    render(<MembershipProfileClient packId="pack1" />);
+
+    expect(await screen.findByText("Membership Activity")).toBeInTheDocument();
+    expect(screen.getByText("No sessions drawn from this membership yet.")).toBeInTheDocument();
+  });
+
   test("shows a not-found state when the membership doesn't exist", async () => {
     setupDefaults();
     fetchSessionPack.mockResolvedValue(null);

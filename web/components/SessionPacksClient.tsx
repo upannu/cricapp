@@ -4,24 +4,22 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
-import type { SessionPack, BookingType, Player, Coach, Academy, Booking, PaymentStatus, Plan, PackFeeDue, PackActivityEntry, AttendanceRecordedBy, GroupSession } from "@/lib/types";
+import type { SessionPack, BookingType, Player, Coach, Academy, PaymentStatus, Plan, PackFeeDue, GroupSession } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchBookings, fetchActivePlans, fetchPackFeeDues, fetchPackActivity, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, updatePackAgreedDays, markPackPaid, fetchGroupSessions, setGroupSessionRoster } from "@/lib/db";
+import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, fetchPackFeeDues, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, markPackPaid, fetchGroupSessions, setGroupSessionRoster } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired, matchPlayerByNameOrEmail } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
 import { DEFAULT_CURRENCY, formatMoney, sumMoneyByCurrency } from "@/lib/currency";
 import { DAY_TOKENS } from "@/lib/cron-time";
-
-// Labels for attendance_records.recorded_by — null covers rows written before this attribution
-// existed, so they're shown as unattributed rather than guessed at.
-const RECORDED_BY_LABEL: Record<AttendanceRecordedBy | "unknown", string> = {
-  manual: "Marked by coach",
-  "csv-import": "CSV import",
-  "auto-cron": "Auto (no-show)",
-  unknown: "Unattributed",
-};
+import { SortableHeader } from "@/components/SortableHeader";
+import { useSort } from "@/lib/useSort";
+import { PaginationFooter } from "@/components/PaginationFooter";
+import { RowActionsMenu } from "@/components/RowActionsMenu";
+import { SelectPill } from "@/components/SelectPill";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { EyeIcon, EditIcon, CreditCardIcon, RepeatIcon } from "@/components/icons";
 
 const PACK_CSV_TEMPLATE = "player,totalSessions\nJohn Smith,10\njane@example.com,\n";
 type PackCsvStatus = "ready" | "duplicate" | "skipped";
@@ -43,7 +41,6 @@ const TYPE_STYLES: Record<BookingType, string> = {
 let _packPlayers: Player[] = [];
 let _packAcademies: Academy[] = [];
 let _packCoaches: Coach[] = [];
-let _packBookings: Booking[] = [];
 let _packPlans: Plan[] = [];
 let _packGroupSessions: GroupSession[] = [];
 
@@ -51,8 +48,8 @@ let _packGroupSessions: GroupSession[] = [];
 // squad training sessions it can bind to are this academy's active Net Session group sessions.
 // Binding to a real GroupSession (rather than a freeform weekday picker) is what keeps a
 // player's agreedDays in sync with a session that actually exists and that they're actually
-// rostered on — see group-session-players sync in handleSave/handlePackCsvImport/
-// handleToggleGroupSessionForPack below.
+// rostered on — see group-session-players sync in handleSave/handlePackCsvImport below (and the
+// per-player roster editor on MembershipProfileClient's own View page).
 function groupSessionsForAcademy(academyId: string): GroupSession[] {
   return _packGroupSessions.filter((g) => g.academyId === academyId && g.active && g.sessionType === "Net Session");
 }
@@ -87,10 +84,22 @@ const today = new Date().toISOString().split("T")[0];
 function playerById(id: string) { return _packPlayers.find((p) => p.id === id); }
 function academyById(id: string) { return _packAcademies.find((a) => a.id === id); }
 
-function upcomingBookings(playerId: string) {
-  return _packBookings
-    .filter((b) => b.playerId === playerId && b.date >= today && b.status !== "Cancelled")
-    .sort((a, b) => a.date.localeCompare(b.date));
+function sessionsRemaining(pk: SessionPack) {
+  const usableCredits = isPackCreditExpired(pk) ? 0 : pk.sessionCredits;
+  return pk.totalSessions - pk.sessionsUsed + usableCredits;
+}
+
+type PackSortKey = "player" | "academy" | "coach" | "remaining" | "status";
+
+function comparePackRows(a: { player: Player; pack?: SessionPack }, b: { player: Player; pack?: SessionPack }, sortKey: PackSortKey): number {
+  switch (sortKey) {
+    case "player": return a.player.name.localeCompare(b.player.name);
+    case "academy": return (academyById(a.pack?.academyId ?? "")?.name ?? "").localeCompare(academyById(b.pack?.academyId ?? "")?.name ?? "");
+    case "coach": return getCoachOrAcademyLabel(a.player, _packCoaches, _packAcademies).localeCompare(getCoachOrAcademyLabel(b.player, _packCoaches, _packAcademies));
+    case "remaining": return (a.pack ? sessionsRemaining(a.pack) : -1) - (b.pack ? sessionsRemaining(b.pack) : -1);
+    case "status": return (a.pack?.status ?? "").localeCompare(b.pack?.status ?? "");
+    default: return 0;
+  }
 }
 
 function initials(name: string) {
@@ -123,17 +132,21 @@ export function SessionPacksClient() {
 
   const [dataLoaded, setDataLoaded] = useState(false);
   const [packs, setPacks] = useState<SessionPack[]>([]);
-  const [packActivity, setPackActivity] = useState<PackActivityEntry[]>([]);
   const [feeDues, setFeeDues] = useState<PackFeeDue[]>([]);
   const [pageTab, setPageTab] = useState<PageTab>("Memberships");
   const [filter, setFilter] = useState<FilterType>("All");
+  const [academyFilter, setAcademyFilter] = useState("");
+  const [coachFilter, setCoachFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [packsPerPage, setPacksPerPage] = useState(10);
+  const { sortKey, sortDir, handleSort } = useSort<PackSortKey>("player");
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState<DraftPack>(EMPTY_DRAFT);
   const [formError, setFormError] = useState("");
-  // Which existing pack's Squad Training Sessions checklist is in edit mode — read-only
-  // otherwise, see the render below for why.
-  const [editingSquadSessionsFor, setEditingSquadSessionsFor] = useState<string | null>(null);
+  const [markPaidTarget, setMarkPaidTarget] = useState<{ packId: string; playerName: string } | null>(null);
+  const [markPaidDate, setMarkPaidDate] = useState(today);
+  const [markingPaid, setMarkingPaid] = useState(false);
 
   // Bulk pack CSV import
   const [showBulkForm, setShowBulkForm] = useState(false);
@@ -156,13 +169,10 @@ export function SessionPacksClient() {
     ]).then(([pl, ac, co, plans, gs]) => {
       _packPlayers = pl; _packAcademies = ac; _packCoaches = co; _packPlans = plans; _packGroupSessions = gs;
       const scopedPlayerIds = (coachId || academyId) ? pl.map((p) => p.id) : undefined;
-      return Promise.all([fetchSessionPacks(scopedPlayerIds), fetchBookings(undefined, undefined, scopedPlayerIds)]);
-    }).then(([pk, bk]) => {
-      setPacks(pk); _packBookings = bk;
+      return fetchSessionPacks(scopedPlayerIds);
+    }).then((pk) => {
+      setPacks(pk);
       setDataLoaded(true);
-      // Best-effort — the "Pack Activity" list is a nice-to-have explanation of the balance
-      // above it, not something that should block the page rendering if it fails.
-      fetchPackActivity(pk.map((p) => p.id)).then(setPackActivity).catch(() => setPackActivity([]));
     });
     fetchPackFeeDues().then(setFeeDues).catch(() => {
       // RLS naturally scopes this to what the caller can see (platform_admin sees all, an
@@ -212,30 +222,9 @@ export function SessionPacksClient() {
     setPacks((prev) => [...prev]);
   }
 
-  // The player's own roster membership on a real GroupSession is the source of truth here — not
-  // a freeform day pick — so toggling adds/removes them from that session's actual roster
-  // (group_session_players), then recomputes agreedDays from every Net Session group session
-  // they're still rostered on at this academy (keeps the cron jobs' existing agreed_days lookup
-  // working unchanged; see pack-auto-consume/session-reminders).
-  async function handleToggleGroupSessionForPack(pack: SessionPack, gs: GroupSession) {
-    const onRoster = gs.playerIds.includes(pack.playerId);
-    const updatedRoster = onRoster ? gs.playerIds.filter((id) => id !== pack.playerId) : [...gs.playerIds, pack.playerId];
-    await setGroupSessionRoster(gs.id, updatedRoster);
-    _packGroupSessions = _packGroupSessions.map((g) => g.id === gs.id ? { ...g, playerIds: updatedRoster } : g);
-
-    const stillRostered = groupSessionsForAcademy(pack.academyId).filter((g) => g.playerIds.includes(pack.playerId));
-    const agreedDays = Array.from(new Set(stillRostered.map((g) => DAY_TOKENS[g.dayOfWeek])));
-    updatePackAgreedDays(pack.id, agreedDays);
-    setPacks((prev) => prev.map((pk) => pk.id === pack.id ? { ...pk, agreedDays } : pk));
-  }
 
   const scopedPlayers = useMemo(() => _packPlayers, [packs]);
   const scopedPacks = packs;
-
-  function sessionsRemaining(pk: SessionPack) {
-    const usableCredits = isPackCreditExpired(pk) ? 0 : pk.sessionCredits;
-    return pk.totalSessions - pk.sessionsUsed + usableCredits;
-  }
 
   // ── Stats ─────────────────────────────────────────────────────────────────
   const activePacks  = scopedPacks.filter((pk) => pk.status === "Active");
@@ -261,10 +250,35 @@ export function SessionPacksClient() {
       if (filter === "Active")   { if (pack?.status !== "Active") return false; }
       else if (filter === "Exhausted") { if (pack?.status !== "Exhausted") return false; }
       else if (filter === "No Membership")  { if (pack) return false; }
+      if (academyFilter && pack?.academyId !== academyFilter) return false;
+      if (coachFilter && p.coachId !== coachFilter) return false;
       if (searchTerm && !p.name.toLowerCase().includes(searchTerm)) return false;
       return true;
     });
-  }, [filter, scopedPlayers, scopedPacks, searchTerm]);
+  }, [filter, academyFilter, coachFilter, scopedPlayers, scopedPacks, searchTerm]);
+
+  const sortedRows = useMemo(() => {
+    const rows = filteredPlayers.map((player) => ({ player, pack: scopedPacks.find((pk) => pk.playerId === player.id) }));
+    const sorted = [...rows].sort((a, b) => comparePackRows(a, b, sortKey));
+    return sortDir === "asc" ? sorted : sorted.reverse();
+  }, [filteredPlayers, scopedPacks, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / packsPerPage));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = sortedRows.slice((currentPage - 1) * packsPerPage, currentPage * packsPerPage);
+
+  function handleSearchChange(v: string) { setSearch(v); setPage(1); }
+
+  const academyFilterOptions: { value: string; label: string }[] = [
+    { value: "", label: "Academy" },
+    ...[..._packAcademies].sort((a, b) => a.name.localeCompare(b.name)).map((a) => ({ value: a.id, label: a.name })),
+  ];
+  const coachFilterOptions: { value: string; label: string }[] = [
+    { value: "", label: "Coach" },
+    ...[..._packCoaches].sort((a, b) => a.name.localeCompare(b.name)).map((c) => ({ value: c.id, label: c.name })),
+  ];
+  const hasActiveFilters = filter !== "All" || academyFilter !== "" || coachFilter !== "";
+  function clearAllFilters() { setFilter("All"); setAcademyFilter(""); setCoachFilter(""); setPage(1); }
 
   // ── Form helpers ──────────────────────────────────────────────────────────
   function openAdd() {
@@ -535,23 +549,98 @@ export function SessionPacksClient() {
     setShowForm(false);
   }
 
-  function handleCredit(packId: string) {
-    setPacks((prev) => prev.map((pk) => {
-      if (pk.id !== packId) return pk;
-      const updated = { ...pk, sessionCredits: pk.sessionCredits + 1 };
-      upsertSessionPack({
-        id: updated.id, player_id: updated.playerId, academy_id: updated.academyId,
-        session_type: updated.sessionType, purchase_date: updated.purchaseDate,
-        total_sessions: updated.totalSessions, sessions_used: updated.sessionsUsed,
-        session_credits: updated.sessionCredits, fee_per_session: updated.feePerSession,
-        status: updated.status, payment_status: updated.paymentStatus,
-        payment_due_date: updated.paymentDueDate,
-      });
-      return updated;
-    }));
+  const canAddPack = user?.role !== "coach";
+
+  // Used by the per-row "Renew Membership" action — carries the previous pack's academy/fee/
+  // squad sessions forward rather than starting from a blank form.
+  function openRenew(player: Player, pack: SessionPack) {
+    setDraft({
+      playerId: player.id, academyId: pack.academyId, sessionType: "Net Session", purchaseDate: today,
+      totalSessions: 10, feePerSession: pack.feePerSession, paymentStatus: "Pending",
+      paymentDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+      agreedDays: pack.agreedDays,
+      groupSessionIds: groupSessionsForAcademy(pack.academyId).filter((g) => g.playerIds.includes(player.id)).map((g) => g.id),
+    });
+    setFormError("");
+    setShowForm(true);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }
 
-  const canAddPack = user?.role !== "coach";
+  async function handleConfirmMarkPaid() {
+    if (!markPaidTarget) return;
+    setMarkingPaid(true);
+    await handleMarkPaid(markPaidTarget.packId, markPaidDate);
+    setMarkingPaid(false);
+    setMarkPaidTarget(null);
+  }
+
+  function renderPackRow(player: Player, pack?: SessionPack) {
+    const remaining = pack ? sessionsRemaining(pack) : null;
+    const academy = pack ? academyById(pack.academyId) : undefined;
+    return (
+      <tr key={player.id} className="border-b border-zinc-700/40 last:border-0 hover:bg-surface/80 transition-colors">
+        <td className="px-4 py-4 pl-6">
+          <button type="button" onClick={() => router.push(pack ? `/session-packs/${pack.id}` : `/players/${player.id}`)}
+            className="flex items-center gap-3 text-left cursor-pointer group">
+            <div className="w-9 h-9 rounded-full bg-pace-green/20 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">
+              {initials(player.name)}
+            </div>
+            <div>
+              <p className="text-white text-sm font-medium whitespace-nowrap group-hover:text-pace-green transition-colors">{player.name}</p>
+              <p className="text-zinc-400 text-xs">{player.ageGroup}</p>
+            </div>
+          </button>
+        </td>
+        <td className="px-4 py-4 text-zinc-300 text-xs whitespace-nowrap">{academy?.name ?? "—"}</td>
+        <td className="px-4 py-4 text-zinc-300 text-xs whitespace-nowrap">{getCoachOrAcademyLabel(player, _packCoaches, _packAcademies)}</td>
+        <td className="px-4 py-4 text-sm font-semibold whitespace-nowrap">
+          {pack ? (
+            <span className={remaining === 0 ? "text-red-400" : remaining! <= 2 ? "text-amber" : "text-white"}>{remaining}</span>
+          ) : (
+            <span className="text-zinc-600">—</span>
+          )}
+        </td>
+        <td className="px-4 py-4">
+          {pack ? (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${
+                pack.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
+              }`}>
+                {pack.status}
+              </span>
+              {pack.paymentStatus !== "Paid" && (
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold border whitespace-nowrap ${
+                  pack.paymentStatus === "Overdue"
+                    ? "bg-red-500/15 text-red-400 border-red-500/30"
+                    : "bg-amber/15 text-amber border-amber/30"
+                }`}>
+                  Fee {pack.paymentStatus}
+                </span>
+              )}
+            </div>
+          ) : (
+            <span className="text-zinc-600 text-xs whitespace-nowrap">No Membership</span>
+          )}
+        </td>
+        <td className="px-4 py-4 pr-6">
+          <RowActionsMenu items={pack ? [
+            { label: "View", icon: <EyeIcon />, onClick: () => router.push(`/session-packs/${pack.id}`) },
+            { label: "Edit", icon: <EditIcon />, onClick: () => router.push(`/session-packs/${pack.id}/edit`) },
+            ...(pack.paymentStatus !== "Paid" ? [{
+              label: "Mark Paid (Cash)", icon: <CreditCardIcon />,
+              onClick: () => { setMarkPaidTarget({ packId: pack.id, playerName: player.name }); setMarkPaidDate(today); },
+            }] : []),
+            ...(pack.status === "Exhausted" && canAddPack ? [{
+              label: "Renew Membership", icon: <RepeatIcon />, dividerBefore: true,
+              onClick: () => openRenew(player, pack),
+            }] : []),
+          ] : (canAddPack ? [
+            { label: "+ New Membership", onClick: () => openAddForPlayer(player.id) },
+          ] : [])} />
+        </td>
+      </tr>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
@@ -1070,329 +1159,97 @@ export function SessionPacksClient() {
 
       {/* ── PACKS TAB ───────────────────────────────────────────────────────── */}
       {pageTab === "Memberships" && <>
-      {/* Search */}
-      <div className="relative mb-4 max-w-md">
-        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by player name…"
-          className="w-full bg-surface rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
-      </div>
-
-      {/* Filter tabs */}
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {(["All", "Active", "Exhausted", "No Membership"] as FilterType[]).map((f) => (
-          <button key={f} type="button" onClick={() => setFilter(f)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-              filter === f ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
-            }`}>
-            {f}
-          </button>
-        ))}
-      </div>
-
-      {/* Player pack cards */}
-      <div className="space-y-4">
-        {filteredPlayers.length === 0 && (
-          <div className="bg-surface rounded-2xl p-16 text-center text-zinc-400 text-sm">
-            No players found for this filter.
+      <div className="bg-surface rounded-2xl overflow-hidden">
+        {/* Search + filters — one unified bar, matching Players' own layout */}
+        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+          <div className="relative w-full sm:max-w-[280px]">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input type="text" value={search} onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search by player name…"
+              className="w-full bg-ink rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
           </div>
-        )}
-        {filteredPlayers.map((player) => {
-          const pack = scopedPacks.find((pk) => pk.playerId === player.id);
-          const upcoming = upcomingBookings(player.id);
-          const totalCredits = pack ? pack.sessionCredits : 0;
-          const remaining = pack ? sessionsRemaining(pack) : 0;
-          const pct = pack ? Math.max(0, Math.min(100, (pack.sessionsUsed / pack.totalSessions) * 100)) : 0;
-          const ini = initials(player.name);
+          <SelectPill
+            value={filter} ariaLabel="Status" active={filter !== "All"}
+            options={(["All", "Active", "Exhausted", "No Membership"] as FilterType[]).map((f) => ({ value: f, label: f }))}
+            onChange={(v) => { setFilter(v); setPage(1); }}
+          />
+          <SelectPill
+            value={academyFilter} options={academyFilterOptions} ariaLabel="Academy" active={academyFilter !== ""}
+            onChange={(v) => { setAcademyFilter(v); setPage(1); }}
+          />
+          {user?.role !== "coach" && (
+            <SelectPill
+              value={coachFilter} options={coachFilterOptions} ariaLabel="Coach" active={coachFilter !== ""}
+              onChange={(v) => { setCoachFilter(v); setPage(1); }}
+            />
+          )}
+          {hasActiveFilters && (
+            <button type="button" onClick={clearAllFilters}
+              className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer whitespace-nowrap">
+              Reset filters
+            </button>
+          )}
+        </div>
 
-          return (
-            <div key={player.id} className="bg-surface rounded-2xl p-6 border border-transparent">
-              {/* Player header */}
-              <div className="flex items-start justify-between gap-4 mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-pace-green/15 flex items-center justify-center text-pace-green text-sm font-bold flex-shrink-0">
-                    {ini}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                      <span className="text-white font-bold text-sm">{player.name}</span>
-                      <span className="text-zinc-500 text-xs">·</span>
-                      <span className="text-zinc-400 text-xs">{player.ageGroup} · {getCoachOrAcademyLabel(player, _packCoaches, _packAcademies)}</span>
-                    </div>
-                    {pack ? (
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          pack.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
-                        }`}>
-                          {pack.status}
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES[pack.sessionType]}`}>
-                          {pack.sessionType}
-                        </span>
-                        {(() => {
-                          const ps = resolvedPaymentStatus(pack);
-                          if (ps === "Paid") return null;
-                          return (
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${
-                              ps === "Overdue"
-                                ? "bg-red-500/15 text-red-400 border-red-500/30"
-                                : "bg-amber/15 text-amber border-amber/30"
-                            }`}>
-                              Fee {ps}
-                            </span>
-                          );
-                        })()}
-                        <span className="text-zinc-500 text-xs">Purchased {formatDate(pack.purchaseDate)}</span>
-                        {pack.paidDate && (
-                          <span className="text-pace-green text-xs">· Paid {formatDate(pack.paidDate)}</span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-zinc-600 text-xs">No membership purchased</span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {!pack && canAddPack && (
-                    <button type="button" onClick={() => openAddForPlayer(player.id)}
-                      className="px-3 py-1.5 text-xs font-semibold text-pace-green border border-pace-green/40 rounded-lg hover:bg-pace-green/10 transition-colors cursor-pointer">
-                      + New Membership
-                    </button>
-                  )}
-                  {pack?.status === "Exhausted" && canAddPack && (
-                    <button type="button" onClick={() => {
-                      setDraft({ playerId: player.id, academyId: pack.academyId, sessionType: "Net Session", purchaseDate: today,
-                        totalSessions: 10, feePerSession: pack.feePerSession, paymentStatus: "Pending",
-                        paymentDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
-                        agreedDays: pack.agreedDays,
-                        groupSessionIds: groupSessionsForAcademy(pack.academyId).filter((g) => g.playerIds.includes(player.id)).map((g) => g.id),
-                      });
-                      setFormError(""); setShowForm(true);
-                      setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-                    }}
-                      className="px-3 py-1.5 text-xs font-semibold text-amber border border-amber/40 rounded-lg hover:bg-amber/10 transition-colors cursor-pointer">
-                      Renew Membership
-                    </button>
-                  )}
-                  {pack && (
-                    <Link href={`/session-packs/${pack.id}`}
-                      className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
-                      View Membership
-                    </Link>
-                  )}
-                  <Link href={`/players/${player.id}`}
-                    className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
-                    View Profile
-                  </Link>
-                </div>
-              </div>
-
-              {pack ? (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                  {/* Sessions breakdown */}
-                  <div className="lg:col-span-2">
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between text-xs mb-2">
-                        <span className="text-zinc-400">Sessions used</span>
-                        <span className="text-white font-semibold">{pack.sessionsUsed} / {pack.totalSessions}</span>
-                      </div>
-                      <div className="h-2 bg-ink rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            remaining === 0 ? "bg-zinc-600" : pct >= 80 ? "bg-amber" : "bg-pace-green"
-                          }`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      {pack.agreedDays.length > 0 && (
-                        <p className="text-xs text-zinc-500 mt-1.5">
-                          ≈{Math.ceil(pack.totalSessions / pack.agreedDays.length)} weeks at {pack.agreedDays.length} day{pack.agreedDays.length > 1 ? "s" : ""}/week
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-4 gap-3 mb-4">
-                      <PackStat label="Paid" value={String(pack.totalSessions)} sub="sessions" color="text-white" />
-                      <PackStat label="Used" value={String(pack.sessionsUsed)} sub="sessions" color="text-zinc-300" />
-                      <PackStat label="Credits" value={String(totalCredits)} sub="returned" color={totalCredits > 0 ? "text-blue-400" : "text-zinc-600"} />
-                      <PackStat label="Remaining" value={String(remaining)} sub="available" color={remaining === 0 ? "text-red-400" : remaining <= 2 ? "text-amber" : "text-pace-green"} />
-                    </div>
-
-                    {/* Pricing */}
-                    {pack.feePerSession === 0 && academyWaivesFees(pack.academyId) ? (
-                      <div className="bg-ink rounded-xl p-4 mb-4">
-                        <p className="text-sm text-pace-green font-semibold">✓ Covered by the academy's plan — no session fee</p>
-                      </div>
-                    ) : (
-                    <div className="bg-ink rounded-xl p-4 grid grid-cols-3 gap-3 text-center mb-4">
-                      <div>
-                        <div className="text-sm font-bold text-white">{formatMoney(pack.feePerSession, academyById(pack.academyId)?.currency ?? DEFAULT_CURRENCY)}/session</div>
-                        <div className="text-xs text-zinc-500 mt-0.5">Session rate</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-amber">{formatMoney(pack.feePerSession * (getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100), academyById(pack.academyId)?.currency ?? DEFAULT_CURRENCY)}/session</div>
-                        <div className="text-xs text-zinc-500 mt-0.5">Platform ({getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans)}%)</div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-pace-green">{formatMoney(pack.feePerSession * pack.totalSessions * (1 - getPlatformFeePercent(pack.academyId, _packAcademies, _packPlans) / 100), academyById(pack.academyId)?.currency ?? DEFAULT_CURRENCY)} total</div>
-                        <div className="text-xs text-zinc-500 mt-0.5">Academy receives</div>
-                      </div>
-                    </div>
-                    )}
-
-                    {/* Credit button */}
-                    {pack.status === "Active" && (
-                      <CreditButton packId={pack.id} remaining={remaining} expired={isPackCreditExpired(pack)} onCredit={() => handleCredit(pack.id)} />
-                    )}
-                  </div>
-
-                  {/* Agreed sessions + weekday picker */}
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
-                      Agreed sessions ({upcoming.length})
-                    </p>
-
-                    {/* Squad training sessions — read-only by default (a bare checkbox sitting in
-                        a summary card invites an accidental roster change on a stray click); only
-                        the explicit Edit toggle below exposes the checkboxes that actually add/
-                        remove the player from a session's real roster (group_session_players). */}
-                    {(() => {
-                      const allGroupSessions = groupSessionsForAcademy(pack.academyId);
-                      const enrolledSessions = allGroupSessions.filter((g) => g.playerIds.includes(player.id));
-                      const isEditing = editingSquadSessionsFor === pack.id;
-                      const hasBookingOn = (g: GroupSession) => upcoming.some((b) => {
-                        const d = new Date(b.date);
-                        return d.toLocaleDateString("en-GB", { weekday: "short" }) === DAY_TOKENS[g.dayOfWeek];
-                      });
-                      return (
-                        <div className="bg-ink rounded-xl px-4 py-3 mb-3">
-                          <div className="flex items-center justify-between mb-2.5">
-                            <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Squad training sessions</p>
-                            {allGroupSessions.length > 0 && (
-                              <button type="button" onClick={() => setEditingSquadSessionsFor(isEditing ? null : pack.id)}
-                                className="text-[10px] font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer">
-                                {isEditing ? "Done" : "Edit"}
-                              </button>
-                            )}
-                          </div>
-                          {allGroupSessions.length === 0 ? (
-                            <p className="text-xs text-zinc-600">No active squad training sessions at this academy yet.</p>
-                          ) : isEditing ? (
-                            <div className="space-y-1.5">
-                              {allGroupSessions.map((g) => {
-                                const checked = g.playerIds.includes(player.id);
-                                return (
-                                  <label key={g.id} className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 cursor-pointer transition-colors ${
-                                    checked ? "bg-pace-green/10" : "hover:bg-surface"
-                                  }`}>
-                                    <input type="checkbox" checked={checked} onChange={() => handleToggleGroupSessionForPack(pack, g)} className="accent-pace-green" />
-                                    <span className={`text-xs font-semibold flex-1 truncate ${checked ? "text-pace-green" : "text-zinc-300"}`}>{g.name}</span>
-                                    <span className="text-[10px] text-zinc-500 flex-shrink-0">{DAY_TOKENS[g.dayOfWeek]} {g.time}</span>
-                                    {hasBookingOn(g) && <span className="w-1.5 h-1.5 rounded-full bg-pace-green flex-shrink-0" />}
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          ) : enrolledSessions.length === 0 ? (
-                            <p className="text-xs text-zinc-600">Not enrolled in any squad training session yet.</p>
-                          ) : (
-                            <div className="space-y-1.5">
-                              {enrolledSessions.map((g) => (
-                                <div key={g.id} className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 bg-pace-green/10">
-                                  <span className="text-pace-green text-xs flex-shrink-0">✓</span>
-                                  <span className="text-xs font-semibold flex-1 truncate text-pace-green">{g.name}</span>
-                                  <span className="text-[10px] text-zinc-500 flex-shrink-0">{DAY_TOKENS[g.dayOfWeek]} {g.time}</span>
-                                  {hasBookingOn(g) && <span className="w-1.5 h-1.5 rounded-full bg-pace-green flex-shrink-0" />}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Upcoming booking list */}
-                    {upcoming.length === 0 ? (
-                      <div className="bg-ink rounded-xl p-4 text-center">
-                        <p className="text-zinc-500 text-xs mb-2">No upcoming sessions booked</p>
-                        <Link href="/bookings"
-                          className="text-xs text-pace-green font-semibold hover:underline">
-                          + Schedule session
-                        </Link>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {upcoming.slice(0, 5).map((b) => {
-                          const isToday = b.date === today;
-                          const isTomorrow = b.date === new Date(Date.now() + 86400000).toISOString().split("T")[0];
-                          const weekday = new Date(b.date).toLocaleDateString("en-GB", { weekday: "short" });
-                          const label = isToday ? "Today" : isTomorrow ? "Tomorrow" : formatDate(b.date);
-                          return (
-                            <div key={b.id} className="bg-ink rounded-xl px-4 py-3 flex items-center justify-between gap-3">
-                              <div>
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="text-zinc-500 text-[10px] font-bold uppercase w-7">{weekday}</span>
-                                  <span className={`text-xs font-bold ${isToday ? "text-amber" : "text-white"}`}>{label}</span>
-                                  <span className="text-zinc-600 text-xs">·</span>
-                                  <span className="text-zinc-400 text-xs">{b.time}</span>
-                                </div>
-                                <span className="text-zinc-500 text-xs">{b.type}</span>
-                              </div>
-                              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                b.status === "Confirmed" ? "bg-pace-green/15 text-pace-green" : "bg-amber/15 text-amber"
-                              }`}>
-                                {b.status}
-                              </span>
-                            </div>
-                          );
-                        })}
-                        {upcoming.length > 5 && (
-                          <p className="text-xs text-zinc-500 text-center pt-1">+{upcoming.length - 5} more</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-ink rounded-xl p-5 text-center">
-                  <p className="text-zinc-400 text-sm mb-1">No membership purchased yet</p>
-                  <p className="text-zinc-600 text-xs">Create a membership to start tracking upfront payments and session credits.</p>
-                </div>
-              )}
-
-              {/* Pack Activity — every credit this pack has actually spent, and why, so "why did
-                  my balance drop" is answerable without guessing between a coach's own mark, a
-                  bulk CSV import, or the unattended pack-auto-consume cron. */}
-              {pack && (() => {
-                const activity = packActivity.filter((a) => a.packId === pack.id);
-                return (
-                  <div className="mt-4 pt-4 border-t border-zinc-800">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Membership Activity</p>
-                    {activity.length === 0 ? (
-                      <p className="text-zinc-600 text-xs">No sessions drawn from this membership yet.</p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {activity.slice(0, 5).map((a) => (
-                          <div key={a.id} className="flex items-center justify-between text-xs bg-ink rounded-lg px-3 py-2">
-                            <span className="text-zinc-300">{formatDate(a.date)} · {a.status}</span>
-                            <span className="text-zinc-500">{RECORDED_BY_LABEL[a.recordedBy ?? "unknown"]}</span>
-                          </div>
-                        ))}
-                        {activity.length > 5 && (
-                          <p className="text-xs text-zinc-500 text-center pt-1">+{activity.length - 5} more</p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-zinc-700/60">
+                <SortableHeader label="Player" sortKey="player" activeKey={sortKey} direction={sortDir} onSort={handleSort} className="pl-6" />
+                <SortableHeader label="Academy" sortKey="academy" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="Sessions Remaining" sortKey="remaining" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageRows.map(({ player, pack }) => renderPackRow(player, pack))}
+            </tbody>
+          </table>
+          {sortedRows.length === 0 && (
+            <div className="px-6 py-16 text-center text-zinc-400 text-sm">
+              {searchTerm || hasActiveFilters ? "No players match this search/filter." : "No players in your scope."}
             </div>
-          );
-        })}
+          )}
+        </div>
+
+        <PaginationFooter
+          label={
+            <p className="text-xs text-zinc-400">
+              Showing {sortedRows.length === 0 ? 0 : (currentPage - 1) * packsPerPage + 1}–{Math.min(currentPage * packsPerPage, sortedRows.length)} of {sortedRows.length}
+            </p>
+          }
+          page={currentPage}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          itemsPerPage={packsPerPage}
+          onItemsPerPageChange={(n) => { setPacksPerPage(n); setPage(1); }}
+          className="px-6 py-3 border-t border-zinc-700/60"
+        />
       </div>
       </>}
+
+      {markPaidTarget && (
+        <ConfirmModal
+          icon={<CreditCardIcon width={22} height={22} className="text-pace-green" />}
+          iconBg="bg-pace-green/20"
+          title="Mark as Paid (Cash)?"
+          message={`Record ${markPaidTarget.playerName}'s membership fee as paid outside Stripe (cash/bank transfer).`}
+          confirmLabel="Mark Paid"
+          confirmBusyLabel="Saving…"
+          loading={markingPaid}
+          onConfirm={handleConfirmMarkPaid}
+          onCancel={() => setMarkPaidTarget(null)}
+        >
+          <div>
+            <label className={lbl}>Paid Date</label>
+            <DateInput value={markPaidDate} onChange={setMarkPaidDate} className={inp} />
+          </div>
+        </ConfirmModal>
+      )}
     </div>
   );
 }
@@ -1553,66 +1410,6 @@ function ReactivateButton({ playerId, onReactivated }: { playerId: string; onRea
   );
 }
 
-// ─── Credit Button (isolated so useState per-pack works) ─────────────────────
-
-function CreditButton({ packId, remaining, expired, onCredit }: {
-  packId: string;
-  remaining: number;
-  expired: boolean;
-  onCredit: () => void;
-}) {
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [done, setDone] = useState(false);
-
-  if (remaining === 0) return null;
-  if (expired) {
-    return (
-      <p className="text-xs text-zinc-500">
-        This membership's agreed weekly window has passed — credits can no longer be issued.
-      </p>
-    );
-  }
-
-  function confirm() {
-    onCredit();
-    setDone(true);
-    setShowConfirm(false);
-    setTimeout(() => setDone(false), 3000);
-  }
-
-  if (done) {
-    return (
-      <div className="flex items-center gap-2 text-blue-400 text-xs font-semibold">
-        <span>✓</span>
-        <span>Session credited — player can use it for a future booking</span>
-      </div>
-    );
-  }
-
-  if (showConfirm) {
-    return (
-      <div className="flex items-center gap-3">
-        <span className="text-zinc-300 text-xs">Credit 1 session back to this player's membership?</span>
-        <button type="button" onClick={confirm}
-          className="px-3 py-1.5 text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 cursor-pointer transition-colors">
-          Yes, credit it
-        </button>
-        <button type="button" onClick={() => setShowConfirm(false)}
-          className="text-xs text-zinc-500 hover:text-white cursor-pointer">
-          Cancel
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <button type="button" onClick={() => setShowConfirm(true)}
-      className="px-4 py-2 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer">
-      Credit a Session (player no-show / cancellation)
-    </button>
-  );
-}
-
 // ─── Group Session Picker (Membership creation / bulk import) ────────────────
 // Lets staff bind a Membership to real, pre-created squad training sessions instead of a
 // freeform weekday pick — see groupSessionsForAcademy's own doc comment for why.
@@ -1654,16 +1451,6 @@ function GroupSessionPicker({ academyId, selectedIds, coaches, onToggle }: {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function PackStat({ label, value, sub, color }: { label: string; value: string; sub: string; color: string }) {
-  return (
-    <div className="bg-ink rounded-xl p-3 text-center">
-      <div className={`text-xl font-bold font-mono mb-0.5 ${color}`}>{value}</div>
-      <div className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wide leading-tight">{label}</div>
-      <div className="text-[10px] text-zinc-600">{sub}</div>
-    </div>
-  );
-}
 
 const inp = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
 const sel = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
