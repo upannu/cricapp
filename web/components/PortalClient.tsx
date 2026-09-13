@@ -174,6 +174,23 @@ export function PortalClient() {
         </div>
       </div>
 
+      {/* The only other upgrade entry point is the small "Free plan · Manage" link up in the
+          header — easy to miss, and not styled as a call-to-action at all. This is the actual
+          "upgrade my plan" prompt a Free player sees, shown only while there's something to
+          upgrade to. */}
+      {player.subscription.plan === "Free" && (
+        <Link href={`/players/${player.id}/subscription`}
+          className="block bg-pace-green/10 rounded-2xl p-5 border border-pace-green/40 hover:border-pace-green/70 transition-colors">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-white font-semibold text-sm">Upgrade to Player Pro</p>
+              <p className="text-zinc-400 text-xs mt-0.5">Unlimited sessions logged, AI biomechanics reports, and full Find a Coach access.</p>
+            </div>
+            <span className="text-pace-green text-sm font-bold flex-shrink-0">Upgrade →</span>
+          </div>
+        </Link>
+      )}
+
       <div className="bg-surface rounded-2xl p-5">
         <BadgeStrip player={player} reportCount={reports.length} />
       </div>

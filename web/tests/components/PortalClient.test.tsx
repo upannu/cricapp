@@ -82,6 +82,36 @@ describe("PortalClient", () => {
     expect(screen.getByRole("link", { name: /Log My Own Session/ })).toHaveAttribute("href", "/portal/log-session");
   });
 
+  // The only other upgrade entry point (the small "Free plan · Manage" header link) is easy to
+  // miss and isn't styled as a call-to-action — this is the actual "upgrade" prompt.
+  test("shows an 'Upgrade to Player Pro' prompt for a Free-tier player", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: "p1" }) });
+    fetchPlayer.mockResolvedValue(makePlayer({
+      id: "p1", name: "Alice Bowler",
+      subscription: { plan: "Free", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 0, sessionsLimit: 4 },
+    }));
+
+    render(<PortalClient />);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.getByRole("link", { name: /Upgrade to Player Pro/ })).toHaveAttribute("href", "/players/p1/subscription");
+  });
+
+  test("hides the upgrade prompt once the player is already on Player Pro", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: "p1" }) });
+    fetchPlayer.mockResolvedValue(makePlayer({
+      id: "p1", name: "Alice Bowler",
+      subscription: { plan: "Player Pro", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 0, sessionsLimit: null },
+    }));
+
+    render(<PortalClient />);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.queryByRole("link", { name: /Upgrade to Player Pro/ })).not.toBeInTheDocument();
+  });
+
   test("shows today's tip when one is returned", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "parent", playerId: "p1" }) });
