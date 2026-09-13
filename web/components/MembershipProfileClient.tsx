@@ -178,10 +178,16 @@ export function MembershipProfileClient({ packId }: { packId: string }) {
               </div>
             </div>
           </div>
-          <Link href={`/players/${player.id}`}
-            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors flex-shrink-0">
-            View Profile
-          </Link>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Link href={`/session-packs/${pack.id}/edit`}
+              className="px-3 py-1.5 text-xs font-semibold text-pace-green border border-pace-green/40 rounded-lg hover:bg-pace-green/10 transition-colors">
+              Edit
+            </Link>
+            <Link href={`/players/${player.id}`}
+              className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
+              View Profile
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
