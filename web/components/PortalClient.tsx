@@ -178,7 +178,7 @@ export function PortalClient() {
           header — easy to miss, and not styled as a call-to-action at all. This is the actual
           "upgrade my plan" prompt a Free player sees, shown only while there's something to
           upgrade to. */}
-      {player.subscription.plan === "Free" && (
+      {player.subscription.plan === "Free" ? (
         <Link href={`/players/${player.id}/subscription`}
           className="block bg-pace-green/10 rounded-2xl p-5 border border-pace-green/40 hover:border-pace-green/70 transition-colors">
           <div className="flex items-center justify-between gap-4">
@@ -187,6 +187,20 @@ export function PortalClient() {
               <p className="text-zinc-400 text-xs mt-0.5">Unlimited sessions logged, AI biomechanics reports, and full Find a Coach access.</p>
             </div>
             <span className="text-pace-green text-sm font-bold flex-shrink-0">Upgrade →</span>
+          </div>
+        </Link>
+      ) : (
+        // Same discoverability problem in reverse — a paying player has no obvious way to find
+        // "switch back to Free / cancel" either, beyond that same small header link. Points at the
+        // same subscription page, where "Manage Billing" opens Stripe's own portal for that.
+        <Link href={`/players/${player.id}/subscription`}
+          className="block bg-surface rounded-2xl p-5 border border-zinc-700 hover:border-zinc-500 transition-colors">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-white font-semibold text-sm">Manage Subscription</p>
+              <p className="text-zinc-500 text-xs mt-0.5">You&apos;re on {player.subscription.plan}. Update payment, switch plans, or cancel any time.</p>
+            </div>
+            <span className="text-zinc-400 text-sm font-bold flex-shrink-0">Manage →</span>
           </div>
         </Link>
       )}

@@ -98,7 +98,9 @@ describe("PortalClient", () => {
     expect(screen.getByRole("link", { name: /Upgrade to Player Pro/ })).toHaveAttribute("href", "/players/p1/subscription");
   });
 
-  test("hides the upgrade prompt once the player is already on Player Pro", async () => {
+  // A paying player has the same "how do I find this" problem in reverse — no obvious way to
+  // find "switch back to Free / cancel" beyond the same small header link either.
+  test("shows 'Manage Subscription' instead of the upgrade prompt once on Player Pro", async () => {
     setupDefaults();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "player", playerId: "p1" }) });
     fetchPlayer.mockResolvedValue(makePlayer({
@@ -110,6 +112,7 @@ describe("PortalClient", () => {
     await screen.findByText("Alice Bowler");
 
     expect(screen.queryByRole("link", { name: /Upgrade to Player Pro/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Manage Subscription/ })).toHaveAttribute("href", "/players/p1/subscription");
   });
 
   test("shows today's tip when one is returned", async () => {
