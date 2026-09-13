@@ -27,6 +27,34 @@ describe("POST /api/plans/update", () => {
     expect(res.status).toBe(400);
   });
 
+  // Unlike sessionsPerMonthLimit/chatMessagesPerDayLimit, this one has no "blank = unlimited"
+  // case — a self-logged session has no coach naturally rate-limiting it, so a negative number
+  // is the only thing rejected; omitting it entirely just falls back to the default (below).
+  test("400 when selfLogSessionsPerMonthLimit is negative", async () => {
+    const res = await POST(jsonRequest(URL, { ...VALID_INPUT, selfLogSessionsPerMonthLimit: -1 }));
+    expect(res.status).toBe(400);
+  });
+
+  test("defaults selfLogSessionsPerMonthLimit to 4 when not provided", async () => {
+    routeMockState.cookieUser = rawUser({ role: "platform_admin" });
+    routeMockState.tableResponses = { plans: { data: { id: "new-plan-id" }, error: null } };
+
+    await POST(jsonRequest(URL, VALID_INPUT));
+
+    const client = routeMockState.lastServiceClient!;
+    expect(client.tables.plans.insert).toHaveBeenCalledWith(expect.objectContaining({ self_log_sessions_per_month_limit: 4 }));
+  });
+
+  test("persists an admin-configured selfLogSessionsPerMonthLimit", async () => {
+    routeMockState.cookieUser = rawUser({ role: "platform_admin" });
+    routeMockState.tableResponses = { plans: { data: { id: "new-plan-id" }, error: null } };
+
+    await POST(jsonRequest(URL, { ...VALID_INPUT, selfLogSessionsPerMonthLimit: 12 }));
+
+    const client = routeMockState.lastServiceClient!;
+    expect(client.tables.plans.insert).toHaveBeenCalledWith(expect.objectContaining({ self_log_sessions_per_month_limit: 12 }));
+  });
+
   test("403 when the caller is not a platform admin", async () => {
     routeMockState.cookieUser = rawUser({ role: "academy_admin", academy_id: "ac1" });
     const res = await POST(jsonRequest(URL, VALID_INPUT));

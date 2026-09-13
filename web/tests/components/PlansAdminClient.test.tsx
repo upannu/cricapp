@@ -21,7 +21,7 @@ const PLAN: Plan = {
   billingType: "subscription", billingInterval: "year", priceAud: 500, pricesByCurrency: {}, seatCap: null,
   accessDurationMonths: null, includedNotes: null, waivesSessionFees: true, platformAdminOnly: false,
   platformFeePercent: 10, active: true, sortOrder: 0,
-  sessionsPerMonthLimit: null, chatMessagesPerDayLimit: null, aiReportsEnabled: false,
+  sessionsPerMonthLimit: null, selfLogSessionsPerMonthLimit: 4, chatMessagesPerDayLimit: null, aiReportsEnabled: false,
   marketplaceEnabled: false, locked: false,
 };
 

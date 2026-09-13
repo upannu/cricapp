@@ -48,7 +48,7 @@ const FREE_PLAN: Plan = {
   billingType: "subscription", billingInterval: "month", priceAud: 0, pricesByCurrency: {}, seatCap: null,
   accessDurationMonths: null, includedNotes: null, waivesSessionFees: false, platformAdminOnly: false,
   platformFeePercent: 10, active: true, sortOrder: 0,
-  sessionsPerMonthLimit: 1, chatMessagesPerDayLimit: 1, aiReportsEnabled: false,
+  sessionsPerMonthLimit: 1, selfLogSessionsPerMonthLimit: 4, chatMessagesPerDayLimit: 1, aiReportsEnabled: false,
   marketplaceEnabled: false, locked: true,
 };
 

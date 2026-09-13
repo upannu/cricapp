@@ -5,9 +5,11 @@ import {
   canUseMarketplace,
   chatMessagesLimitForPlan,
   isUnlimited,
+  selfLogSessionsLimitForPlan,
   sessionsLimitForPlan,
 } from "@/lib/plan-features";
 import { makeAcademy, makeCoach, makePlayer } from "../../mocks/fixtures";
+import type { Plan } from "@/lib/types";
 
 // Every function now takes the caller's already-fetched Plan Catalog rows as a 2nd argument
 // (see lib/plan-features.ts) instead of querying the catalog itself. An empty array here
@@ -23,6 +25,7 @@ describe("plan-features", () => {
     expect(sessionsLimitForPlan("Free", NO_PLANS)).toBe(4);
     expect(chatMessagesLimitForPlan("Free", NO_PLANS)).toBe(3);
     expect(isUnlimited(sessionsLimitForPlan("Free", NO_PLANS))).toBe(false);
+    expect(selfLogSessionsLimitForPlan("Free", NO_PLANS)).toBe(4);
   });
 
   test("Player Pro unlocks AI reports and marketplace, removes caps", () => {
@@ -31,12 +34,31 @@ describe("plan-features", () => {
     expect(sessionsLimitForPlan("Player Pro", NO_PLANS)).toBeNull();
     expect(chatMessagesLimitForPlan("Player Pro", NO_PLANS)).toBeNull();
     expect(isUnlimited(sessionsLimitForPlan("Player Pro", NO_PLANS))).toBe(true);
+    // Unlike every other Player Pro entitlement, this one is NOT unlimited even with no catalog
+    // row — a self-logged session has no coach naturally rate-limiting it (see the doc comment
+    // on selfLogSessionsLimitForPlan).
+    expect(selfLogSessionsLimitForPlan("Player Pro", NO_PLANS)).toBe(4);
   });
 
   test("Coach Pro retains everything Player Pro unlocks", () => {
     expect(canGenerateAiReports("Coach Pro", NO_PLANS)).toBe(true);
     expect(canUseMarketplace("Coach Pro", NO_PLANS)).toBe(true);
     expect(sessionsLimitForPlan("Coach Pro", NO_PLANS)).toBeNull();
+  });
+
+  test("selfLogSessionsLimitForPlan reads the admin-configured Plan Catalog value when present", () => {
+    const proPlan: Plan = {
+      id: "pro1", slug: "player-pro", name: "Player Pro", audience: "individual",
+      billingType: "subscription", billingInterval: "month", priceAud: 20, pricesByCurrency: {},
+      seatCap: null, accessDurationMonths: null, includedNotes: null, waivesSessionFees: false,
+      platformAdminOnly: false, platformFeePercent: 10, active: true, sortOrder: 0,
+      sessionsPerMonthLimit: null, selfLogSessionsPerMonthLimit: 12, chatMessagesPerDayLimit: null,
+      aiReportsEnabled: true, marketplaceEnabled: true, locked: true,
+    };
+    // Even though the catalog row itself has "unlimited" sessionsPerMonthLimit, its own
+    // self-log-specific field (12) is what's used — the two caps are independent.
+    expect(selfLogSessionsLimitForPlan("Player Pro", [proPlan])).toBe(12);
+    expect(sessionsLimitForPlan("Player Pro", [proPlan])).toBeNull();
   });
 
   describe("aiReportsIncludedForPlayer", () => {
@@ -47,7 +69,7 @@ describe("plan-features", () => {
       billingType: "subscription" as const, billingInterval: "year" as const, priceAud: 850000,
       pricesByCurrency: {}, seatCap: null, accessDurationMonths: null, includedNotes: null,
       waivesSessionFees: true, platformAdminOnly: false, platformFeePercent: 10, active: true,
-      sortOrder: 0, sessionsPerMonthLimit: null, chatMessagesPerDayLimit: null,
+      sortOrder: 0, sessionsPerMonthLimit: null, selfLogSessionsPerMonthLimit: 4, chatMessagesPerDayLimit: null,
       aiReportsEnabled: true, marketplaceEnabled: true, locked: false,
     };
 

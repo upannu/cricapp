@@ -30,6 +30,9 @@ type Draft = {
   active: boolean;
   sortOrder: string;
   sessionsPerMonthLimit: string;
+  /** Unlike every other limit field here, this one is never blank/unlimited — see the type's own
+   * doc comment on why self-logged sessions need a hard, always-set cap. */
+  selfLogSessionsPerMonthLimit: string;
   chatMessagesPerDayLimit: string;
   aiReportsEnabled: boolean;
   marketplaceEnabled: boolean;
@@ -39,7 +42,7 @@ type Draft = {
 const EMPTY_DRAFT: Draft = {
   slug: "", name: "", audience: "individual", billingType: "subscription", billingInterval: "month",
   priceAud: "", pricesByCurrency: {}, seatCap: "", accessDurationMonths: "", includedNotes: "", waivesSessionFees: false, platformAdminOnly: false, platformFeePercent: "10", active: true, sortOrder: "0",
-  sessionsPerMonthLimit: "", chatMessagesPerDayLimit: "", aiReportsEnabled: true, marketplaceEnabled: true, locked: false,
+  sessionsPerMonthLimit: "", selfLogSessionsPerMonthLimit: "4", chatMessagesPerDayLimit: "", aiReportsEnabled: true, marketplaceEnabled: true, locked: false,
 };
 
 function planToDraft(p: Plan): Draft {
@@ -65,6 +68,7 @@ function planToDraft(p: Plan): Draft {
     active: p.active,
     sortOrder: String(p.sortOrder),
     sessionsPerMonthLimit: p.sessionsPerMonthLimit != null ? String(p.sessionsPerMonthLimit) : "",
+    selfLogSessionsPerMonthLimit: String(p.selfLogSessionsPerMonthLimit),
     chatMessagesPerDayLimit: p.chatMessagesPerDayLimit != null ? String(p.chatMessagesPerDayLimit) : "",
     aiReportsEnabled: p.aiReportsEnabled,
     marketplaceEnabled: p.marketplaceEnabled,
@@ -140,6 +144,7 @@ export function PlansAdminClient() {
           active: d.active,
           sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
           sessionsPerMonthLimit: d.sessionsPerMonthLimit.trim() ? parseInt(d.sessionsPerMonthLimit, 10) : null,
+          selfLogSessionsPerMonthLimit: d.selfLogSessionsPerMonthLimit.trim() ? parseInt(d.selfLogSessionsPerMonthLimit, 10) : 4,
           chatMessagesPerDayLimit: d.chatMessagesPerDayLimit.trim() ? parseInt(d.chatMessagesPerDayLimit, 10) : null,
           aiReportsEnabled: d.aiReportsEnabled,
           marketplaceEnabled: d.marketplaceEnabled,
@@ -157,6 +162,7 @@ export function PlansAdminClient() {
         platformFeePercent: d.platformFeePercent.trim() ? parseFloat(d.platformFeePercent) : 10, active: d.active,
         sortOrder: d.sortOrder.trim() ? parseInt(d.sortOrder, 10) : 0,
         sessionsPerMonthLimit: d.sessionsPerMonthLimit.trim() ? parseInt(d.sessionsPerMonthLimit, 10) : null,
+        selfLogSessionsPerMonthLimit: d.selfLogSessionsPerMonthLimit.trim() ? parseInt(d.selfLogSessionsPerMonthLimit, 10) : 4,
         chatMessagesPerDayLimit: d.chatMessagesPerDayLimit.trim() ? parseInt(d.chatMessagesPerDayLimit, 10) : null,
         aiReportsEnabled: d.aiReportsEnabled,
         marketplaceEnabled: d.marketplaceEnabled,
@@ -452,7 +458,7 @@ export function PlansAdminClient() {
               <p className="text-xs text-zinc-500 mt-1">Share of membership/booking revenue the platform takes via Stripe for academies on this plan. Defaults to 10% — lower it for an academy paying well upfront.</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className={lbl}>Sessions / month limit (individual tiers only)</label>
                 <input
@@ -460,6 +466,15 @@ export function PlansAdminClient() {
                   value={draft.sessionsPerMonthLimit} onChange={(e) => setDraft({ ...draft, sessionsPerMonthLimit: e.target.value })}
                   placeholder="Unlimited"
                 />
+              </div>
+              <div>
+                <label className={lbl}>Self-logged sessions / month (no coach)</label>
+                <input
+                  type="number" min={0} className={inp}
+                  value={draft.selfLogSessionsPerMonthLimit} onChange={(e) => setDraft({ ...draft, selfLogSessionsPerMonthLimit: e.target.value })}
+                  placeholder="4"
+                />
+                <p className="text-xs text-zinc-500 mt-1">Always a real cap — a self-logged session has no coach naturally rate-limiting it, so this cannot be left unlimited.</p>
               </div>
               <div>
                 <label className={lbl}>Coach AI messages / day limit</label>

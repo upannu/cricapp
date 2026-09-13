@@ -6,17 +6,13 @@ import Link from "next/link";
 import type { Player, SessionVideo, Plan, Coach, BookingStatus } from "@/lib/types";
 import { insertSession, recordSessionCompletion, updateBookingStatus, fetchActivePlans, fetchCoaches } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
-import { createClient } from "@/lib/supabase";
 import { probeVideoQuality, MIN_LONG_EDGE_PX, MIN_SHORT_EDGE_PX, MIN_FPS, type VideoQualityResult } from "@/lib/video-quality";
-import { transcodeToH264 } from "@/lib/transcode";
+import {
+  uploadSessionVideo, CAMERA_ANGLES, EMPTY_ANGLE,
+  type AngleId, type AngleState,
+} from "@/lib/session-video-upload";
 import { DateInput } from "@/components/DateInput";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
-
-// The session-videos storage bucket has no bucket-level override, so it inherits the Supabase
-// project's global upload cap — 50MB on the Free plan this project is currently on. Checked
-// client-side (after transcoding, which can shrink the file significantly) so a too-large clip
-// fails with a clear message instead of the opaque storage-API error a raw oversized upload gets.
-const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 const SESSION_TYPES = [
   "Net Session",
@@ -27,41 +23,7 @@ const SESSION_TYPES = [
   "Warm-up / Conditioning",
 ] as const;
 
-const CAMERA_ANGLES = [
-  {
-    id: "front" as const,
-    label: "Front Camera",
-    description: "Behind umpire, facing down pitch · 8–10m",
-    icon: "⬆",
-  },
-  {
-    id: "side" as const,
-    label: "Side Camera",
-    description: "Square on to crease, off-stump side · 5–7m",
-    icon: "➡",
-  },
-  {
-    id: "back" as const,
-    label: "Back Camera",
-    description: "Behind bowler, facing run-up · 3–4m",
-    icon: "⬇",
-  },
-] as const;
-
 const DURATIONS = [30, 45, 60, 90, 120];
-
-type AngleId = "front" | "side" | "back";
-type AngleStatus = "idle" | "checking" | "invalid" | "ready" | "transcoding" | "uploading" | "done" | "error";
-
-interface AngleState {
-  file: File | null;
-  status: AngleStatus;
-  quality?: VideoQualityResult;
-  error?: string;
-  progress?: number; // transcode progress, 0–1
-}
-
-const EMPTY_ANGLE: AngleState = { file: null, status: "idle" };
 
 // `bookingId` is set only when this form was opened from a specific booking's "+ Log Session"
 // button — see BookingsClient. It ties the logged session back to that booking and marks the
@@ -81,7 +43,6 @@ export function NewSessionForm({
 }) {
   const router = useRouter();
   const { user } = useAuth();
-  const supabase = createClient();
   const today = new Date().toISOString().split("T")[0];
 
   const [sessionDate, setSessionDate] = useState(today);
@@ -188,56 +149,13 @@ export function NewSessionForm({
       if (!file) continue;
 
       try {
-        // 1. Normalize to H.264 MP4 client-side — falls back to the original file
-        // if transcoding fails (e.g. out of memory on a low-end device), rather
-        // than blocking the whole session save.
         setAngles((prev) => ({ ...prev, [angle]: { ...prev[angle], status: "transcoding", progress: 0 } }));
-        let uploadFile = file;
-        let transcoded = false;
-        try {
-          uploadFile = await transcodeToH264(file, (ratio) => {
-            setAngles((prev) => ({ ...prev, [angle]: { ...prev[angle], progress: ratio } }));
-          });
-          transcoded = true;
-        } catch (transcodeErr) {
-          console.warn(`Transcode failed for ${angle}, uploading original file instead`, transcodeErr);
-        }
-
-        if (uploadFile.size > MAX_UPLOAD_BYTES) {
-          throw new Error(
-            `${(uploadFile.size / (1024 * 1024)).toFixed(1)}MB exceeds the 50MB upload limit — trim the clip or record a shorter delivery.`
-          );
-        }
-
-        // 2. Upload directly to Supabase Storage via signed URL — bypasses Vercel size limits
+        const video = await uploadSessionVideo({
+          file, playerId: player.id, sessionId, angle, quality: angleState.quality,
+          onTranscodeProgress: (ratio) => setAngles((prev) => ({ ...prev, [angle]: { ...prev[angle], progress: ratio } })),
+        });
         setAngles((prev) => ({ ...prev, [angle]: { ...prev[angle], status: "uploading" } }));
-        const ext  = transcoded ? "mp4" : (file.name.split(".").pop() ?? "mp4");
-        const path = `${player.id}/${sessionId}/${angle}.${ext}`;
-
-        const signRes  = await fetch("/api/storage/sign-upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ path }),
-        });
-        const signData = await signRes.json();
-        if (signData.error) throw new Error(signData.error);
-
-        const { error: uploadError } = await supabase.storage
-          .from("session-videos")
-          .uploadToSignedUrl(path, signData.token, uploadFile, { contentType: uploadFile.type });
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from("session-videos")
-          .getPublicUrl(path);
-
-        const quality = angleState.quality;
-        videos.push({
-          angle, label: file.name, url: publicUrl,
-          width: quality?.width, height: quality?.height,
-          durationSec: quality?.durationSec, fps: quality?.fps ?? null,
-          transcoded,
-        });
+        videos.push(video);
         setAngles((prev) => ({ ...prev, [angle]: { ...prev[angle], status: "done" } }));
       } catch (err) {
         const msg = (err as { message?: string })?.message ?? String(err);

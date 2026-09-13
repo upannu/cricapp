@@ -12,6 +12,11 @@ export interface TableBuilder extends PromiseLike<TableResponse> {
   neq: ReturnType<typeof vi.fn>;
   ilike: ReturnType<typeof vi.fn>;
   in: ReturnType<typeof vi.fn>;
+  is: ReturnType<typeof vi.fn>;
+  gt: ReturnType<typeof vi.fn>;
+  gte: ReturnType<typeof vi.fn>;
+  lt: ReturnType<typeof vi.fn>;
+  lte: ReturnType<typeof vi.fn>;
   not: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
   limit: ReturnType<typeof vi.fn>;
@@ -80,6 +85,11 @@ export function createSupabaseMock(
       neq: vi.fn(() => builder),
       ilike: vi.fn(() => builder),
       in: vi.fn(() => builder),
+      is: vi.fn(() => builder),
+      gt: vi.fn(() => builder),
+      gte: vi.fn(() => builder),
+      lt: vi.fn(() => builder),
+      lte: vi.fn(() => builder),
       not: vi.fn(() => builder),
       order: vi.fn(() => builder),
       limit: vi.fn(() => builder),

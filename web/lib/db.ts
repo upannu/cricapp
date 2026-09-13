@@ -1320,6 +1320,7 @@ export interface DbPlan {
   active: boolean;
   sort_order: number;
   sessions_per_month_limit?: number | null;
+  self_log_sessions_per_month_limit?: number;
   chat_messages_per_day_limit?: number | null;
   ai_reports_enabled?: boolean;
   marketplace_enabled?: boolean;
@@ -1345,6 +1346,8 @@ export function dbToPlan(r: DbPlan): Plan {
     active: r.active,
     sortOrder: r.sort_order,
     sessionsPerMonthLimit: r.sessions_per_month_limit ?? null,
+    // Never null/unlimited (unlike every other cap here) — see the type's own doc comment.
+    selfLogSessionsPerMonthLimit: r.self_log_sessions_per_month_limit ?? 4,
     chatMessagesPerDayLimit: r.chat_messages_per_day_limit ?? null,
     aiReportsEnabled: r.ai_reports_enabled ?? true,
     marketplaceEnabled: r.marketplace_enabled ?? true,

@@ -45,6 +45,16 @@ export function sessionsLimitForPlan(tier: PlanTier, plans: Plan[]): number | nu
   return plan ? plan.sessionsPerMonthLimit : (tier === "Free" ? 4 : null);
 }
 
+/** How many sessions a player may log *themselves* per month with no coach involved — deliberately
+ * has no "unlimited" case, unlike sessionsLimitForPlan above. A coach-logged session is naturally
+ * rate-limited by a real coach's time; a self-logged one isn't, so even Player Pro's "unlimited
+ * sessions" doesn't apply here — this cap is admin-configurable per plan (see /admin/plans) but
+ * always resolves to a real number. Falls back to 4/month if the plan row is somehow missing the
+ * field, same conservative default as the Free session cap above. */
+export function selfLogSessionsLimitForPlan(tier: PlanTier, plans: Plan[]): number {
+  return findPlayerTierPlan(tier, plans)?.selfLogSessionsPerMonthLimit ?? 4;
+}
+
 /** Free tier's daily Coach AI chat message cap. Paid tiers are unlimited (null) by default. */
 export function chatMessagesLimitForPlan(tier: PlanTier, plans: Plan[]): number | null {
   const plan = findPlayerTierPlan(tier, plans);
@@ -60,11 +70,13 @@ export function isUnlimited(sessionsLimit: number | null): boolean {
 export function planFeatureLines(tier: PlanTier, plans: Plan[]): string[] {
   const sessionsLimit = sessionsLimitForPlan(tier, plans);
   const chatLimit = chatMessagesLimitForPlan(tier, plans);
+  const selfLogLimit = selfLogSessionsLimitForPlan(tier, plans);
   return [
     sessionsLimit === null ? "Unlimited sessions logged" : `${sessionsLimit} sessions logged per month`,
     canGenerateAiReports(tier, plans) ? "AI biomechanics reports" : "AI biomechanics reports — upgrade to unlock",
     canUseMarketplace(tier, plans) ? "Coach marketplace access" : "Coach marketplace — upgrade to unlock",
     chatLimit === null ? "Unlimited Coach AI chat" : `${chatLimit} Coach AI messages per day`,
+    `Up to ${selfLogLimit} self-logged session${selfLogLimit === 1 ? "" : "s"}/month (no coach needed)`,
   ];
 }
 
