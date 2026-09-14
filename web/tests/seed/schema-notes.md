@@ -629,3 +629,4 @@ Append-only — the app never UPDATEs or DELETEs a row here, it only INSERTs new
 | transcript | text | yes | `""` |  |
 | duration_sec | numeric | yes |  |  |
 | created_at | timestamp with time zone | yes | `"now()"` |  |
+
