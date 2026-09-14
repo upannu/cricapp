@@ -1,10 +1,11 @@
 import Link from "next/link";
 
 /** Shared header/footer chrome for the public Cricket Board Partnership pages (landing, apply,
- * success) — same dark theme/logo as LegalPageShell, but a full-width content slot rather than
- * LegalPageShell's narrow single-column prose layout, since these pages need a proper hero +
- * card-grid marketing layout, not an article. `minimal` drops the nav/footer for the multi-step
- * application form, where a visitor mid-form shouldn't be tempted away by unrelated links. */
+ * success) and the /organisations hub — same dark theme/logo as LegalPageShell, but a full-width
+ * content slot rather than LegalPageShell's narrow single-column prose layout, since these pages
+ * need a proper hero + card-grid marketing layout, not an article. `minimal` drops the nav/footer
+ * for the multi-step application form, where a visitor mid-form shouldn't be tempted away by
+ * unrelated links. */
 export function PartnershipPageShell({ children, minimal = false }: { children: React.ReactNode; minimal?: boolean }) {
   return (
     <div className="min-h-screen bg-ink">
@@ -19,6 +20,9 @@ export function PartnershipPageShell({ children, minimal = false }: { children: 
           <div className="flex items-center gap-5">
             <Link href="/about" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
               About
+            </Link>
+            <Link href="/organisations" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+              Organisations
             </Link>
             <Link href="/login#signin" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
               Login
@@ -37,6 +41,7 @@ export function PartnershipPageShell({ children, minimal = false }: { children: 
           <div className="max-w-6xl mx-auto px-6 sm:px-10 py-6 flex flex-col items-end gap-2 text-sm text-zinc-500">
             <div className="flex flex-wrap justify-end gap-5 text-base">
               <Link href="/about" className="hover:text-white transition-colors">About</Link>
+              <Link href="/organisations" className="hover:text-white transition-colors">Organisations</Link>
               <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
               <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
               <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>

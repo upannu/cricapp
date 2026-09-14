@@ -35,7 +35,7 @@ export default function CricketBoardLandingPage() {
           </p>
           <Link href="/partnerships/cricket-board/apply"
             className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Apply for Partnership
+            Register Your Interest
           </Link>
         </div>
 
@@ -97,7 +97,7 @@ export default function CricketBoardLandingPage() {
           <h2 className="text-xl font-bold text-white mb-6">Ready to Build a Connected Cricket Ecosystem?</h2>
           <Link href="/partnerships/cricket-board/apply"
             className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Apply for Partnership
+            Register Your Interest
           </Link>
         </div>
       </div>
