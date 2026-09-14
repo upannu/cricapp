@@ -322,11 +322,11 @@ Append-only — the app never UPDATEs or DELETEs a row here, it only INSERTs new
 |---|---|---|---|---|
 | id | text | no |  | Note: This is a Primary Key. |
 | application_id | text | no |  | Note: This is a Foreign Key to `partnership_applications.id`. |
-| kind | text | no |  |  |
+| kind | text | no |  | One of: submitted, status_change, assigned, note, email_sent. |
 | body | text | yes |  |  |
 | from_status | text | yes |  |  |
 | to_status | text | yes |  |  |
-| created_by | text | yes |  |  |
+| created_by | text | yes |  | `"system"` for automated entries. |
 | created_at | timestamp with time zone | no | `"now()"` |  |
 
 ## `partnership_applications`
@@ -354,8 +354,8 @@ Append-only — the app never UPDATEs or DELETEs a row here, it only INSERTs new
 | phone | text | yes |  |  |
 | budget_range | text | yes |  |  |
 | additional_notes | text | yes |  |  |
-| status | text | no | `"submitted"` |  |
-| priority | text | yes |  |  |
+| status | text | no | `"submitted"` | One of: submitted, under_review, needs_information, qualified, declined, withdrawn. |
+| priority | text | yes |  | One of: High, Medium, Low. |
 | owner_id | text | yes |  |  |
 | owner_email | text | yes |  |  |
 | created_at | timestamp with time zone | no | `"now()"` |  |

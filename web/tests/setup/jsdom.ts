@@ -18,3 +18,7 @@ if (!Element.prototype.scrollTo) {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
+// Unlike Element.prototype.scrollTo, jsdom already defines window.scrollTo —
+// but as a stub that logs "Not implemented" to the console on every call, so
+// it must be unconditionally overridden rather than guarded with `if (!...)`.
+window.scrollTo = () => {};
