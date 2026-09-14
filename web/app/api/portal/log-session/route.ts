@@ -22,6 +22,11 @@ interface VideoInput {
  * coach-logged session, this one is capped by selfLogSessionsLimitForPlan, which — deliberately,
  * see its own doc comment — never resolves to "unlimited": a self-logged session has no coach
  * naturally rate-limiting it the way a real one does.
+ *
+ * The cap counts rows with `self_logged = true`, set only here — not `coach_id IS NULL`, which
+ * NewSessionForm can also produce whenever a coach isn't picked (an unrelated "no coach selected"
+ * case, not "the player logged this themselves"). Conflating the two used to let a staff-logged
+ * session with no coach silently eat into a player's own monthly quota.
  */
 export async function POST(request: Request) {
   const { date, type, notes, rpe, videos } = (await request.json()) as {
@@ -76,7 +81,7 @@ export async function POST(request: Request) {
     .from("sessions")
     .select("id")
     .eq("player_id", playerId)
-    .is("coach_id", null)
+    .eq("self_logged", true)
     .gte("created_at", startOfMonth.toISOString());
   if (countError) return NextResponse.json({ error: countError.message }, { status: 500 });
 
@@ -100,6 +105,7 @@ export async function POST(request: Request) {
     })),
     ball_speed_kmh: null, front_knee_angle_deg: null, xp_earned: xpEarned,
     booking_id: null, rpe: rpe ?? null, coach_id: null, time: null, duration_mins: null,
+    self_logged: true,
   });
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 

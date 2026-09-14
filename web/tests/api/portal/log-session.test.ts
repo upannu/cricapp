@@ -72,7 +72,7 @@ describe("POST /api/portal/log-session", () => {
     expect(body).toMatchObject({ success: true, selfLogRemaining: 1 });
     const client = routeMockState.lastServiceClient!;
     expect(client.tables.sessions.insert).toHaveBeenCalledWith(expect.objectContaining({
-      player_id: "p1", coach_id: null, booking_id: null, date: "2026-01-15", rpe: 6,
+      player_id: "p1", coach_id: null, booking_id: null, date: "2026-01-15", rpe: 6, self_logged: true,
     }));
   });
 
@@ -111,6 +111,24 @@ describe("POST /api/portal/log-session", () => {
     expect(body.xpEarned).toBe(50);
     const client = routeMockState.lastServiceClient!;
     expect(client.tables.sessions.insert).toHaveBeenCalledWith(expect.objectContaining({ videos: [] }));
+  });
+
+  // The whole point of the self_logged column: coach_id IS NULL is not an exclusive signal for
+  // "the player logged this themselves" — NewSessionForm can also leave coach_id null whenever
+  // staff don't pick a coach, which must never count against a player's own monthly quota.
+  test("counts the monthly cap by self_logged, not coach_id", async () => {
+    routeMockState.cookieUser = rawUser({ role: "player", player_id: "p1" });
+    routeMockState.tableResponses = {
+      players: { data: { id: "p1", sub_plan: "Player Pro" }, error: null },
+      plans: { data: [PRO_PLAN], error: null },
+      sessions: { data: [], error: null },
+    };
+
+    await POST(jsonRequest(URL, VALID_BODY));
+
+    const client = routeMockState.lastServiceClient!;
+    expect(client.tables.sessions.eq).toHaveBeenCalledWith("self_logged", true);
+    expect(client.tables.sessions.is).not.toHaveBeenCalledWith("coach_id", null);
   });
 
   test("a parent account can also self-log for their child", async () => {
