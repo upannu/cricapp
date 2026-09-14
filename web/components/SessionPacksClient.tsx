@@ -148,6 +148,14 @@ export function SessionPacksClient() {
   const [markPaidDate, setMarkPaidDate] = useState(today);
   const [markingPaid, setMarkingPaid] = useState(false);
 
+  // Bulk row selection + actions
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkMarkPaidOpen, setBulkMarkPaidOpen] = useState(false);
+  const [bulkMarkPaidDate, setBulkMarkPaidDate] = useState(today);
+  const [bulkMarkingPaid, setBulkMarkingPaid] = useState(false);
+  const [bulkRenewOpen, setBulkRenewOpen] = useState(false);
+  const [bulkRenewing, setBulkRenewing] = useState(false);
+
   // Bulk pack CSV import
   const [showBulkForm, setShowBulkForm] = useState(false);
   const [bulkSettings, setBulkSettings] = useState<BulkPackSettings>({ academyId: "", purchaseDate: today, totalSessions: 10, agreedDays: [], groupSessionIds: [] });
@@ -574,12 +582,123 @@ export function SessionPacksClient() {
     setMarkPaidTarget(null);
   }
 
+  // "Select all" (and its indeterminate state) covers every row currently matching the active
+  // search/filters, not just the visible page — narrowing a search after selecting some players
+  // deliberately leaves the now-hidden selections alone rather than silently dropping them, same
+  // convention Players' own bulk-select already uses.
+  const allSelected = sortedRows.length > 0 && sortedRows.every((r) => selectedIds.has(r.player.id));
+  const someSelected = sortedRows.some((r) => selectedIds.has(r.player.id)) && !allSelected;
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) sortedRows.forEach((r) => next.delete(r.player.id));
+      else sortedRows.forEach((r) => next.add(r.player.id));
+      return next;
+    });
+  }
+
+  function clearSelection() { setSelectedIds(new Set()); }
+
+  const selectedRows = sortedRows.filter((r) => selectedIds.has(r.player.id));
+  const selectedPacksPendingPayment = selectedRows.filter((r) => r.pack && r.pack.paymentStatus !== "Paid").map((r) => r.pack!);
+  const selectedExhaustedRows = selectedRows.filter((r): r is { player: Player; pack: SessionPack } => !!r.pack && r.pack.status === "Exhausted");
+
+  async function handleConfirmBulkMarkPaid() {
+    setBulkMarkingPaid(true);
+    // Sequential, not Promise.all — handleMarkPaid's own record-fee-due call and state update
+    // shouldn't race across packs.
+    for (const pack of selectedPacksPendingPayment) {
+      await handleMarkPaid(pack.id, bulkMarkPaidDate);
+    }
+    setBulkMarkingPaid(false);
+    setBulkMarkPaidOpen(false);
+    clearSelection();
+  }
+
+  // Mirrors openRenew's own single-pack prefill, but applied directly (no form step) to every
+  // selected Exhausted membership at once — each new pack carries forward that specific player's
+  // prior academy/coach/fee/agreed days, not a single shared setting like the bulk CSV importer.
+  async function handleConfirmBulkRenew() {
+    setBulkRenewing(true);
+    const renewed: SessionPack[] = [];
+    for (const { player, pack } of selectedExhaustedRows) {
+      const waived = academyWaivesFees(pack.academyId);
+      const newPack: SessionPack = {
+        id: `sp_${Date.now()}_${player.id}`,
+        playerId: player.id, academyId: pack.academyId, coachId: pack.coachId,
+        sessionType: "Net Session", purchaseDate: today, totalSessions: 10,
+        sessionsUsed: 0, sessionCredits: 0, feePerSession: pack.feePerSession,
+        status: "Active", paymentStatus: waived ? "Paid" : "Pending",
+        paymentDueDate: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+        paidDate: null, agreedDays: pack.agreedDays,
+      };
+      await upsertSessionPack({
+        id: newPack.id, player_id: newPack.playerId, academy_id: newPack.academyId,
+        coach_id: newPack.coachId ?? null, session_type: newPack.sessionType,
+        purchase_date: newPack.purchaseDate, total_sessions: newPack.totalSessions,
+        sessions_used: 0, session_credits: 0, fee_per_session: newPack.feePerSession,
+        status: "Active", payment_status: newPack.paymentStatus, payment_due_date: newPack.paymentDueDate,
+        agreed_days: newPack.agreedDays,
+      });
+      if (!waived) {
+        fetch("/api/packs/notify-created", {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ packId: newPack.id }),
+        }).catch(() => {});
+      }
+      renewed.push(newPack);
+    }
+    setPacks((prev) => {
+      const byPlayer = new Map(prev.map((pk) => [pk.playerId, pk] as const));
+      for (const r of renewed) byPlayer.set(r.playerId, r);
+      return Array.from(byPlayer.values());
+    });
+    setBulkRenewing(false);
+    setBulkRenewOpen(false);
+    clearSelection();
+  }
+
+  function handleExportCsv() {
+    const rows = selectedRows.map(({ player, pack }) => ({
+      name: player.name, ageGroup: player.ageGroup,
+      academy: pack ? (academyById(pack.academyId)?.name ?? "") : "",
+      coach: getCoachOrAcademyLabel(player, _packCoaches, _packAcademies),
+      sessionsRemaining: pack ? sessionsRemaining(pack) : "",
+      status: pack?.status ?? "No Membership",
+      paymentStatus: pack?.paymentStatus ?? "",
+    }));
+    const blob = new Blob([Papa.unparse(rows)], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `memberships-export-${today}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function renderPackRow(player: Player, pack?: SessionPack) {
     const remaining = pack ? sessionsRemaining(pack) : null;
     const academy = pack ? academyById(pack.academyId) : undefined;
+    const isSelected = selectedIds.has(player.id);
     return (
-      <tr key={player.id} className="border-b border-zinc-700/40 last:border-0 hover:bg-surface/80 transition-colors">
-        <td className="px-4 py-4 pl-6">
+      <tr key={player.id} className={`border-b border-zinc-700/40 last:border-0 transition-colors ${isSelected ? "bg-blue-500/5" : "hover:bg-surface/80"}`}>
+        <td className="px-4 py-4 pl-6 text-center">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => toggleSelect(player.id)}
+            className="w-4 h-4 accent-pace-green cursor-pointer"
+            title="Select for bulk actions"
+          />
+        </td>
+        <td className="px-4 py-4">
           <button type="button" onClick={() => router.push(pack ? `/session-packs/${pack.id}` : `/players/${player.id}`)}
             className="flex items-center gap-3 text-left cursor-pointer group">
             <div className="w-9 h-9 rounded-full bg-pace-green/20 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">
@@ -1159,6 +1278,46 @@ export function SessionPacksClient() {
 
       {/* ── PACKS TAB ───────────────────────────────────────────────────────── */}
       {pageTab === "Memberships" && <>
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3">
+          <span className="text-blue-400 text-sm font-semibold">
+            {selectedIds.size} player{selectedIds.size !== 1 ? "s" : ""} selected
+          </span>
+          {selectedPacksPendingPayment.length > 0 && canAddPack && (
+            <button
+              type="button"
+              onClick={() => { setBulkMarkPaidDate(today); setBulkMarkPaidOpen(true); }}
+              className="px-3 py-1.5 text-xs font-semibold text-black bg-pace-green rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
+            >
+              Mark Paid ({selectedPacksPendingPayment.length})
+            </button>
+          )}
+          {selectedExhaustedRows.length > 0 && canAddPack && (
+            <button
+              type="button"
+              onClick={() => setBulkRenewOpen(true)}
+              className="px-3 py-1.5 text-xs font-semibold text-amber border border-amber/30 rounded-lg hover:bg-amber/10 transition-colors cursor-pointer"
+            >
+              Renew ({selectedExhaustedRows.length})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer sm:ml-auto"
+          >
+            Clear
+          </button>
+        </div>
+      )}
       <div className="bg-surface rounded-2xl overflow-hidden">
         {/* Search + filters — one unified bar, matching Players' own layout */}
         <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
@@ -1197,7 +1356,17 @@ export function SessionPacksClient() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-700/60">
-                <SortableHeader label="Player" sortKey="player" activeKey={sortKey} direction={sortDir} onSort={handleSort} className="pl-6" />
+                <th className="text-center px-4 py-3 pl-6 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                    onChange={toggleAll}
+                    className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+                    title="Select all"
+                  />
+                </th>
+                <SortableHeader label="Player" sortKey="player" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Academy" sortKey="academy" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Sessions Remaining" sortKey="remaining" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
@@ -1249,6 +1418,40 @@ export function SessionPacksClient() {
             <DateInput value={markPaidDate} onChange={setMarkPaidDate} className={inp} />
           </div>
         </ConfirmModal>
+      )}
+
+      {bulkMarkPaidOpen && (
+        <ConfirmModal
+          icon={<CreditCardIcon width={22} height={22} className="text-pace-green" />}
+          iconBg="bg-pace-green/20"
+          title="Mark Selected as Paid (Cash)?"
+          message={`Record ${selectedPacksPendingPayment.length} membership fee${selectedPacksPendingPayment.length === 1 ? "" : "s"} as paid outside Stripe (cash/bank transfer).`}
+          confirmLabel="Mark Paid"
+          confirmBusyLabel="Saving…"
+          loading={bulkMarkingPaid}
+          onConfirm={handleConfirmBulkMarkPaid}
+          onCancel={() => setBulkMarkPaidOpen(false)}
+        >
+          <div>
+            <label className={lbl}>Paid Date</label>
+            <DateInput value={bulkMarkPaidDate} onChange={setBulkMarkPaidDate} className={inp} />
+          </div>
+        </ConfirmModal>
+      )}
+
+      {bulkRenewOpen && (
+        <ConfirmModal
+          icon={<RepeatIcon width={22} height={22} className="text-amber" />}
+          iconBg="bg-amber/20"
+          title="Renew Selected Memberships?"
+          message={`Create a fresh 10-session membership for ${selectedExhaustedRows.length} exhausted member${selectedExhaustedRows.length === 1 ? "ship" : "ships"}, carrying forward each one's own academy, fee, and squad training sessions.`}
+          confirmLabel="Renew"
+          confirmBusyLabel="Renewing…"
+          confirmVariant="warning"
+          loading={bulkRenewing}
+          onConfirm={handleConfirmBulkRenew}
+          onCancel={() => setBulkRenewOpen(false)}
+        />
       )}
     </div>
   );
