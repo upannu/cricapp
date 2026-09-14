@@ -691,3 +691,67 @@ export interface BookingFeeDue {
   collectedBy?: string;
   createdAt?: string;
 }
+
+// ─── Partnerships (cricket board B2B applications) ─────────────────────────
+// A dedicated, public-facing lead-capture flow for boards/associations wanting to partner with
+// CRIC HQ — deliberately its own thing, separate from the existing per-academy Memberships admin
+// area. See app/partnerships/cricket-board and app/api/partnerships/apply.
+
+export type PartnershipOrgType =
+  | 'National Cricket Board' | 'State Cricket Association' | 'Regional Cricket Association'
+  | 'District Cricket Association' | 'Academy Network' | 'Professional Cricket Organisation' | 'Other';
+
+/** Sprint 1-3 statuses only — discovery/proposal/negotiation/contract/onboarding/active are
+ * reserved names for the later CRM sprints (proposal builder, contract, onboarding), not built
+ * yet. Declined and withdrawn are both terminal, distinguished for reporting (we said no vs. they
+ * walked away). */
+export type PartnershipStatus = 'submitted' | 'under_review' | 'needs_information' | 'qualified' | 'declined' | 'withdrawn';
+
+export type PartnershipPriority = 'High' | 'Medium' | 'Low';
+
+export interface PartnershipApplication {
+  id: string;
+  reference: string;
+  organisationName: string;
+  organisationType: PartnershipOrgType;
+  country: string;
+  region: string | null;
+  website: string | null;
+  scalePlayers: string | null;
+  scaleCoaches: string | null;
+  scaleAcademies: string | null;
+  scaleRegions: string | null;
+  interests: string[];
+  challenges: string | null;
+  currentSystems: string[];
+  timeline: string | null;
+  contactFirstName: string;
+  contactLastName: string;
+  jobTitle: string;
+  email: string;
+  phone: string | null;
+  budgetRange: string | null;
+  additionalNotes: string | null;
+  status: PartnershipStatus;
+  priority: PartnershipPriority | null;
+  ownerId: string | null;
+  ownerEmail: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A shared timeline covering both system events (submitted, status changes, assignment) and
+ * manual staff notes — one table instead of two, since a "note" is really just one more activity
+ * kind. Notes and Activity render from the same feed on the (later) admin detail page. */
+export type PartnershipActivityKind = 'submitted' | 'status_change' | 'assigned' | 'note' | 'email_sent';
+
+export interface PartnershipActivityEntry {
+  id: string;
+  applicationId: string;
+  kind: PartnershipActivityKind;
+  body: string | null;
+  fromStatus: PartnershipStatus | null;
+  toStatus: PartnershipStatus | null;
+  createdBy: string | null;
+  createdAt: string;
+}
