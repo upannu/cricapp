@@ -218,3 +218,36 @@ export function buildContactFormEmailHtml(opts: {
     ctaHref: `mailto:${opts.email}`,
   });
 }
+
+/** The public Cricket Board Partnership application notification sent to PLATFORM_ADMIN_EMAIL —
+ * see api/partnerships/apply/route.ts. Unlike buildContactFormEmailHtml, this is a CRM lead, not
+ * a one-off message — the reference number is the same one shown to the applicant on their own
+ * success page, so staff and applicant can talk about "the same" application by that reference. */
+export function buildPartnershipApplicationEmailHtml(opts: {
+  appUrl: string;
+  reference: string;
+  organisationName: string;
+  organisationType: string;
+  country: string;
+  region?: string;
+  contactName: string;
+  jobTitle: string;
+  email: string;
+}): string {
+  const rows = [
+    { label: "Reference", value: opts.reference },
+    { label: "Organisation", value: escapeHtml(opts.organisationName) },
+    { label: "Type", value: escapeHtml(opts.organisationType) },
+    { label: "Country", value: escapeHtml(opts.region ? `${opts.country}, ${opts.region}` : opts.country) },
+    { label: "Contact", value: escapeHtml(`${opts.contactName} — ${opts.jobTitle}`) },
+    { label: "Email", value: escapeHtml(opts.email) },
+  ];
+  return shell({
+    appUrl: opts.appUrl,
+    heading: "New Cricket Board Partnership application",
+    intro: `${escapeHtml(opts.organisationName)} has applied to partner with CRIC HQ.`,
+    contentHtml: infoBox("Application details", detailRowsHtml(rows)),
+    ctaLabel: "Reply to applicant",
+    ctaHref: `mailto:${opts.email}`,
+  });
+}
