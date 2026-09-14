@@ -700,7 +700,7 @@ export function PlayersClient() {
             {formatDate(player.subscription.endDate)}
           </span>
         </td>
-        <td className="px-4 py-4 pr-6">
+        <td className="sticky right-0 z-10 bg-surface px-4 py-4 pr-6">
           {/* Both View and Message live under one ⋮ now — a wide table with 10 columns already
               needed horizontal scroll to reach a separate View button out here, so folding it in
               keeps every row's actions in one place instead of splitting them across a visible
@@ -1036,7 +1036,7 @@ export function PlayersClient() {
                 <SortableHeader label="Plan" sortKey="plan" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="End / Renewal" sortKey="endDate" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">
+                <th className="sticky right-0 z-10 bg-surface text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">
                   Actions
                 </th>
               </tr>
