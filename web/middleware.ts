@@ -52,6 +52,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/cron/") ||
     // Contact form can be submitted by a signed-out visitor.
     pathname.startsWith("/api/contact") ||
+    // Cricket Board Partnership application form — submitted by a signed-out visitor, same as /api/contact.
+    pathname.startsWith("/api/partnerships/apply") ||
     // Public player-registration page (/register) — gated by its own shared code, not a session.
     pathname.startsWith("/api/public-register-player") ||
     // Every auth email link (reset password, invite, etc.) lands here first, with no session yet
@@ -73,7 +75,12 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/privacy") ||
     // Public, code-gated player-registration page — a coach/staff member should be able to open
     // it too (e.g. to demo it to a parent) without getting bounced.
-    pathname.startsWith("/register");
+    pathname.startsWith("/register") ||
+    // Cricket Board Partnership landing/apply/success pages and the Organisations hub — any board
+    // needs to reach these signed out, and a signed-in staff member should be able to open/share
+    // them too (e.g. to walk a prospect through the flow).
+    pathname.startsWith("/partnerships") ||
+    pathname.startsWith("/organisations");
 
   if (!user && !isPublicPage && !isAlwaysPublicPage && !isAuthApi) {
     return NextResponse.redirect(new URL("/login", request.url));
