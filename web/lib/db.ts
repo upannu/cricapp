@@ -105,6 +105,13 @@ export interface DbSession {
   xp_earned: number; booking_id?: string | null;
   rpe?: number | null;
   coach_id?: string | null; time?: string | null; duration_mins?: number | null;
+  /** Set only by app/api/portal/log-session — distinguishes "the player logged this themselves"
+   * from "no coach happened to be picked" (NewSessionForm can also leave coach_id null). The
+   * self-log monthly cap counts this flag, not coach_id, so a staff-logged session with no coach
+   * selected never silently eats into a player's own quota. Internal bookkeeping only, not
+   * surfaced through dbToSession/the client-facing Session type — same convention as
+   * DbSessionPack's own reminder_*_sent_at flags. */
+  self_logged?: boolean;
 }
 
 export interface DbSessionPack {
