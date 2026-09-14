@@ -741,7 +741,7 @@ export function SessionPacksClient() {
             <span className="text-zinc-600 text-xs whitespace-nowrap">No Membership</span>
           )}
         </td>
-        <td className="px-4 py-4 pr-6">
+        <td className="sticky right-0 z-10 bg-surface px-4 py-4 pr-6">
           <RowActionsMenu items={pack ? [
             { label: "View", icon: <EyeIcon />, onClick: () => router.push(`/session-packs/${pack.id}`) },
             { label: "Edit", icon: <EditIcon />, onClick: () => router.push(`/session-packs/${pack.id}/edit`) },
@@ -1371,7 +1371,7 @@ export function SessionPacksClient() {
                 <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Sessions Remaining" sortKey="remaining" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
+                <th className="sticky right-0 z-10 bg-surface text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
