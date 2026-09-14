@@ -283,4 +283,117 @@ describe("SessionPacksClient", () => {
     expect(await screen.findByRole("heading", { name: "New Membership" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("25")).toBeInTheDocument();
   });
+
+  test("selecting a row shows the bulk action bar with the right count, and Clear deselects everything", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1", paymentStatus: "Pending" })]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByTitle("Select for bulk actions"));
+    expect(screen.getByText("1 player selected")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+  });
+
+  test("select-all selects every row currently matching the filters/search", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer" }),
+    ]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByTitle("Select all"));
+    expect(screen.getByText("2 players selected")).toBeInTheDocument();
+
+    await user.click(screen.getByTitle("Select all"));
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+  });
+
+  test("Bulk Mark Paid records payment for every selected pending membership", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer" }),
+    ]);
+    fetchSessionPacks.mockResolvedValue([
+      makeSessionPack({ id: "pack1", playerId: "p1", paymentStatus: "Pending" }),
+      makeSessionPack({ id: "pack2", playerId: "p2", paymentStatus: "Pending" }),
+    ]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+    await user.click(screen.getByTitle("Select all"));
+
+    await user.click(screen.getByRole("button", { name: "Mark Paid (2)" }));
+    expect(await screen.findByText("Mark Selected as Paid (Cash)?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Mark Paid" }));
+
+    await waitFor(() => expect(screen.queryByText("Mark Selected as Paid (Cash)?")).not.toBeInTheDocument());
+    // Bulk action clears the selection when it finishes.
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+  });
+
+  test("Bulk Renew creates a fresh membership for every selected Exhausted membership, preserving its own academy/fee", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "academy-1", name: "Fast Bowlers Academy" })]);
+    fetchPlayers.mockResolvedValue([
+      makePlayer({ id: "p1", name: "Alice Bowler" }),
+      makePlayer({ id: "p2", name: "Bob Seamer" }),
+    ]);
+    fetchSessionPacks.mockResolvedValue([
+      makeSessionPack({ id: "pack1", playerId: "p1", academyId: "academy-1", status: "Exhausted", feePerSession: 20 }),
+      makeSessionPack({ id: "pack2", playerId: "p2", academyId: "academy-1", status: "Exhausted", feePerSession: 30 }),
+    ]);
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+    await user.click(screen.getByTitle("Select all"));
+
+    await user.click(screen.getByRole("button", { name: "Renew (2)" }));
+    expect(await screen.findByText("Renew Selected Memberships?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Renew" }));
+
+    await waitFor(() => expect(upsertSessionPack).toHaveBeenCalledTimes(2));
+    expect(upsertSessionPack).toHaveBeenCalledWith(expect.objectContaining({ player_id: "p1", fee_per_session: 20, total_sessions: 10 }));
+    expect(upsertSessionPack).toHaveBeenCalledWith(expect.objectContaining({ player_id: "p2", fee_per_session: 30, total_sessions: 10 }));
+    expect(global.fetch).toHaveBeenCalledWith("/api/packs/notify-created", expect.anything());
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+  });
+
+  test("Export CSV downloads a CSV of the selected rows", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchSessionPacks.mockResolvedValue([makeSessionPack({ id: "pack1", playerId: "p1" })]);
+
+    const createObjectURL = vi.fn().mockReturnValue("blob:mock-url");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    render(<SessionPacksClient />);
+    await screen.findByText("Alice Bowler");
+
+    await user.click(screen.getByTitle("Select for bulk actions"));
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const [blob] = createObjectURL.mock.calls[0];
+    expect(blob.type).toBe("text/csv");
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");
+
+    clickSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
 });
