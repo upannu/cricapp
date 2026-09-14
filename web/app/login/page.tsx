@@ -93,6 +93,9 @@ export default function LoginPage() {
           <Link href="/about" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
             About
           </Link>
+          <Link href="/organisations" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+            Organisations
+          </Link>
           <Link href="#signin" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
             Login
           </Link>
