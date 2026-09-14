@@ -769,7 +769,11 @@ export function SessionPacksClient() {
           <h1 className="text-2xl font-bold text-white mb-1">Memberships</h1>
         </div>
         {canAddPack && (
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
+            <Link href="/session-packs/plans"
+              className="px-5 py-2.5 text-zinc-300 text-sm font-bold rounded-xl border border-zinc-700 hover:bg-zinc-800 transition-colors">
+              Plan Templates
+            </Link>
             <button type="button" onClick={openBulkAdd}
               className="px-5 py-2.5 text-pace-green text-sm font-bold rounded-xl border border-pace-green/40 hover:bg-pace-green/10 transition-colors cursor-pointer">
               Bulk Import Memberships

@@ -12,6 +12,7 @@ import type {
   GroupSession, AttendanceStatus, AttendanceRecord, AttendanceRecordedBy, PackActivityEntry, Net,
   Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, ReferralStatus, ReferralPayoutStatus,
   PackFeeDue, PackFeeDueStatus, BookingFeeDue,
+  MembershipPlanTemplate,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 import { DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -124,6 +125,12 @@ export interface DbSessionPack {
   reminder_7d_sent_at?: string | null;
   reminder_2d_sent_at?: string | null;
   reminder_due_sent_at?: string | null;
+}
+
+export interface DbMembershipPlanTemplate {
+  id: string; plan_key: string; academy_id: string; name: string; session_type: string;
+  total_sessions: number; fee_per_session: number; status: string; effective_from: string;
+  created_at: string;
 }
 
 export interface DbReport {
@@ -654,6 +661,57 @@ export async function insertSessionPacks(rows: DbSessionPack[]): Promise<void> {
   if (rows.length === 0) return;
   const sb = createClient();
   const { error } = await sb.from("session_packs").insert(rows);
+  if (error) throw error;
+}
+
+function dbToMembershipPlanTemplate(r: DbMembershipPlanTemplate): MembershipPlanTemplate {
+  return {
+    id: r.id, planKey: r.plan_key, academyId: r.academy_id, name: r.name,
+    sessionType: r.session_type, totalSessions: r.total_sessions, feePerSession: r.fee_per_session,
+    status: r.status as MembershipPlanTemplate["status"],
+    effectiveFrom: r.effective_from, createdAt: r.created_at,
+  };
+}
+
+/** Reads from the current_membership_plan_templates view (one row per planKey — the latest
+ * non-archived version), not the raw table, which holds every historical version. See
+ * schema-notes.md and lib/types.ts's MembershipPlanTemplate doc comment for why templates are
+ * append-only rather than updated in place. */
+export async function fetchCurrentMembershipPlanTemplates(academyId?: string): Promise<MembershipPlanTemplate[]> {
+  const sb = createClient();
+  let q = sb.from("current_membership_plan_templates").select("*").order("name", { ascending: true });
+  if (academyId) q = q.eq("academy_id", academyId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as DbMembershipPlanTemplate[]).map(dbToMembershipPlanTemplate);
+}
+
+/** Creates a brand-new plan (pass a fresh planKey) or a new version of an existing one (reuse its
+ * planKey) — either way this is always an INSERT, never an update, so older session_packs rows
+ * that already copied a prior version's price are unaffected. */
+export async function createMembershipPlanTemplateVersion(row: {
+  id: string; planKey: string; academyId: string; name: string; sessionType: string;
+  totalSessions: number; feePerSession: number;
+}): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("membership_plan_templates").insert({
+    id: row.id, plan_key: row.planKey, academy_id: row.academyId, name: row.name,
+    session_type: row.sessionType, total_sessions: row.totalSessions, fee_per_session: row.feePerSession,
+    status: "active",
+  });
+  if (error) throw error;
+}
+
+/** Archiving is itself a new version row (status "archived", carrying forward the same pricing)
+ * rather than an UPDATE — keeps the append-only invariant so the full history of a planKey is
+ * always reconstructable from the raw table. */
+export async function archiveMembershipPlanTemplate(current: MembershipPlanTemplate, newId: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("membership_plan_templates").insert({
+    id: newId, plan_key: current.planKey, academy_id: current.academyId, name: current.name,
+    session_type: current.sessionType, total_sessions: current.totalSessions,
+    fee_per_session: current.feePerSession, status: "archived",
+  });
   if (error) throw error;
 }
 
