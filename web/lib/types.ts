@@ -755,3 +755,25 @@ export interface PartnershipActivityEntry {
   createdBy: string | null;
   createdAt: string;
 }
+
+// ---- Membership Plan Templates ------------------------------------------
+// A reusable "10 Session Package" / "Monthly Membership" preset an admin picks when creating a
+// session_packs row, instead of retyping sessionType/totalSessions/feePerSession by hand every
+// time. Deliberately append-only/versioned: editing a template never mutates its row — it inserts
+// a new row sharing the same planKey with a fresh effectiveFrom, so a session_packs row created
+// last month keeps referencing the price that was actually in effect then (session_packs itself
+// copies the values at creation time — it never live-references a template). "Current" for a
+// planKey is the row with the latest effectiveFrom that isn't archived; see
+// current_membership_plan_templates in schema-notes.md.
+export interface MembershipPlanTemplate {
+  id: string;
+  planKey: string;
+  academyId: string;
+  name: string;
+  sessionType: string;
+  totalSessions: number;
+  feePerSession: number;
+  status: 'active' | 'archived';
+  effectiveFrom: string;
+  createdAt: string;
+}
