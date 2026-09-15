@@ -14,6 +14,7 @@ const ADMIN_TOOLS = [
   { label: "Platform KPIs", href: "/admin/kpis" },
   { label: "Platform Admins", href: "/admin/admins" },
   { label: "Referrals", href: "/admin/referrals" },
+  { label: "Partnerships", href: "/admin/partnerships" },
 ];
 
 const NAV_ALL = [
