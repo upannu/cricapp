@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { NextResponse } from "next/server";
 import { buildPartnershipApplicationEmailHtml, emailFrom } from "@/lib/email-templates";
+import { displayPartnershipReference } from "@/lib/db";
 import type { PartnershipOrgType } from "@/lib/types";
 
 const ORG_TYPES: PartnershipOrgType[] = [
@@ -16,14 +17,6 @@ interface ApplyBody {
   interests?: string[]; challenges?: string; currentSystems?: string[]; timeline?: string;
   contactFirstName?: string; contactLastName?: string; jobTitle?: string;
   email?: string; phone?: string; budgetRange?: string; additionalNotes?: string;
-}
-
-/** Derives a human-readable display reference from the row's own real id — not a separate stored
- * sequence (this app has no reference-number infra anywhere else), and not a lookup key: the
- * actual id is what every later admin/detail route addresses. Collisions are cosmetic only. */
-function displayReference(id: string, now: Date): string {
-  const digits = id.replace(/\D/g, "").slice(-6).padStart(6, "0");
-  return `CRIC-BRD-${now.getFullYear()}-${digits}`;
 }
 
 /**
@@ -56,7 +49,7 @@ export async function POST(request: Request) {
 
   const now = new Date();
   const id = `prt_${now.getTime()}`;
-  const reference = displayReference(id, now);
+  const reference = displayPartnershipReference(id, now);
 
   const { error: insertError } = await supabase.from("partnership_applications").insert({
     id,

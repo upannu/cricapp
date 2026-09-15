@@ -13,6 +13,7 @@ import type {
   Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, ReferralStatus, ReferralPayoutStatus,
   PackFeeDue, PackFeeDueStatus, BookingFeeDue,
   MembershipPlanTemplate,
+  PartnershipApplication, PartnershipActivityEntry, PartnershipStatus, PartnershipPriority, PartnershipActivityKind,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 import { DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -131,6 +132,22 @@ export interface DbMembershipPlanTemplate {
   id: string; plan_key: string; academy_id: string; name: string; session_type: string;
   total_sessions: number; fee_per_session: number; status: string; effective_from: string;
   created_at: string;
+}
+
+export interface DbPartnershipApplication {
+  id: string; organisation_name: string; organisation_type: string; country: string;
+  region: string | null; website: string | null;
+  scale_players: string | null; scale_coaches: string | null; scale_academies: string | null; scale_regions: string | null;
+  interests: string[]; challenges: string | null; current_systems: string[]; timeline: string | null;
+  contact_first_name: string; contact_last_name: string; job_title: string; email: string; phone: string | null;
+  budget_range: string | null; additional_notes: string | null;
+  status: string; priority: string | null; owner_id: string | null; owner_email: string | null;
+  created_at: string; updated_at: string;
+}
+
+export interface DbPartnershipActivityEntry {
+  id: string; application_id: string; kind: string; body: string | null;
+  from_status: string | null; to_status: string | null; created_by: string | null; created_at: string;
 }
 
 export interface DbReport {
@@ -671,6 +688,41 @@ function dbToMembershipPlanTemplate(r: DbMembershipPlanTemplate): MembershipPlan
     status: r.status as MembershipPlanTemplate["status"],
     effectiveFrom: r.effective_from, createdAt: r.created_at,
   };
+}
+
+/** Exported (unlike the other dbTo* mappers here) because the partnership admin API routes run
+ * server-side against a service-role client, not through a browser-client lib/db.ts fetch — see
+ * api/partnerships/list's doc comment for why. */
+export function dbToPartnershipApplication(r: DbPartnershipApplication): PartnershipApplication {
+  return {
+    id: r.id, reference: displayPartnershipReference(r.id, new Date(r.created_at)),
+    organisationName: r.organisation_name, organisationType: r.organisation_type as PartnershipApplication["organisationType"],
+    country: r.country, region: r.region, website: r.website,
+    scalePlayers: r.scale_players, scaleCoaches: r.scale_coaches, scaleAcademies: r.scale_academies, scaleRegions: r.scale_regions,
+    interests: r.interests, challenges: r.challenges, currentSystems: r.current_systems, timeline: r.timeline,
+    contactFirstName: r.contact_first_name, contactLastName: r.contact_last_name, jobTitle: r.job_title,
+    email: r.email, phone: r.phone, budgetRange: r.budget_range, additionalNotes: r.additional_notes,
+    status: r.status as PartnershipStatus, priority: r.priority as PartnershipPriority | null,
+    ownerId: r.owner_id, ownerEmail: r.owner_email, createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+}
+
+export function dbToPartnershipActivityEntry(r: DbPartnershipActivityEntry): PartnershipActivityEntry {
+  return {
+    id: r.id, applicationId: r.application_id, kind: r.kind as PartnershipActivityKind, body: r.body,
+    fromStatus: r.from_status as PartnershipStatus | null, toStatus: r.to_status as PartnershipStatus | null,
+    createdBy: r.created_by, createdAt: r.created_at,
+  };
+}
+
+/** Derives the human-readable reference shown on both the applicant's own success page (see
+ * api/partnerships/apply, which calls this at insert time) and every admin view (called again
+ * here from the row's own created_at) — not a separate stored sequence, this app has no
+ * reference-number infra anywhere else. The actual id is what every admin/detail route addresses;
+ * collisions in the displayed reference are cosmetic only. */
+export function displayPartnershipReference(id: string, referenceDate: Date): string {
+  const digits = id.replace(/\D/g, "").slice(-6).padStart(6, "0");
+  return `CRIC-BRD-${referenceDate.getFullYear()}-${digits}`;
 }
 
 /** Reads from the current_membership_plan_templates view (one row per planKey — the latest
