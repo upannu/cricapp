@@ -4,9 +4,9 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Papa from "papaparse";
-import type { SessionPack, BookingType, Player, Coach, Academy, PaymentStatus, Plan, PackFeeDue, GroupSession } from "@/lib/types";
+import type { SessionPack, BookingType, Player, Coach, Academy, PaymentStatus, Plan, PackFeeDue, GroupSession, MembershipPlanTemplate } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, fetchPackFeeDues, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, markPackPaid, fetchGroupSessions, setGroupSessionRoster } from "@/lib/db";
+import { fetchSessionPacks, fetchPlayers, fetchAcademies, fetchCoaches, fetchActivePlans, fetchPackFeeDues, upsertSessionPack, insertSessionPacks, updatePackPaymentStatus, markPackPaid, fetchGroupSessions, setGroupSessionRoster, fetchCurrentMembershipPlanTemplates } from "@/lib/db";
 import { formatDate, getCoachOrAcademyLabel, getPlatformFeePercent, isPackCreditExpired, matchPlayerByNameOrEmail } from "@/lib/utils";
 import { DateInput } from "@/components/DateInput";
 import { StatsGrid } from "@/components/StatsGrid";
@@ -43,6 +43,7 @@ let _packAcademies: Academy[] = [];
 let _packCoaches: Coach[] = [];
 let _packPlans: Plan[] = [];
 let _packGroupSessions: GroupSession[] = [];
+let _packPlanTemplates: MembershipPlanTemplate[] = [];
 
 // A Membership is always for "Net Session" (see the fixed badge in the form below) — so the
 // squad training sessions it can bind to are this academy's active Net Session group sessions.
@@ -143,6 +144,11 @@ export function SessionPacksClient() {
   const { sortKey, sortDir, handleSort } = useSort<PackSortKey>("player");
   const [showForm, setShowForm] = useState(false);
   const [draft, setDraft] = useState<DraftPack>(EMPTY_DRAFT);
+  // UI-only — which plan template pre-filled the fields below, if any. Not saved onto the
+  // membership itself: session_packs copies totalSessions/feePerSession at creation time and
+  // never live-references a template (see MembershipPlanTemplate's own doc comment), so a
+  // template's later edits can't retroactively change an already-created membership's price.
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [formError, setFormError] = useState("");
   const [markPaidTarget, setMarkPaidTarget] = useState<{ packId: string; playerName: string } | null>(null);
   const [markPaidDate, setMarkPaidDate] = useState(today);
@@ -174,8 +180,10 @@ export function SessionPacksClient() {
       fetchCoaches(academyId),
       fetchActivePlans(),
       fetchGroupSessions(academyId, coachId),
-    ]).then(([pl, ac, co, plans, gs]) => {
+      fetchCurrentMembershipPlanTemplates(academyId),
+    ]).then(([pl, ac, co, plans, gs, pt]) => {
       _packPlayers = pl; _packAcademies = ac; _packCoaches = co; _packPlans = plans; _packGroupSessions = gs;
+      _packPlanTemplates = pt.filter((t) => t.status === "active");
       const scopedPlayerIds = (coachId || academyId) ? pl.map((p) => p.id) : undefined;
       return fetchSessionPacks(scopedPlayerIds);
     }).then((pk) => {
@@ -293,6 +301,7 @@ export function SessionPacksClient() {
     const defaultAcademy = user?.role === "academy_admin" ? (user.academyId ?? "") : "";
     const fee = defaultAcademy ? feeForAcademyAndType(defaultAcademy, "Net Session") : 0;
     setDraft({ ...EMPTY_DRAFT, purchaseDate: today, academyId: defaultAcademy, sessionType: "Net Session", feePerSession: fee });
+    setSelectedTemplateId("");
     setFormError("");
     setShowForm(true);
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
@@ -306,6 +315,7 @@ export function SessionPacksClient() {
       academyId: user?.role === "academy_admin" ? (user.academyId ?? "") : "",
       feePerSession: 0,
     });
+    setSelectedTemplateId("");
     setFormError("");
     setShowForm(true);
     setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
@@ -314,6 +324,20 @@ export function SessionPacksClient() {
   function handleAcademyChange(academyId: string) {
     const fee = feeForAcademyAndType(academyId, draft.sessionType, draft.playerId);
     setDraft({ ...draft, academyId, feePerSession: fee });
+    // Templates are academy-scoped — a previously-picked one from a different academy no longer applies.
+    setSelectedTemplateId("");
+  }
+
+  function handleSelectTemplate(templateId: string) {
+    setSelectedTemplateId(templateId);
+    if (!templateId) return;
+    const template = _packPlanTemplates.find((t) => t.id === templateId);
+    if (!template) return;
+    // A fee-waived academy's fee input is disabled and forced to 0 (see feeForAcademyAndType) —
+    // a template's own stored fee must not silently override that, or a waived membership would
+    // save with a real fee_per_session despite the UI showing "no session fee" right next to it.
+    const fee = academyWaivesFees(draft.academyId) ? 0 : template.feePerSession;
+    setDraft({ ...draft, totalSessions: template.totalSessions, feePerSession: fee });
   }
 
   // ── Bulk pack CSV import ────────────────────────────────────────────────
@@ -992,6 +1016,19 @@ export function SessionPacksClient() {
               </select>
               <p className="text-xs text-zinc-500 mt-1">Who this membership's revenue pays out to, if the academy splits payouts by coach.</p>
             </div>
+
+            {draft.academyId && _packPlanTemplates.some((t) => t.academyId === draft.academyId) && (
+              <div className="sm:col-span-2">
+                <label className={lbl}>Plan Template</label>
+                <select value={selectedTemplateId} onChange={(e) => handleSelectTemplate(e.target.value)} className={sel}>
+                  <option value="">— Custom (no template) —</option>
+                  {_packPlanTemplates.filter((t) => t.academyId === draft.academyId).map((t) => (
+                    <option key={t.id} value={t.id}>{t.name} — {t.totalSessions} sessions @ {formatMoney(t.feePerSession, academyById(draft.academyId)?.currency)}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-zinc-500 mt-1">Pre-fills sessions and fee below — still editable, and won&apos;t change if the template is edited later.</p>
+              </div>
+            )}
 
             <div>
               <label className={lbl}>Purchase Date</label>
