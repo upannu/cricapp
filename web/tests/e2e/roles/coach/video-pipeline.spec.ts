@@ -59,11 +59,24 @@ test("uploading a session video and generating a report surfaces the pose pipeli
   await page.getByPlaceholder("Search player, notes or type…").fill(marker);
 
   // The Report column's own "Use Credit" control is visible directly on the (collapsed) row —
-  // no need to expand it first, but the sessions table redesign kept the credit button reachable
-  // either way.
+  // no need to expand it first to click it.
   const creditButton = page.getByRole("button", { name: /Use Credit/ });
   await expect(creditButton).toBeVisible();
   await creditButton.click();
+
+  // The pipeline's outcome (success or error) only renders inside the row's expanded detail
+  // panel (see SessionsClient.tsx's reportError paragraph, gated on expandedId === session.id)
+  // — the collapsed Report cell just reverts to the bare "Use Credit" control once generation
+  // finishes (this fixture always errors — see below — and an error doesn't flip the cell to
+  // the "success" branch), with no inline error text. Confirm generation actually started
+  // (the button briefly becomes non-interactive "Analyzing…" text) before waiting for that
+  // reversion, so this can't pass on the click alone before generation even runs — then expand
+  // the row via its own toggle (the player-name button, identified by the unique marker in its
+  // session-notes line) to see the actual outcome.
+  await expect(creditButton).not.toBeVisible();
+  await expect(creditButton).toBeVisible({ timeout: 60_000 });
+  const rowToggle = page.getByText(marker).locator("xpath=ancestor::button[1]");
+  await rowToggle.click();
 
   // Real MediaPipe pose extraction on a clip with no person in it — this is
   // the expected, correct outcome for this fixture, not a bug.
