@@ -125,4 +125,114 @@ describe("NavBar", () => {
     await user.click(document.body);
     expect(screen.queryByText("Sign out")).not.toBeInTheDocument();
   });
+
+  test("the Training dropdown opens on click, lists Coaching Sessions and Squad Training, and closes on outside click", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach" }), logout: vi.fn(), refreshUser: vi.fn() });
+
+    render(<NavBar />);
+    const trigger = screen.getByRole("button", { name: "Training" });
+    expect(trigger).toHaveAttribute("aria-haspopup", "true");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Coaching Sessions" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Squad Training" })).toBeInTheDocument();
+
+    await user.click(document.body);
+    expect(screen.queryByRole("link", { name: "Coaching Sessions" })).not.toBeInTheDocument();
+  });
+
+  test("Escape closes an open nav group dropdown", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach" }), logout: vi.fn(), refreshUser: vi.fn() });
+
+    render(<NavBar />);
+    await user.click(screen.getByRole("button", { name: "Training" }));
+    expect(screen.getByRole("link", { name: "Squad Training" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("link", { name: "Squad Training" })).not.toBeInTheDocument();
+  });
+
+  test("a nav group shows the active style when the current route matches a child, not just an exact match", () => {
+    pathname.mockReturnValue("/attendance/group-1");
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach" }), logout: vi.fn(), refreshUser: vi.fn() });
+
+    render(<NavBar />);
+    expect(screen.getByRole("button", { name: "Training" })).toHaveClass("text-pace-green");
+    pathname.mockReturnValue("/portal");
+  });
+
+  test("Admin Center is reachable only by a platform_admin, has an accessible name distinct from the bare gear icon, and groups its items into labeled sections", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin" }), logout: vi.fn(), refreshUser: vi.fn() });
+    const { rerender } = render(<NavBar />);
+    expect(screen.queryByLabelText("Admin Center")).not.toBeInTheDocument();
+
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }), logout: vi.fn(), refreshUser: vi.fn() });
+    rerender(<NavBar />);
+    const trigger = screen.getByLabelText("Admin Center");
+    expect(trigger).toHaveAttribute("aria-haspopup", "true");
+
+    await user.click(trigger);
+    expect(screen.getByText("Platform")).toBeInTheDocument();
+    expect(screen.getByText("Content & Communications")).toBeInTheDocument();
+    expect(screen.getByText("Commercial")).toBeInTheDocument();
+    expect(screen.getByText("Growth")).toBeInTheDocument();
+    expect(screen.getByText("Access & Security")).toBeInTheDocument();
+
+    // Relabeled per spec — underlying hrefs (asserted below) are unchanged. Items inside the
+    // Admin Center panel carry role="menuitem" (the panel itself is role="menu"), not "link".
+    expect(screen.getByRole("menuitem", { name: "Content" })).toHaveAttribute("href", "/admin/academy");
+    expect(screen.getByRole("menuitem", { name: "Plans & Pricing" })).toHaveAttribute("href", "/admin/plans");
+    expect(screen.getByRole("menuitem", { name: "Admin Users" })).toHaveAttribute("href", "/admin/admins");
+    expect(screen.queryByText("Manage Content")).not.toBeInTheDocument();
+    expect(screen.queryByText("Plan Catalog")).not.toBeInTheDocument();
+    expect(screen.queryByText("Platform Admins")).not.toBeInTheDocument();
+  });
+
+  test("Escape closes the Admin Center dropdown, and a click inside it does not close it before navigation", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }), logout: vi.fn(), refreshUser: vi.fn() });
+
+    render(<NavBar />);
+    await user.click(screen.getByLabelText("Admin Center"));
+    const contentLink = screen.getByRole("menuitem", { name: "Content" });
+    expect(contentLink).toBeInTheDocument();
+
+    // A click landing inside the dropdown (e.g. on one of its items) must not be treated as an
+    // outside click — this regressed once already when Admin Center's container had no ref.
+    await user.click(contentLink);
+    expect(screen.getByRole("menuitem", { name: "Content" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menuitem", { name: "Content" })).not.toBeInTheDocument();
+  });
+
+  test("the mobile panel groups Training/Academy/Insights and Admin Center as collapsed, expandable sections", async () => {
+    const user = userEvent.setup();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }), logout: vi.fn(), refreshUser: vi.fn() });
+
+    render(<NavBar />);
+    await user.click(screen.getByLabelText("Open menu"));
+
+    // The desktop nav stays mounted (only CSS-hidden) while the mobile panel is open, so each
+    // trigger now exists twice — desktop's first in DOM order, the mobile panel's toggle second.
+    expect(screen.queryByRole("link", { name: "Coaching Sessions" })).not.toBeInTheDocument();
+    const trainingToggles = screen.getAllByRole("button", { name: "Training" });
+    expect(trainingToggles).toHaveLength(2);
+    const mobileTrainingToggle = trainingToggles[1];
+    expect(mobileTrainingToggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(mobileTrainingToggle);
+    expect(screen.getByRole("link", { name: "Coaching Sessions" })).toBeInTheDocument();
+
+    const adminToggles = screen.getAllByRole("button", { name: "Admin Center" });
+    expect(adminToggles).toHaveLength(2);
+    const mobileAdminToggle = adminToggles[1];
+    expect(mobileAdminToggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(mobileAdminToggle);
+    expect(screen.getByRole("link", { name: "Content" })).toBeInTheDocument();
+  });
 });
