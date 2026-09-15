@@ -35,16 +35,27 @@ const CAPABILITIES = [
   { title: "Organisation Reporting", body: "Reporting that can be extended to give decision-makers visibility across participation, development and performance." },
 ];
 
+// Short phrases, not full sentences — these render as a compact wrapping strip (see the Outcomes
+// section below), which only reads as "compact" if each item is actually short.
 const OUTCOMES = [
-  { title: "Better Visibility", body: "Understand what is happening across your cricket ecosystem." },
-  { title: "Stronger Player Pathways", body: "Support player development across programs and development levels." },
-  { title: "Better Decisions", body: "Use connected information to support planning and development decisions." },
-  { title: "Less Administration", body: "Reduce manual processes and fragmented information." },
-  { title: "Scalable Growth", body: "Create a connected structure that can grow with your organisation." },
+  { title: "Better Visibility", body: "across your ecosystem" },
+  { title: "Stronger Player Pathways", body: "across programs and levels" },
+  { title: "Better Decisions", body: "from connected information" },
+  { title: "Less Administration", body: "fewer manual processes" },
+  { title: "Scalable Growth", body: "a structure that grows with you" },
 ];
 
-const PARTNERSHIP_STEPS = [
-  "Organisation Structure", "Platform Configuration", "Data & Integration Requirements", "Onboarding", "Training", "Go Live",
+// Starts from the "Register Your Interest" click itself, not just the later configuration work —
+// answers "what happens after I submit" directly rather than assuming that hesitation away.
+// "We review every application personally" is a real, current commitment, not a marketing SLA —
+// no promised response time is stated since none is guaranteed today.
+const PARTNERSHIP_JOURNEY = [
+  { title: "Register Your Interest", body: "Tell us about your organisation." },
+  { title: "We Review Your Application", body: "Every application is reviewed personally." },
+  { title: "A Conversation", body: "We discuss your structure and requirements." },
+  { title: "Platform Configuration", body: "Shaped around your organisation and programs." },
+  { title: "Onboarding & Training", body: "Your team gets set up and trained." },
+  { title: "Go Live", body: "Your organisation is connected." },
 ];
 
 export const metadata = {
@@ -86,17 +97,18 @@ export default function CricketBoardLandingPage() {
           </div>
         </div>
 
-        {/* Problem / pain points */}
+        {/* Problem / pain points — a divided list rather than another card grid, so it doesn't
+            repeat the "Built for Cricket Organisations" grid immediately above it. */}
         <div className="mb-16">
           <h2 className="text-xl font-bold text-white text-center mb-2">Is Your Cricket Ecosystem Running on Disconnected Systems?</h2>
           <p className="text-sm text-zinc-500 text-center max-w-2xl mx-auto mb-8">
             As cricket organisations grow, player, coaching, program and performance information can become spread across different systems, teams and processes.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="bg-surface rounded-2xl divide-y divide-zinc-800">
             {PAIN_POINTS.map((p) => (
-              <div key={p.title} className="bg-surface rounded-2xl p-5">
-                <p className="text-white font-semibold text-sm mb-1">{p.title}</p>
-                <p className="text-zinc-500 text-xs">{p.body}</p>
+              <div key={p.title} className="p-5 sm:flex sm:items-baseline sm:gap-6">
+                <p className="text-white font-semibold text-sm sm:w-60 sm:flex-shrink-0">{p.title}</p>
+                <p className="text-zinc-500 text-xs mt-1 sm:mt-0">{p.body}</p>
               </div>
             ))}
           </div>
@@ -135,45 +147,73 @@ export default function CricketBoardLandingPage() {
           </div>
         </div>
 
-        {/* Capabilities */}
-        <div className="mb-16">
+        {/* Capabilities — 3 paired rows instead of a 6-cell grid, so consecutive sections don't
+            all read as the same uniform card shape. */}
+        <div className="mb-12">
           <h2 className="text-xl font-bold text-white text-center mb-8">A Connected Platform for Cricket Organisations</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {CAPABILITIES.map((c) => (
-              <div key={c.title} className="bg-surface rounded-2xl p-5">
-                <p className="text-white font-semibold text-sm mb-1">{c.title}</p>
-                <p className="text-zinc-500 text-xs">{c.body}</p>
+          <div className="space-y-4">
+            {[0, 2, 4].map((i) => (
+              <div key={i} className="bg-surface rounded-2xl grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-zinc-800">
+                {CAPABILITIES.slice(i, i + 2).map((c) => (
+                  <div key={c.title} className="p-6">
+                    <p className="text-white font-semibold text-sm mb-1.5">{c.title}</p>
+                    <p className="text-zinc-500 text-xs">{c.body}</p>
+                  </div>
+                ))}
               </div>
             ))}
           </div>
         </div>
 
-        {/* Outcomes */}
+        {/* Outcomes — a slim wrapping strip rather than another full card grid, so this reads as
+            a quick-scan summary of the capabilities above it, not a repeat of them. */}
         <div className="mb-16">
-          <h2 className="text-xl font-bold text-white text-center mb-8">What CRIC HQ Helps You Achieve</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <h2 className="text-lg font-bold text-white text-center mb-4">What CRIC HQ Helps You Achieve</h2>
+          <div className="bg-surface rounded-2xl px-6 py-5 flex flex-wrap justify-center gap-x-8 gap-y-3">
             {OUTCOMES.map((o) => (
-              <div key={o.title} className="bg-surface rounded-2xl p-5">
-                <p className="text-pace-green font-semibold text-xs uppercase tracking-wider mb-1.5">{o.title}</p>
-                <p className="text-zinc-400 text-sm">{o.body}</p>
-              </div>
+              <p key={o.title} className="text-sm text-zinc-400 whitespace-nowrap">
+                <span className="text-pace-green font-semibold">{o.title}</span> — {o.body}
+              </p>
             ))}
           </div>
         </div>
 
-        {/* Built around your organisation */}
+        {/* What happens next — a horizontal timeline rather than a card grid, and deliberately
+            starts from the "Register Your Interest" click itself (not just the later
+            configuration work), since that's the exact moment a visitor is hesitating. */}
         <div className="mb-16">
-          <h2 className="text-xl font-bold text-white text-center mb-2">Built Around Your Organisation</h2>
+          <h2 className="text-xl font-bold text-white text-center mb-2">What Happens After You Apply</h2>
           <p className="text-sm text-zinc-500 text-center max-w-2xl mx-auto mb-8">
-            Every cricket organisation has a different structure, pathway and set of requirements. CRIC HQ partnerships can be shaped around your organisation, programs and operational needs.
+            Every cricket organisation has a different structure, pathway and set of requirements. Here&apos;s what to expect from application through to going live.
           </p>
-          <div className="bg-surface rounded-2xl p-8 grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {PARTNERSHIP_STEPS.map((step, i) => (
-              <div key={step} className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-ink border border-zinc-700">
-                <span className="text-pace-green text-xs font-bold flex-shrink-0">{i + 1}</span>
-                <span className="text-zinc-300 text-sm font-semibold">{step}</span>
-              </div>
-            ))}
+          <div className="bg-surface rounded-2xl p-8">
+            <div className="flex flex-col gap-5 sm:hidden">
+              {PARTNERSHIP_JOURNEY.map((step, i) => (
+                <div key={step.title} className="flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-full border-2 border-pace-green text-pace-green flex items-center justify-center text-xs font-bold flex-shrink-0">
+                    {i + 1}
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-semibold">{step.title}</p>
+                    <p className="text-zinc-500 text-xs">{step.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="hidden sm:flex items-start">
+              {PARTNERSHIP_JOURNEY.map((step, i) => (
+                <div key={step.title} className="contents">
+                  <div className="flex flex-col items-center text-center w-32 flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full border-2 border-pace-green text-pace-green flex items-center justify-center text-xs font-bold mb-2">
+                      {i + 1}
+                    </div>
+                    <p className="text-white text-xs font-semibold mb-1">{step.title}</p>
+                    <p className="text-zinc-500 text-[11px]">{step.body}</p>
+                  </div>
+                  {i < PARTNERSHIP_JOURNEY.length - 1 && <div className="flex-1 h-px bg-zinc-700 mt-4" />}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
