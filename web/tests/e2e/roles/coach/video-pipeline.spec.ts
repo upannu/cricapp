@@ -58,10 +58,10 @@ test("uploading a session video and generating a report surfaces the pose pipeli
   // by the unique marker (matches session notes) rather than assume it's on the first page.
   await page.getByPlaceholder("Search player, notes or type…").fill(marker);
 
-  const sessionRow = page.getByText(marker).locator("xpath=ancestor::button[1]");
-  await sessionRow.click();
-
-  const creditButton = page.getByRole("button", { name: /Use Assessment Credit/ });
+  // The Report column's own "Use Credit" control is visible directly on the (collapsed) row —
+  // no need to expand it first, but the sessions table redesign kept the credit button reachable
+  // either way.
+  const creditButton = page.getByRole("button", { name: /Use Credit/ });
   await expect(creditButton).toBeVisible();
   await creditButton.click();
 

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import Papa from "papaparse";
 import type { Session, BookingType, Player, Coach, Academy, Plan, CameraCalibration, VideoAnnotation, VoiceNote, Assessment } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { fetchSessions, fetchPlayers, fetchCoaches, fetchReports, fetchAcademies, fetchActivePlans, fetchVideoAnnotations, fetchVoiceNotes, deleteVoiceNote, fetchAssessments, updateSessionRpe } from "@/lib/db";
@@ -14,6 +16,11 @@ import { AssessmentForm } from "@/components/AssessmentForm";
 import { StatsGrid } from "@/components/StatsGrid";
 import { StatCard } from "@/components/StatCard";
 import { PaginationFooter } from "@/components/PaginationFooter";
+import { SortableHeader } from "@/components/SortableHeader";
+import { useSort } from "@/lib/useSort";
+import { RowActionsMenu, type RowActionItem } from "@/components/RowActionsMenu";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { EyeIcon, TrashIcon, RepeatIcon } from "@/components/icons";
 import { aiReportsIncludedForPlayer } from "@/lib/plan-features";
 
 const DEFAULT_SESSIONS_PER_PAGE = 10;
@@ -58,8 +65,11 @@ function avgSpeed(sessions: Session[]): string {
   return `${avg.toFixed(1)} km/h`;
 }
 
+type SortKey = "player" | "type" | "coach" | "date" | "speed";
+
 export function SessionsClient() {
   const { user } = useAuth();
+  const router = useRouter();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
@@ -67,17 +77,20 @@ export function SessionsClient() {
   const [reportStatus, setReportStatus] = useState<Record<string, "success" | "error">>({});
   const [reportError, setReportError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteConfirmSession, setDeleteConfirmSession] = useState<Session | null>(null);
   const [deleteErrors, setDeleteErrors] = useState<Record<string, string>>({});
   const [calibrationRequest, setCalibrationRequest] = useState<{ videoUrl: string; academyId: string } | null>(null);
   const calibrationResolveRef = useRef<((cal: CameraCalibration | null) => void) | null>(null);
 
-  function requestCalibration(videoUrl: string, academyId: string): Promise<CameraCalibration | null> {
+  // useCallback (not a plain closure) so the ref write inside it is recognized as isolated to an
+  // actual invocation (an event handler eventually calling handleGenerateReport) rather than
+  // something the render body's data flow — building each row's ⋮ menu items — appears to touch.
+  const requestCalibration = useCallback((videoUrl: string, academyId: string): Promise<CameraCalibration | null> => {
     return new Promise((resolve) => {
       calibrationResolveRef.current = resolve;
       setCalibrationRequest({ videoUrl, academyId });
     });
-  }
+  }, []);
 
   // Coach workflow extras — lazily loaded per session once it's expanded
   const [sessionExtras, setSessionExtras] = useState<Record<string, { annotations: VideoAnnotation[]; voiceNotes: VoiceNote[]; assessments: Assessment[] }>>({});
@@ -145,11 +158,17 @@ export function SessionsClient() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [sessionsPerPage, setSessionsPerPage] = useState(DEFAULT_SESSIONS_PER_PAGE);
-  const [sessionSortBy, setSessionSortBy] = useState<"dateDesc" | "dateAsc" | "speedDesc">("dateDesc");
+  const { sortKey, sortDir, handleSort } = useSort<SortKey>("date", "desc");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [bulkGenerateOpen, setBulkGenerateOpen] = useState(false);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkGenerateProgress, setBulkGenerateProgress] = useState("");
 
   const visibleCoaches = _sessCoaches;
 
-  async function handleGenerateReport(session: Session, useAssessmentCredit = false) {
+  const handleGenerateReport = useCallback(async (session: Session, useAssessmentCredit = false) => {
     setGeneratingId(session.id);
     setGeneratingStage("Loading pose model…");
     setReportError("");
@@ -177,7 +196,7 @@ export function SessionsClient() {
       setGeneratingId(null);
       setGeneratingStage("");
     }
-  }
+  }, [requestCalibration]);
 
   async function handleDeleteSession(session: Session) {
     setDeletingId(session.id);
@@ -192,7 +211,7 @@ export function SessionsClient() {
       if (!res.ok || data.error) throw new Error(data.error ?? "Failed to delete session");
 
       setSessions((prev) => prev.filter((s) => s.id !== session.id));
-      setConfirmDeleteId(null);
+      setDeleteConfirmSession(null);
       if (expandedId === session.id) setExpandedId(null);
     } catch (err) {
       const msg = (err as { message?: string })?.message ?? String(err);
@@ -235,11 +254,19 @@ export function SessionsClient() {
   });
 
   const sortedSessions = [...filtered].sort((a, b) => {
-    switch (sessionSortBy) {
-      case "dateAsc":   return a.date.localeCompare(b.date);
-      case "speedDesc": return (b.ballSpeedKmh ?? -1) - (a.ballSpeedKmh ?? -1);
-      default:          return b.date.localeCompare(a.date);
+    let cmp = 0;
+    switch (sortKey) {
+      case "player": cmp = (playerById(a.playerId)?.name ?? "").localeCompare(playerById(b.playerId)?.name ?? ""); break;
+      case "type":   cmp = a.type.localeCompare(b.type); break;
+      case "coach": {
+        const coachName = (s: Session) => (s.coachId ? _sessCoaches.find((c) => c.id === s.coachId)?.name : undefined) ?? "";
+        cmp = coachName(a).localeCompare(coachName(b));
+        break;
+      }
+      case "speed":  cmp = (a.ballSpeedKmh ?? -1) - (b.ballSpeedKmh ?? -1); break;
+      default:       cmp = a.date.localeCompare(b.date);
     }
+    return sortDir === "asc" ? cmp : -cmp;
   });
 
   // Clamp rather than reset so a shrinking result set can never strand the view on a
@@ -248,9 +275,120 @@ export function SessionsClient() {
   const currentPage = Math.min(page, totalPages);
   const pagedSessions = sortedSessions.slice((currentPage - 1) * sessionsPerPage, currentPage * sessionsPerPage);
 
+  // "Select all" (and its indeterminate state) covers every row currently matching the active
+  // search/filters, not just the visible page — same convention Memberships/Players already use.
+  const allSelected = sortedSessions.length > 0 && sortedSessions.every((s) => selectedIds.has(s.id));
+  const someSelected = sortedSessions.some((s) => selectedIds.has(s.id)) && !allSelected;
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) sortedSessions.forEach((s) => next.delete(s.id));
+      else sortedSessions.forEach((s) => next.add(s.id));
+      return next;
+    });
+  }
+
+  function clearSelection() { setSelectedIds(new Set()); }
+
+  const selectedSessionsList = sortedSessions.filter((s) => selectedIds.has(s.id));
+  // Bulk-generate only covers sessions whose player has AI reports included in their plan —
+  // deliberately excludes the assessment-credit path (a scarce, paid resource) from bulk
+  // spending; a credit-funded report still has to be a deliberate one-at-a-time choice via the
+  // row's own ⋮ menu.
+  const selectedReportEligible = selectedSessionsList.filter((s) => {
+    if (s.videos.length === 0 || reportStatus[s.id] === "success") return false;
+    const player = playerById(s.playerId);
+    return !!player && aiReportsIncludedForPlayer(player, _sessPlans, _sessAcademies, _sessCoaches);
+  });
+
+  async function handleConfirmBulkDelete() {
+    setBulkDeleting(true);
+    const succeededIds: string[] = [];
+    for (const session of selectedSessionsList) {
+      try {
+        const res = await fetch("/api/sessions/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId: session.id, playerId: session.playerId }),
+        });
+        const data = await res.json();
+        if (res.ok && !data.error) succeededIds.push(session.id);
+      } catch {
+        // best-effort — a session that fails to delete just stays selected so it's visible
+      }
+    }
+    setSessions((prev) => prev.filter((s) => !succeededIds.includes(s.id)));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      succeededIds.forEach((id) => next.delete(id));
+      return next;
+    });
+    setBulkDeleting(false);
+    setBulkDeleteOpen(false);
+  }
+
+  async function handleConfirmBulkGenerateReports() {
+    setBulkGenerateOpen(false);
+    setBulkGenerating(true);
+    const targets = selectedReportEligible;
+    for (let i = 0; i < targets.length; i++) {
+      setBulkGenerateProgress(`Generating report ${i + 1} of ${targets.length}…`);
+      await handleGenerateReport(targets[i]);
+    }
+    setBulkGenerating(false);
+    setBulkGenerateProgress("");
+    clearSelection();
+  }
+
+  function handleExportCsv() {
+    const rows = selectedSessionsList.map((s) => {
+      const player = playerById(s.playerId);
+      const coach = s.coachId ? _sessCoaches.find((c) => c.id === s.coachId) : undefined;
+      return {
+        player: player?.name ?? "", type: s.type, date: s.date,
+        coach: coach?.name ?? (player ? getCoachOrAcademyLabel(player, _sessCoaches, _sessAcademies) : ""),
+        ballSpeedKmh: s.ballSpeedKmh ?? "", rpe: s.rpe ?? "", notes: s.notes,
+      };
+    });
+    const blob = new Blob([Papa.unparse(rows)], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `sessions-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Report generation deliberately isn't offered here — its onClick closes over
+  // handleGenerateReport, which transitively writes a ref (calibrationResolveRef, via
+  // requestCalibration) when invoked. React Compiler's ref-safety lint (react-hooks/refs) is fine
+  // with that exact same handler attached directly to a native <button>'s onClick (see the
+  // Report column's cell above), but flags it the moment it's threaded through a plain object
+  // passed as a *prop* into another component like RowActionsMenu — so those actions live as
+  // real buttons in the Report column instead of menu items here.
+  function buildRowActions(session: Session, player: Player | undefined): RowActionItem[] {
+    const items: RowActionItem[] = [];
+    if (player) {
+      items.push({ label: "View Player Profile", icon: <EyeIcon />, onClick: () => router.push(`/players/${player.id}`) });
+      items.push({ label: "Log New Session", onClick: () => router.push(`/players/${player.id}/new-session`) });
+    }
+    items.push({ label: "Voice Note", onClick: () => setVoiceNoteSession(session) });
+    items.push({ label: "Assessment", onClick: () => setAssessmentSession(session) });
+    items.push({ label: "Delete Session", icon: <TrashIcon />, variant: "danger", dividerBefore: true, onClick: () => setDeleteConfirmSession(session) });
+    return items;
+  }
+
   return (
     <>
-    <div className="max-w-5xl mx-auto px-6 py-8">
+    <div className="max-w-6xl mx-auto px-6 py-8">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
@@ -267,7 +405,7 @@ export function SessionsClient() {
       </StatsGrid>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-4">
         <input
           type="text"
           value={search}
@@ -305,464 +443,407 @@ export function SessionsClient() {
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
-        <select
-          value={sessionSortBy}
-          onChange={(e) => setSessionSortBy(e.target.value as "dateDesc" | "dateAsc" | "speedDesc")}
-          className={selectCls}
-        >
-          <option value="dateDesc">Sort: Newest First</option>
-          <option value="dateAsc">Sort: Oldest First</option>
-          <option value="speedDesc">Sort: Fastest Ball Speed</option>
-        </select>
       </div>
 
-      {/* Session list */}
+      {/* Bulk action bar */}
+      {selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3">
+          <span className="text-blue-400 text-sm font-semibold">
+            {selectedIds.size} session{selectedIds.size !== 1 ? "s" : ""} selected
+          </span>
+          {selectedReportEligible.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setBulkGenerateOpen(true)}
+              disabled={bulkGenerating}
+              className="px-3 py-1.5 text-xs font-semibold text-black bg-pace-green rounded-lg hover:opacity-90 transition-opacity disabled:opacity-60 cursor-pointer"
+            >
+              {bulkGenerating ? (bulkGenerateProgress || "Generating…") : `Generate AI Reports (${selectedReportEligible.length})`}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setBulkDeleteOpen(true)}
+            className="px-3 py-1.5 text-xs font-semibold text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+          >
+            Delete ({selectedIds.size})
+          </button>
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer sm:ml-auto"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      {/* Session table */}
       {filtered.length === 0 ? (
         <div className="bg-surface rounded-2xl p-16 text-center">
           <p className="text-zinc-400 text-sm">No sessions match your filters.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {pagedSessions.map((session) => {
-            const player = playerById(session.playerId);
-            const isExpanded = expandedId === session.id;
-            const initials = player?.name.split(" ").map((n) => n[0]).join("") ?? "?";
-            // Prefer the coach actually recorded on the session; fall back to the player's
-            // assigned coach/academy label for sessions logged before that field existed.
-            const sessionCoach = session.coachId ? _sessCoaches.find((c) => c.id === session.coachId) : undefined;
+        <div className="bg-surface rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-700/60">
+                  <th className="px-4 py-3 pl-6 text-center whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                      onChange={toggleAll}
+                      className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+                      title="Select all"
+                    />
+                  </th>
+                  <SortableHeader label="Player" sortKey="player" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Type" sortKey="type" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Date" sortKey="date" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <SortableHeader label="Ball Speed" sortKey="speed" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
+                  <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Report</th>
+                  <th className="sticky right-0 z-10 bg-surface text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagedSessions.map((session) => {
+                  const player = playerById(session.playerId);
+                  const isExpanded = expandedId === session.id;
+                  const isSelected = selectedIds.has(session.id);
+                  const initials = player?.name.split(" ").map((n) => n[0]).join("") ?? "?";
+                  const sessionCoach = session.coachId ? _sessCoaches.find((c) => c.id === session.coachId) : undefined;
 
-            return (
-              <div
-                key={session.id}
-                className="bg-surface rounded-2xl border border-transparent hover:border-zinc-700 transition-colors"
-              >
-                {/* Summary row */}
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(isExpanded ? null : session.id)}
-                  className="w-full text-left p-5 cursor-pointer"
-                >
-                  <div className="flex items-center gap-4">
-                    {/* Avatar */}
-                    <div className="w-10 h-10 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-sm font-bold flex-shrink-0">
-                      {initials}
-                    </div>
-
-                    {/* Player + date */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                        <span className="text-white font-semibold text-sm">
-                          {player?.name ?? "Unknown Player"}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES[session.type]}`}
-                        >
-                          {session.type}
-                        </span>
-                        {session.videos.length === 3 && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-pace-green/10 text-pace-green border border-pace-green/20">
-                            ✓ 3 angles
+                  return (
+                    <Fragment key={session.id}>
+                      <tr className={`border-b border-zinc-700/40 last:border-0 transition-colors ${isSelected ? "bg-blue-500/5" : "hover:bg-white/[0.02]"}`}>
+                        <td className="px-4 py-3 pl-6 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelect(session.id)}
+                            className="w-4 h-4 accent-pace-green cursor-pointer"
+                            title="Select for bulk actions"
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <button type="button" onClick={() => setExpandedId(isExpanded ? null : session.id)}
+                            className="flex items-center gap-3 text-left cursor-pointer group">
+                            <div className="w-9 h-9 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-sm font-bold flex-shrink-0">
+                              {initials}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-white text-sm font-medium whitespace-nowrap group-hover:text-pace-green transition-colors">
+                                {player?.name ?? "Unknown Player"}
+                              </p>
+                              <p className="text-zinc-500 text-xs truncate max-w-[14rem]">{session.notes || "No notes"}</p>
+                            </div>
+                            <span className={`text-zinc-500 text-xs transition-transform duration-200 flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`}>▾</span>
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES[session.type]}`}>
+                            {session.type}
                           </span>
-                        )}
-                        {session.videos.length > 0 && session.videos.length < 3 && (
-                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-zinc-700 text-zinc-400">
-                            {session.videos.length} video{session.videos.length > 1 ? "s" : ""}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-zinc-400">
-                        {(sessionCoach || player) && (
-                          <>
-                            <span className="text-zinc-500">👤 {sessionCoach ? sessionCoach.name : player ? getCoachOrAcademyLabel(player, _sessCoaches, _sessAcademies) : ""}</span>
-                            <span className="text-zinc-700">·</span>
-                          </>
-                        )}
-                        {session.time && (
-                          <>
-                            <span className="text-zinc-500">{session.time}{session.durationMins ? ` · ${session.durationMins}m` : ""}</span>
-                            <span className="text-zinc-700">·</span>
-                          </>
-                        )}
-                        <span className="truncate max-w-xs">{session.notes || "No notes"}</span>
-                      </div>
-                    </div>
-
-                    {/* Right side: speed + date + expand */}
-                    <div className="flex items-center gap-4 flex-shrink-0">
-                      {session.ballSpeedKmh !== null && (
-                        <div className="text-right hidden sm:block">
-                          <div className="text-pace-green font-mono font-bold text-sm">
-                            {session.ballSpeedKmh} km/h
-                          </div>
-                          <div className="text-xs text-zinc-500">ball speed</div>
-                        </div>
-                      )}
-                      <div className="text-right">
-                        <div className="text-zinc-300 text-sm">{formatDate(session.date)}</div>
-                        <div className="text-xs text-zinc-500">
-                          +{session.xpEarned} XP
-                        </div>
-                      </div>
-                      <span className={`text-zinc-400 text-sm transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}>
-                        ▾
-                      </span>
-                    </div>
-                  </div>
-                </button>
-
-                {/* Expanded detail */}
-                {isExpanded && (
-                  <div className="px-5 pb-5 border-t border-zinc-700/50 pt-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* Coach notes */}
-                      <div className="bg-ink rounded-xl p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
-                          Coach Notes
-                        </p>
-                        <p className="text-sm text-zinc-300 leading-relaxed">
-                          {session.notes || "No notes recorded."}
-                        </p>
-                      </div>
-
-                      {/* Metrics */}
-                      <div className="bg-ink rounded-xl p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
-                          Metrics
-                        </p>
-                        <div className="space-y-2">
-                          <MetricRow
-                            label="Ball speed"
-                            value={session.ballSpeedKmh !== null ? `${session.ballSpeedKmh} km/h` : "—"}
-                            highlight={session.ballSpeedKmh !== null}
-                          />
-                          <MetricRow
-                            label="Front knee angle"
-                            value={session.frontKneeAngleDeg !== null ? `${session.frontKneeAngleDeg}°` : "—"}
-                          />
-                          <MetricRow label="XP earned" value={`+${session.xpEarned}`} />
-                          <MetricRow
-                            label="Videos"
-                            value={`${session.videos.length} / 3`}
-                          />
-                          <MetricRow label="Coach" value={sessionCoach?.name ?? "—"} />
-                          <MetricRow
-                            label="Time"
-                            value={session.time ? `${session.time}${session.durationMins ? ` · ${session.durationMins} min` : ""}` : "—"}
-                          />
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-xs text-zinc-400">RPE</span>
-                            {editingRpeId === session.id ? (
-                              <div className="flex flex-wrap gap-1 justify-end">
-                                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                                  <button
-                                    key={n}
-                                    type="button"
-                                    onClick={() => handleSetRpe(session, n)}
-                                    className={`w-6 h-6 rounded text-[10px] font-bold border cursor-pointer ${
-                                      session.rpe === n ? "bg-pace-green border-pace-green text-black" : "bg-surface border-zinc-700 text-zinc-400 hover:border-zinc-500"
-                                    }`}
-                                  >
-                                    {n}
-                                  </button>
-                                ))}
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setEditingRpeId(session.id)}
-                                className="text-xs font-semibold font-mono text-white hover:text-pace-green transition-colors cursor-pointer"
-                              >
-                                {session.rpe != null ? `${session.rpe}/10 ✎` : "Log RPE"}
+                        </td>
+                        <td className="px-4 py-3 text-zinc-300 text-xs whitespace-nowrap">
+                          {sessionCoach ? sessionCoach.name : player ? getCoachOrAcademyLabel(player, _sessCoaches, _sessAcademies) : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-zinc-300 text-xs whitespace-nowrap">{formatDate(session.date)}</td>
+                        <td className="px-4 py-3 text-xs whitespace-nowrap">
+                          {session.ballSpeedKmh !== null ? (
+                            <span className="text-pace-green font-mono font-semibold">{session.ballSpeedKmh} km/h</span>
+                          ) : "—"}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          {session.videos.length === 0 ? (
+                            <span className="text-xs text-zinc-600">—</span>
+                          ) : generatingId === session.id ? (
+                            <span className="text-xs text-zinc-400">{generatingStage || "Analyzing…"}</span>
+                          ) : reportStatus[session.id] === "success" && player ? (
+                            <div className="flex items-center gap-2">
+                              <Link href={`/players/${player.id}/reports`} className="text-xs font-semibold text-pace-green hover:underline">
+                                ✓ View
+                              </Link>
+                              <button type="button" onClick={() => handleGenerateReport(session)}
+                                title="Generates a fresh report from this session's video — the old one stays too."
+                                className="text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer">
+                                🔄
                               </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
+                            </div>
+                          ) : player && !aiReportsIncludedForPlayer(player, _sessPlans, _sessAcademies, _sessCoaches) && player.assessmentCredits > 0 ? (
+                            <button type="button" onClick={() => handleGenerateReport(session, true)}
+                              title="Spends one purchased Individual Action Assessment credit"
+                              className="text-xs font-semibold text-purple-300 hover:text-purple-200 transition-colors cursor-pointer">
+                              🎫 Use Credit ({player.assessmentCredits})
+                            </button>
+                          ) : player && !aiReportsIncludedForPlayer(player, _sessPlans, _sessAcademies, _sessCoaches) ? (
+                            <Link href={`/players/${player.id}/subscription`} className="text-xs font-semibold text-zinc-500 hover:text-white transition-colors"
+                              title="AI reports require Player Pro or higher">
+                              🔒 Upgrade
+                            </Link>
+                          ) : (
+                            <button type="button" onClick={() => handleGenerateReport(session)}
+                              className="text-xs font-semibold text-purple-300 hover:text-purple-200 transition-colors cursor-pointer">
+                              ✨ Generate
+                            </button>
+                          )}
+                        </td>
+                        <td className="sticky right-0 z-10 bg-surface px-4 py-3 pr-6" onClick={(e) => e.stopPropagation()}>
+                          <RowActionsMenu items={buildRowActions(session, player)} />
+                        </td>
+                      </tr>
 
-                      {/* Videos */}
-                      {session.videos.length > 0 && (
-                        <div className="sm:col-span-2 bg-ink rounded-xl p-4">
-                          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
-                            Uploaded Videos
-                          </p>
-                          <div className="flex flex-wrap gap-3">
-                            {(["front", "side", "back"] as const).map((angle) => {
-                              const vid = session.videos.find((v) => v.angle === angle);
-                              const ANGLE_LABELS = { front: "Front · 8–10m", side: "Side · 5–7m", back: "Back · 3–4m" };
-                              return (
-                                <div
-                                  key={angle}
-                                  className={`flex items-center gap-3 px-4 py-3 rounded-xl border flex-1 min-w-40 ${
-                                    vid
-                                      ? "border-pace-green/40 bg-pace-green/5"
-                                      : "border-zinc-700 opacity-40"
-                                  }`}
-                                >
-                                  <span className={`text-sm font-bold ${vid ? "text-pace-green" : "text-zinc-500"}`}>
-                                    {vid ? "✓" : "○"}
-                                  </span>
-                                  <div className="flex-1 min-w-0">
-                                    <div className={`text-xs font-semibold ${vid ? "text-white" : "text-zinc-500"}`}>
-                                      {ANGLE_LABELS[angle]}
-                                    </div>
-                                    {vid && (
-                                      <div className="text-xs text-zinc-400 truncate max-w-36">
-                                        {vid.label}
+                      {isExpanded && (
+                        <tr key={`${session.id}-detail`} className="border-b border-zinc-700/40 last:border-0">
+                          <td colSpan={8} className="px-5 pb-5 pt-4 bg-ink/40">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              {/* Coach notes */}
+                              <div className="bg-ink rounded-xl p-4">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                  Coach Notes
+                                </p>
+                                <p className="text-sm text-zinc-300 leading-relaxed">
+                                  {session.notes || "No notes recorded."}
+                                </p>
+                              </div>
+
+                              {/* Metrics */}
+                              <div className="bg-ink rounded-xl p-4">
+                                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
+                                  Metrics
+                                </p>
+                                <div className="space-y-2">
+                                  <MetricRow
+                                    label="Ball speed"
+                                    value={session.ballSpeedKmh !== null ? `${session.ballSpeedKmh} km/h` : "—"}
+                                    highlight={session.ballSpeedKmh !== null}
+                                  />
+                                  <MetricRow
+                                    label="Front knee angle"
+                                    value={session.frontKneeAngleDeg !== null ? `${session.frontKneeAngleDeg}°` : "—"}
+                                  />
+                                  <MetricRow label="XP earned" value={`+${session.xpEarned}`} />
+                                  <MetricRow
+                                    label="Videos"
+                                    value={`${session.videos.length} / 3`}
+                                  />
+                                  <MetricRow label="Coach" value={sessionCoach?.name ?? "—"} />
+                                  <MetricRow
+                                    label="Time"
+                                    value={session.time ? `${session.time}${session.durationMins ? ` · ${session.durationMins} min` : ""}` : "—"}
+                                  />
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-xs text-zinc-400">RPE</span>
+                                    {editingRpeId === session.id ? (
+                                      <div className="flex flex-wrap gap-1 justify-end">
+                                        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                                          <button
+                                            key={n}
+                                            type="button"
+                                            onClick={() => handleSetRpe(session, n)}
+                                            className={`w-6 h-6 rounded text-[10px] font-bold border cursor-pointer ${
+                                              session.rpe === n ? "bg-pace-green border-pace-green text-black" : "bg-surface border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                                            }`}
+                                          >
+                                            {n}
+                                          </button>
+                                        ))}
                                       </div>
-                                    )}
-                                    {vid && (vid.width || vid.fps != null || vid.transcoded !== undefined) && (
-                                      <div className="text-[10px] text-zinc-500 truncate max-w-36 mt-0.5">
-                                        {[
-                                          vid.width && vid.height ? `${vid.width}×${vid.height}` : null,
-                                          vid.fps != null ? `${vid.fps}fps` : null,
-                                          vid.transcoded === true ? "Normalized ✓" : vid.transcoded === false ? "Original file" : null,
-                                        ].filter(Boolean).join(" · ")}
-                                      </div>
-                                    )}
-                                  </div>
-                                  {vid?.url && (
-                                    <div className="flex items-center gap-2 flex-shrink-0">
-                                      <a
-                                        href={vid.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-1 text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity"
-                                      >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                                          <polygon points="5,3 19,12 5,21" />
-                                        </svg>
-                                        Play
-                                      </a>
+                                    ) : (
                                       <button
                                         type="button"
-                                        onClick={() => setAnnotatingVideo({ session, angle, url: vid.url! })}
-                                        className="text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                        onClick={() => setEditingRpeId(session.id)}
+                                        className="text-xs font-semibold font-mono text-white hover:text-pace-green transition-colors cursor-pointer"
                                       >
-                                        ✏ Markup
+                                        {session.rpe != null ? `${session.rpe}/10 ✎` : "Log RPE"}
                                       </button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Videos */}
+                              {session.videos.length > 0 && (
+                                <div className="sm:col-span-2 bg-ink rounded-xl p-4">
+                                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
+                                    Uploaded Videos
+                                  </p>
+                                  <div className="flex flex-wrap gap-3">
+                                    {(["front", "side", "back"] as const).map((angle) => {
+                                      const vid = session.videos.find((v) => v.angle === angle);
+                                      const ANGLE_LABELS = { front: "Front · 8–10m", side: "Side · 5–7m", back: "Back · 3–4m" };
+                                      return (
+                                        <div
+                                          key={angle}
+                                          className={`flex items-center gap-3 px-4 py-3 rounded-xl border flex-1 min-w-40 ${
+                                            vid
+                                              ? "border-pace-green/40 bg-pace-green/5"
+                                              : "border-zinc-700 opacity-40"
+                                          }`}
+                                        >
+                                          <span className={`text-sm font-bold ${vid ? "text-pace-green" : "text-zinc-500"}`}>
+                                            {vid ? "✓" : "○"}
+                                          </span>
+                                          <div className="flex-1 min-w-0">
+                                            <div className={`text-xs font-semibold ${vid ? "text-white" : "text-zinc-500"}`}>
+                                              {ANGLE_LABELS[angle]}
+                                            </div>
+                                            {vid && (
+                                              <div className="text-xs text-zinc-400 truncate max-w-36">
+                                                {vid.label}
+                                              </div>
+                                            )}
+                                            {vid && (vid.width || vid.fps != null || vid.transcoded !== undefined) && (
+                                              <div className="text-[10px] text-zinc-500 truncate max-w-36 mt-0.5">
+                                                {[
+                                                  vid.width && vid.height ? `${vid.width}×${vid.height}` : null,
+                                                  vid.fps != null ? `${vid.fps}fps` : null,
+                                                  vid.transcoded === true ? "Normalized ✓" : vid.transcoded === false ? "Original file" : null,
+                                                ].filter(Boolean).join(" · ")}
+                                              </div>
+                                            )}
+                                          </div>
+                                          {vid?.url && (
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                              <a
+                                                href={vid.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="flex items-center gap-1 text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity"
+                                              >
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                                  <polygon points="5,3 19,12 5,21" />
+                                                </svg>
+                                                Play
+                                              </a>
+                                              <button
+                                                type="button"
+                                                onClick={() => setAnnotatingVideo({ session, angle, url: vid.url! })}
+                                                className="text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                              >
+                                                ✏ Markup
+                                              </button>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Coach workflow: markups, voice notes, assessments */}
+                            {(() => {
+                              const extras = sessionExtras[session.id];
+                              if (!extras) return null;
+                              const hasAny = extras.annotations.length > 0 || extras.voiceNotes.length > 0 || extras.assessments.length > 0;
+                              if (!hasAny) return null;
+                              return (
+                                <div className="mt-4 space-y-4">
+                                  {extras.annotations.length > 0 && (
+                                    <div className="bg-ink rounded-xl p-4">
+                                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Video Markups</p>
+                                      <div className="flex flex-wrap gap-3">
+                                        {extras.annotations.map((a) => (
+                                          <a key={a.id} href={a.imageUrl} target="_blank" rel="noopener noreferrer" className="block w-32">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={a.imageUrl} alt={`Markup at ${a.timestampSec.toFixed(1)}s`} className="w-32 h-auto rounded-lg border border-zinc-700" />
+                                            {a.note && <p className="text-[10px] text-zinc-500 mt-1 truncate">{a.note}</p>}
+                                          </a>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {extras.voiceNotes.length > 0 && (
+                                    <div className="bg-ink rounded-xl p-4">
+                                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Voice Notes</p>
+                                      <div className="space-y-3">
+                                        {extras.voiceNotes.map((n) => (
+                                          <div key={n.id}>
+                                            <div className="flex items-center gap-2">
+                                              <audio src={n.audioUrl} controls className="w-full h-8 mb-1.5" />
+                                              {confirmDeleteVoiceNoteId === n.id ? (
+                                                <>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteVoiceNote(session.id, n.id)}
+                                                    disabled={deletingVoiceNoteId === n.id}
+                                                    className="shrink-0 px-2 py-1 text-[10px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-md hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer"
+                                                  >
+                                                    {deletingVoiceNoteId === n.id ? "Deleting…" : "Confirm"}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={() => setConfirmDeleteVoiceNoteId(null)}
+                                                    disabled={deletingVoiceNoteId === n.id}
+                                                    className="shrink-0 px-2 py-1 text-[10px] font-semibold text-zinc-400 border border-zinc-700 rounded-md hover:text-white transition-colors cursor-pointer"
+                                                  >
+                                                    Cancel
+                                                  </button>
+                                                </>
+                                              ) : (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => setConfirmDeleteVoiceNoteId(n.id)}
+                                                  title="Delete this voice note"
+                                                  className="shrink-0 px-2 py-1 text-[10px] font-semibold text-zinc-500 border border-zinc-700 rounded-md hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
+                                                >
+                                                  Delete
+                                                </button>
+                                              )}
+                                            </div>
+                                            {n.transcript && <p className="text-xs text-zinc-400 leading-relaxed">{n.transcript}</p>}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {extras.assessments.length > 0 && (
+                                    <div className="bg-ink rounded-xl p-4">
+                                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Formal Assessments</p>
+                                      <div className="space-y-3">
+                                        {extras.assessments.map((a) => (
+                                          <div key={a.id}>
+                                            <div className="flex flex-wrap gap-2 mb-1.5">
+                                              {Object.entries(a.ratings).map(([cat, score]) => (
+                                                <span key={cat} className="px-2 py-0.5 rounded-md text-xs bg-surface text-zinc-300 border border-zinc-700">
+                                                  {cat}: {score}/5
+                                                </span>
+                                              ))}
+                                            </div>
+                                            {a.overallRecommendation && <p className="text-xs text-zinc-400 leading-relaxed">{a.overallRecommendation}</p>}
+                                          </div>
+                                        ))}
+                                      </div>
                                     </div>
                                   )}
                                 </div>
                               );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                            })()}
 
-                    {/* Coach workflow: markups, voice notes, assessments */}
-                    {(() => {
-                      const extras = sessionExtras[session.id];
-                      if (!extras) return null;
-                      const hasAny = extras.annotations.length > 0 || extras.voiceNotes.length > 0 || extras.assessments.length > 0;
-                      if (!hasAny) return null;
-                      return (
-                        <div className="mt-4 space-y-4">
-                          {extras.annotations.length > 0 && (
-                            <div className="bg-ink rounded-xl p-4">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Video Markups</p>
-                              <div className="flex flex-wrap gap-3">
-                                {extras.annotations.map((a) => (
-                                  <a key={a.id} href={a.imageUrl} target="_blank" rel="noopener noreferrer" className="block w-32">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={a.imageUrl} alt={`Markup at ${a.timestampSec.toFixed(1)}s`} className="w-32 h-auto rounded-lg border border-zinc-700" />
-                                    {a.note && <p className="text-[10px] text-zinc-500 mt-1 truncate">{a.note}</p>}
-                                  </a>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {extras.voiceNotes.length > 0 && (
-                            <div className="bg-ink rounded-xl p-4">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Voice Notes</p>
-                              <div className="space-y-3">
-                                {extras.voiceNotes.map((n) => (
-                                  <div key={n.id}>
-                                    <div className="flex items-center gap-2">
-                                      <audio src={n.audioUrl} controls className="w-full h-8 mb-1.5" />
-                                      {confirmDeleteVoiceNoteId === n.id ? (
-                                        <>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleDeleteVoiceNote(session.id, n.id)}
-                                            disabled={deletingVoiceNoteId === n.id}
-                                            className="shrink-0 px-2 py-1 text-[10px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-md hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer"
-                                          >
-                                            {deletingVoiceNoteId === n.id ? "Deleting…" : "Confirm"}
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => setConfirmDeleteVoiceNoteId(null)}
-                                            disabled={deletingVoiceNoteId === n.id}
-                                            className="shrink-0 px-2 py-1 text-[10px] font-semibold text-zinc-400 border border-zinc-700 rounded-md hover:text-white transition-colors cursor-pointer"
-                                          >
-                                            Cancel
-                                          </button>
-                                        </>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => setConfirmDeleteVoiceNoteId(n.id)}
-                                          title="Delete this voice note"
-                                          className="shrink-0 px-2 py-1 text-[10px] font-semibold text-zinc-500 border border-zinc-700 rounded-md hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
-                                        >
-                                          Delete
-                                        </button>
-                                      )}
-                                    </div>
-                                    {n.transcript && <p className="text-xs text-zinc-400 leading-relaxed">{n.transcript}</p>}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {extras.assessments.length > 0 && (
-                            <div className="bg-ink rounded-xl p-4">
-                              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Formal Assessments</p>
-                              <div className="space-y-3">
-                                {extras.assessments.map((a) => (
-                                  <div key={a.id}>
-                                    <div className="flex flex-wrap gap-2 mb-1.5">
-                                      {Object.entries(a.ratings).map(([cat, score]) => (
-                                        <span key={cat} className="px-2 py-0.5 rounded-md text-xs bg-surface text-zinc-300 border border-zinc-700">
-                                          {cat}: {score}/5
-                                        </span>
-                                      ))}
-                                    </div>
-                                    {a.overallRecommendation && <p className="text-xs text-zinc-400 leading-relaxed">{a.overallRecommendation}</p>}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Footer actions */}
-                    <div className="flex flex-wrap items-center gap-3 mt-4">
-                      {player && (
-                        <Link
-                          href={`/players/${player.id}`}
-                          className="px-4 py-2 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors"
-                        >
-                          View Player Profile
-                        </Link>
+                            {reportStatus[session.id] === "error" && (
+                              <p className="mt-4 text-xs font-semibold text-red-400">{reportError}</p>
+                            )}
+                          </td>
+                        </tr>
                       )}
-                      {player && (
-                        <Link
-                          href={`/players/${player.id}/new-session`}
-                          className="px-4 py-2 text-xs font-semibold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity"
-                        >
-                          + Log Session
-                        </Link>
-                      )}
-                      {session.videos.length > 0 && (
-                        reportStatus[session.id] === "success" && player ? (
-                          <>
-                            <Link
-                              href={`/players/${player.id}/reports`}
-                              className="px-4 py-2 text-xs font-semibold bg-pace-green/20 text-pace-green border border-pace-green/30 rounded-lg hover:bg-pace-green/30 transition-colors"
-                            >
-                              ✓ View Report
-                            </Link>
-                            <button
-                              type="button"
-                              onClick={() => handleGenerateReport(session)}
-                              disabled={generatingId === session.id}
-                              title="Generates a fresh report from this session's video — the old one stays too, delete it from the Reports page if you don't need it."
-                              className="px-4 py-2 text-xs font-semibold bg-zinc-700/50 text-zinc-300 border border-zinc-600 rounded-lg hover:text-white hover:border-zinc-500 transition-colors disabled:opacity-60 cursor-pointer"
-                            >
-                              {generatingId === session.id ? (generatingStage || "Analyzing…") : "🔄 Regenerate"}
-                            </button>
-                          </>
-                        ) : player && !aiReportsIncludedForPlayer(player, _sessPlans, _sessAcademies, _sessCoaches) && player.assessmentCredits > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => handleGenerateReport(session, true)}
-                            disabled={generatingId === session.id}
-                            title="Spends one purchased Individual Action Assessment credit"
-                            className="px-4 py-2 text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-60 cursor-pointer"
-                          >
-                            {generatingId === session.id ? (generatingStage || "Analyzing…") : `🎫 Use Assessment Credit (${player.assessmentCredits} left)`}
-                          </button>
-                        ) : player && !aiReportsIncludedForPlayer(player, _sessPlans, _sessAcademies, _sessCoaches) ? (
-                          <Link
-                            href={`/players/${player.id}/subscription`}
-                            className="px-4 py-2 text-xs font-semibold bg-zinc-700/50 text-zinc-400 border border-zinc-600 rounded-lg hover:text-white hover:border-zinc-500 transition-colors"
-                            title="AI reports require Player Pro or higher"
-                          >
-                            🔒 AI Report (Upgrade)
-                          </Link>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleGenerateReport(session)}
-                            disabled={generatingId === session.id}
-                            className="px-4 py-2 text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg hover:bg-purple-500/30 transition-colors disabled:opacity-60 cursor-pointer"
-                          >
-                            {generatingId === session.id ? (generatingStage || "Analyzing…") : "✨ Generate AI Report"}
-                          </button>
-                        )
-                      )}
-                      {reportStatus[session.id] === "error" && (
-                        <span className="text-xs font-semibold text-red-400">{reportError}</span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setVoiceNoteSession(session)}
-                        className="px-4 py-2 text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/20 transition-colors cursor-pointer"
-                      >
-                        🎙 Voice Note
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setAssessmentSession(session)}
-                        className="px-4 py-2 text-xs font-semibold bg-amber/10 text-amber border border-amber/30 rounded-lg hover:bg-amber/20 transition-colors cursor-pointer"
-                      >
-                        📋 Assessment
-                      </button>
-
-                      <div className="ml-auto flex items-center gap-2">
-                        {confirmDeleteId === session.id ? (
-                          <>
-                            <span className="text-xs text-zinc-400">Delete this session and its videos?</span>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteSession(session)}
-                              disabled={deletingId === session.id}
-                              className="px-3 py-1.5 text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer"
-                            >
-                              {deletingId === session.id ? "Deleting…" : "Confirm delete"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setConfirmDeleteId(null)}
-                              disabled={deletingId === session.id}
-                              className="px-3 py-1.5 text-xs font-semibold text-zinc-400 border border-zinc-700 rounded-lg hover:text-white transition-colors cursor-pointer"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setConfirmDeleteId(session.id)}
-                            className="px-3 py-1.5 text-xs font-semibold text-zinc-500 border border-zinc-700 rounded-lg hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
-                          >
-                            Delete Session
-                          </button>
-                        )}
-                      </div>
-                      {deleteErrors[session.id] && (
-                        <span className="w-full text-xs font-semibold text-red-400">{deleteErrors[session.id]}</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -847,6 +928,51 @@ export function SessionsClient() {
           });
           setAssessmentSession(null);
         }}
+      />
+    )}
+
+    {deleteConfirmSession && (
+      <ConfirmModal
+        icon={<TrashIcon width={22} height={22} className="text-red-400" />}
+        iconBg="bg-red-500/20"
+        title="Delete this session?"
+        message={`This deletes ${playerById(deleteConfirmSession.playerId)?.name ?? "this player"}'s session and its videos. This can't be undone.`}
+        confirmLabel="Delete"
+        confirmBusyLabel="Deleting…"
+        confirmVariant="danger"
+        loading={deletingId === deleteConfirmSession.id}
+        error={deleteErrors[deleteConfirmSession.id]}
+        onConfirm={() => handleDeleteSession(deleteConfirmSession)}
+        onCancel={() => setDeleteConfirmSession(null)}
+      />
+    )}
+
+    {bulkDeleteOpen && (
+      <ConfirmModal
+        icon={<TrashIcon width={22} height={22} className="text-red-400" />}
+        iconBg="bg-red-500/20"
+        title="Delete selected sessions?"
+        message={`This deletes ${selectedSessionsList.length} session${selectedSessionsList.length === 1 ? "" : "s"} and their videos. This can't be undone.`}
+        confirmLabel="Delete"
+        confirmBusyLabel="Deleting…"
+        confirmVariant="danger"
+        loading={bulkDeleting}
+        onConfirm={handleConfirmBulkDelete}
+        onCancel={() => setBulkDeleteOpen(false)}
+      />
+    )}
+
+    {bulkGenerateOpen && (
+      <ConfirmModal
+        icon={<RepeatIcon width={22} height={22} className="text-pace-green" />}
+        iconBg="bg-pace-green/20"
+        title="Generate AI Reports?"
+        message={`Generates an AI biomechanics report for ${selectedReportEligible.length} selected session${selectedReportEligible.length === 1 ? "" : "s"} with uploaded video and no report yet. This can take a while for several sessions — each one processes in turn.`}
+        confirmLabel="Generate"
+        confirmBusyLabel="Generating…"
+        loading={bulkGenerating}
+        onConfirm={handleConfirmBulkGenerateReports}
+        onCancel={() => setBulkGenerateOpen(false)}
       />
     )}
     </>
