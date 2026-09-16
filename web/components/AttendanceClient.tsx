@@ -11,6 +11,7 @@ import {
 } from "@/lib/db";
 import { matchPlayerByNameOrEmail, occurrenceDatesInRange } from "@/lib/utils";
 import type { GroupSession, Player, Coach, SessionPack, BookingType, AttendanceStatus, AttendanceRecord } from "@/lib/types";
+import type { OccurrenceStatus } from "@/lib/db";
 
 // Only "Net Session" — a Group Session's roster is funded by Session Packs, and every pack is a
 // Net Session pack (SessionPacksClient hard-codes it, there's no type picker). Offering other
@@ -110,7 +111,7 @@ export function AttendanceClient() {
   const [loading, setLoading] = useState(true);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [pastDates, setPastDates] = useState<Record<string, { id: string; date: string }[]>>({});
+  const [pastDates, setPastDates] = useState<Record<string, { id: string; date: string; status: OccurrenceStatus }[]>>({});
   const [showAllPast, setShowAllPast] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
@@ -690,14 +691,17 @@ export function AttendanceClient() {
                     <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Upcoming — tap a date to take attendance</p>
                     <div className="flex flex-wrap gap-2">
                       {upcoming.map((date) => {
-                        const recorded = past.some((o) => o.date === date);
+                        const occurrence = past.find((o) => o.date === date);
+                        const canceled = occurrence?.status === "canceled";
                         return (
                           <button key={date} type="button" onClick={() => openAttendance(g, date)}
                             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
-                              recorded ? "border-pace-green/50 bg-pace-green/10 text-pace-green" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"
+                              canceled ? "border-amber/50 bg-amber/10 text-amber"
+                                : occurrence ? "border-pace-green/50 bg-pace-green/10 text-pace-green"
+                                : "border-zinc-700 text-zinc-300 hover:border-zinc-500"
                             }`}>
                             {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-                            {recorded && " ✓"}
+                            {occurrence && (canceled ? " ⊘" : " ✓")}
                           </button>
                         );
                       })}
@@ -711,12 +715,18 @@ export function AttendanceClient() {
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Past attendance</p>
                         <div className="flex flex-wrap gap-2">
-                          {visiblePast.map((o) => (
-                            <button key={o.id} type="button" onClick={() => openAttendance(g, o.date)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-pace-green/50 bg-pace-green/10 text-pace-green cursor-pointer">
-                              {new Date(o.date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} ✓
-                            </button>
-                          ))}
+                          {visiblePast.map((o) => {
+                            const canceled = o.status === "canceled";
+                            return (
+                              <button key={o.id} type="button" onClick={() => openAttendance(g, o.date)}
+                                title={canceled ? "Session canceled — no one was charged" : undefined}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer ${
+                                  canceled ? "border-amber/50 bg-amber/10 text-amber" : "border-pace-green/50 bg-pace-green/10 text-pace-green"
+                                }`}>
+                                {new Date(o.date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} {canceled ? "⊘" : "✓"}
+                              </button>
+                            );
+                          })}
                           {pastOnly.length > PAST_DATES_PREVIEW_COUNT && (
                             <button type="button" onClick={(e) => { e.stopPropagation(); setShowAllPast((v) => !v); }}
                               className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-zinc-700 text-zinc-400 hover:border-zinc-500 transition-colors cursor-pointer">

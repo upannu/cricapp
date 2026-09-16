@@ -866,12 +866,37 @@ export async function fetchAttendanceForDate(groupSessionId: string, date: strin
   return (data as DbAttendanceRecord[]).map(dbToAttendanceRecord);
 }
 
-export async function fetchPastOccurrences(groupSessionId: string): Promise<{ id: string; date: string }[]> {
+export type OccurrenceStatus = "recorded" | "canceled";
+
+/** `status` is "canceled" only when every attendance_records row for that occurrence is
+ * Canceled (the whole session was called off via cancelOccurrence) — a mix of Present/Absent,
+ * or even a single non-Canceled row, counts as a normal "recorded" occurrence. An occurrence
+ * with no attendance_records at all (shouldn't normally happen — both saveAttendance and
+ * cancelOccurrence always write at least one row alongside creating the occurrence) also falls
+ * back to "recorded" rather than silently disappearing from either bucket. */
+export async function fetchPastOccurrences(groupSessionId: string): Promise<{ id: string; date: string; status: OccurrenceStatus }[]> {
   const sb = createClient();
   const { data, error } = await sb.from("group_session_occurrences").select("id, date")
     .eq("group_session_id", groupSessionId).order("date", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as { id: string; date: string }[];
+  const occurrences = (data ?? []) as { id: string; date: string }[];
+  if (occurrences.length === 0) return [];
+
+  const { data: records, error: recError } = await sb.from("attendance_records").select("occurrence_id, status")
+    .in("occurrence_id", occurrences.map((o) => o.id));
+  if (recError) throw recError;
+  const statusesByOccurrence = new Map<string, string[]>();
+  for (const r of (records ?? []) as { occurrence_id: string; status: string }[]) {
+    const list = statusesByOccurrence.get(r.occurrence_id) ?? [];
+    list.push(r.status);
+    statusesByOccurrence.set(r.occurrence_id, list);
+  }
+
+  return occurrences.map((o) => {
+    const statuses = statusesByOccurrence.get(o.id) ?? [];
+    const allCanceled = statuses.length > 0 && statuses.every((s) => s === "Canceled");
+    return { ...o, status: (allCanceled ? "canceled" : "recorded") as OccurrenceStatus };
+  });
 }
 
 /**
