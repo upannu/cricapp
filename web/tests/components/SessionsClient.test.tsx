@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SessionsClient } from "@/components/SessionsClient";
 import { makeAuthUser, makeCoach, makePlayer, makeSession } from "../mocks/fixtures";
@@ -36,6 +36,9 @@ vi.mock("@/lib/db", () => ({
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
 
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+
 function setupDefaults() {
   useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
   fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
@@ -43,6 +46,11 @@ function setupDefaults() {
   fetchAcademies.mockResolvedValue([]);
   fetchActivePlans.mockResolvedValue([]);
   fetchReports.mockResolvedValue([]);
+  // Only fetched once a row is expanded, but mocked unconditionally so any test that expands one
+  // doesn't hit an unmocked-fetch crash — see the coach/time test below.
+  fetchVideoAnnotations.mockResolvedValue([]);
+  fetchVoiceNotes.mockResolvedValue([]);
+  fetchAssessments.mockResolvedValue([]);
 }
 
 describe("SessionsClient", () => {
@@ -76,11 +84,15 @@ describe("SessionsClient", () => {
       makeSession({ id: "s1", playerId: "p1", type: "Net Session", coachId: "coach1", time: "16:00", durationMins: 45 }),
     ]);
 
+    const user = userEvent.setup();
     render(<SessionsClient />);
     await screen.findByText("Showing 1–1 of 1 sessions");
 
     expect(screen.getAllByText(/Coach Dan/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/16:00 · 45m/)).toBeInTheDocument();
+
+    // Time/duration is only shown in the expanded metrics panel, not the collapsed row.
+    await user.click(screen.getByRole("button", { name: /Alice Bowler/ }));
+    expect(await screen.findByText(/16:00 · 45 min/)).toBeInTheDocument();
   });
 
   test("filtering by session type narrows the list", async () => {
@@ -137,13 +149,150 @@ describe("SessionsClient", () => {
     render(<SessionsClient />);
     await screen.findByText("Showing 1–2 of 2 sessions");
 
-    // Per-card speed badges are plain integers ("100 km/h") — excludes the "Avg ball speed" stat
-    // card above the list, which always renders with one decimal place ("120.0 km/h").
+    // Per-row speed cells are plain integers ("100 km/h") — excludes the "Avg ball speed" stat
+    // card above the table, which always renders with one decimal place ("120.0 km/h").
     const speedOrder = () => screen.getAllByText(/^\d+ km\/h$/).map((el) => el.textContent);
-    // Default sort (Newest First) — same date on both, so insertion order is preserved.
+    // Default sort (Date, newest first) — same date on both, so insertion order is preserved.
     expect(speedOrder()[0]).toBe("100 km/h");
 
-    await user.selectOptions(screen.getByDisplayValue("Sort: Newest First"), "Sort: Fastest Ball Speed");
+    // Clicking an inactive column defaults to ascending.
+    await user.click(screen.getByRole("button", { name: /Ball Speed/ }));
+    expect(speedOrder()[0]).toBe("100 km/h");
+
+    // Clicking the already-active column flips direction.
+    await user.click(screen.getByRole("button", { name: /Ball Speed/ }));
     expect(speedOrder()[0]).toBe("140 km/h");
+  });
+
+  test("selecting a row shows the bulk action bar with the right count, and Clear deselects everything", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchSessions.mockResolvedValue([makeSession({ id: "s1", playerId: "p1" })]);
+
+    render(<SessionsClient />);
+    await screen.findByText("Showing 1–1 of 1 sessions");
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByTitle("Select for bulk actions"));
+    expect(screen.getByText("1 session selected")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+  });
+
+  test("select-all selects every session currently matching the filters/search", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchSessions.mockResolvedValue([
+      makeSession({ id: "s1", playerId: "p1" }),
+      makeSession({ id: "s2", playerId: "p1" }),
+    ]);
+
+    render(<SessionsClient />);
+    await screen.findByText("Showing 1–2 of 2 sessions");
+
+    await user.click(screen.getByTitle("Select all"));
+    expect(screen.getByText("2 sessions selected")).toBeInTheDocument();
+
+    await user.click(screen.getByTitle("Select all"));
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+  });
+
+  test("deleting a session from its ⋮ menu removes it after confirming", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchSessions.mockResolvedValue([makeSession({ id: "s1", playerId: "p1", notes: "delete-me" })]);
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
+
+    render(<SessionsClient />);
+    await screen.findByText("delete-me");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Delete Session"));
+    expect(await screen.findByText("Delete this session?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(screen.queryByText("delete-me")).not.toBeInTheDocument());
+    expect(fetch).toHaveBeenCalledWith("/api/sessions/delete", expect.objectContaining({
+      body: JSON.stringify({ sessionId: "s1", playerId: "p1" }),
+    }));
+  });
+
+  test("bulk delete removes every selected session after confirming", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchSessions.mockResolvedValue([
+      makeSession({ id: "s1", playerId: "p1", notes: "first" }),
+      makeSession({ id: "s2", playerId: "p1", notes: "second" }),
+    ]);
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ success: true }) });
+
+    render(<SessionsClient />);
+    await screen.findByText("Showing 1–2 of 2 sessions");
+    await user.click(screen.getByTitle("Select all"));
+
+    await user.click(screen.getByRole("button", { name: "Delete (2)" }));
+    expect(await screen.findByText("Delete selected sessions?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(screen.queryByText("Showing 1–2 of 2 sessions")).not.toBeInTheDocument());
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+  });
+
+  test("Export CSV downloads a CSV of the selected sessions", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchSessions.mockResolvedValue([makeSession({ id: "s1", playerId: "p1", notes: "export-me" })]);
+
+    const createObjectURL = vi.fn().mockReturnValue("blob:mock-url");
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL, revokeObjectURL });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    render(<SessionsClient />);
+    await screen.findByText("export-me");
+    await user.click(screen.getByTitle("Select for bulk actions"));
+
+    await user.click(screen.getByRole("button", { name: "Export CSV" }));
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const [blob] = createObjectURL.mock.calls[0];
+    const csvText = await (blob as Blob).text();
+    expect(csvText).toContain("export-me");
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+
+    clickSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  test("the Report column offers Generate for an eligible session with video and no report yet", async () => {
+    setupDefaults();
+    // Free tier (the fixture default) has no AI report access with no Plan rows configured —
+    // needs a paid tier to reach the "Generate" branch rather than "Upgrade".
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler", subscription: {
+      plan: "Player Pro", startDate: "2026-01-01", endDate: "2027-01-01", sessionsUsed: 0, sessionsLimit: null,
+    } })]);
+    fetchSessions.mockResolvedValue([
+      makeSession({ id: "s1", playerId: "p1", videos: [{ angle: "front", label: "Front", url: "https://example.test/v.mp4" }] }),
+    ]);
+
+    render(<SessionsClient />);
+    await screen.findByText("Showing 1–1 of 1 sessions");
+
+    expect(screen.getByRole("button", { name: "✨ Generate" })).toBeInTheDocument();
+  });
+
+  test("the Report column shows a View link once a report exists for the session", async () => {
+    setupDefaults();
+    fetchSessions.mockResolvedValue([
+      makeSession({ id: "s1", playerId: "p1", videos: [{ angle: "front", label: "Front", url: "https://example.test/v.mp4" }] }),
+    ]);
+    fetchReports.mockResolvedValue([{ id: "r1", sessionId: "s1", playerId: "p1" }]);
+
+    render(<SessionsClient />);
+    await screen.findByText("Showing 1–1 of 1 sessions");
+
+    expect(await screen.findByRole("link", { name: /View/ })).toBeInTheDocument();
   });
 });

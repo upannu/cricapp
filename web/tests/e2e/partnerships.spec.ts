@@ -53,7 +53,11 @@ test.describe("Cricket Board Partnership public flow", () => {
     await page.getByRole("button", { name: "Submit Partnership Application" }).click();
 
     await page.waitForURL(/\/partnerships\/cricket-board\/success/);
-    await expect(page.getByText("Application received")).toBeVisible();
+    // getByText would also match Next's own #__next-route-announcer__ (an a11y live region that
+    // mirrors the new page's heading text after a client-side navigation) — a strict-mode
+    // violation caught consistently in CI, where that announcer populates fast enough to coexist
+    // with the real heading inside the assertion's 5s window.
+    await expect(page.getByRole("heading", { name: "Application received" })).toBeVisible();
     await expect(page.getByText(/^CRIC-BRD-\d{4}-\d{6}$/)).toBeVisible();
   });
 });
