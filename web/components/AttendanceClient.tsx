@@ -10,7 +10,7 @@ import {
   fetchAttendanceForDate, fetchOccurrenceNotes, saveAttendance, cancelOccurrence,
   fetchGroupSessionVideos, insertGroupSessionVideo, deleteGroupSessionVideo, tagPlayerInVideo, deleteVideoTag,
 } from "@/lib/db";
-import { matchPlayerByNameOrEmail, occurrenceDatesInRange } from "@/lib/utils";
+import { matchPlayerByNameOrEmail, occurrenceDatesInRange, formatTimestamp } from "@/lib/utils";
 import { uploadGroupSessionVideo } from "@/lib/group-session-video-upload";
 import type { GroupSession, Player, Coach, Academy, SessionPack, BookingType, AttendanceStatus, AttendanceRecord } from "@/lib/types";
 import type { OccurrenceStatus, GroupSessionVideoWithTags } from "@/lib/db";
@@ -102,12 +102,6 @@ const EMPTY_DRAFT: DraftGroup = {
 
 function todayIso(): string {
   return new Date().toISOString().split("T")[0];
-}
-
-function formatTimestamp(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export function AttendanceClient() {

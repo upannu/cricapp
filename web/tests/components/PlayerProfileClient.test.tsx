@@ -5,7 +5,7 @@ import { PlayerProfileClient } from "@/components/PlayerProfileClient";
 import { makeAcademy, makeAuthUser, makeCoach, makePlayer, makeSessionPack } from "../mocks/fixtures";
 import type { Plan } from "@/lib/types";
 
-const { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, fetchSessionPacks, updatePlayer } = vi.hoisted(() => ({
+const { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, fetchSessionPacks, updatePlayer, fetchPlayerVideoTags } = vi.hoisted(() => ({
   fetchPlayer: vi.fn(),
   fetchAcademies: vi.fn(),
   fetchCoaches: vi.fn(),
@@ -15,8 +15,9 @@ const { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, 
   fetchActivePlans: vi.fn(),
   fetchSessionPacks: vi.fn(),
   updatePlayer: vi.fn(),
+  fetchPlayerVideoTags: vi.fn(),
 }));
-vi.mock("@/lib/db", () => ({ fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, fetchSessionPacks, updatePlayer }));
+vi.mock("@/lib/db", () => ({ fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, fetchSessionPacks, updatePlayer, fetchPlayerVideoTags }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
@@ -39,6 +40,7 @@ function setupDefaults() {
   fetchSCWorkouts.mockResolvedValue([]);
   fetchActivePlans.mockResolvedValue([]);
   fetchSessionPacks.mockResolvedValue([]);
+  fetchPlayerVideoTags.mockResolvedValue([]);
   updatePlayer.mockClear();
   updatePlayer.mockResolvedValue(undefined);
 }
@@ -138,6 +140,41 @@ describe("PlayerProfileClient", () => {
     render(<PlayerProfileClient playerId="p1" />);
 
     expect(await screen.findByText("⚠ High Injury Risk")).toBeInTheDocument();
+  });
+
+  // Squad Session Clips — surfaces a squad-video tag on the player's own profile ("syncs to
+  // Aarti's profile"), the half of the video-tagging feature that wasn't built with the rest of
+  // it. Only ever has rows for an academy that opted into Squad Video Sharing (see
+  // fetchPlayerVideoTags' own doc comment) — no separate gate needed here.
+  test("hides Squad Session Clips entirely when the player has no tags", async () => {
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.queryByText("Squad Session Clips")).not.toBeInTheDocument();
+  });
+
+  test("shows a tagged squad clip with its group, date, timestamp and note", async () => {
+    setupDefaults();
+    fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
+    fetchPlayerVideoTags.mockResolvedValue([{
+      tag: { id: "t1", videoId: "v1", playerId: "p1", timestampSec: 75, note: "Great yorker", taggedBy: "coach-1", createdAt: "2026-01-01T00:00:00Z" },
+      video: { id: "v1", occurrenceId: "o1", uploadedBy: "coach-1", videoUrl: "https://example.com/clip.mp4", angle: null, durationSec: 120, width: 1920, height: 1080, createdAt: "2026-01-01T00:00:00Z" },
+      occurrenceDate: "2026-09-21",
+      groupSessionName: "U14 Tuesday Nets",
+    }]);
+
+    render(<PlayerProfileClient playerId="p1" />);
+    await screen.findByText("Alice Bowler");
+
+    expect(await screen.findByText("Squad Session Clips")).toBeInTheDocument();
+    expect(screen.getByText(/U14 Tuesday Nets/)).toBeInTheDocument();
+    expect(screen.getByText(/tagged at 1:15/)).toBeInTheDocument();
+    expect(screen.getByText("Great yorker")).toBeInTheDocument();
+    const video = document.querySelector("video");
+    expect(video).toHaveAttribute("src", "https://example.com/clip.mp4#t=75");
   });
 
   // Edit Player moved out of the top bar into the identity card's own action row (alongside

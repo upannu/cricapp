@@ -48,6 +48,13 @@ export function formatDateTime(iso: string): string {
   return `${datePart} at ${timePart}`;
 }
 
+/** m:ss — a video playback position, not a duration since creation (see formatDateTime above). */
+export function formatTimestamp(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 // Coach takes priority over academy. Tried the reverse — academy first, coach as fallback — on
 // the reasoning that academy affiliation is the more stable identity; in practice this made the
 // Coach column (and every other place this label is shown, e.g. player-profile's own "Coach"
