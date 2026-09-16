@@ -691,58 +691,58 @@ export function AttendanceClient() {
                       Import Attendance CSV
                     </button>
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Upcoming — tap a date to take attendance</p>
-                    <div className="flex flex-wrap gap-2">
-                      {upcoming.map((date) => {
-                        const occurrence = past.find((o) => o.date === date);
-                        const canceled = occurrence?.status === "canceled";
-                        return (
-                          <button key={date} type="button" onClick={() => openAttendance(g, date)}
-                            title={occurrence?.hasNotes ? "Has session notes" : undefined}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
-                              canceled ? "border-amber/50 bg-amber/10 text-amber"
-                                : occurrence ? "border-pace-green/50 bg-pace-green/10 text-pace-green"
-                                : "border-zinc-700 text-zinc-300 hover:border-zinc-500"
-                            }`}>
-                            {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-                            {occurrence && (canceled ? " ⊘" : " ✓")}
-                            {occurrence?.hasNotes && " 📝"}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
                   {(() => {
                     const pastOnly = past.filter((o) => !upcoming.includes(o.date));
-                    if (pastOnly.length === 0) return null;
                     const visiblePast = showAllPast ? pastOnly : pastOnly.slice(0, PAST_DATES_PREVIEW_COUNT);
+                    type Row = { date: string; occurrence?: (typeof past)[number] };
+                    const rows: Row[] = [
+                      ...upcoming.map((date) => ({ date, occurrence: past.find((o) => o.date === date) })),
+                      ...visiblePast.map((o) => ({ date: o.date, occurrence: o })),
+                    ];
                     return (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Past attendance</p>
-                        <div className="flex flex-wrap gap-2">
-                          {visiblePast.map((o) => {
-                            const canceled = o.status === "canceled";
-                            const title = [canceled ? "Session canceled — no one was charged" : null, o.hasNotes ? "Has session notes" : null]
-                              .filter(Boolean).join(" · ") || undefined;
-                            return (
-                              <button key={o.id} type="button" onClick={() => openAttendance(g, o.date)}
-                                title={title}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer ${
-                                  canceled ? "border-amber/50 bg-amber/10 text-amber" : "border-pace-green/50 bg-pace-green/10 text-pace-green"
-                                }`}>
-                                {new Date(o.date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} {canceled ? "⊘" : "✓"}
-                                {o.hasNotes && " 📝"}
-                              </button>
-                            );
-                          })}
-                          {pastOnly.length > PAST_DATES_PREVIEW_COUNT && (
+                      <div className="bg-ink rounded-xl overflow-hidden border border-zinc-700/50">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-zinc-700/60">
+                              <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-2.5">Date</th>
+                              <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-2.5">Status</th>
+                              <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-2.5">Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map(({ date, occurrence }) => {
+                              const canceled = occurrence?.status === "canceled";
+                              return (
+                                <tr key={date} onClick={() => openAttendance(g, date)}
+                                  className="border-b border-zinc-700/40 last:border-0 transition-colors hover:bg-white/[0.03] cursor-pointer">
+                                  <td className="px-4 py-2.5 text-white whitespace-nowrap">
+                                    {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
+                                  </td>
+                                  <td className="px-4 py-2.5 whitespace-nowrap">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
+                                      canceled ? "border-amber/50 bg-amber/10 text-amber"
+                                        : occurrence ? "border-pace-green/50 bg-pace-green/10 text-pace-green"
+                                        : "border-zinc-700 text-zinc-400"
+                                    }`}>
+                                      {canceled ? "⊘ Canceled" : occurrence ? "✓ Recorded" : "Upcoming"}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-zinc-400">
+                                    {occurrence?.hasNotes ? "📝" : "—"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                        {pastOnly.length > PAST_DATES_PREVIEW_COUNT && (
+                          <div className="px-4 py-2.5 border-t border-zinc-700/40">
                             <button type="button" onClick={(e) => { e.stopPropagation(); setShowAllPast((v) => !v); }}
-                              className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-zinc-700 text-zinc-400 hover:border-zinc-500 transition-colors cursor-pointer">
-                              {showAllPast ? "Show less" : `Show all ${pastOnly.length}`}
+                              className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer">
+                              {showAllPast ? "Show less" : `Show all ${pastOnly.length} past dates`}
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
