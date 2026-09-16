@@ -176,6 +176,13 @@ export function AcademyClient() {
   const [page, setPage] = useState(1);
   const [academiesPerPage, setAcademiesPerPage] = useState(DEFAULT_ACADEMIES_PER_PAGE);
 
+  // Bulk selection — platform_admin only, matching the row-level Deactivate/Activate gate below
+  // (an academy_admin can only ever manage their own single academy, so bulk power over several
+  // never applies to them).
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkToggleTarget, setBulkToggleTarget] = useState<"Active" | "Inactive" | null>(null);
+  const [bulkToggling, setBulkToggling] = useState(false);
+
   useEffect(() => {
     const coachId = user?.role === "coach" ? user.coachId : undefined;
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
@@ -215,6 +222,55 @@ export function AcademyClient() {
     } finally {
       setToggling(false);
     }
+  }
+
+  // ── Bulk selection ─────────────────────────────────────────────────────────
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  async function handleConfirmBulkToggle() {
+    if (!bulkToggleTarget) return;
+    setBulkToggling(true);
+    try {
+      const targets = academies.filter((a) => selectedIds.has(a.id));
+      await Promise.all(targets.map((a) => updateAcademyFields(a.id, { status: bulkToggleTarget })));
+      const targetIds = new Set(targets.map((a) => a.id));
+      setAcademies((prev) => prev.map((a) => (targetIds.has(a.id) ? { ...a, status: bulkToggleTarget } : a)));
+      setBulkToggleTarget(null);
+      clearSelection();
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setBulkToggling(false);
+    }
+  }
+
+  function handleExportCsv() {
+    const targets = academies.filter((a) => selectedIds.has(a.id));
+    const rows = targets.map((a) => ({
+      name: a.name,
+      stage: a.stage,
+      status: a.status,
+      players: allPlayers.filter((p) => a.playerIds.includes(p.id)).length,
+      coaches: allCoaches.filter((c) => (a.coachIds ?? []).includes(c.id)).length,
+      location: a.location,
+    }));
+    const blob = new Blob([Papa.unparse(rows)], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `academies-export-${new Date().toISOString().split("T")[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   // ── Modal helpers ──────────────────────────────────────────────────────────
@@ -710,6 +766,12 @@ export function AcademyClient() {
   const currentPage = Math.min(page, totalPages);
   const pageAcademies = displayed.slice((currentPage - 1) * academiesPerPage, currentPage * academiesPerPage);
 
+  const allSelected = displayed.length > 0 && displayed.every((a) => selectedIds.has(a.id));
+  const someSelected = displayed.some((a) => selectedIds.has(a.id)) && !allSelected;
+  function toggleSelectAll() {
+    setSelectedIds(allSelected ? new Set() : new Set(displayed.map((a) => a.id)));
+  }
+
   const activeCount = academies.filter((a) => a.status === "Active").length;
   const inactiveCount = academies.filter((a) => a.status === "Inactive").length;
   const grandTotal  = allPlayers.filter((p) => academies.some((a) => a.playerIds.includes(p.id))).length;
@@ -799,6 +861,46 @@ export function AcademyClient() {
         </div>
       )}
 
+      {/* Bulk action bar — platform_admin only, matching the row-level Deactivate/Activate gate
+          (an academy_admin only ever manages their own single academy, so bulk power over several
+          never applies). Only Deactivate/Activate has a coherent bulk form — Billing and Edit stay
+          per-row, single-academy actions. */}
+      {user?.role === "platform_admin" && selectedIds.size > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3">
+          <span className="text-blue-400 text-sm font-semibold">
+            {selectedIds.size} academ{selectedIds.size !== 1 ? "ies" : "y"} selected
+          </span>
+          <button
+            type="button"
+            onClick={() => setBulkToggleTarget("Inactive")}
+            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+          >
+            Deactivate
+          </button>
+          <button
+            type="button"
+            onClick={() => setBulkToggleTarget("Active")}
+            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+          >
+            Activate
+          </button>
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+          >
+            Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer sm:ml-auto"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* List — a real table now (sortable columns, sticky Actions, pagination below), matching
           Coaches/Players. The accordion detail management (Players/Coaches/Pricing/Nets tabs)
           still lives directly underneath a clicked row exactly as before, unchanged — this phase
@@ -819,7 +921,19 @@ export function AcademyClient() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-zinc-700/60">
-                  <SortableHeader label="Academy" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} className="pl-6" />
+                  {user?.role === "platform_admin" && (
+                    <th className="text-center px-4 py-3 pl-6 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                        onChange={toggleSelectAll}
+                        className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+                        title="Select all"
+                      />
+                    </th>
+                  )}
+                  <SortableHeader label="Academy" sortKey="name" activeKey={sortKey} direction={sortDir} onSort={handleSort} className={user?.role === "platform_admin" ? "" : "pl-6"} />
                   <SortableHeader label="Stage" sortKey="stage" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                   <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                   <SortableHeader label="Players" sortKey="players" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
@@ -833,7 +947,11 @@ export function AcademyClient() {
             const canManage       = user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === academy.id);
             const assignedPlayers = allPlayers.filter((p) => academy.playerIds.includes(p.id));
             const assignedCoaches = allCoaches.filter((c) => (academy.coachIds ?? []).includes(c.id));
-            const rowBg = savedId === academy.id ? "bg-pace-green/5" : "bg-surface";
+            // Shared with the sticky Actions cell below — a plain "bg-surface" there would visibly
+            // seam against a selected/saved row's own tint as content scrolls under it.
+            const rowBg = selectedIds.has(academy.id)
+              ? "bg-blue-500/5"
+              : savedId === academy.id ? "bg-pace-green/5" : "bg-surface";
 
             // Billing/Edit Academy/Deactivate collapse into one ⋮ menu for whichever role can act
             // on this academy — previously Billing+Edit were separate always-visible buttons only
@@ -862,12 +980,23 @@ export function AcademyClient() {
 
             return (
               <tr key={academy.id}
-                className={`border-b border-zinc-700/40 last:border-0 transition-colors cursor-pointer select-none ${
-                  savedId === academy.id ? "bg-pace-green/5" : "hover:bg-surface/80"
+                className={`border-b border-zinc-700/40 last:border-0 transition-colors cursor-pointer select-none ${rowBg} ${
+                  selectedIds.has(academy.id) || savedId === academy.id ? "" : "hover:bg-surface/80"
                 }`}
                 onClick={() => router.push(`/academies/${academy.id}`)}
               >
-                <td className="px-4 py-4 pl-6">
+                {user?.role === "platform_admin" && (
+                  <td className="px-4 py-4 pl-6 text-center" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(academy.id)}
+                      onChange={() => toggleSelect(academy.id)}
+                      className="w-4 h-4 accent-pace-green cursor-pointer"
+                      title="Select for bulk actions"
+                    />
+                  </td>
+                )}
+                <td className={`px-4 py-4 ${user?.role === "platform_admin" ? "" : "pl-6"}`}>
                   <span className="text-white font-medium text-sm whitespace-nowrap">{academy.name}</span>
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap">
@@ -933,6 +1062,32 @@ export function AcademyClient() {
           error={formError}
           onConfirm={handleConfirmToggle}
           onCancel={() => { setConfirmToggle(null); setFormError(""); }}
+        />
+      )}
+
+      {bulkToggleTarget && (
+        <ConfirmModal
+          icon={bulkToggleTarget === "Inactive" ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" /><line x1="8" y1="12" x2="16" y2="12" />
+            </svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+          iconBg={bulkToggleTarget === "Inactive" ? "bg-amber/20" : "bg-pace-green/20"}
+          title={bulkToggleTarget === "Inactive" ? "Deactivate academies?" : "Activate academies?"}
+          message={bulkToggleTarget === "Inactive"
+            ? `${selectedIds.size} academ${selectedIds.size !== 1 ? "ies" : "y"} will be marked Inactive. All players and data are preserved.`
+            : `${selectedIds.size} academ${selectedIds.size !== 1 ? "ies" : "y"} will be set back to Active.`}
+          confirmLabel={bulkToggleTarget === "Inactive" ? "Yes, Deactivate" : "Yes, Activate"}
+          confirmVariant={bulkToggleTarget === "Inactive" ? "warning" : "default"}
+          confirmBusyLabel="Saving…"
+          loading={bulkToggling}
+          error={formError}
+          onConfirm={handleConfirmBulkToggle}
+          onCancel={() => { setBulkToggleTarget(null); setFormError(""); }}
         />
       )}
 
