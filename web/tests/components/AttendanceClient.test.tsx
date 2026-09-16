@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AttendanceClient } from "@/components/AttendanceClient";
 import { makeAuthUser, makeCoach, makeGroupSession, makePlayer, makeSessionPack } from "../mocks/fixtures";
@@ -102,8 +102,9 @@ describe("AttendanceClient", () => {
     render(<AttendanceClient />);
     await user.click(await screen.findByText("U14 Nets"));
 
-    const dateButtons = await screen.findAllByRole("button", { name: /\w{3}/ });
-    await user.click(dateButtons.find((b) => b.textContent && /^\d{2} \w{3}$/.test(b.textContent))!);
+    await screen.findAllByText("Upcoming");
+    const dateRow = screen.getAllByText("Upcoming")[0].closest("tr")!;
+    await user.click(dateRow);
 
     expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Present" }));
@@ -124,8 +125,9 @@ describe("AttendanceClient", () => {
 
     render(<AttendanceClient />);
     await user.click(await screen.findByText("U14 Nets"));
-    const dateButtons = await screen.findAllByRole("button", { name: /\w{3}/ });
-    await user.click(dateButtons.find((b) => b.textContent && /^\d{2} \w{3}$/.test(b.textContent))!);
+    await screen.findAllByText("Upcoming");
+    const dateRow = screen.getAllByText("Upcoming")[0].closest("tr")!;
+    await user.click(dateRow);
 
     expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
     await user.type(screen.getByPlaceholderText(/Death bowling/), "Focus on death bowling execution");
@@ -146,13 +148,18 @@ describe("AttendanceClient", () => {
 
     render(<AttendanceClient />);
     await user.click(await screen.findByText("U14 Nets"));
-    const dateButtons = await screen.findAllByRole("button", { name: /\w{3}/ });
-    await user.click(dateButtons.find((b) => b.textContent && /^\d{2} \w{3}$/.test(b.textContent))!);
+    await screen.findAllByText("Upcoming");
+    const dateRow = screen.getAllByText("Upcoming")[0].closest("tr")!;
+    await user.click(dateRow);
 
     expect(await screen.findByDisplayValue("Great intensity today, work on yorkers next.")).toBeInTheDocument();
   });
 
-  test("a date pill with saved notes shows a notes indicator", async () => {
+  function dateCellLabel(dateStr: string): string {
+    return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
+  }
+
+  test("a session row with saved notes shows a notes indicator in its own column", async () => {
     setupDefaults();
     fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", playerIds: [] })]);
     fetchPastOccurrences.mockResolvedValue([
@@ -163,10 +170,10 @@ describe("AttendanceClient", () => {
     render(<AttendanceClient />);
     await userEvent.setup().click(await screen.findByText("U14 Nets"));
 
-    const notedLabel = new Date("2026-08-04T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-    const plainLabel = new Date("2026-08-11T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-    expect(await screen.findByText(`${notedLabel} ✓ 📝`)).toBeInTheDocument();
-    expect(screen.getByText(`${plainLabel} ✓`)).toBeInTheDocument();
+    const notedRow = (await screen.findByText(dateCellLabel("2026-08-04"))).closest("tr")!;
+    const plainRow = screen.getByText(dateCellLabel("2026-08-11")).closest("tr")!;
+    expect(within(notedRow).getByText("📝")).toBeInTheDocument();
+    expect(within(plainRow).getByText("—")).toBeInTheDocument();
   });
 
   test("collapses a long past-attendance history behind Show all", async () => {
@@ -174,36 +181,33 @@ describe("AttendanceClient", () => {
     setupDefaults();
     fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", playerIds: [] })]);
     // 18 weekly occurrences, all safely in the past — spaced far enough apart that their
-    // formatted labels ("dd Mon yyyy") can never collide with each other.
+    // formatted labels ("Weekday, dd Mon yyyy") can never collide with each other.
     const past = Array.from({ length: 18 }, (_, i) => {
       const d = new Date(Date.now() - (i + 1) * 7 * 86400000);
       const date = d.toISOString().split("T")[0];
-      const label = new Date(date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-      return { id: `o${i}`, date, label };
+      return { id: `o${i}`, date, label: dateCellLabel(date) };
     });
     fetchPastOccurrences.mockResolvedValue(past.map(({ id, date }) => ({ id, date, status: "recorded" })));
 
     render(<AttendanceClient />);
     await user.click(await screen.findByText("U14 Nets"));
 
-    expect(await screen.findByText(`${past[0].label} ✓`)).toBeInTheDocument();
-    expect(screen.queryByText(`${past[17].label} ✓`)).not.toBeInTheDocument();
-    const showAll = screen.getByRole("button", { name: "Show all 18" });
+    expect(await screen.findByText(past[0].label)).toBeInTheDocument();
+    expect(screen.queryByText(past[17].label)).not.toBeInTheDocument();
+    const showAll = screen.getByRole("button", { name: "Show all 18 past dates" });
 
     await user.click(showAll);
-    expect(await screen.findByText(`${past[17].label} ✓`)).toBeInTheDocument();
+    expect(await screen.findByText(past[17].label)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Show less" }));
-    expect(screen.queryByText(`${past[17].label} ✓`)).not.toBeInTheDocument();
+    expect(screen.queryByText(past[17].label)).not.toBeInTheDocument();
   });
 
-  test("a canceled session's date pill is visually distinct from a normally-recorded one", async () => {
+  test("a canceled session's row is visually distinct from a normally-recorded one", async () => {
     setupDefaults();
     fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", playerIds: [] })]);
     const recordedDate = "2026-08-04";
     const canceledDate = "2026-08-11";
-    const recordedLabel = new Date(`${recordedDate}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-    const canceledLabel = new Date(`${canceledDate}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
     fetchPastOccurrences.mockResolvedValue([
       { id: "o1", date: recordedDate, status: "recorded" },
       { id: "o2", date: canceledDate, status: "canceled" },
@@ -212,12 +216,13 @@ describe("AttendanceClient", () => {
     render(<AttendanceClient />);
     await userEvent.setup().click(await screen.findByText("U14 Nets"));
 
-    const recordedPill = await screen.findByText(`${recordedLabel} ✓`);
-    const canceledPill = await screen.findByText(`${canceledLabel} ⊘`);
-    expect(recordedPill).toHaveClass("text-pace-green");
-    expect(canceledPill).toHaveClass("text-amber");
-    expect(canceledPill).not.toHaveClass("text-pace-green");
-    expect(canceledPill).toHaveAttribute("title", "Session canceled — no one was charged");
+    const recordedRow = (await screen.findByText(dateCellLabel(recordedDate))).closest("tr")!;
+    const canceledRow = screen.getByText(dateCellLabel(canceledDate)).closest("tr")!;
+    const recordedBadge = within(recordedRow).getByText("✓ Recorded");
+    const canceledBadge = within(canceledRow).getByText("⊘ Canceled");
+    expect(recordedBadge).toHaveClass("text-pace-green");
+    expect(canceledBadge).toHaveClass("text-amber");
+    expect(canceledBadge).not.toHaveClass("text-pace-green");
   });
 
   test("rejecting a roster-add for a player with no membership offers a 'Create a membership' shortcut to that player", async () => {
@@ -347,8 +352,9 @@ describe("AttendanceClient", () => {
 
     render(<AttendanceClient />);
     await user.click(await screen.findByText("U14 Nets"));
-    const dateButtons = await screen.findAllByRole("button", { name: /\w{3}/ });
-    await user.click(dateButtons.find((b) => b.textContent && /^\d{2} \w{3}$/.test(b.textContent))!);
+    await screen.findAllByText("Upcoming");
+    const dateRow = screen.getAllByText("Upcoming")[0].closest("tr")!;
+    await user.click(dateRow);
     await screen.findByText("Alice Bowler");
 
     await user.click(screen.getByRole("button", { name: "Cancel Session (coach unavailable)" }));
@@ -368,8 +374,9 @@ describe("AttendanceClient", () => {
 
     render(<AttendanceClient />);
     await user.click(await screen.findByText("U14 Nets"));
-    const dateButtons = await screen.findAllByRole("button", { name: /\w{3}/ });
-    await user.click(dateButtons.find((b) => b.textContent && /^\d{2} \w{3}$/.test(b.textContent))!);
+    await screen.findAllByText("Upcoming");
+    const dateRow = screen.getAllByText("Upcoming")[0].closest("tr")!;
+    await user.click(dateRow);
     await screen.findByText("Alice Bowler");
 
     await user.click(screen.getByRole("button", { name: "Cancel Session (coach unavailable)" }));
