@@ -165,6 +165,46 @@ describe("NavBar", () => {
     pathname.mockReturnValue("/portal");
   });
 
+  test("opening a dropdown for a group that is NOT the current route shows only a subtle open state, never the active underline", async () => {
+    const user = userEvent.setup();
+    // On Memberships — a Training route is not active here at all.
+    pathname.mockReturnValue("/session-packs");
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach" }), logout: vi.fn(), refreshUser: vi.fn() });
+
+    render(<NavBar />);
+    const memberships = screen.getByRole("link", { name: "Memberships" });
+    const training = screen.getByRole("button", { name: "Training" });
+    expect(memberships).toHaveClass("text-pace-green", "border-pace-green");
+    expect(training).not.toHaveClass("text-pace-green");
+    expect(training).not.toHaveClass("border-pace-green");
+
+    await user.click(training);
+    // Open-but-not-active: distinct subtle treatment, never the same underline Memberships has.
+    expect(training).not.toHaveClass("text-pace-green");
+    expect(training).not.toHaveClass("border-pace-green");
+    expect(training).toHaveClass("text-white");
+    // The current page's own indicator must be unaffected by an unrelated dropdown opening.
+    expect(memberships).toHaveClass("text-pace-green", "border-pace-green");
+
+    pathname.mockReturnValue("/portal");
+  });
+
+  test("a group that IS the current route keeps its active underline while its own dropdown is open", async () => {
+    const user = userEvent.setup();
+    pathname.mockReturnValue("/sessions");
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach" }), logout: vi.fn(), refreshUser: vi.fn() });
+
+    render(<NavBar />);
+    const training = screen.getByRole("button", { name: "Training" });
+    expect(training).toHaveClass("text-pace-green", "border-pace-green");
+
+    await user.click(training);
+    // Active takes precedence over the subtle open styling — it must not downgrade.
+    expect(training).toHaveClass("text-pace-green", "border-pace-green");
+
+    pathname.mockReturnValue("/portal");
+  });
+
   test("Admin Center is reachable only by a platform_admin, has an accessible name distinct from the bare gear icon, and groups its items into labeled sections", async () => {
     const user = userEvent.setup();
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin" }), logout: vi.fn(), refreshUser: vi.fn() });
