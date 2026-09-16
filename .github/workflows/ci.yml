@@ -110,10 +110,20 @@ jobs:
   # Only runs when the video-upload/pose-analysis pipeline itself changed —
   # real ffmpeg/MediaPipe processing on a fixture clip is slow, so unrelated
   # PRs shouldn't pay for it.
+  #
+  # Deliberately sequenced after "e2e" (needs: includes e2e, not just the
+  # earlier two jobs) rather than run in parallel with it: both jobs call
+  # `npm run seed:reset` against the same shared dev Supabase project, and
+  # running them concurrently raced (observed directly in CI: "Reset E2E
+  # fixture data" failing in both jobs at once with foreign-key violations,
+  # each job's reset colliding mid-flight with the other's). `if: always()`
+  # keeps this job running even if "e2e" itself failed — its own path filter
+  # already decides whether there's anything to do — it only needs to start
+  # after e2e's reset has finished, not after e2e has passed.
   video-pipeline-e2e:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    needs: [lint-and-typecheck, unit-and-api-tests]
+    if: always() && github.event_name == 'pull_request'
+    needs: [lint-and-typecheck, unit-and-api-tests, e2e]
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_DEV_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_DEV_SERVICE_ROLE_KEY }}

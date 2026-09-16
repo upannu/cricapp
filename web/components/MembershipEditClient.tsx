@@ -160,7 +160,7 @@ export function MembershipEditClient({ packId }: { packId: string }) {
   const packCurrency = academies.find((a) => a.id === draft.academyId)?.currency ?? DEFAULT_CURRENCY;
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8">
+    <div className="max-w-3xl mx-auto px-6 py-8">
       <Link href={`/session-packs/${pack.id}`} className="text-xs text-zinc-400 hover:text-white transition-colors mb-4 inline-block">
         ← Back to Membership
       </Link>
