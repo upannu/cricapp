@@ -7,7 +7,7 @@ import { makeAuthUser, makeCoach, makeGroupSession, makePlayer, makeSessionPack 
 const {
   fetchGroupSessions, upsertGroupSession, setGroupSessionRoster,
   fetchPlayers, fetchCoaches, fetchSessionPacks, fetchPastOccurrences,
-  fetchAttendanceForDate, saveAttendance, cancelOccurrence,
+  fetchAttendanceForDate, fetchOccurrenceNotes, saveAttendance, cancelOccurrence,
 } = vi.hoisted(() => ({
   fetchGroupSessions: vi.fn(),
   upsertGroupSession: vi.fn(),
@@ -17,13 +17,14 @@ const {
   fetchSessionPacks: vi.fn(),
   fetchPastOccurrences: vi.fn(),
   fetchAttendanceForDate: vi.fn(),
+  fetchOccurrenceNotes: vi.fn(),
   saveAttendance: vi.fn(),
   cancelOccurrence: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
   fetchGroupSessions, upsertGroupSession, setGroupSessionRoster,
   fetchPlayers, fetchCoaches, fetchSessionPacks, fetchPastOccurrences,
-  fetchAttendanceForDate, saveAttendance, cancelOccurrence,
+  fetchAttendanceForDate, fetchOccurrenceNotes, saveAttendance, cancelOccurrence,
 }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
@@ -36,6 +37,7 @@ function setupDefaults() {
   fetchCoaches.mockResolvedValue([makeCoach({ id: "coach-1", name: "Coach Dan" })]);
   fetchPastOccurrences.mockResolvedValue([]);
   fetchAttendanceForDate.mockResolvedValue([]);
+  fetchOccurrenceNotes.mockResolvedValue(null);
   fetchSessionPacks.mockResolvedValue([]);
   cancelOccurrence.mockClear().mockResolvedValue(undefined);
 }
@@ -109,8 +111,62 @@ describe("AttendanceClient", () => {
 
     expect(saveAttendance).toHaveBeenCalledWith(
       "gs1", expect.any(String), "Net Session", expect.any(String),
-      [{ playerId: "p1", status: "Present" }],
+      [{ playerId: "p1", status: "Present" }], "manual", "",
     );
+  });
+
+  test("writing a session note saves it alongside attendance, in the same action", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", dayOfWeek: new Date().getUTCDay(), playerIds: ["p1"] })]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    saveAttendance.mockResolvedValue(undefined);
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByText("U14 Nets"));
+    const dateButtons = await screen.findAllByRole("button", { name: /\w{3}/ });
+    await user.click(dateButtons.find((b) => b.textContent && /^\d{2} \w{3}$/.test(b.textContent))!);
+
+    expect(await screen.findByText("Alice Bowler")).toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText(/Death bowling/), "Focus on death bowling execution");
+    await user.click(screen.getByRole("button", { name: "Save Attendance" }));
+
+    expect(saveAttendance).toHaveBeenCalledWith(
+      "gs1", expect.any(String), "Net Session", expect.any(String),
+      [{ playerId: "p1", status: "Absent" }], "manual", "Focus on death bowling execution",
+    );
+  });
+
+  test("opening attendance for a date with an existing note pre-fills it", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", dayOfWeek: new Date().getUTCDay(), playerIds: ["p1"] })]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchOccurrenceNotes.mockResolvedValue("Great intensity today, work on yorkers next.");
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByText("U14 Nets"));
+    const dateButtons = await screen.findAllByRole("button", { name: /\w{3}/ });
+    await user.click(dateButtons.find((b) => b.textContent && /^\d{2} \w{3}$/.test(b.textContent))!);
+
+    expect(await screen.findByDisplayValue("Great intensity today, work on yorkers next.")).toBeInTheDocument();
+  });
+
+  test("a date pill with saved notes shows a notes indicator", async () => {
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", playerIds: [] })]);
+    fetchPastOccurrences.mockResolvedValue([
+      { id: "o1", date: "2026-08-04", status: "recorded", hasNotes: true },
+      { id: "o2", date: "2026-08-11", status: "recorded", hasNotes: false },
+    ]);
+
+    render(<AttendanceClient />);
+    await userEvent.setup().click(await screen.findByText("U14 Nets"));
+
+    const notedLabel = new Date("2026-08-04T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    const plainLabel = new Date("2026-08-11T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    expect(await screen.findByText(`${notedLabel} ✓ 📝`)).toBeInTheDocument();
+    expect(screen.getByText(`${plainLabel} ✓`)).toBeInTheDocument();
   });
 
   test("collapses a long past-attendance history behind Show all", async () => {
