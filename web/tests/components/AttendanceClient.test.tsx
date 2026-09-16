@@ -1,45 +1,58 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AttendanceClient } from "@/components/AttendanceClient";
-import { makeAuthUser, makeCoach, makeGroupSession, makePlayer, makeSessionPack } from "../mocks/fixtures";
+import { makeAuthUser, makeAcademy, makeCoach, makeGroupSession, makePlayer, makeSessionPack } from "../mocks/fixtures";
 
 const {
   fetchGroupSessions, upsertGroupSession, setGroupSessionRoster,
-  fetchPlayers, fetchCoaches, fetchSessionPacks, fetchPastOccurrences,
+  fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchPastOccurrences,
   fetchAttendanceForDate, fetchOccurrenceNotes, saveAttendance, cancelOccurrence,
+  fetchGroupSessionVideos, insertGroupSessionVideo, deleteGroupSessionVideo, tagPlayerInVideo, deleteVideoTag,
 } = vi.hoisted(() => ({
   fetchGroupSessions: vi.fn(),
   upsertGroupSession: vi.fn(),
   setGroupSessionRoster: vi.fn(),
   fetchPlayers: vi.fn(),
   fetchCoaches: vi.fn(),
+  fetchAcademies: vi.fn(),
   fetchSessionPacks: vi.fn(),
   fetchPastOccurrences: vi.fn(),
   fetchAttendanceForDate: vi.fn(),
   fetchOccurrenceNotes: vi.fn(),
   saveAttendance: vi.fn(),
   cancelOccurrence: vi.fn(),
+  fetchGroupSessionVideos: vi.fn(),
+  insertGroupSessionVideo: vi.fn(),
+  deleteGroupSessionVideo: vi.fn(),
+  tagPlayerInVideo: vi.fn(),
+  deleteVideoTag: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
   fetchGroupSessions, upsertGroupSession, setGroupSessionRoster,
-  fetchPlayers, fetchCoaches, fetchSessionPacks, fetchPastOccurrences,
+  fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchPastOccurrences,
   fetchAttendanceForDate, fetchOccurrenceNotes, saveAttendance, cancelOccurrence,
+  fetchGroupSessionVideos, insertGroupSessionVideo, deleteGroupSessionVideo, tagPlayerInVideo, deleteVideoTag,
 }));
 
 const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ useAuth }));
+
+const { uploadGroupSessionVideo } = vi.hoisted(() => ({ uploadGroupSessionVideo: vi.fn() }));
+vi.mock("@/lib/group-session-video-upload", () => ({ uploadGroupSessionVideo }));
 
 function setupDefaults() {
   useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
   fetchGroupSessions.mockResolvedValue([]);
   fetchPlayers.mockResolvedValue([]);
   fetchCoaches.mockResolvedValue([makeCoach({ id: "coach-1", name: "Coach Dan" })]);
+  fetchAcademies.mockResolvedValue([]);
   fetchPastOccurrences.mockResolvedValue([]);
   fetchAttendanceForDate.mockResolvedValue([]);
   fetchOccurrenceNotes.mockResolvedValue(null);
   fetchSessionPacks.mockResolvedValue([]);
   cancelOccurrence.mockClear().mockResolvedValue(undefined);
+  fetchGroupSessionVideos.mockResolvedValue([]);
 }
 
 describe("AttendanceClient", () => {
@@ -385,5 +398,131 @@ describe("AttendanceClient", () => {
     expect(screen.queryByText(/Cancel this session for all/)).not.toBeInTheDocument();
     expect(cancelOccurrence).not.toHaveBeenCalled();
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
+  });
+
+  // Session Recordings — only visible at all when the group's academy has opted in.
+  test("Session Recordings is hidden for an academy that hasn't opted in to video sharing", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", academyId: "ac1", dayOfWeek: new Date().getUTCDay(), playerIds: ["p1"] })]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", squadVideoSharingEnabled: false })]);
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByText("U14 Nets"));
+    await screen.findAllByText("Upcoming");
+    await user.click(screen.getAllByText("Upcoming")[0].closest("tr")!);
+    await screen.findByText("Alice Bowler");
+
+    expect(screen.queryByText("Session Recordings")).not.toBeInTheDocument();
+    expect(fetchGroupSessionVideos).not.toHaveBeenCalled();
+  });
+
+  test("Session Recordings is visible and lists existing videos for an opted-in academy", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", academyId: "ac1", dayOfWeek: new Date().getUTCDay(), playerIds: ["p1"] })]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", squadVideoSharingEnabled: true })]);
+    fetchGroupSessionVideos.mockResolvedValue([{
+      id: "v1", occurrenceId: "o1", uploadedBy: "coach-1", videoUrl: "https://example.com/clip.mp4",
+      angle: null, durationSec: 120, width: 1920, height: 1080, createdAt: "2026-01-01T00:00:00Z",
+      tags: [{ id: "t1", videoId: "v1", playerId: "p1", timestampSec: 12, note: "Good yorker", taggedBy: "coach-1", createdAt: "2026-01-01T00:00:00Z" }],
+    }]);
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByText("U14 Nets"));
+    await screen.findAllByText("Upcoming");
+    await user.click(screen.getAllByText("Upcoming")[0].closest("tr")!);
+    await screen.findByRole("button", { name: "Present" }); // modal open
+
+    expect(await screen.findByText("Session Recordings")).toBeInTheDocument();
+    expect(screen.getAllByText(/Alice Bowler/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/at 0:12/)).toBeInTheDocument();
+    expect(screen.getByText(/Good yorker/)).toBeInTheDocument();
+  });
+
+  test("uploading a video calls uploadGroupSessionVideo and insertGroupSessionVideo for the open date", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", academyId: "ac1", dayOfWeek: new Date().getUTCDay(), playerIds: ["p1"] })]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", squadVideoSharingEnabled: true })]);
+    uploadGroupSessionVideo.mockResolvedValue({ videoUrl: "https://example.com/clip.mp4", durationSec: 60, width: 1280, height: 720 });
+    insertGroupSessionVideo.mockResolvedValue({
+      id: "v1", occurrenceId: "o1", uploadedBy: "user-1", videoUrl: "https://example.com/clip.mp4",
+      angle: null, durationSec: 60, width: 1280, height: 720, createdAt: "2026-01-01T00:00:00Z",
+    });
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByText("U14 Nets"));
+    await screen.findAllByText("Upcoming");
+    await user.click(screen.getAllByText("Upcoming")[0].closest("tr")!);
+    await screen.findByText("Alice Bowler");
+    await screen.findByText("Session Recordings");
+
+    const file = new File(["clip"], "clip.mp4", { type: "video/mp4" });
+    const fileInput = document.querySelector('input[type="file"][accept*="video"]') as HTMLInputElement;
+    await user.upload(fileInput, file);
+
+    expect(uploadGroupSessionVideo).toHaveBeenCalledWith(expect.objectContaining({ file, groupSessionId: "gs1" }));
+    expect(await screen.findByText("+ Tag a player at current time")).toBeInTheDocument();
+    expect(insertGroupSessionVideo).toHaveBeenCalledWith("gs1", expect.any(String), expect.objectContaining({
+      videoUrl: "https://example.com/clip.mp4", durationSec: 60, width: 1280, height: 720,
+    }));
+  });
+
+  test("tagging a player in a video calls tagPlayerInVideo and shows the new tag", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", academyId: "ac1", dayOfWeek: new Date().getUTCDay(), playerIds: ["p1"] })]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", squadVideoSharingEnabled: true })]);
+    fetchGroupSessionVideos.mockResolvedValue([{
+      id: "v1", occurrenceId: "o1", uploadedBy: "coach-1", videoUrl: "https://example.com/clip.mp4",
+      angle: null, durationSec: 120, width: 1920, height: 1080, createdAt: "2026-01-01T00:00:00Z", tags: [],
+    }]);
+    tagPlayerInVideo.mockResolvedValue({
+      id: "t1", videoId: "v1", playerId: "p1", timestampSec: 0, note: "Nice line", taggedBy: "user-1", createdAt: "2026-01-01T00:00:00Z",
+    });
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByText("U14 Nets"));
+    await screen.findAllByText("Upcoming");
+    await user.click(screen.getAllByText("Upcoming")[0].closest("tr")!);
+    await screen.findByText("Session Recordings");
+
+    await user.click(await screen.findByText("+ Tag a player at current time"));
+    await user.selectOptions(screen.getByRole("combobox"), "p1");
+    await user.type(screen.getByPlaceholderText("Optional note"), "Nice line");
+    await user.click(screen.getByRole("button", { name: "Save Tag" }));
+
+    expect(tagPlayerInVideo).toHaveBeenCalledWith("v1", "p1", expect.any(Number), "Nice line", expect.any(String));
+    expect(await screen.findByText(/Nice line/)).toBeInTheDocument();
+  });
+
+  test("deleting a video calls deleteGroupSessionVideo and removes it from the list", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", academyId: "ac1", dayOfWeek: new Date().getUTCDay(), playerIds: ["p1"] })]);
+    fetchPlayers.mockResolvedValue([makePlayer({ id: "p1", name: "Alice Bowler" })]);
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", squadVideoSharingEnabled: true })]);
+    fetchGroupSessionVideos.mockResolvedValue([{
+      id: "v1", occurrenceId: "o1", uploadedBy: "coach-1", videoUrl: "https://example.com/clip.mp4",
+      angle: null, durationSec: 120, width: 1920, height: 1080, createdAt: "2026-01-01T00:00:00Z", tags: [],
+    }]);
+    deleteGroupSessionVideo.mockResolvedValue(undefined);
+
+    render(<AttendanceClient />);
+    await user.click(await screen.findByText("U14 Nets"));
+    await screen.findAllByText("Upcoming");
+    await user.click(screen.getAllByText("Upcoming")[0].closest("tr")!);
+    await screen.findByText("Session Recordings");
+
+    await user.click(await screen.findByText("Delete video"));
+
+    expect(deleteGroupSessionVideo).toHaveBeenCalledWith("v1");
+    await waitFor(() => expect(screen.queryByText("Delete video")).not.toBeInTheDocument());
+    expect(screen.getByText("No recordings for this date yet.")).toBeInTheDocument();
   });
 });

@@ -375,4 +375,39 @@ describe("AcademyClient", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Yes, Deactivate" })).not.toBeInTheDocument());
     expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
   });
+
+  test("enabling Squad Video Sharing calls updateAcademyFields with the opt-in flag", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", squadVideoSharingEnabled: false })]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(screen.getByText("Enable Squad Video Sharing"));
+    expect(screen.getByText(/will be able to upload Squad Training videos/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Yes, Enable" }));
+
+    expect(updateAcademyFields).toHaveBeenCalledWith("ac1", { squad_video_sharing_enabled: true });
+  });
+
+  test("an academy that already opted in offers Disable, not Enable, and preserves the flag through a later Edit save", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "Riverside Academy", squadVideoSharingEnabled: true })]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByText("Disable Squad Video Sharing")).toBeInTheDocument();
+    expect(screen.queryByText("Enable Squad Video Sharing")).not.toBeInTheDocument();
+    await user.click(screen.getByText("Disable Squad Video Sharing"));
+    await user.click(screen.getByRole("button", { name: "Yes, Disable" }));
+
+    expect(updateAcademyFields).toHaveBeenCalledWith("ac1", { squad_video_sharing_enabled: false });
+  });
 });

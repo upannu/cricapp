@@ -153,7 +153,7 @@ export default function ApprovalsPage() {
         playerIds: [], playerCounts: {}, coachIds: [], headCoachId: "", stage: "Foundation",
         coachName: "", startDate: today, status: "Active", country: "AU", currency: "aud",
         sessionFeeAud: 0, sessionTypeFees: {}, ageFees: {},
-        payoutModel: "head_coach",
+        payoutModel: "head_coach", squadVideoSharingEnabled: false,
       }]);
       setSelectedAcademy(id);
       setCreatingAcademy(false);

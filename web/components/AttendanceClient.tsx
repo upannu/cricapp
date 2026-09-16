@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import Papa from "papaparse";
 import { useAuth } from "@/lib/auth";
 import {
   fetchGroupSessions, upsertGroupSession, setGroupSessionRoster,
-  fetchPlayers, fetchCoaches, fetchSessionPacks, fetchPastOccurrences,
+  fetchPlayers, fetchCoaches, fetchAcademies, fetchSessionPacks, fetchPastOccurrences,
   fetchAttendanceForDate, fetchOccurrenceNotes, saveAttendance, cancelOccurrence,
+  fetchGroupSessionVideos, insertGroupSessionVideo, deleteGroupSessionVideo, tagPlayerInVideo, deleteVideoTag,
 } from "@/lib/db";
 import { matchPlayerByNameOrEmail, occurrenceDatesInRange } from "@/lib/utils";
-import type { GroupSession, Player, Coach, SessionPack, BookingType, AttendanceStatus, AttendanceRecord } from "@/lib/types";
-import type { OccurrenceStatus } from "@/lib/db";
+import { uploadGroupSessionVideo } from "@/lib/group-session-video-upload";
+import type { GroupSession, Player, Coach, Academy, SessionPack, BookingType, AttendanceStatus, AttendanceRecord } from "@/lib/types";
+import type { OccurrenceStatus, GroupSessionVideoWithTags } from "@/lib/db";
 
 // Only "Net Session" — a Group Session's roster is funded by Session Packs, and every pack is a
 // Net Session pack (SessionPacksClient hard-codes it, there's no type picker). Offering other
@@ -102,12 +104,19 @@ function todayIso(): string {
   return new Date().toISOString().split("T")[0];
 }
 
+function formatTimestamp(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export function AttendanceClient() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<GroupSession[]>([]);
   const [groupSearch, setGroupSearch] = useState("");
   const [players, setPlayers] = useState<Player[]>([]);
   const [coaches, setCoaches] = useState<Coach[]>([]);
+  const [academies, setAcademies] = useState<Academy[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -127,6 +136,20 @@ export function AttendanceClient() {
   const [attendanceDraft, setAttendanceDraft] = useState<Record<string, AttendanceStatus>>({});
   const [notesDraft, setNotesDraft] = useState("");
   const [rosterPacks, setRosterPacks] = useState<SessionPack[]>([]);
+
+  // Session Recordings — only ever populated/shown when the group's academy has opted in
+  // (see academyAllowsSquadVideo). Loaded alongside the rest of the modal's per-date data.
+  const [sessionVideos, setSessionVideos] = useState<GroupSessionVideoWithTags[]>([]);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [videoError, setVideoError] = useState("");
+  // Which video's "tag a player" mini-form is open, if any.
+  const [taggingVideoId, setTaggingVideoId] = useState<string | null>(null);
+  const [tagPlayerId, setTagPlayerId] = useState("");
+  const [tagTimestamp, setTagTimestamp] = useState(0);
+  const [tagNote, setTagNote] = useState("");
+  const [savingTag, setSavingTag] = useState(false);
+  const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [cancelingSession, setCancelingSession] = useState(false);
@@ -163,17 +186,23 @@ export function AttendanceClient() {
       fetchPlayers(coachId, academyId),
       fetchCoaches(academyId),
       fetchSessionPacks(),
-    ]).then(([g, p, c, packs]) => {
+      fetchAcademies(),
+    ]).then(([g, p, c, packs, acads]) => {
       setGroups(g);
       setPlayers(p);
       setCoaches(c);
       setAllPacks(packs);
+      setAcademies(acads);
       setLoading(false);
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function playerName(id: string) {
     return players.find((p) => p.id === id)?.name ?? "Unknown player";
+  }
+
+  function academyAllowsSquadVideo(academyId: string): boolean {
+    return academies.find((a) => a.id === academyId)?.squadVideoSharingEnabled ?? false;
   }
 
   function openAdd() {
@@ -547,10 +576,14 @@ export function AttendanceClient() {
     setShowCancelConfirm(false);
     setAttendanceFor({ group, date });
     setNotesDraft("");
-    const [existing, packs, notes] = await Promise.all([
+    setSessionVideos([]);
+    setVideoError("");
+    setTaggingVideoId(null);
+    const [existing, packs, notes, videos] = await Promise.all([
       fetchAttendanceForDate(group.id, date),
       fetchSessionPacks(group.playerIds),
       fetchOccurrenceNotes(group.id, date),
+      academyAllowsSquadVideo(group.academyId) ? fetchGroupSessionVideos(group.id, date) : Promise.resolve([]),
     ]);
     setRosterPacks(packs);
     const byPlayer: Record<string, AttendanceStatus> = {};
@@ -558,6 +591,74 @@ export function AttendanceClient() {
     for (const rec of existing as AttendanceRecord[]) byPlayer[rec.playerId] = rec.status;
     setAttendanceDraft(byPlayer);
     setNotesDraft(notes ?? "");
+    setSessionVideos(videos);
+  }
+
+  async function handleUploadVideo(file: File) {
+    if (!attendanceFor) return;
+    setUploadingVideo(true);
+    setUploadProgress(0);
+    setVideoError("");
+    try {
+      const uploaded = await uploadGroupSessionVideo({
+        file, groupSessionId: attendanceFor.group.id, date: attendanceFor.date,
+        onTranscodeProgress: setUploadProgress,
+      });
+      const id = `gsv_${Date.now()}`;
+      const saved = await insertGroupSessionVideo(attendanceFor.group.id, attendanceFor.date, {
+        id, uploadedBy: user?.id ?? "unknown", videoUrl: uploaded.videoUrl, angle: null,
+        durationSec: uploaded.durationSec, width: uploaded.width, height: uploaded.height,
+      });
+      setSessionVideos((prev) => [...prev, { ...saved, tags: [] }]);
+    } catch (err) {
+      setVideoError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setUploadingVideo(false);
+      setUploadProgress(0);
+    }
+  }
+
+  async function handleDeleteVideo(videoId: string) {
+    setVideoError("");
+    try {
+      await deleteGroupSessionVideo(videoId);
+      setSessionVideos((prev) => prev.filter((v) => v.id !== videoId));
+      if (taggingVideoId === videoId) setTaggingVideoId(null);
+    } catch (err) {
+      setVideoError((err as { message?: string })?.message ?? String(err));
+    }
+  }
+
+  function openTagForm(videoId: string, currentTimeSec: number) {
+    setTaggingVideoId(videoId);
+    setTagPlayerId("");
+    setTagTimestamp(currentTimeSec);
+    setTagNote("");
+  }
+
+  async function handleSaveTag() {
+    if (!taggingVideoId || !tagPlayerId) return;
+    setSavingTag(true);
+    setVideoError("");
+    try {
+      const tag = await tagPlayerInVideo(taggingVideoId, tagPlayerId, tagTimestamp, tagNote, user?.id ?? "unknown");
+      setSessionVideos((prev) => prev.map((v) => (v.id === taggingVideoId ? { ...v, tags: [...v.tags, tag] } : v)));
+      setTaggingVideoId(null);
+    } catch (err) {
+      setVideoError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setSavingTag(false);
+    }
+  }
+
+  async function handleDeleteTag(videoId: string, tagId: string) {
+    setVideoError("");
+    try {
+      await deleteVideoTag(tagId);
+      setSessionVideos((prev) => prev.map((v) => (v.id === videoId ? { ...v, tags: v.tags.filter((t) => t.id !== tagId) } : v)));
+    } catch (err) {
+      setVideoError((err as { message?: string })?.message ?? String(err));
+    }
   }
 
   function activePackFor(playerId: string, sessionType: BookingType): SessionPack | undefined {
@@ -948,6 +1049,83 @@ export function AttendanceClient() {
                 <textarea value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)} rows={2}
                   placeholder="e.g. Death bowling & power hitting — focus on execution under fatigue"
                   className="w-full bg-ink rounded-xl px-3 py-2 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm resize-none" />
+              </div>
+            )}
+            {academyAllowsSquadVideo(attendanceFor.group.academyId) && (
+              <div className="px-6 pb-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className={lbl}>Session Recordings</label>
+                  <label className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer">
+                    {uploadingVideo ? `Uploading… ${Math.round(uploadProgress * 100)}%` : "+ Upload Video"}
+                    <input type="file" accept="video/mp4,video/quicktime,video/webm,video/x-msvideo" className="hidden"
+                      disabled={uploadingVideo}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadVideo(f); e.target.value = ""; }} />
+                  </label>
+                </div>
+                {videoError && <p className="text-red-400 text-xs mb-2">{videoError}</p>}
+                {sessionVideos.length === 0 ? (
+                  <p className="text-zinc-500 text-xs">No recordings for this date yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {sessionVideos.map((video) => (
+                      <div key={video.id} className="bg-ink rounded-xl border border-zinc-700 p-3">
+                        <video
+                          ref={(el) => { videoRefs.current[video.id] = el; }}
+                          src={video.videoUrl} controls className="w-full rounded-lg bg-black mb-2" style={{ maxHeight: 200 }}
+                        />
+                        <div className="flex items-center justify-between mb-2">
+                          <button type="button" onClick={() => openTagForm(video.id, videoRefs.current[video.id]?.currentTime ?? 0)}
+                            className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer">
+                            + Tag a player at current time
+                          </button>
+                          <button type="button" onClick={() => handleDeleteVideo(video.id)}
+                            className="text-xs text-zinc-500 hover:text-red-400 transition-colors cursor-pointer">
+                            Delete video
+                          </button>
+                        </div>
+                        {video.tags.length > 0 && (
+                          <div className="space-y-1 mb-2">
+                            {video.tags.map((tag) => (
+                              <div key={tag.id} className="flex items-center justify-between gap-2 text-xs bg-surface rounded-lg px-2.5 py-1.5">
+                                <span className="text-zinc-300">
+                                  <span className="font-semibold text-white">{playerName(tag.playerId)}</span>
+                                  {" "}at {formatTimestamp(tag.timestampSec)}
+                                  {tag.note && <span className="text-zinc-500"> — {tag.note}</span>}
+                                </span>
+                                <button type="button" onClick={() => handleDeleteTag(video.id, tag.id)}
+                                  className="text-zinc-500 hover:text-red-400 transition-colors cursor-pointer flex-shrink-0">
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {taggingVideoId === video.id && (
+                          <div className="bg-surface rounded-lg p-2.5 space-y-2">
+                            <select value={tagPlayerId} onChange={(e) => setTagPlayerId(e.target.value)}
+                              className="w-full bg-ink text-white text-xs rounded-lg px-2.5 py-2 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer">
+                              <option value="">— Select player —</option>
+                              {attendanceFor.group.playerIds.map((pid) => <option key={pid} value={pid}>{playerName(pid)}</option>)}
+                            </select>
+                            <p className="text-[11px] text-zinc-500">At {formatTimestamp(tagTimestamp)}</p>
+                            <input type="text" value={tagNote} onChange={(e) => setTagNote(e.target.value)} placeholder="Optional note"
+                              className="w-full bg-ink text-white text-xs rounded-lg px-2.5 py-2 border border-zinc-700 focus:border-pace-green focus:outline-none placeholder-zinc-600" />
+                            <div className="flex items-center gap-2">
+                              <button type="button" onClick={handleSaveTag} disabled={!tagPlayerId || savingTag}
+                                className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50">
+                                {savingTag ? "Saving…" : "Save Tag"}
+                              </button>
+                              <button type="button" onClick={() => setTaggingVideoId(null)}
+                                className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer">
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             {attendanceFor.group.playerIds.length > 0 && (

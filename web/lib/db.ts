@@ -10,6 +10,7 @@ import type {
   Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
   Plan, EmailTemplate,
   GroupSession, AttendanceStatus, AttendanceRecord, AttendanceRecordedBy, PackActivityEntry, Net,
+  GroupSessionVideo, GroupSessionVideoTag,
   Referral, ReferralPayout, ReferredType, ReferralCommissionType, ReferralRevenueSource, ReferralStatus, ReferralPayoutStatus,
   PackFeeDue, PackFeeDueStatus, BookingFeeDue,
   MembershipPlanTemplate,
@@ -79,6 +80,7 @@ export interface DbAcademy {
   subscription_status?: string | null; plan_id?: string | null;
   access_expires_at?: string | null;
   payout_model?: string;
+  squad_video_sharing_enabled?: boolean;
 }
 
 export interface DbBooking {
@@ -277,6 +279,7 @@ export function dbToAcademy(r: DbAcademy): Academy {
     planId: r.plan_id ?? undefined,
     accessExpiresAt: r.access_expires_at ?? undefined,
     payoutModel: (r.payout_model as Academy["payoutModel"]) ?? "head_coach",
+    squadVideoSharingEnabled: r.squad_video_sharing_enabled ?? false,
   };
 }
 
@@ -874,6 +877,175 @@ export async function fetchAttendanceForDate(groupSessionId: string, date: strin
   const { data, error } = await sb.from("attendance_records").select("*").eq("occurrence_id", occ.id);
   if (error) throw error;
   return (data as DbAttendanceRecord[]).map(dbToAttendanceRecord);
+}
+
+interface DbGroupSessionVideo {
+  id: string; occurrence_id: string; uploaded_by: string; video_url: string;
+  angle: string | null; duration_sec: number | null; width: number | null; height: number | null;
+  created_at: string;
+}
+interface DbGroupSessionVideoTag {
+  id: string; video_id: string; player_id: string; timestamp_sec: number;
+  note: string | null; tagged_by: string; created_at: string;
+}
+
+function dbToGroupSessionVideo(r: DbGroupSessionVideo): GroupSessionVideo {
+  return {
+    id: r.id, occurrenceId: r.occurrence_id, uploadedBy: r.uploaded_by, videoUrl: r.video_url,
+    angle: r.angle, durationSec: r.duration_sec, width: r.width, height: r.height, createdAt: r.created_at,
+  };
+}
+
+function dbToGroupSessionVideoTag(r: DbGroupSessionVideoTag): GroupSessionVideoTag {
+  return {
+    id: r.id, videoId: r.video_id, playerId: r.player_id, timestampSec: r.timestamp_sec,
+    note: r.note, taggedBy: r.tagged_by, createdAt: r.created_at,
+  };
+}
+
+export interface GroupSessionVideoWithTags extends GroupSessionVideo {
+  tags: GroupSessionVideoTag[];
+}
+
+/** Every recording attached to one Squad Training date, each with its player tags — the
+ * occurrence itself might not exist yet (no attendance/notes/video touched this date before),
+ * in which case there's nothing to fetch and this returns []. */
+export async function fetchGroupSessionVideos(groupSessionId: string, date: string): Promise<GroupSessionVideoWithTags[]> {
+  const sb = createClient();
+  const { data: occ } = await sb.from("group_session_occurrences").select("id")
+    .eq("group_session_id", groupSessionId).eq("date", date).maybeSingle();
+  if (!occ) return [];
+
+  const { data: videos, error } = await sb.from("group_session_videos").select("*")
+    .eq("occurrence_id", occ.id).order("created_at");
+  if (error) throw error;
+  const videoRows = (videos ?? []) as DbGroupSessionVideo[];
+  if (videoRows.length === 0) return [];
+
+  const { data: tags, error: tagError } = await sb.from("group_session_video_tags").select("*")
+    .in("video_id", videoRows.map((v) => v.id));
+  if (tagError) throw tagError;
+  const tagsByVideo = new Map<string, GroupSessionVideoTag[]>();
+  for (const t of (tags ?? []) as DbGroupSessionVideoTag[]) {
+    const list = tagsByVideo.get(t.video_id) ?? [];
+    list.push(dbToGroupSessionVideoTag(t));
+    tagsByVideo.set(t.video_id, list);
+  }
+  return videoRows.map((v) => ({ ...dbToGroupSessionVideo(v), tags: tagsByVideo.get(v.id) ?? [] }));
+}
+
+/** Records a video already uploaded to Storage (see the sign-group-video-upload API route) against
+ * one Squad Training date, lazily creating the occurrence row first if this is the first thing
+ * touched for that date — same pattern saveAttendance/cancelOccurrence already use. */
+export async function insertGroupSessionVideo(
+  groupSessionId: string,
+  date: string,
+  video: { id: string; uploadedBy: string; videoUrl: string; angle: string | null; durationSec: number | null; width: number | null; height: number | null },
+): Promise<GroupSessionVideo> {
+  const sb = createClient();
+
+  let occurrenceId: string;
+  const { data: existingOcc } = await sb.from("group_session_occurrences").select("id")
+    .eq("group_session_id", groupSessionId).eq("date", date).maybeSingle();
+  if (existingOcc) {
+    occurrenceId = existingOcc.id;
+  } else {
+    occurrenceId = `gso_${groupSessionId}_${date}`;
+    const { error: occError } = await sb.from("group_session_occurrences")
+      .insert({ id: occurrenceId, group_session_id: groupSessionId, date });
+    if (occError) throw occError;
+  }
+
+  const { error } = await sb.from("group_session_videos").insert({
+    id: video.id, occurrence_id: occurrenceId, uploaded_by: video.uploadedBy, video_url: video.videoUrl,
+    angle: video.angle, duration_sec: video.durationSec, width: video.width, height: video.height,
+  });
+  if (error) throw error;
+
+  return {
+    id: video.id, occurrenceId, uploadedBy: video.uploadedBy, videoUrl: video.videoUrl,
+    angle: video.angle, durationSec: video.durationSec, width: video.width, height: video.height,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export async function deleteGroupSessionVideo(id: string): Promise<void> {
+  const sb = createClient();
+  // Tags reference this video via a FK with no ON DELETE CASCADE configured — clear them first
+  // rather than relying on database-level cascade behaviour that was never actually set up.
+  const { error: tagError } = await sb.from("group_session_video_tags").delete().eq("video_id", id);
+  if (tagError) throw tagError;
+  const { error } = await sb.from("group_session_videos").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function tagPlayerInVideo(
+  videoId: string, playerId: string, timestampSec: number, note: string, taggedBy: string,
+): Promise<GroupSessionVideoTag> {
+  const sb = createClient();
+  const id = `gsvt_${videoId}_${playerId}_${Date.now()}`;
+  const { error } = await sb.from("group_session_video_tags").insert({
+    id, video_id: videoId, player_id: playerId, timestamp_sec: timestampSec,
+    note: note.trim() || null, tagged_by: taggedBy,
+  });
+  if (error) throw error;
+  return { id, videoId, playerId, timestampSec, note: note.trim() || null, taggedBy, createdAt: new Date().toISOString() };
+}
+
+export async function deleteVideoTag(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("group_session_video_tags").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/** Every squad-video tag for one player, newest first, joined with enough of the video/occurrence
+ * to render a "Squad Session Clips" list on their profile — this is the "syncs to Aarti's profile"
+ * half of the feature. Only ever has rows for academies with squadVideoSharingEnabled on, since
+ * tagging is unreachable otherwise (both client- and server-side) — no separate filter needed here. */
+export interface PlayerVideoTagEntry {
+  tag: GroupSessionVideoTag;
+  video: GroupSessionVideo;
+  occurrenceDate: string;
+  groupSessionName: string;
+}
+export async function fetchPlayerVideoTags(playerId: string): Promise<PlayerVideoTagEntry[]> {
+  const sb = createClient();
+  const { data: tags, error } = await sb.from("group_session_video_tags").select("*")
+    .eq("player_id", playerId).order("created_at", { ascending: false });
+  if (error) throw error;
+  const tagRows = (tags ?? []) as DbGroupSessionVideoTag[];
+  if (tagRows.length === 0) return [];
+
+  const { data: videos, error: videoError } = await sb.from("group_session_videos").select("*")
+    .in("id", tagRows.map((t) => t.video_id));
+  if (videoError) throw videoError;
+  const videosById = new Map((videos as DbGroupSessionVideo[]).map((v) => [v.id, v]));
+
+  const occurrenceIds = [...new Set((videos as DbGroupSessionVideo[]).map((v) => v.occurrence_id))];
+  const { data: occurrences, error: occError } = await sb.from("group_session_occurrences").select("id, date, group_session_id")
+    .in("id", occurrenceIds);
+  if (occError) throw occError;
+  const occurrenceById = new Map((occurrences as { id: string; date: string; group_session_id: string }[]).map((o) => [o.id, o]));
+
+  const groupSessionIds = [...new Set((occurrences as { group_session_id: string }[]).map((o) => o.group_session_id))];
+  const { data: groups, error: groupError } = await sb.from("group_sessions").select("id, name").in("id", groupSessionIds);
+  if (groupError) throw groupError;
+  const groupNameById = new Map((groups as { id: string; name: string }[]).map((g) => [g.id, g.name]));
+
+  const entries: PlayerVideoTagEntry[] = [];
+  for (const t of tagRows) {
+    const video = videosById.get(t.video_id);
+    if (!video) continue;
+    const occurrence = occurrenceById.get(video.occurrence_id);
+    if (!occurrence) continue;
+    entries.push({
+      tag: dbToGroupSessionVideoTag(t),
+      video: dbToGroupSessionVideo(video),
+      occurrenceDate: occurrence.date,
+      groupSessionName: groupNameById.get(occurrence.group_session_id) ?? "Squad Training",
+    });
+  }
+  return entries;
 }
 
 export type OccurrenceStatus = "recorded" | "canceled";
