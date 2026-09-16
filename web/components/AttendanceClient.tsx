@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth";
 import {
   fetchGroupSessions, upsertGroupSession, setGroupSessionRoster,
   fetchPlayers, fetchCoaches, fetchSessionPacks, fetchPastOccurrences,
-  fetchAttendanceForDate, saveAttendance, cancelOccurrence,
+  fetchAttendanceForDate, fetchOccurrenceNotes, saveAttendance, cancelOccurrence,
 } from "@/lib/db";
 import { matchPlayerByNameOrEmail, occurrenceDatesInRange } from "@/lib/utils";
 import type { GroupSession, Player, Coach, SessionPack, BookingType, AttendanceStatus, AttendanceRecord } from "@/lib/types";
@@ -111,7 +111,7 @@ export function AttendanceClient() {
   const [loading, setLoading] = useState(true);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [pastDates, setPastDates] = useState<Record<string, { id: string; date: string; status: OccurrenceStatus }[]>>({});
+  const [pastDates, setPastDates] = useState<Record<string, { id: string; date: string; status: OccurrenceStatus; hasNotes: boolean }[]>>({});
   const [showAllPast, setShowAllPast] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
@@ -125,6 +125,7 @@ export function AttendanceClient() {
 
   const [attendanceFor, setAttendanceFor] = useState<{ group: GroupSession; date: string } | null>(null);
   const [attendanceDraft, setAttendanceDraft] = useState<Record<string, AttendanceStatus>>({});
+  const [notesDraft, setNotesDraft] = useState("");
   const [rosterPacks, setRosterPacks] = useState<SessionPack[]>([]);
   const [savingAttendance, setSavingAttendance] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -545,15 +546,18 @@ export function AttendanceClient() {
     setSavedDate(null);
     setShowCancelConfirm(false);
     setAttendanceFor({ group, date });
-    const [existing, packs] = await Promise.all([
+    setNotesDraft("");
+    const [existing, packs, notes] = await Promise.all([
       fetchAttendanceForDate(group.id, date),
       fetchSessionPacks(group.playerIds),
+      fetchOccurrenceNotes(group.id, date),
     ]);
     setRosterPacks(packs);
     const byPlayer: Record<string, AttendanceStatus> = {};
     for (const p of group.playerIds) byPlayer[p] = "Absent";
     for (const rec of existing as AttendanceRecord[]) byPlayer[rec.playerId] = rec.status;
     setAttendanceDraft(byPlayer);
+    setNotesDraft(notes ?? "");
   }
 
   function activePackFor(playerId: string, sessionType: BookingType): SessionPack | undefined {
@@ -567,7 +571,7 @@ export function AttendanceClient() {
       const records = attendanceFor.group.playerIds.map((playerId) => ({
         playerId, status: attendanceDraft[playerId] ?? "Absent",
       }));
-      await saveAttendance(attendanceFor.group.id, attendanceFor.date, attendanceFor.group.sessionType, attendanceFor.group.academyId, records);
+      await saveAttendance(attendanceFor.group.id, attendanceFor.date, attendanceFor.group.sessionType, attendanceFor.group.academyId, records, "manual", notesDraft);
       setSavedDate(attendanceFor.date);
       const occ = await fetchPastOccurrences(attendanceFor.group.id);
       setPastDates((prev) => ({ ...prev, [attendanceFor.group.id]: occ }));
@@ -695,6 +699,7 @@ export function AttendanceClient() {
                         const canceled = occurrence?.status === "canceled";
                         return (
                           <button key={date} type="button" onClick={() => openAttendance(g, date)}
+                            title={occurrence?.hasNotes ? "Has session notes" : undefined}
                             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
                               canceled ? "border-amber/50 bg-amber/10 text-amber"
                                 : occurrence ? "border-pace-green/50 bg-pace-green/10 text-pace-green"
@@ -702,6 +707,7 @@ export function AttendanceClient() {
                             }`}>
                             {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
                             {occurrence && (canceled ? " ⊘" : " ✓")}
+                            {occurrence?.hasNotes && " 📝"}
                           </button>
                         );
                       })}
@@ -717,13 +723,16 @@ export function AttendanceClient() {
                         <div className="flex flex-wrap gap-2">
                           {visiblePast.map((o) => {
                             const canceled = o.status === "canceled";
+                            const title = [canceled ? "Session canceled — no one was charged" : null, o.hasNotes ? "Has session notes" : null]
+                              .filter(Boolean).join(" · ") || undefined;
                             return (
                               <button key={o.id} type="button" onClick={() => openAttendance(g, o.date)}
-                                title={canceled ? "Session canceled — no one was charged" : undefined}
+                                title={title}
                                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer ${
                                   canceled ? "border-amber/50 bg-amber/10 text-amber" : "border-pace-green/50 bg-pace-green/10 text-pace-green"
                                 }`}>
                                 {new Date(o.date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} {canceled ? "⊘" : "✓"}
+                                {o.hasNotes && " 📝"}
                               </button>
                             );
                           })}
@@ -933,6 +942,14 @@ export function AttendanceClient() {
                 <p className="text-zinc-500 text-sm text-center py-4">No players in this group&apos;s roster yet — edit the group to add some.</p>
               )}
             </div>
+            {attendanceFor.group.playerIds.length > 0 && (
+              <div className="px-6 pb-2">
+                <label className={lbl}>Session Notes</label>
+                <textarea value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)} rows={2}
+                  placeholder="e.g. Death bowling & power hitting — focus on execution under fatigue"
+                  className="w-full bg-ink rounded-xl px-3 py-2 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm resize-none" />
+              </div>
+            )}
             {attendanceFor.group.playerIds.length > 0 && (
               <div className="px-6 pb-2 flex justify-end">
                 {showCancelConfirm ? (

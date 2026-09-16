@@ -856,6 +856,16 @@ export function dbToAttendanceRecord(r: DbAttendanceRecord): AttendanceRecord {
   };
 }
 
+/** The coach's freeform note for one occurrence date, if any — null both when the occurrence
+ * doesn't exist yet (nobody has taken attendance or added a note for this date) and when it
+ * exists but has no note. */
+export async function fetchOccurrenceNotes(groupSessionId: string, date: string): Promise<string | null> {
+  const sb = createClient();
+  const { data } = await sb.from("group_session_occurrences").select("notes")
+    .eq("group_session_id", groupSessionId).eq("date", date).maybeSingle();
+  return (data as { notes: string | null } | null)?.notes ?? null;
+}
+
 export async function fetchAttendanceForDate(groupSessionId: string, date: string): Promise<AttendanceRecord[]> {
   const sb = createClient();
   const { data: occ } = await sb.from("group_session_occurrences").select("id")
@@ -874,12 +884,12 @@ export type OccurrenceStatus = "recorded" | "canceled";
  * with no attendance_records at all (shouldn't normally happen — both saveAttendance and
  * cancelOccurrence always write at least one row alongside creating the occurrence) also falls
  * back to "recorded" rather than silently disappearing from either bucket. */
-export async function fetchPastOccurrences(groupSessionId: string): Promise<{ id: string; date: string; status: OccurrenceStatus }[]> {
+export async function fetchPastOccurrences(groupSessionId: string): Promise<{ id: string; date: string; status: OccurrenceStatus; hasNotes: boolean }[]> {
   const sb = createClient();
-  const { data, error } = await sb.from("group_session_occurrences").select("id, date")
+  const { data, error } = await sb.from("group_session_occurrences").select("id, date, notes")
     .eq("group_session_id", groupSessionId).order("date", { ascending: false });
   if (error) throw error;
-  const occurrences = (data ?? []) as { id: string; date: string }[];
+  const occurrences = (data ?? []) as { id: string; date: string; notes: string | null }[];
   if (occurrences.length === 0) return [];
 
   const { data: records, error: recError } = await sb.from("attendance_records").select("occurrence_id, status")
@@ -895,7 +905,11 @@ export async function fetchPastOccurrences(groupSessionId: string): Promise<{ id
   return occurrences.map((o) => {
     const statuses = statusesByOccurrence.get(o.id) ?? [];
     const allCanceled = statuses.length > 0 && statuses.every((s) => s === "Canceled");
-    return { ...o, status: (allCanceled ? "canceled" : "recorded") as OccurrenceStatus };
+    return {
+      id: o.id, date: o.date,
+      status: (allCanceled ? "canceled" : "recorded") as OccurrenceStatus,
+      hasNotes: !!o.notes?.trim(),
+    };
   });
 }
 
@@ -912,6 +926,12 @@ export async function fetchPastOccurrences(groupSessionId: string): Promise<{ id
  * (the toggle case above) preserves whatever attribution it already had, since no new credit is
  * actually being spent by that edit. This is the manual/CSV half of the "who spent this credit"
  * picture; the nightly pack-auto-consume cron writes its own rows with "auto-cron" directly.
+ *
+ * `notes` is saved onto the occurrence alongside attendance rather than through a separate save
+ * action — a note with no attendance behind it would create a bare occurrence row that
+ * fetchPastOccurrences (see OccurrenceStatus above) would then show as a misleadingly "recorded"
+ * date pill, even though nobody actually took attendance for it. `undefined` leaves any existing
+ * note untouched (e.g. a CSV import that never surfaces a notes field shouldn't blank one).
  */
 export async function saveAttendance(
   groupSessionId: string,
@@ -920,6 +940,7 @@ export async function saveAttendance(
   academyId: string,
   records: { playerId: string; status: AttendanceStatus }[],
   recordedBy: "manual" | "csv-import" = "manual",
+  notes?: string,
 ): Promise<void> {
   const sb = createClient();
 
@@ -928,9 +949,14 @@ export async function saveAttendance(
     .eq("group_session_id", groupSessionId).eq("date", date).maybeSingle();
   if (existingOcc) {
     occurrenceId = existingOcc.id;
+    if (notes !== undefined) {
+      const { error } = await sb.from("group_session_occurrences").update({ notes: notes.trim() || null }).eq("id", occurrenceId);
+      if (error) throw error;
+    }
   } else {
     occurrenceId = `gso_${groupSessionId}_${date}`;
-    const { error } = await sb.from("group_session_occurrences").insert({ id: occurrenceId, group_session_id: groupSessionId, date });
+    const { error } = await sb.from("group_session_occurrences")
+      .insert({ id: occurrenceId, group_session_id: groupSessionId, date, notes: notes?.trim() || null });
     if (error) throw error;
   }
 
