@@ -6,28 +6,68 @@ import { useAuth } from "@/lib/auth";
 import { useEffect, useRef, useState } from "react";
 import type { UserRole } from "@/lib/types";
 
-const ADMIN_TOOLS = [
-  { label: "Manage Content", href: "/admin/academy" },
-  { label: "Plan Catalog", href: "/admin/plans" },
-  { label: "Email Templates", href: "/admin/email-templates" },
-  { label: "Approvals", href: "/admin/approvals" },
-  { label: "Platform KPIs", href: "/admin/kpis" },
-  { label: "Platform Admins", href: "/admin/admins" },
-  { label: "Referrals", href: "/admin/referrals" },
-  { label: "Partnerships", href: "/admin/partnerships" },
-];
+/**
+ * Grouped primary navigation — Training/Academy/Insights are dropdowns; everything else is a
+ * direct link. Config-driven so adding/removing a destination never touches the render logic,
+ * only this list. The "Academy" child under the Academy group intentionally shares its parent's
+ * label: there is no separate "Academies" listing route in this app (only a single /academy
+ * management page — see AcademyClient), so the group and its one real destination are the same
+ * page, just as they were before this was a dropdown at all.
+ */
+type NavLeaf = { label: string; href: string };
+type NavGroup = { label: string; children: NavLeaf[] };
+type NavEntry = NavLeaf | NavGroup;
+function isNavGroup(entry: NavEntry): entry is NavGroup { return "children" in entry; }
 
-const NAV_ALL = [
-  { label: "Players",  href: "/players" },
-  { label: "Coaching Sessions", href: "/sessions" },
-  { label: "Squad Training", href: "/attendance" },
-  { label: "Academy",  href: "/academy" },
+const NAV_STRUCTURE: NavEntry[] = [
+  { label: "Players", href: "/players" },
+  { label: "Training", children: [
+    { label: "Coaching Sessions", href: "/sessions" },
+    { label: "Squad Training", href: "/attendance" },
+  ] },
+  { label: "Academy", children: [
+    { label: "Academy", href: "/academy" },
+    { label: "Coaches", href: "/coaches" },
+  ] },
   { label: "Bookings", href: "/bookings" },
   { label: "Memberships", href: "/session-packs" },
-  { label: "Coaches",  href: "/coaches" },
-  { label: "Reports",  href: "/reports" },
-  { label: "Performance", href: "/performance" },
+  { label: "Insights", children: [
+    { label: "Reports", href: "/reports" },
+    { label: "Performance", href: "/performance" },
+  ] },
 ];
+
+/**
+ * Admin Center — same destinations as the old flat ADMIN_TOOLS list, grouped and relabeled for
+ * display only. Routes and permission (platform_admin) are unchanged; "Manage Content" stays at
+ * its existing /admin/academy route (an unrelated-looking URL for a real reason — see NAV_STRUCTURE's
+ * own comment on why that route doesn't feed the Academy nav group) even though its label is now
+ * "Content".
+ */
+type AdminItem = { label: string; href: string };
+type AdminSection = { section: string; items: AdminItem[] };
+
+const ADMIN_STRUCTURE: AdminSection[] = [
+  { section: "Platform", items: [
+    { label: "Approvals", href: "/admin/approvals" },
+    { label: "Platform KPIs", href: "/admin/kpis" },
+  ] },
+  { section: "Content & Communications", items: [
+    { label: "Content", href: "/admin/academy" },
+    { label: "Email Templates", href: "/admin/email-templates" },
+  ] },
+  { section: "Commercial", items: [
+    { label: "Plans & Pricing", href: "/admin/plans" },
+    { label: "Partnerships", href: "/admin/partnerships" },
+  ] },
+  { section: "Growth", items: [
+    { label: "Referrals", href: "/admin/referrals" },
+  ] },
+  { section: "Access & Security", items: [
+    { label: "Admin Users", href: "/admin/admins" },
+  ] },
+];
+const ADMIN_ITEMS_FLAT: AdminItem[] = ADMIN_STRUCTURE.flatMap((s) => s.items);
 
 const ROLE_LABELS: Record<UserRole, string> = {
   platform_admin: "Platform Admin",
@@ -51,11 +91,17 @@ export function NavBar() {
   const { user, logout, refreshUser } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
+  // Which single desktop dropdown is open, if any — Training/Academy/Insights and Admin Center
+  // are mutually exclusive by construction (opening one closes any other via the same state).
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const [playerNames, setPlayerNames] = useState<Record<string, { name: string; academyName: string | null }>>({});
-  const adminMenuRef = useRef<HTMLDivElement>(null);
+  // Which sections are expanded in the mobile panel — Training/Academy/Insights/Admin Center all
+  // start collapsed there; Players/Bookings/Memberships are plain links with nothing to expand.
+  const [mobileExpanded, setMobileExpanded] = useState<Record<string, boolean>>({});
+  const navRef = useRef<HTMLDivElement>(null);
+  const adminRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -103,23 +149,38 @@ export function NavBar() {
     return ROLE_LABELS[identity.role];
   }
 
-  // Close the mobile menu automatically whenever the route changes.
+  // Close every menu automatically whenever the route changes.
   useEffect(() => {
     setMobileOpen(false);
-    setAdminMenuOpen(false);
+    setOpenGroup(null);
     setUserMenuOpen(false);
+    setMobileExpanded({});
   }, [pathname]);
 
-  // Close the admin tools dropdown on outside click.
+  // Close the open dropdown (nav group or Admin Center) on an outside click. Admin Center lives
+  // in its own trigger+panel outside the <nav> element (it's docked in the user area, not the
+  // scrolling link row), so a click has to fall outside *both* containers before it counts as
+  // "outside" — checking navRef alone would close the Admin Center panel on its own first click.
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (adminMenuRef.current && !adminMenuRef.current.contains(e.target as Node)) {
-        setAdminMenuOpen(false);
-      }
+      const target = e.target as Node;
+      const insideNav = navRef.current?.contains(target);
+      const insideAdmin = adminRef.current?.contains(target);
+      if (!insideNav && !insideAdmin) setOpenGroup(null);
     }
-    if (adminMenuOpen) document.addEventListener("mousedown", handleClick);
+    if (openGroup) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [adminMenuOpen]);
+  }, [openGroup]);
+
+  // Escape closes whichever desktop dropdown is currently open — neither the nav groups nor
+  // Admin Center previously supported this at all (only outside-click did).
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpenGroup(null);
+    }
+    if (openGroup) document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [openGroup]);
 
   // Close the role switcher dropdown on outside click.
   useEffect(() => {
@@ -167,28 +228,26 @@ export function NavBar() {
     : "?";
 
   const isPlayerOrParent = user?.role === "player" || user?.role === "parent";
+  const isPlatformAdmin = user?.role === "platform_admin";
 
-  const navLinks = isPlayerOrParent
-    ? [
-        { label: "Academy", href: "/portal/learn" },
-        { label: "Find a Coach", href: "/portal/find-coach" },
-      ]
-    : [
-        ...NAV_ALL,
-        ...(user?.role === "platform_admin" ? ADMIN_TOOLS : []),
-      ];
+  const playerPortalLinks: NavLeaf[] = [
+    { label: "Academy", href: "/portal/learn" },
+    { label: "Find a Coach", href: "/portal/find-coach" },
+  ];
 
-  // Admin tools are docked as a single dropdown on desktop (see below) rather than living in the
-  // scrolling nav row — with a long name + role badge there often isn't room for a 9th+ nav item,
-  // and a squeezed flex item with whitespace-nowrap text just overflows invisibly instead of
-  // wrapping. This also means adding another admin tool later never re-squeezes this row again.
-  const desktopNavLinks = isPlayerOrParent ? navLinks : NAV_ALL;
-
-  function linkClasses(href: string, amber = false) {
-    const isActive = pathname.startsWith(href);
-    if (isActive) return amber ? "text-amber border-amber" : "text-pace-green border-pace-green";
-    return "text-zinc-400 border-transparent hover:text-white";
+  function groupIsActive(group: NavGroup): boolean {
+    return group.children.some((c) => pathname.startsWith(c.href));
   }
+
+  function toggleGroup(label: string) {
+    setOpenGroup((v) => (v === label ? null : label));
+  }
+
+  function toggleMobileSection(label: string) {
+    setMobileExpanded((prev) => ({ ...prev, [label]: !prev[label] }));
+  }
+
+  const adminIsActive = ADMIN_ITEMS_FLAT.some((t) => pathname.startsWith(t.href));
 
   return (
     <header className="bg-surface border-b border-zinc-700/60 sticky top-0 z-50">
@@ -204,20 +263,64 @@ export function NavBar() {
         </Link>
 
         {/* Desktop nav — the header's max-w-7xl container caps content width at 1280px
-            regardless of viewport, so this padding is tuned to fit all items with real margin
-            to spare at that width rather than relying on overflow scroll to bail it out. Kept
-            overflow-x-auto + thin-scrollbar as a fallback (not overflow-hidden or no-scrollbar)
-            so a future added item degrades to a visible scroll rather than silently clipping. */}
-        <nav className="hidden xl:flex items-stretch flex-1 min-w-0 overflow-x-auto thin-scrollbar">
-          {desktopNavLinks.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`px-2 flex items-center flex-shrink-0 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${linkClasses(item.href)}`}
-            >
-              {item.label}
-            </Link>
-          ))}
+            regardless of viewport, so every item fits with real margin to spare at that width.
+            Deliberately no overflow-x-auto here: the Training/Academy/Insights dropdown panels
+            are absolutely positioned inside this row, and any overflow-x on an ancestor forces
+            overflow-y to auto too (CSS spec), which clips the open dropdown instead of letting
+            it hang below the bar. */}
+        <nav ref={navRef} className="hidden xl:flex items-stretch flex-1 min-w-0">
+          {(isPlayerOrParent ? playerPortalLinks : NAV_STRUCTURE).map((entry) => {
+            if (!isNavGroup(entry)) {
+              const isActive = pathname.startsWith(entry.href);
+              return (
+                <Link
+                  key={entry.href}
+                  href={entry.href}
+                  className={`px-2 flex items-center flex-shrink-0 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                    isActive ? "text-pace-green border-pace-green" : "text-zinc-400 border-transparent hover:text-white"
+                  }`}
+                >
+                  {entry.label}
+                </Link>
+              );
+            }
+            const active = groupIsActive(entry);
+            const open = openGroup === entry.label;
+            return (
+              <div key={entry.label} className="relative flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(entry.label)}
+                  aria-haspopup="true"
+                  aria-expanded={open}
+                  className={`px-2 h-full flex items-center gap-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
+                    active || open ? "text-pace-green border-pace-green" : "text-zinc-400 border-transparent hover:text-white"
+                  }`}
+                >
+                  {entry.label}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    className={`transition-transform ${open ? "rotate-180" : ""}`}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+                {open && (
+                  <div className="absolute left-0 top-full z-30 w-52 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
+                    {entry.children.map((child) => (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className={`block px-4 py-2.5 text-sm transition-colors ${
+                          pathname.startsWith(child.href) ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                        }`}
+                      >
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="flex-1 xl:hidden" />
@@ -225,14 +328,17 @@ export function NavBar() {
         {/* User + role (desktop) */}
         {user && (
           <div className="hidden xl:flex items-center gap-3 flex-shrink-0">
-            {user.role === "platform_admin" && (
-              <div className="relative flex-shrink-0" ref={adminMenuRef}>
+            {isPlatformAdmin && (
+              <div className="relative flex-shrink-0" ref={adminRef}>
                 <button
                   type="button"
-                  onClick={() => setAdminMenuOpen((v) => !v)}
-                  title="Admin tools"
+                  onClick={() => toggleGroup("admin")}
+                  title="Admin Center"
+                  aria-label="Admin Center"
+                  aria-haspopup="true"
+                  aria-expanded={openGroup === "admin"}
                   className={`relative p-2 rounded-lg transition-colors flex-shrink-0 cursor-pointer ${
-                    adminMenuOpen || ADMIN_TOOLS.some((t) => pathname.startsWith(t.href))
+                    openGroup === "admin" || adminIsActive
                       ? "text-pace-green bg-pace-green/10"
                       : "text-zinc-400 hover:text-white hover:bg-zinc-700/50"
                   }`}
@@ -248,23 +354,30 @@ export function NavBar() {
                   )}
                 </button>
 
-                {adminMenuOpen && (
-                  <div className="absolute right-0 top-10 z-30 w-52 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
-                    {ADMIN_TOOLS.map((tool) => (
-                      <Link
-                        key={tool.href}
-                        href={tool.href}
-                        className={`flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
-                          pathname.startsWith(tool.href) ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
-                        }`}
-                      >
-                        {tool.label}
-                        {tool.label === "Approvals" && pendingCount > 0 && (
-                          <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                            {pendingCount}
-                          </span>
-                        )}
-                      </Link>
+                {openGroup === "admin" && (
+                  <div role="menu" aria-label="Admin Center" className="absolute right-0 top-10 z-30 w-80 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-2 overflow-hidden">
+                    <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 border-b border-zinc-700">Admin Center</p>
+                    {ADMIN_STRUCTURE.map((group, i) => (
+                      <div key={group.section} className={i > 0 ? "mt-2" : "mt-1"}>
+                        <p className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{group.section}</p>
+                        {group.items.map((tool) => (
+                          <Link
+                            key={tool.href}
+                            href={tool.href}
+                            role="menuitem"
+                            className={`flex items-center justify-between px-4 py-2 text-sm transition-colors ${
+                              pathname.startsWith(tool.href) ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                            }`}
+                          >
+                            {tool.label}
+                            {tool.href === "/admin/approvals" && pendingCount > 0 && (
+                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                {pendingCount}
+                              </span>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 )}
@@ -373,22 +486,108 @@ export function NavBar() {
       {user && mobileOpen && (
         <div className="xl:hidden border-t border-zinc-700/60 bg-surface max-h-[calc(100vh-4rem)] overflow-y-auto">
           <nav className="flex flex-col px-2 py-2">
-            {navLinks.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`px-3 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between ${
-                  pathname.startsWith(item.href) ? "text-pace-green bg-ink" : "text-zinc-300 hover:bg-zinc-800/60"
-                }`}
-              >
-                {item.label}
-                {item.label === "Approvals" && pendingCount > 0 && (
-                  <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                    {pendingCount}
+            {(isPlayerOrParent ? playerPortalLinks : NAV_STRUCTURE).map((entry) => {
+              if (!isNavGroup(entry)) {
+                return (
+                  <Link
+                    key={entry.href}
+                    href={entry.href}
+                    className={`px-3 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between ${
+                      pathname.startsWith(entry.href) ? "text-pace-green bg-ink" : "text-zinc-300 hover:bg-zinc-800/60"
+                    }`}
+                  >
+                    {entry.label}
+                  </Link>
+                );
+              }
+              const active = groupIsActive(entry);
+              const expanded = !!mobileExpanded[entry.label];
+              return (
+                <div key={entry.label}>
+                  <button
+                    type="button"
+                    onClick={() => toggleMobileSection(entry.label)}
+                    aria-expanded={expanded}
+                    className={`w-full px-3 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between cursor-pointer ${
+                      active ? "text-pace-green bg-ink" : "text-zinc-300 hover:bg-zinc-800/60"
+                    }`}
+                  >
+                    {entry.label}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                      className={`transition-transform ${expanded ? "rotate-180" : ""}`}>
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+                  {expanded && (
+                    <div className="pl-4">
+                      {entry.children.map((child) => (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          className={`px-3 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between ${
+                            pathname.startsWith(child.href) ? "text-pace-green bg-ink" : "text-zinc-400 hover:bg-zinc-800/60"
+                          }`}
+                        >
+                          {child.label}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {isPlatformAdmin && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => toggleMobileSection("Admin Center")}
+                  aria-expanded={!!mobileExpanded["Admin Center"]}
+                  aria-label="Admin Center"
+                  className={`w-full px-3 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between cursor-pointer ${
+                    adminIsActive ? "text-pace-green bg-ink" : "text-zinc-300 hover:bg-zinc-800/60"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    Admin Center
+                    {pendingCount > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                        {pendingCount}
+                      </span>
+                    )}
                   </span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    className={`transition-transform ${mobileExpanded["Admin Center"] ? "rotate-180" : ""}`}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+                {mobileExpanded["Admin Center"] && (
+                  <div className="pl-4">
+                    {ADMIN_STRUCTURE.map((group) => (
+                      <div key={group.section} className="mt-1.5 first:mt-0">
+                        <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{group.section}</p>
+                        {group.items.map((tool) => (
+                          <Link
+                            key={tool.href}
+                            href={tool.href}
+                            className={`px-3 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between ${
+                              pathname.startsWith(tool.href) ? "text-pace-green bg-ink" : "text-zinc-400 hover:bg-zinc-800/60"
+                            }`}
+                          >
+                            {tool.label}
+                            {tool.href === "/admin/approvals" && pendingCount > 0 && (
+                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                {pendingCount}
+                              </span>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 )}
-              </Link>
-            ))}
+              </div>
+            )}
           </nav>
           <div className="border-t border-zinc-700/60 px-4 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
