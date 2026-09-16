@@ -125,7 +125,7 @@ describe("AttendanceClient", () => {
       const label = new Date(date + "T00:00:00").toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
       return { id: `o${i}`, date, label };
     });
-    fetchPastOccurrences.mockResolvedValue(past.map(({ id, date }) => ({ id, date })));
+    fetchPastOccurrences.mockResolvedValue(past.map(({ id, date }) => ({ id, date, status: "recorded" })));
 
     render(<AttendanceClient />);
     await user.click(await screen.findByText("U14 Nets"));
@@ -139,6 +139,29 @@ describe("AttendanceClient", () => {
 
     await user.click(screen.getByRole("button", { name: "Show less" }));
     expect(screen.queryByText(`${past[17].label} ✓`)).not.toBeInTheDocument();
+  });
+
+  test("a canceled session's date pill is visually distinct from a normally-recorded one", async () => {
+    setupDefaults();
+    fetchGroupSessions.mockResolvedValue([makeGroupSession({ id: "gs1", name: "U14 Nets", playerIds: [] })]);
+    const recordedDate = "2026-08-04";
+    const canceledDate = "2026-08-11";
+    const recordedLabel = new Date(`${recordedDate}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    const canceledLabel = new Date(`${canceledDate}T00:00:00`).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+    fetchPastOccurrences.mockResolvedValue([
+      { id: "o1", date: recordedDate, status: "recorded" },
+      { id: "o2", date: canceledDate, status: "canceled" },
+    ]);
+
+    render(<AttendanceClient />);
+    await userEvent.setup().click(await screen.findByText("U14 Nets"));
+
+    const recordedPill = await screen.findByText(`${recordedLabel} ✓`);
+    const canceledPill = await screen.findByText(`${canceledLabel} ⊘`);
+    expect(recordedPill).toHaveClass("text-pace-green");
+    expect(canceledPill).toHaveClass("text-amber");
+    expect(canceledPill).not.toHaveClass("text-pace-green");
+    expect(canceledPill).toHaveAttribute("title", "Session canceled — no one was charged");
   });
 
   test("rejecting a roster-add for a player with no membership offers a 'Create a membership' shortcut to that player", async () => {
