@@ -16,7 +16,7 @@ import { StatCard } from "@/components/StatCard";
 import { SortableHeader } from "@/components/SortableHeader";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { useSort } from "@/lib/useSort";
-import { EditIcon, CreditCardIcon, PowerIcon, PowerOffIcon } from "@/components/icons";
+import { EditIcon, CreditCardIcon, PowerIcon, PowerOffIcon, EyeIcon, EyeOffIcon } from "@/components/icons";
 import { getPlatformFeePercent } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { currencyForCountry, COUNTRY_OPTIONS, DEFAULT_CURRENCY, formatMoney } from "@/lib/currency";
@@ -137,6 +137,10 @@ export function AcademyClient() {
   const [confirmToggle, setConfirmToggle] = useState<ConfirmToggle | null>(null);
   const [toggling,      setToggling]      = useState(false);
 
+  // Confirm Squad Video Sharing opt-in/out toggle
+  const [confirmVideoSharing, setConfirmVideoSharing] = useState<{ id: string; name: string; newValue: boolean } | null>(null);
+  const [togglingVideoSharing, setTogglingVideoSharing] = useState(false);
+
   // Modal
   const [showModal,      setShowModal]      = useState(false);
   const [editingId,      setEditingId]      = useState<string | null>(null);
@@ -221,6 +225,22 @@ export function AcademyClient() {
       setFormError((err as { message?: string })?.message ?? String(err));
     } finally {
       setToggling(false);
+    }
+  }
+
+  async function handleConfirmVideoSharingToggle() {
+    if (!confirmVideoSharing) return;
+    setTogglingVideoSharing(true);
+    try {
+      await updateAcademyFields(confirmVideoSharing.id, { squad_video_sharing_enabled: confirmVideoSharing.newValue });
+      setAcademies((prev) =>
+        prev.map((a) => a.id === confirmVideoSharing.id ? { ...a, squadVideoSharingEnabled: confirmVideoSharing.newValue } : a)
+      );
+      setConfirmVideoSharing(null);
+    } catch (err) {
+      setFormError((err as { message?: string })?.message ?? String(err));
+    } finally {
+      setTogglingVideoSharing(false);
     }
   }
 
@@ -373,6 +393,9 @@ export function AcademyClient() {
       sessionTypeFees: draft.sessionTypeFees,
       ageFees: cleanedAgeFees,
       payoutModel: draft.payoutModel,
+      // Not editable from this form (see the dedicated toggle in the row's ⋮ menu) — preserve
+      // whatever's already on the row rather than silently resetting it to false on every save.
+      squadVideoSharingEnabled: existingAcademy?.squadVideoSharingEnabled ?? false,
     };
 
     try {
@@ -388,6 +411,9 @@ export function AcademyClient() {
         session_type_fees: newAcademy.sessionTypeFees as Record<string, number>,
         age_fees: cleanedAgeFees as Record<string, number>,
         payout_model: newAcademy.payoutModel,
+        // Not editable from this form — included explicitly (rather than left out of the upsert
+        // payload) so this save can never silently reset it back to its column default.
+        squad_video_sharing_enabled: newAcademy.squadVideoSharingEnabled,
       });
     } catch (err) {
       const msg = (err as { message?: string })?.message ?? String(err);
@@ -969,6 +995,11 @@ export function AcademyClient() {
                 icon: <EditIcon width={14} height={14} />,
                 onClick: () => handleMenuAction("edit", academy),
               }] : []),
+              ...(canManage ? [{
+                label: academy.squadVideoSharingEnabled ? "Disable Squad Video Sharing" : "Enable Squad Video Sharing",
+                icon: academy.squadVideoSharingEnabled ? <EyeOffIcon width={14} height={14} /> : <EyeIcon width={14} height={14} />,
+                onClick: () => setConfirmVideoSharing({ id: academy.id, name: academy.name, newValue: !academy.squadVideoSharingEnabled }),
+              }] : []),
               ...(user?.role === "platform_admin" ? [{
                 label: academy.status === "Active" ? "Deactivate" : "Activate",
                 dividerBefore: true,
@@ -1062,6 +1093,23 @@ export function AcademyClient() {
           error={formError}
           onConfirm={handleConfirmToggle}
           onCancel={() => { setConfirmToggle(null); setFormError(""); }}
+        />
+      )}
+
+      {confirmVideoSharing && (
+        <ConfirmModal
+          icon={confirmVideoSharing.newValue ? <EyeIcon width={22} height={22} /> : <EyeOffIcon width={22} height={22} />}
+          iconBg="bg-blue-500/20"
+          title={confirmVideoSharing.newValue ? "Enable Squad Video Sharing?" : "Disable Squad Video Sharing?"}
+          message={confirmVideoSharing.newValue
+            ? `Coaches at "${confirmVideoSharing.name}" will be able to upload Squad Training videos and tag players in them — a tagged clip appears on that player's profile, and can also show other players who are in frame at the same moment.`
+            : `Coaches at "${confirmVideoSharing.name}" will no longer be able to upload or tag Squad Training videos. Clips already uploaded are kept, not deleted.`}
+          confirmLabel={confirmVideoSharing.newValue ? "Yes, Enable" : "Yes, Disable"}
+          confirmBusyLabel="Saving…"
+          loading={togglingVideoSharing}
+          error={formError}
+          onConfirm={handleConfirmVideoSharingToggle}
+          onCancel={() => { setConfirmVideoSharing(null); setFormError(""); }}
         />
       )}
 

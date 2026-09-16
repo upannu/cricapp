@@ -185,6 +185,12 @@ export interface Academy {
   /** 'head_coach' (default): all booking/pack revenue pays out to headCoachId. 'split_by_coach':
    * each booking/pack pays out to its own coach directly. */
   payoutModel: 'head_coach' | 'split_by_coach';
+  /** Opt-in gate for Squad Training video tagging (see GroupSessionVideoTag) — false by default
+   * for every academy, existing and new. A squad video can show several players at once, so
+   * tagging one and surfacing it on their profile also exposes whichever other players are in
+   * frame; this is the academy-level consent step for that tradeoff, checked both client-side
+   * (hides the feature entirely) and server-side (every upload/tag API route re-verifies it). */
+  squadVideoSharingEnabled: boolean;
 }
 
 /** A physical practice net belonging to an academy — e.g. "Net 1", "Turf Net". Used at booking
@@ -595,6 +601,38 @@ export interface VideoAnnotation {
   imageUrl: string;
   note: string;
   createdAt?: string;
+}
+
+/** A net-session recording attached to one Squad Training date (group_session_occurrences), not
+ * to a single player — unlike Session.videos, several players can appear in the same clip. Only
+ * visible/uploadable at all when the owning academy has Academy.squadVideoSharingEnabled on (see
+ * that field's own doc comment) — tagging surfaces a shared clip on every tagged player's profile,
+ * so an academy must opt in before any coach there can use this feature. */
+export interface GroupSessionVideo {
+  id: string;
+  occurrenceId: string;
+  uploadedBy: string;
+  videoUrl: string;
+  angle: string | null;
+  durationSec: number | null;
+  width: number | null;
+  height: number | null;
+  createdAt: string;
+}
+
+/** One player's appearance in a GroupSessionVideo at a specific moment — many tags can point at
+ * the same video (that's the whole reason this isn't just VideoAnnotation, which assumes exactly
+ * one player per video). Surfacing a tagged clip on a player's profile is what a parent/player
+ * sees; it necessarily also shows whichever other players are in frame at that timestamp — that
+ * tradeoff is exactly what Academy.squadVideoSharingEnabled gates. */
+export interface GroupSessionVideoTag {
+  id: string;
+  videoId: string;
+  playerId: string;
+  timestampSec: number;
+  note: string | null;
+  taggedBy: string;
+  createdAt: string;
 }
 
 export interface VoiceNote {

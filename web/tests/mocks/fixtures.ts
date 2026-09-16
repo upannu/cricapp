@@ -100,6 +100,7 @@ export function makeAcademy(overrides: Partial<Academy> = {}): Academy {
     payoutModel: "head_coach",
     country: "Australia",
     currency: "aud",
+    squadVideoSharingEnabled: false,
     ...overrides,
   };
 }

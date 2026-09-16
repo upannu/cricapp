@@ -56,6 +56,26 @@ export async function callerCanAccessPlayer(
 }
 
 /**
+ * Ownership check for privileged routes acting on a group (Squad Training) session — mirrors
+ * callerCanAccessPlayer's role structure: platform_admin always; academy_admin only within their
+ * own academy; coach only their own group. Used to gate the squad-video upload/tag routes, which
+ * (unlike callerCanAccessPlayer) can't check a single player, since a squad video covers a whole
+ * roster at once.
+ */
+export async function callerCanManageGroupSession(
+  supabase: SupabaseClient,
+  caller: Caller,
+  groupSessionId: string,
+): Promise<boolean> {
+  if (caller.role === "platform_admin") return true;
+  const { data } = await supabase.from("group_sessions").select("academy_id, coach_id").eq("id", groupSessionId).maybeSingle();
+  if (!data) return false;
+  if (caller.role === "coach") return !!caller.coachId && data.coach_id === caller.coachId;
+  if (caller.role === "academy_admin") return !!caller.academyId && data.academy_id === caller.academyId;
+  return false;
+}
+
+/**
  * Finds a Supabase Auth user by email — the Admin API has no server-side "search by email"
  * endpoint, so paging through listUsers() is the standard way to do this. Every call site that
  * needed this used to fetch a single page (perPage: 1000) and stop there, meaning any account
