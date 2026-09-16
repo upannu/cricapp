@@ -4,8 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, fetchSessionPacks, updatePlayer } from "@/lib/db";
-import { formatDate, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
+import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, fetchSessionPacks, updatePlayer, fetchPlayerVideoTags } from "@/lib/db";
+import type { PlayerVideoTagEntry } from "@/lib/db";
+import { formatDate, formatTimestamp, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { PlayerMessages } from "@/components/PlayerMessages";
 import { computeInjuryRiskTrend, computeRpeSummary, computeSCLoadSummary, type InjuryRiskTrend, type RpeSummary, type SCLoadSummary } from "@/lib/performance-trends";
@@ -42,6 +43,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
   const [lastPayment, setLastPayment] = useState<{ date: string; source: "manual" | "pack" | "stripe" } | null | undefined>(undefined);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [packs, setPacks] = useState<SessionPack[]>([]);
+  const [videoTags, setVideoTags] = useState<PlayerVideoTagEntry[]>([]);
   const [showMessageModal, setShowMessageModal] = useState(false);
   const [confirmReassign, setConfirmReassign] = useState(false);
   const [reassignToCoachId, setReassignToCoachId] = useState("");
@@ -54,7 +56,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
 
   useEffect(() => {
     const academyId = user?.role === "academy_admin" ? user.academyId : undefined;
-    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches(academyId), fetchReports(playerId), fetchSessions(undefined, [playerId]), fetchSCWorkouts(playerId), fetchActivePlans(), fetchSessionPacks([playerId])]).then(([p, a, c, reports, sessions, scWorkouts, pl, pk]) => {
+    Promise.all([fetchPlayer(playerId), fetchAcademies(), fetchCoaches(academyId), fetchReports(playerId), fetchSessions(undefined, [playerId]), fetchSCWorkouts(playerId), fetchActivePlans(), fetchSessionPacks([playerId]), fetchPlayerVideoTags(playerId)]).then(([p, a, c, reports, sessions, scWorkouts, pl, pk, tags]) => {
       if (!p) setNotFound(true);
       else setPlayer(p);
       setAcademies(a);
@@ -65,6 +67,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
       setReportCount(reports.length);
       setPlans(pl);
       setPacks(pk);
+      setVideoTags(tags);
     });
   }, [playerId, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -430,6 +433,31 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             value={formatDate(player.biomechanics.lastSession)}
           />
         </InfoCard>
+
+        {/* Squad Session Clips — only ever has rows for an academy that opted into
+            Squad Video Sharing (see AttendanceClient.tsx's Session Recordings section and
+            Academy.squadVideoSharingEnabled); hidden entirely rather than showing an empty
+            state, since most players won't have any until that feature sees real adoption. */}
+        {videoTags.length > 0 && (
+          <InfoCard title="Squad Session Clips">
+            <div className="space-y-3">
+              {videoTags.map(({ tag, video, occurrenceDate, groupSessionName }) => (
+                <div key={tag.id} className="bg-ink rounded-xl border border-zinc-700 p-3">
+                  <video
+                    src={`${video.videoUrl}#t=${tag.timestampSec}`}
+                    controls
+                    className="w-full rounded-lg bg-black mb-2"
+                    style={{ maxHeight: 180 }}
+                  />
+                  <p className="text-xs text-zinc-400">
+                    {groupSessionName} · {formatDate(occurrenceDate)} · tagged at {formatTimestamp(tag.timestampSec)}
+                  </p>
+                  {tag.note && <p className="text-xs text-zinc-500 mt-1">{tag.note}</p>}
+                </div>
+              ))}
+            </div>
+          </InfoCard>
+        )}
 
         {/* Academy progress */}
         <InfoCard title="Academy Progress">
