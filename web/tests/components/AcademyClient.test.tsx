@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AcademyClient } from "@/components/AcademyClient";
 import { makeAcademy, makeAuthUser } from "../mocks/fixtures";
@@ -296,5 +296,83 @@ describe("AcademyClient", () => {
     await user.click(screen.getByText("Billing"));
 
     expect(push).toHaveBeenCalledWith("/academies/ac1/billing");
+  });
+
+  // Bulk selection — platform_admin only, mirroring Coaches' own bulk bar.
+  test("an academy_admin never sees selection checkboxes or a bulk action bar", async () => {
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "academy_admin", academyId: "ac1" }) });
+    fetchAcademies.mockResolvedValue([makeAcademy({ id: "ac1", name: "My Academy" })]);
+
+    render(<AcademyClient />);
+    await screen.findByText("My Academy");
+
+    expect(screen.queryByTitle("Select all")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Select for bulk actions")).not.toBeInTheDocument();
+  });
+
+  test("selecting rows shows the bulk action bar with a live count", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([
+      makeAcademy({ id: "ac1", name: "Riverside Academy" }),
+      makeAcademy({ id: "ac2", name: "Coastal Academy" }),
+    ]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
+    await user.click(screen.getAllByTitle("Select for bulk actions")[0]);
+    expect(screen.getByText("1 academy selected")).toBeInTheDocument();
+
+    await user.click(screen.getAllByTitle("Select for bulk actions")[1]);
+    expect(screen.getByText("2 academies selected")).toBeInTheDocument();
+
+    await user.click(screen.getByText("Clear"));
+    expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
+  });
+
+  test("Select all selects every filtered academy, and toggles off the same way", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([
+      makeAcademy({ id: "ac1", name: "Riverside Academy" }),
+      makeAcademy({ id: "ac2", name: "Coastal Academy" }),
+    ]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    await user.click(screen.getByTitle("Select all"));
+    expect(screen.getByText("2 academies selected")).toBeInTheDocument();
+
+    await user.click(screen.getByTitle("Select all"));
+    expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
+  });
+
+  test("bulk-deactivating calls updateAcademyFields for every selected academy and clears the selection", async () => {
+    const user = userEvent.setup();
+    setupDefaults();
+    useAuth.mockReturnValue({ user: makeAuthUser({ role: "platform_admin" }) });
+    fetchAcademies.mockResolvedValue([
+      makeAcademy({ id: "ac1", name: "Riverside Academy", status: "Active" }),
+      makeAcademy({ id: "ac2", name: "Coastal Academy", status: "Active" }),
+    ]);
+
+    render(<AcademyClient />);
+    await screen.findByText("Riverside Academy");
+
+    await user.click(screen.getByTitle("Select all"));
+    await user.click(screen.getByRole("button", { name: "Deactivate" }));
+    expect(screen.getByText(/2 academies will be marked Inactive/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Yes, Deactivate" }));
+
+    expect(updateAcademyFields).toHaveBeenCalledWith("ac1", { status: "Inactive" });
+    expect(updateAcademyFields).toHaveBeenCalledWith("ac2", { status: "Inactive" });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Yes, Deactivate" })).not.toBeInTheDocument());
+    expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
   });
 });
