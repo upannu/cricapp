@@ -294,7 +294,18 @@ export function NavBar() {
                   aria-haspopup="true"
                   aria-expanded={open}
                   className={`px-2 h-full flex items-center gap-1 text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer ${
-                    active || open ? "text-pace-green border-pace-green" : "text-zinc-400 border-transparent hover:text-white"
+                    // Active (a child route is the current page) gets the same strong underline
+                    // every other nav item uses for "you are here" — that must stay unique to it.
+                    // Open-but-not-active (the dropdown is merely expanded) gets a distinct, subtle
+                    // treatment instead: brighter text and a faint background, no underline — so an
+                    // open Training menu never reads as "you're on the Training page" the way an
+                    // active Memberships link does. The arrow's own rotation already signals open
+                    // state independent of color.
+                    active
+                      ? "text-pace-green border-pace-green"
+                      : open
+                      ? "text-white border-transparent bg-white/5"
+                      : "text-zinc-400 border-transparent hover:text-white"
                   }`}
                 >
                   {entry.label}
