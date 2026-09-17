@@ -37,9 +37,9 @@ export default function AssociationsPage() {
           <p className="text-sm text-zinc-500 max-w-xl mx-auto mb-8">
             Connect clubs, academies, coaches and player pathways while giving your association greater visibility across development and performance.
           </p>
-          <Link href="/contact"
+          <Link href="/organisations/associations/apply"
             className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Talk to CRIC HQ
+            Register Your Interest
           </Link>
         </div>
 
@@ -83,9 +83,9 @@ export default function AssociationsPage() {
           <p className="text-sm text-zinc-500 mb-6">
             Tell us about your association and explore how CRIC HQ could support your cricket ecosystem.
           </p>
-          <Link href="/contact"
+          <Link href="/organisations/associations/apply"
             className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Talk to CRIC HQ
+            Register Your Interest
           </Link>
         </div>
       </div>

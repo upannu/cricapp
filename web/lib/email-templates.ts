@@ -244,8 +244,8 @@ export function buildPartnershipApplicationEmailHtml(opts: {
   ];
   return shell({
     appUrl: opts.appUrl,
-    heading: "New Cricket Board Partnership application",
-    intro: `${escapeHtml(opts.organisationName)} has applied to partner with CRIC HQ.`,
+    heading: "New CRIC HQ partnership interest",
+    intro: `${escapeHtml(opts.organisationName)} has registered interest in partnering with CRIC HQ.`,
     contentHtml: infoBox("Application details", detailRowsHtml(rows)),
     ctaLabel: "Reply to applicant",
     ctaHref: `mailto:${opts.email}`,

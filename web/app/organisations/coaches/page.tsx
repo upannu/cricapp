@@ -34,9 +34,9 @@ export default function CoachesPage() {
           <p className="text-sm text-zinc-500 max-w-xl mx-auto mb-8">
             Plan sessions, track attendance and development, and follow every player&apos;s progress in one connected platform.
           </p>
-          <Link href="/contact"
+          <Link href="/organisations/coaches/apply"
             className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Explore Coaching
+            Register Your Interest
           </Link>
         </div>
 
@@ -59,9 +59,9 @@ export default function CoachesPage() {
           <p className="text-sm text-zinc-500 mb-6">
             See how CRIC HQ can take the administration off your plate so you can focus on coaching.
           </p>
-          <Link href="/contact"
+          <Link href="/organisations/coaches/apply"
             className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Explore Coaching
+            Register Your Interest
           </Link>
         </div>
       </div>
