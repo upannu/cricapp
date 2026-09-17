@@ -4,9 +4,9 @@ import { PartnershipPageShell } from "@/components/PartnershipPageShell";
 // Each card's `href` is a route that exists today; a future org type (Clubs, Schools,
 // Universities, Professional Teams) can be appended here without touching the layout.
 const ORG_TYPES = [
-  { icon: "🏏", title: "Academies", body: "Manage players, coaches, sessions and development in one place.", cta: "Explore Academy", href: "/about" },
-  { icon: "👨‍🏫", title: "Coaches", body: "Manage players, memberships, sessions and development.", cta: "Explore Coaching", href: "/about" },
-  { icon: "🏛", title: "Cricket Associations", body: "Connect clubs, academies, coaches and player pathways.", cta: "Explore Solutions", href: "/about" },
+  { icon: "🏏", title: "Academies", body: "Manage players, coaches, sessions and development in one place.", cta: "Explore Academy", href: "/organisations/academies" },
+  { icon: "👨‍🏫", title: "Coaches", body: "Manage players, memberships, sessions and development.", cta: "Explore Coaching", href: "/organisations/coaches" },
+  { icon: "🏛", title: "Cricket Associations", body: "Connect clubs, academies, coaches and player pathways.", cta: "Explore Solutions", href: "/organisations/associations" },
   { icon: "🌏", title: "Cricket Boards", body: "A tailored enterprise partnership for governing bodies and large cricket organisations.", cta: "Explore Partnership", href: "/partnerships/cricket-board" },
 ];
 
