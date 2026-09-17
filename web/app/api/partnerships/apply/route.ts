@@ -8,6 +8,8 @@ import type { PartnershipOrgType } from "@/lib/types";
 const ORG_TYPES: PartnershipOrgType[] = [
   "National Cricket Board", "State Cricket Association", "Regional Cricket Association",
   "District Cricket Association", "Academy Network", "Professional Cricket Organisation", "Other",
+  // Short-form intake from /organisations/{academies,coaches,associations}/apply.
+  "Academy", "Coach", "Cricket Association",
 ];
 
 interface ApplyBody {
@@ -97,7 +99,7 @@ export async function POST(request: Request) {
       from: emailFrom(gmailUser),
       to: adminEmail,
       replyTo: body.email,
-      subject: `New Cricket Board Partnership application — ${body.organisationName}`,
+      subject: `New CRIC HQ partnership interest (${body.organisationType}) — ${body.organisationName}`,
       text: [
         `${reference}`, ``,
         `Organisation: ${body.organisationName} (${body.organisationType})`,

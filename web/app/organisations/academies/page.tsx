@@ -34,9 +34,9 @@ export default function AcademiesPage() {
           <p className="text-sm text-zinc-500 max-w-xl mx-auto mb-8">
             Manage players, coaches, programs and development in one connected platform.
           </p>
-          <Link href="/contact"
+          <Link href="/organisations/academies/apply"
             className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Book an Academy Demo
+            Register Your Interest
           </Link>
         </div>
 
@@ -59,9 +59,9 @@ export default function AcademiesPage() {
           <p className="text-sm text-zinc-500 mb-6">
             See how CRIC HQ can bring your players, coaches and programs into one connected platform.
           </p>
-          <Link href="/contact"
+          <Link href="/organisations/academies/apply"
             className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Book an Academy Demo
+            Register Your Interest
           </Link>
         </div>
       </div>
