@@ -61,6 +61,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/auth/confirm");
 
   const isPublicPage =
+    // Exact match, not startsWith — "/" would otherwise match every path.
+    pathname === "/" ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/forgot-password") ||
