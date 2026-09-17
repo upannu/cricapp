@@ -740,7 +740,10 @@ export type PartnershipOrgType =
   | 'District Cricket Association' | 'Academy Network' | 'Professional Cricket Organisation' | 'Other'
   // Shorter, single-screen intake for /organisations/{academies,coaches,associations}/apply —
   // same table/API as the board-oriented types above, distinguished only by this field.
-  | 'Academy' | 'Coach' | 'Cricket Association';
+  | 'Academy' | 'Coach' | 'Cricket Association'
+  // /programs/fast-bowling-development/apply — a specialist program, not an audience type, but
+  // reuses the same short-intake pattern and table.
+  | 'Fast Bowling Program';
 
 /** Sprint 1-3 statuses only — discovery/proposal/negotiation/contract/onboarding/active are
  * reserved names for the later CRM sprints (proposal builder, contract, onboarding), not built

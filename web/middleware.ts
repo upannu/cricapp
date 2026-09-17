@@ -76,11 +76,13 @@ export async function middleware(request: NextRequest) {
     // Public, code-gated player-registration page — a coach/staff member should be able to open
     // it too (e.g. to demo it to a parent) without getting bounced.
     pathname.startsWith("/register") ||
-    // Cricket Board Partnership landing/apply/success pages and the Organisations hub — any board
-    // needs to reach these signed out, and a signed-in staff member should be able to open/share
-    // them too (e.g. to walk a prospect through the flow).
+    // Cricket Board Partnership landing/apply/success pages, the Organisations hub, and specialist
+    // program pages (e.g. /programs/fast-bowling-development) — any prospect needs to reach these
+    // signed out, and a signed-in staff member should be able to open/share them too (e.g. to walk
+    // a prospect through the flow).
     pathname.startsWith("/partnerships") ||
-    pathname.startsWith("/organisations");
+    pathname.startsWith("/organisations") ||
+    pathname.startsWith("/programs");
 
   if (!user && !isPublicPage && !isAlwaysPublicPage && !isAuthApi) {
     return NextResponse.redirect(new URL("/login", request.url));
