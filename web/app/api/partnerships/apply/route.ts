@@ -10,6 +10,8 @@ const ORG_TYPES: PartnershipOrgType[] = [
   "District Cricket Association", "Academy Network", "Professional Cricket Organisation", "Other",
   // Short-form intake from /organisations/{academies,coaches,associations}/apply.
   "Academy", "Coach", "Cricket Association",
+  // Short-form intake from /programs/fast-bowling-development/apply.
+  "Fast Bowling Program",
 ];
 
 interface ApplyBody {

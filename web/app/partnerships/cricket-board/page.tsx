@@ -178,6 +178,24 @@ export default function CricketBoardLandingPage() {
           </div>
         </div>
 
+        {/* Specialist program cross-sell — a differentiator of the board partnership, not a
+            replacement for it; the program itself stays independently reachable from
+            Academies/Coaches too, so it isn't gated behind an enterprise conversation. */}
+        <div className="mb-16">
+          <div className="bg-surface rounded-2xl p-6 sm:p-8 sm:flex sm:items-center sm:justify-between gap-6">
+            <div className="mb-4 sm:mb-0">
+              <p className="text-white font-semibold text-sm mb-1">Specialist Fast Bowling Development Program</p>
+              <p className="text-zinc-500 text-xs max-w-md">
+                A dedicated fast bowling coaching and athlete development program, available as part of a Cricket Board partnership for federation-wide rollout.
+              </p>
+            </div>
+            <Link href="/programs/fast-bowling-development"
+              className="inline-block px-6 py-2.5 text-zinc-300 text-sm font-bold rounded-xl border border-zinc-700 hover:bg-zinc-800 transition-colors whitespace-nowrap">
+              Learn More →
+            </Link>
+          </div>
+        </div>
+
         {/* What happens next — a horizontal timeline rather than a card grid, and deliberately
             starts from the "Register Your Interest" click itself (not just the later
             configuration work), since that's the exact moment a visitor is hesitating. */}

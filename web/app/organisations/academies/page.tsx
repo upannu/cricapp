@@ -53,6 +53,14 @@ export default function AcademiesPage() {
           </div>
         </div>
 
+        {/* Specialist program cross-sell */}
+        <p className="text-center text-sm text-zinc-500 mb-16">
+          Looking for specialist fast bowling coaching?{" "}
+          <Link href="/programs/fast-bowling-development" className="text-pace-green font-semibold hover:underline">
+            Explore our Fast Bowling Development Program →
+          </Link>
+        </p>
+
         {/* Final CTA */}
         <div className="text-center pb-16">
           <h2 className="text-xl font-bold text-white mb-2">Ready to Run Your Academy on CRIC HQ?</h2>
