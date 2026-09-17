@@ -1,16 +1,17 @@
 import Link from "next/link";
 
 /** Shared header/footer chrome for the public Cricket Board Partnership pages (landing, apply,
- * success) and the /organisations hub — same dark theme/logo as LegalPageShell, but a full-width
- * content slot rather than LegalPageShell's narrow single-column prose layout, since these pages
- * need a proper hero + card-grid marketing layout, not an article. `minimal` drops the nav/footer
- * for the multi-step application form, where a visitor mid-form shouldn't be tempted away by
- * unrelated links. */
+ * success), the Organisations hub, and the specialist program pages — same dark theme/logo as
+ * LegalPageShell, but a full-width content slot rather than LegalPageShell's narrow single-column
+ * prose layout, since these pages need a proper hero + card-grid marketing layout, not an
+ * article. The logo links to / (the actual homepage), not any one of these pages. `minimal` drops
+ * the nav/footer for the multi-step application form, where a visitor mid-form shouldn't be
+ * tempted away by unrelated links. */
 export function PartnershipPageShell({ children, minimal = false }: { children: React.ReactNode; minimal?: boolean }) {
   return (
     <div className="min-h-screen bg-ink">
       <div className="flex items-center justify-between px-6 sm:px-10 py-4 max-w-6xl mx-auto">
-        <Link href="/partnerships/cricket-board" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
           <img src="/crichq_logo.jpeg" alt="CRIC HQ" width={32} height={32}
             className="w-8 h-8 rounded-full bg-white p-0.5 object-contain flex-shrink-0" />
@@ -24,7 +25,7 @@ export function PartnershipPageShell({ children, minimal = false }: { children: 
             <Link href="/organisations" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
               Organisations
             </Link>
-            <Link href="/login#signin" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+            <Link href="/login" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
               Login
             </Link>
             <Link href="/contact" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">

@@ -1,12 +1,14 @@
 import Link from "next/link";
 
 /** Shared chrome for the public Contact/Terms/Privacy pages — same dark theme and logo header as
- * /login, plus a footer that cross-links the three so a visitor on any one can reach the others. */
+ * the homepage, plus a footer that cross-links the three so a visitor on any one can reach the
+ * others. The logo links to / (the actual homepage) rather than /login, matching every other
+ * public shell — /login is now a lean sign-in-only page, not the site's front door. */
 export function LegalPageShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-ink">
       <div className="flex items-center justify-between px-6 sm:px-10 py-4 max-w-3xl mx-auto">
-        <Link href="/login" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
           <img src="/crichq_logo.jpeg" alt="CRIC HQ" width={32} height={32}
             className="w-8 h-8 rounded-full bg-white p-0.5 object-contain flex-shrink-0" />
@@ -19,7 +21,7 @@ export function LegalPageShell({ title, children }: { title: string; children: R
           <Link href="/organisations" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
             Organisations
           </Link>
-          <Link href="/login#signin" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
+          <Link href="/login" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
             Login
           </Link>
           <Link href="/contact" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
