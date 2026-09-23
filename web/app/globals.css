@@ -9,6 +9,20 @@
   --color-amber: #F59E0B;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Homepage V2 (/) — its own dark/red/gold/navy palette, derived from the real logo, deliberately
+     namespaced "hp-" so it never collides with (or silently repaints) the ink/surface/pace-green
+     tokens above, which the rest of the site still uses. font-display is new (Barlow Condensed,
+     see layout.tsx); font-mono/font-sans are reused as-is (Geist Mono/Sans) rather than adding a
+     third and fourth typeface for a close visual match (JetBrains Mono/Inter). */
+  --color-hp-ink: #060911;
+  --color-hp-paper: #EEE9E2;
+  --color-hp-surface: #0C1220;
+  --color-hp-lift: #131D30;
+  --color-hp-cg: #E8362A;
+  --color-hp-ca: #F5B800;
+  --color-hp-cn: #1B3A8C;
+  --font-display: var(--font-barlow-condensed);
 }
 
 body {
