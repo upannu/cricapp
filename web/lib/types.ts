@@ -576,6 +576,24 @@ export interface ActionPlan {
   createdAt?: string;
 }
 
+// ─── Player Cricket Passport — affiliation history ─────────────────────────────
+// The Reassign Coach flow overwrites players.coach_id in place with no history; this table is
+// the first-class record of which org/coach a player was affiliated with and when, so a
+// player's passport can show a real timeline instead of only their current assignment.
+
+export interface PlayerAffiliation {
+  id: string;
+  playerId: string;
+  academyId: string | null;
+  coachId: string | null;
+  /** Snapshot of the org/coach display name at the time this period was recorded. */
+  orgLabel: string;
+  startDate: string;
+  /** null = this is the player's current, ongoing affiliation. */
+  endDate: string | null;
+  createdAt: string;
+}
+
 // ─── S&C (strength & conditioning) manual workout log ──────────────────────────
 
 export type SCWorkoutType = 'Strength' | 'Conditioning' | 'Speed & Agility' | 'Mobility' | 'Recovery';
