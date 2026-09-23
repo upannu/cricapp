@@ -208,9 +208,9 @@ describe("PlayerProfileClient", () => {
     expect(newSessionLink).not.toHaveClass("bg-pace-green");
   });
 
-  // Edit Player moved to the end of the row — View All Reports, Manage Subscription, +Log
-  // Session, then Edit, per feedback on the button sequence.
-  test("action row order is View All Reports, Manage Subscription, +Log Session, then Edit Player last", async () => {
+  // Edit Player stays at the end of the row — View All Reports, Manage Subscription, +Log
+  // Session, Cricket Passport, then Edit, per feedback on the button sequence.
+  test("action row order is View All Reports, Manage Subscription, +Log Session, Cricket Passport, then Edit Player last", async () => {
     setupDefaults();
     fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
 
@@ -219,7 +219,7 @@ describe("PlayerProfileClient", () => {
 
     const actionRow = screen.getByRole("link", { name: "View All Reports" }).closest("div") as HTMLElement;
     const labels = [...actionRow.querySelectorAll("a")].map((a) => a.textContent);
-    expect(labels).toEqual(["View All Reports", "Manage Subscription", "+ Log Session", "Edit Player"]);
+    expect(labels).toEqual(["View All Reports", "Manage Subscription", "+ Log Session", "Cricket Passport", "Edit Player"]);
   });
 
   // The ⋮ menu brings Send Message/Reassign Coach/Remove/Reinstate onto the profile page —
