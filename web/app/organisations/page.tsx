@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { PartnershipPageShell } from "@/components/PartnershipPageShell";
+import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid } from "@/components/editorial/EditorialUI";
 
 // Each card's `href` is a route that exists today; a future org type (Clubs, Schools,
 // Universities, Professional Teams) can be appended here without touching the layout.
 const ORG_TYPES = [
-  { icon: "🏏", title: "Academies", body: "Manage players, coaches, sessions and development in one place.", cta: "Explore Academy", href: "/organisations/academies" },
-  { icon: "👨‍🏫", title: "Coaches", body: "Manage players, memberships, sessions and development.", cta: "Explore Coaching", href: "/organisations/coaches" },
-  { icon: "🏛", title: "Cricket Associations", body: "Connect clubs, academies, coaches and player pathways.", cta: "Explore Solutions", href: "/organisations/associations" },
-  { icon: "🌏", title: "Cricket Boards", body: "A tailored enterprise partnership for governing bodies and large cricket organisations.", cta: "Explore Partnership", href: "/partnerships/cricket-board" },
+  { title: "Academies", body: "Manage players, coaches, sessions and development in one place.", cta: "Explore Academy", href: "/organisations/academies" },
+  { title: "Coaches", body: "Manage players, memberships, sessions and development.", cta: "Explore Coaching", href: "/organisations/coaches" },
+  { title: "Cricket Associations", body: "Connect clubs, academies, coaches and player pathways.", cta: "Explore Solutions", href: "/organisations/associations" },
+  { title: "Cricket Boards", body: "A tailored enterprise partnership for governing bodies and large cricket organisations.", cta: "Explore Partnership", href: "/partnerships/cricket-board" },
 ];
 
 const CAPABILITIES = [
@@ -29,33 +30,27 @@ export default function OrganisationsPage() {
     <PartnershipPageShell>
       <div className="max-w-5xl mx-auto px-6 sm:px-10">
         {/* Hero */}
-        <div className="pt-10 pb-16 text-center">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 text-balance">CRIC HQ for Organisations</h1>
-          <p className="text-lg text-zinc-300 max-w-2xl mx-auto mb-8">
+        <div className="pt-14 pb-16 text-center">
+          <div className="flex justify-center mb-6"><Eyebrow>Built For Every Level Of Cricket</Eyebrow></div>
+          <EditorialHeading size="lg" level="h1">CRIC HQ for Organisations</EditorialHeading>
+          <p className="text-lg text-hp-paper/65 max-w-2xl mx-auto mt-6 mb-8">
             One platform built to support cricket organisations of every size.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Link href="#solutions"
-              className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-              Explore Solutions
-            </Link>
-            <Link href="/contact"
-              className="inline-block px-7 py-3 text-zinc-300 text-sm font-bold rounded-xl border border-zinc-700 hover:bg-zinc-800 transition-colors">
-              Contact Us
-            </Link>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <EditorialButton href="#solutions" size="lg">Explore Solutions</EditorialButton>
+            <EditorialButton href="/contact" variant="secondary" size="lg">Contact Us</EditorialButton>
           </div>
         </div>
 
         {/* Organisation types */}
-        <div id="solutions" className="mb-16 scroll-mt-20">
-          <h2 className="text-xl font-bold text-white text-center mb-8">Connected Solutions for Every Level of Cricket</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {ORG_TYPES.map((o) => (
-              <div key={o.title} className="bg-surface rounded-2xl p-5 flex flex-col">
-                <div className="text-3xl mb-3">{o.icon}</div>
-                <p className="text-white font-semibold text-sm mb-1">{o.title}</p>
-                <p className="text-zinc-500 text-xs mb-4 flex-1">{o.body}</p>
-                <Link href={o.href} className="text-pace-green text-xs font-bold hover:underline">
+        <div id="solutions" className="mb-20 scroll-mt-20">
+          <div className="text-center mb-10"><EditorialHeading size="sm">Connected Solutions for Every Level of Cricket</EditorialHeading></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 border-t border-white/8">
+            {ORG_TYPES.map((o, i) => (
+              <div key={o.title} className={`p-6 flex flex-col border-b sm:border-b-0 border-white/8 ${i > 0 ? "sm:border-l" : ""}`}>
+                <p className="font-display font-black text-hp-paper uppercase text-lg mb-2">{o.title}</p>
+                <p className="text-hp-paper/60 text-sm mb-5 flex-1 leading-relaxed">{o.body}</p>
+                <Link href={o.href} className="font-mono text-xs font-bold text-hp-cg hover:underline uppercase tracking-wider">
                   {o.cta} →
                 </Link>
               </div>
@@ -64,58 +59,48 @@ export default function OrganisationsPage() {
         </div>
 
         {/* Connected ecosystem */}
-        <div className="mb-16">
-          <h2 className="text-xl font-bold text-white text-center mb-8">One Connected Cricket Ecosystem</h2>
-          <div className="bg-surface rounded-2xl p-8 flex flex-col items-center gap-3">
+        <div className="mb-20">
+          <div className="text-center mb-10"><EditorialHeading size="sm">One Connected Cricket Ecosystem</EditorialHeading></div>
+          <div className="border border-white/8 p-10 flex flex-col items-center gap-3">
             {["Cricket Board / Association", "Regions / Districts"].map((step) => (
               <div key={step} className="flex flex-col items-center gap-3">
-                <div className="px-5 py-2.5 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-bold text-center">
+                <div className="px-5 py-2.5 border border-hp-cg/30 bg-hp-cg/5 text-hp-cg text-sm font-display font-bold uppercase text-center">
                   {step}
                 </div>
-                <div className="w-px h-5 bg-zinc-700" />
+                <div className="w-px h-5 bg-white/10" />
               </div>
             ))}
             <div className="flex flex-wrap justify-center gap-3">
               {["Academies", "Clubs", "Programs"].map((step) => (
-                <div key={step} className="px-5 py-2.5 rounded-xl bg-ink border border-zinc-700 text-zinc-300 text-sm font-semibold">
+                <div key={step} className="px-5 py-2.5 border border-white/10 text-hp-paper/75 text-sm font-display font-semibold uppercase">
                   {step}
                 </div>
               ))}
             </div>
-            <div className="w-px h-5 bg-zinc-700" />
-            <div className="px-5 py-2.5 rounded-xl bg-ink border border-zinc-700 text-zinc-300 text-sm font-semibold">
+            <div className="w-px h-5 bg-white/10" />
+            <div className="px-5 py-2.5 border border-white/10 text-hp-paper/75 text-sm font-display font-semibold uppercase">
               Coaches
             </div>
-            <div className="w-px h-5 bg-zinc-700" />
-            <div className="px-5 py-2.5 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-bold">
+            <div className="w-px h-5 bg-white/10" />
+            <div className="px-5 py-2.5 border border-hp-cg/30 bg-hp-cg/5 text-hp-cg text-sm font-display font-bold uppercase">
               Players
             </div>
           </div>
         </div>
 
         {/* Why CRIC HQ */}
-        <div className="mb-16">
-          <h2 className="text-xl font-bold text-white text-center mb-8">Why CRIC HQ</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {CAPABILITIES.map((c) => (
-              <div key={c.title} className="bg-surface rounded-2xl p-5">
-                <p className="text-white font-semibold text-sm mb-1">{c.title}</p>
-                <p className="text-zinc-500 text-xs">{c.body}</p>
-              </div>
-            ))}
-          </div>
+        <div className="mb-20">
+          <div className="text-center mb-10"><EditorialHeading size="sm">Why CRIC HQ</EditorialHeading></div>
+          <CapabilityGrid items={CAPABILITIES} cols={3} />
         </div>
 
         {/* Enterprise CTA */}
-        <div className="text-center pb-16">
-          <h2 className="text-xl font-bold text-white mb-2">Need a solution for your entire cricket organisation?</h2>
-          <p className="text-sm text-zinc-500 mb-6">
+        <div className="text-center pb-20">
+          <EditorialHeading size="sm">Need a solution for your entire cricket organisation?</EditorialHeading>
+          <p className="text-sm text-hp-paper/52 mt-4 mb-8">
             Explore a tailored CRIC HQ partnership built around your organisation.
           </p>
-          <Link href="/partnerships/cricket-board"
-            className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Explore Cricket Board Partnership
-          </Link>
+          <EditorialButton href="/partnerships/cricket-board" size="lg">Explore Cricket Board Partnership</EditorialButton>
         </div>
       </div>
     </PartnershipPageShell>

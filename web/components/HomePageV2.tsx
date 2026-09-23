@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Fragment } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 
 // ─── LOGO MARK ───────────────────────────────────────────────────────────────
 
@@ -21,13 +22,17 @@ function LogoMark({ size = 'nav' }: { size?: 'nav' | 'footer' }) {
 
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
 
-const MENUS: Record<string, string[]> = {
-  PLATFORM: ['Players', 'Teams', 'Clubs', 'Schools', 'Academies', 'Organisations'],
-  CRICKET: ['Live Scoring', 'Matches', 'Competitions', 'Fixtures', 'Results', 'Statistics'],
-  PERFORMANCE: ['Player Performance', 'Analytics', 'AI Insights', 'Development'],
-  COACHING: ['Coaches', 'Training', 'Assessments', 'Resources'],
-  'FOR ORGS': ['Clubs', 'Schools', 'Academies', 'Associations', 'Cricket Boards'],
-}
+// Cricket (Live Scoring / Matches / Competitions / Fixtures / Results / Statistics) was
+// deliberately dropped — none of that exists in the real product yet, and a nav item that's
+// entirely "coming soon" isn't worth keeping. Each of these links straight to a real page — no
+// dropdowns of placeholder sub-links, matching the rest of the public site's plain-link nav.
+const NAV_LINKS: { label: string; href: string }[] = [
+  { label: 'PLATFORM', href: '/platform' },
+  { label: 'PERFORMANCE', href: '/performance-intelligence' },
+  { label: 'COACHING', href: '/organisations/coaches' },
+  { label: 'FOR ORGS', href: '/organisations' },
+  { label: 'ABOUT', href: '/about' },
+]
 
 function Nav() {
   const [scrolled, setScrolled] = useState(false)
@@ -46,34 +51,20 @@ function Nav() {
       }`}
     >
       <div className="max-w-[1440px] mx-auto px-8 h-[84px] flex items-center justify-between overflow-visible">
-        <a href="#" className="flex items-center">
+        <Link href="/" className="flex items-center">
           <LogoMark size="nav" />
-        </a>
+        </Link>
 
         <div className="hidden lg:flex items-center">
-          {Object.entries(MENUS).map(([label, items]) => (
-            <div key={label} className="relative group">
-              <button className="px-3.5 py-2 font-mono text-[9px] tracking-[0.22em] text-hp-paper/85 hover:text-hp-paper uppercase transition-colors">
-                {label}
-              </button>
-              <div className="absolute top-full left-0 pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50">
-                <div className="bg-[#141820] border border-white/8 shadow-2xl shadow-black py-2 min-w-[168px]">
-                  {items.map((item) => (
-                    <a
-                      key={item}
-                      href="#"
-                      className="block px-4 py-2 text-[11px] text-hp-paper/75 hover:text-hp-paper hover:bg-white/4 transition-colors"
-                    >
-                      {item}
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </div>
+          {NAV_LINKS.map(({ label, href }) => (
+            <a
+              key={label}
+              href={href}
+              className="px-3.5 py-2 font-mono text-[9px] tracking-[0.22em] text-hp-paper/85 hover:text-hp-paper uppercase transition-colors"
+            >
+              {label}
+            </a>
           ))}
-          <a href="#" className="px-3.5 py-2 font-mono text-[9px] tracking-[0.22em] text-hp-paper/85 hover:text-hp-paper uppercase transition-colors">
-            ABOUT
-          </a>
         </div>
 
         <div className="hidden lg:flex items-center gap-5">
@@ -113,13 +104,13 @@ function Nav() {
 
       {mobile && (
         <div className="lg:hidden bg-hp-surface border-t border-white/5 px-8 py-6">
-          {[...Object.keys(MENUS), 'ABOUT'].map((k) => (
+          {NAV_LINKS.map(({ label, href }) => (
             <a
-              key={k}
-              href="#"
+              key={label}
+              href={href}
               className="block py-3 font-mono text-[9px] tracking-[0.22em] text-hp-paper/85 hover:text-hp-paper border-b border-white/4 uppercase transition-colors"
             >
-              {k}
+              {label}
             </a>
           ))}
           <div className="mt-5 flex gap-3">
@@ -2056,19 +2047,38 @@ function FinalCTA() {
 // ─── FOOTER ──────────────────────────────────────────────────────────────────
 
 function Footer() {
-  const REAL_LINKS: Record<string, string> = { About: '/about', Contact: '/contact', Privacy: '/privacy', Terms: '/terms' }
+  // Every link here resolves to a real page — the original mockup's CRICKET column (Live
+  // Scoring/Matches/Competitions/Fixtures/Results/Statistics) and most of PLATFORM/PERFORMANCE's
+  // sub-items had no real destination and were dropped rather than left as dead "#" links.
   const cols = [
-    { heading: 'PLATFORM', links: ['Players', 'Teams', 'Clubs', 'Schools', 'Academies', 'Organisations'] },
-    { heading: 'CRICKET', links: ['Live Scoring', 'Matches', 'Competitions', 'Fixtures', 'Results', 'Statistics'] },
-    { heading: 'PERFORMANCE', links: ['Player Performance', 'Analytics', 'AI Insights', 'Development'] },
-    { heading: 'COACHING', links: ['Coaches', 'Training', 'Assessments', 'Resources'] },
-    { heading: 'COMPANY', links: ['About', 'Insights', 'Community', 'Contact', 'Privacy', 'Terms'] },
+    {
+      heading: 'PLATFORM', href: '/platform',
+      links: [
+        { label: 'Academies', href: '/organisations/academies' },
+        { label: 'Coaches', href: '/organisations/coaches' },
+        { label: 'Associations', href: '/organisations/associations' },
+        { label: 'Cricket Boards', href: '/partnerships/cricket-board' },
+      ],
+    },
+    {
+      heading: 'PERFORMANCE', href: '/performance-intelligence',
+      links: [{ label: 'Fast Bowling Program', href: '/programs/fast-bowling-development' }],
+    },
+    {
+      heading: 'COMPANY', href: '/about',
+      links: [
+        { label: 'About', href: '/about' },
+        { label: 'Contact', href: '/contact' },
+        { label: 'Privacy', href: '/privacy' },
+        { label: 'Terms', href: '/terms' },
+      ],
+    },
   ]
 
   return (
     <footer className="bg-[#040507] border-t border-white/5">
       <div className="max-w-[1440px] mx-auto px-8 py-16">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-10 mb-16">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-16">
           <div className="col-span-2 md:col-span-1">
             <div className="mb-3">
               <LogoMark size="footer" />
@@ -2081,14 +2091,14 @@ function Footer() {
             </p>
           </div>
 
-          {cols.map(({ heading, links }) => (
+          {cols.map(({ heading, href, links }) => (
             <div key={heading}>
-              <div className="font-mono text-[8px] tracking-[0.28em] text-hp-paper/72 uppercase mb-4">{heading}</div>
+              <a href={href} className="block font-mono text-[8px] tracking-[0.28em] text-hp-paper/72 hover:text-hp-paper uppercase mb-4 transition-colors">{heading}</a>
               <ul className="space-y-2.5">
                 {links.map((l) => (
-                  <li key={l}>
-                    <a href={REAL_LINKS[l] ?? "#"} className="text-[11px] text-hp-paper/65 hover:text-hp-paper transition-colors">
-                      {l}
+                  <li key={l.label}>
+                    <a href={l.href} className="text-[11px] text-hp-paper/65 hover:text-hp-paper transition-colors">
+                      {l.label}
                     </a>
                   </li>
                 ))}

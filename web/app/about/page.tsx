@@ -33,8 +33,8 @@ export default function AboutPage() {
       <Section title="Get in touch">
         <p>
           Questions about CRIC HQ, your academy, or a partnership? Reach us at{" "}
-          <a href="mailto:support@crichq.com.au" className="text-pace-green hover:underline">support@crichq.com.au</a>{" "}
-          or via the <a href="/contact" className="text-pace-green hover:underline">Contact page</a>.
+          <a href="mailto:support@crichq.com.au" className="text-hp-cg hover:underline">support@crichq.com.au</a>{" "}
+          or via the <a href="/contact" className="text-hp-cg hover:underline">Contact page</a>.
         </p>
       </Section>
     </LegalPageShell>
