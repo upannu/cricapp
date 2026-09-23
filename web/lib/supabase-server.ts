@@ -1,8 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { dbToPlayer, dbToCoach, dbToReport, dbToArticle, dbToArticleRead, type DbPlayer, type DbCoach, type DbReport, type DbArticle, type DbArticleRead } from "@/lib/db";
+import { dbToPlayer, dbToCoach, dbToReport, dbToArticle, dbToArticleRead, dbToPlayerAffiliation, type DbPlayer, type DbCoach, type DbReport, type DbArticle, type DbArticleRead, type DbPlayerAffiliation } from "@/lib/db";
 import { STAGE_ORDER } from "@/lib/academy-content";
-import type { Player, Coach, Report, Article, ArticleRead } from "@/lib/types";
+import type { Player, Coach, Report, Article, ArticleRead, PlayerAffiliation } from "@/lib/types";
 
 async function createClient() {
   const cookieStore = await cookies();
@@ -36,6 +36,12 @@ export async function fetchCoachServer(id: string): Promise<Coach | null> {
   return data ? dbToCoach(data as DbCoach) : null;
 }
 
+export async function fetchPlayerAffiliationsServer(playerId: string): Promise<PlayerAffiliation[]> {
+  const sb = await createClient();
+  const { data } = await sb.from("player_affiliations").select("*").eq("player_id", playerId).order("start_date", { ascending: false });
+  return ((data ?? []) as DbPlayerAffiliation[]).map(dbToPlayerAffiliation);
+}
+
 /**
  * Ownership check for the /players/[id]/* server-rendered routes — without this, any
  * logged-in coach/academy_admin could view or edit another academy's player just by
@@ -59,6 +65,36 @@ export async function canAccessPlayerServer(targetPlayerId: string): Promise<boo
     if (!academyId) return false;
     const { data } = await sb.from("academies").select("player_ids").eq("id", academyId).single();
     return !!(data?.player_ids as string[] | undefined)?.includes(targetPlayerId);
+  }
+  return false;
+}
+
+/**
+ * Ownership check for /players/[id]/passport — deliberately broader than canAccessPlayerServer's
+ * current-assignment-only check. The whole point of a "passport" is that it stays visible to a
+ * coach/academy_admin who was ever affiliated with this player, not just their current one — a
+ * coach who loses a player via Reassign Coach shouldn't instantly lose the ability to see the
+ * passport record of the time they worked together. Falls back to canAccessPlayerServer's result
+ * for platform_admin/player/parent (identity-based, unaffected by org moves either way).
+ */
+export async function canAccessPlayerPassportServer(targetPlayerId: string): Promise<boolean> {
+  const sb = await createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return false;
+  const role = user.app_metadata?.role as string | undefined;
+  if (role === "platform_admin") return true;
+  if (role === "player" || role === "parent") return user.app_metadata?.player_id === targetPlayerId;
+  if (role === "coach") {
+    const coachId = user.app_metadata?.coach_id as string | undefined;
+    if (!coachId) return false;
+    const { data } = await sb.from("player_affiliations").select("id").eq("player_id", targetPlayerId).eq("coach_id", coachId).limit(1);
+    return !!data?.length;
+  }
+  if (role === "academy_admin") {
+    const academyId = user.app_metadata?.academy_id as string | undefined;
+    if (!academyId) return false;
+    const { data } = await sb.from("player_affiliations").select("id").eq("player_id", targetPlayerId).eq("academy_id", academyId).limit(1);
+    return !!data?.length;
   }
   return false;
 }

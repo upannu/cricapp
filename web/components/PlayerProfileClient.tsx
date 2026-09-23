@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, fetchSessionPacks, updatePlayer, fetchPlayerVideoTags } from "@/lib/db";
+import { fetchPlayer, fetchAcademies, fetchCoaches, fetchReports, fetchSessions, fetchSCWorkouts, fetchActivePlans, fetchSessionPacks, updatePlayer, fetchPlayerVideoTags, recordPlayerAffiliationChange } from "@/lib/db";
 import type { PlayerVideoTagEntry } from "@/lib/db";
 import { formatDate, formatTimestamp, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
@@ -128,7 +128,14 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
     setReassigning(true);
     try {
       const newCoachId = reassignToCoachId || null;
+      const newCoach = newCoachId ? coaches.find((c) => c.id === newCoachId) : undefined;
+      const newAcademy = newCoach?.academyId ? academies.find((a) => a.id === newCoach.academyId) : undefined;
+      const newOrgLabel = newCoach ? (newAcademy?.name ?? `${newCoach.name} (Independent)`) : null;
       await updatePlayer(playerId, { coach_id: newCoachId });
+      // Passport affiliation history — best-effort: the coach_id update above is the source of
+      // truth for access/roster purposes, so a failure recording history here shouldn't block
+      // the reassignment itself, only get surfaced quietly.
+      await recordPlayerAffiliationChange(playerId, newCoachId, newAcademy?.id ?? null, newOrgLabel).catch(() => {});
       setPlayer((prev) => (prev ? { ...prev, coachId: newCoachId ?? "" } : prev));
       setConfirmReassign(false);
       setReassignToCoachId("");
@@ -283,6 +290,12 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
           >
             + Log Session
+          </Link>
+          <Link
+            href={`/players/${playerId}/passport`}
+            className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
+          >
+            Cricket Passport
           </Link>
           <Link
             href={`/players/${playerId}/edit`}

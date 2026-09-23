@@ -4,7 +4,7 @@ import type {
   BowlingStyle, AgeGroup, BattingHand, PlayingLevel, GuardianConsent, PlanTier, ActionType,
   InjuryRisk, AcademyStage, BookingType, BookingStatus, MessageChannel,
   ReportBiomechanics, SkeletonImage, ReportDrill, BallTrackingResult, CameraCalibration,
-  ActionPlan, ActionPlanPriority, ActionPlanStatus,
+  ActionPlan, ActionPlanPriority, ActionPlanStatus, PlayerAffiliation,
   SCWorkout, SCWorkoutType,
   VideoAnnotation, VoiceNote, Assessment, AssessmentCategory,
   Article, ArticleCategory, DailyTip, ArticleRead, PaymentStatus,
@@ -1328,6 +1328,62 @@ export async function deleteActionPlan(id: string): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("action_plans").delete().eq("id", id);
   if (error) throw error;
+}
+
+// ─── Player Cricket Passport — affiliation history ─────────────────────────────
+
+export interface DbPlayerAffiliation {
+  id: string; player_id: string; academy_id: string | null; coach_id: string | null;
+  org_label: string; start_date: string; end_date: string | null; created_at?: string;
+}
+
+export function dbToPlayerAffiliation(r: DbPlayerAffiliation): PlayerAffiliation {
+  return {
+    id: r.id, playerId: r.player_id, academyId: r.academy_id, coachId: r.coach_id,
+    orgLabel: r.org_label, startDate: r.start_date, endDate: r.end_date,
+    createdAt: r.created_at ?? r.start_date,
+  };
+}
+
+export async function fetchPlayerAffiliations(playerId: string): Promise<PlayerAffiliation[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("player_affiliations").select("*").eq("player_id", playerId).order("start_date", { ascending: false });
+  if (error) throw error;
+  return (data as DbPlayerAffiliation[]).map(dbToPlayerAffiliation);
+}
+
+/** Closes the player's current (end_date null) affiliation period, if any, and opens a new one —
+ * called alongside the coach_id update in the Reassign Coach flow so the passport timeline stays
+ * accurate. orgLabel is captured as a snapshot (the new coach/academy's current display name),
+ * not a live reference, matching how the rest of this table works. Pass newCoachId null to record
+ * the player becoming unaffiliated (no new period is opened in that case). */
+export async function recordPlayerAffiliationChange(
+  playerId: string,
+  newCoachId: string | null,
+  newAcademyId: string | null,
+  newOrgLabel: string | null,
+): Promise<void> {
+  const sb = createClient();
+  const now = new Date().toISOString();
+  const { error: closeError } = await sb
+    .from("player_affiliations")
+    .update({ end_date: now })
+    .eq("player_id", playerId)
+    .is("end_date", null);
+  if (closeError) throw closeError;
+
+  if (newCoachId && newOrgLabel) {
+    const { error: openError } = await sb.from("player_affiliations").insert({
+      id: `pa_${Date.now()}`,
+      player_id: playerId,
+      academy_id: newAcademyId,
+      coach_id: newCoachId,
+      org_label: newOrgLabel,
+      start_date: now,
+      end_date: null,
+    });
+    if (openError) throw openError;
+  }
 }
 
 // ─── S&C workouts ────────────────────────────────────────────────────────────
