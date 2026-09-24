@@ -44,7 +44,7 @@ export function AcademyLearnClient() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+        <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -52,8 +52,8 @@ export function AcademyLearnClient() {
   if (!user?.playerId || !player) {
     return (
       <div className="max-w-3xl mx-auto px-6 py-16 text-center">
-        <p className="text-white font-semibold mb-2">No player linked to this account</p>
-        <p className="text-zinc-400 text-sm">Contact your coach or academy admin to get this fixed.</p>
+        <p className="text-hp-paper font-semibold mb-2">No player linked to this account</p>
+        <p className="text-hp-paper/45 text-sm">Contact your coach or academy admin to get this fixed.</p>
       </div>
     );
   }
@@ -67,36 +67,36 @@ export function AcademyLearnClient() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-white">Academy</h1>
-        <p className="text-zinc-400 text-sm">Foundation → Mechanics → Velocity → Elite</p>
+        <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">Academy</h1>
+        <p className="text-hp-paper/45 text-sm">Foundation → Mechanics → Velocity → Elite</p>
       </div>
 
       {/* Progress summary */}
-      <div className="bg-surface rounded-2xl p-5 grid grid-cols-3 gap-4 text-center">
+      <div className="bg-hp-surface p-5 grid grid-cols-3 gap-4 text-center">
         <div>
           <div className="text-lg font-bold text-pace-green">{player.academy.articlesRead}/{ACADEMY_TOTAL_ARTICLES}</div>
-          <div className="text-xs text-zinc-500">Articles read</div>
+          <div className="text-xs text-hp-paper/45">Articles read</div>
         </div>
         <div>
-          <div className="text-lg font-bold text-white font-mono">⚡ {player.academy.xp.toLocaleString()}</div>
-          <div className="text-xs text-zinc-500">Academy XP</div>
+          <div className="text-lg font-bold text-hp-paper font-mono">⚡ {player.academy.xp.toLocaleString()}</div>
+          <div className="text-xs text-hp-paper/45">Academy XP</div>
         </div>
         <div>
           <div className="text-lg font-bold text-fire">🔥 {streak || player.tipStreakCount}</div>
-          <div className="text-xs text-zinc-500">Day tip streak</div>
+          <div className="text-xs text-hp-paper/45">Day tip streak</div>
         </div>
       </div>
 
       {/* Daily tip */}
       {tip && (
-        <div className="bg-surface rounded-2xl p-5">
+        <div className="bg-hp-surface p-5">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Today&apos;s Tip</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-hp-paper/45">Today&apos;s Tip</p>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${CATEGORY_STYLES[tip.category] ?? ""}`}>
               {tip.category}
             </span>
           </div>
-          <p className="text-zinc-300 text-sm leading-relaxed">{tip.body}</p>
+          <p className="text-hp-paper/70 text-sm leading-relaxed">{tip.body}</p>
           {tip.relatedArticleId && (
             <Link href={`/portal/learn/${tip.relatedArticleId}`} className="inline-block mt-3 text-xs font-semibold text-pace-green hover:opacity-80">
               Read the related article →
@@ -118,12 +118,12 @@ export function AcademyLearnClient() {
           const readInStage = readCountByStage[stage] ?? 0;
 
           return (
-            <div key={stage} className="bg-surface rounded-2xl p-5">
+            <div key={stage} className="bg-hp-surface p-5">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-white">
+                <h2 className="text-sm font-bold text-hp-paper">
                   {unlocked ? "" : "🔒 "}{stage}
                 </h2>
-                <span className="text-xs text-zinc-500">{readInStage}/{stageArticles.length} read</span>
+                <span className="text-xs text-hp-paper/45">{readInStage}/{stageArticles.length} read</span>
               </div>
               {!unlocked && lockReason && (
                 <p className="text-xs text-amber mb-3">{lockReason}</p>
@@ -133,17 +133,17 @@ export function AcademyLearnClient() {
                   const isRead = readIds.has(a.id);
                   const content = (
                     <div
-                      className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl ${
-                        unlocked ? "bg-ink hover:bg-zinc-800/60 transition-colors" : "bg-ink/50 opacity-50"
+                      className={`flex items-center justify-between gap-3 px-3 py-2.5 ${
+                        unlocked ? "bg-hp-ink hover:bg-white/8 transition-colors" : "bg-hp-ink/50 opacity-50"
                       }`}
                     >
                       <div className="min-w-0">
-                        <p className={`text-sm font-medium truncate ${unlocked ? "text-white" : "text-zinc-500"}`}>
+                        <p className={`text-sm font-medium truncate ${unlocked ? "text-hp-paper" : "text-hp-paper/45"}`}>
                           {isRead && "✓ "}{a.title}
                         </p>
-                        <p className="text-xs text-zinc-500">{a.readTimeMinutes} min read</p>
+                        <p className="text-xs text-hp-paper/45">{a.readTimeMinutes} min read</p>
                       </div>
-                      {!unlocked && <span className="text-zinc-600 flex-shrink-0">🔒</span>}
+                      {!unlocked && <span className="text-hp-paper/35 flex-shrink-0">🔒</span>}
                     </div>
                   );
                   return unlocked ? (

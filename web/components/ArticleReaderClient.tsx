@@ -68,7 +68,7 @@ export function ArticleReaderClient({ articleId }: { articleId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+        <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -76,7 +76,7 @@ export function ArticleReaderClient({ articleId }: { articleId: string }) {
   if (!user?.playerId || !player || !article) {
     return (
       <div className="max-w-2xl mx-auto px-6 py-16 text-center">
-        <p className="text-white font-semibold mb-2">Article not found</p>
+        <p className="text-hp-paper font-semibold mb-2">Article not found</p>
         <Link href="/portal/learn" className="text-pace-green text-sm font-semibold hover:opacity-80">← Back to Academy</Link>
       </div>
     );
@@ -87,8 +87,8 @@ export function ArticleReaderClient({ articleId }: { articleId: string }) {
     return (
       <div className="max-w-2xl mx-auto px-6 py-16 text-center">
         <div className="text-4xl mb-3">🔒</div>
-        <p className="text-white font-semibold mb-2">{article.title} is locked</p>
-        <p className="text-zinc-400 text-sm mb-6">{reason}</p>
+        <p className="text-hp-paper font-semibold mb-2">{article.title} is locked</p>
+        <p className="text-hp-paper/45 text-sm mb-6">{reason}</p>
         <Link href="/portal/learn" className="text-pace-green text-sm font-semibold hover:opacity-80">← Back to Academy</Link>
       </div>
     );
@@ -97,13 +97,13 @@ export function ArticleReaderClient({ articleId }: { articleId: string }) {
   return (
     <div className="max-w-2xl mx-auto px-6 py-8">
       <div className="mb-6">
-        <Link href="/portal/learn" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors">
+        <Link href="/portal/learn" className="inline-flex items-center gap-1.5 text-sm text-hp-paper/45 hover:text-hp-paper transition-colors">
           ← Back to Academy
         </Link>
       </div>
 
       {xpToast !== null && (
-        <div className="mb-4 px-4 py-3 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
+        <div className="mb-4 px-4 py-3 bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
           ⚡ +{xpToast} XP earned
         </div>
       )}
@@ -112,14 +112,14 @@ export function ArticleReaderClient({ articleId }: { articleId: string }) {
         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${STAGE_STYLES[article.stage]}`}>
           {article.stage}
         </span>
-        <span className="text-zinc-500 text-xs">{article.readTimeMinutes} min read</span>
+        <span className="text-hp-paper/45 text-xs">{article.readTimeMinutes} min read</span>
         {readIds.has(article.id) && <span className="text-pace-green text-xs font-semibold">✓ Read</span>}
       </div>
 
-      <h1 className="text-xl font-bold text-white mb-4">{article.title}</h1>
+      <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-4">{article.title}</h1>
 
       {article.videoUrl && (
-        <div className="mb-6 rounded-2xl overflow-hidden bg-black aspect-video">
+        <div className="mb-6 overflow-hidden bg-black aspect-video">
           {(() => {
             const embed = toEmbedUrl(article.videoUrl);
             return embed ? (
@@ -132,11 +132,11 @@ export function ArticleReaderClient({ articleId }: { articleId: string }) {
         </div>
       )}
 
-      <div className="bg-surface rounded-2xl p-5 mb-6">
-        <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Key takeaways</p>
+      <div className="bg-hp-surface p-5 mb-6">
+        <p className="text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-2">Key takeaways</p>
         <ul className="space-y-1.5">
           {article.keyTakeaways.map((t, i) => (
-            <li key={i} className="text-sm text-zinc-300 leading-relaxed flex gap-2">
+            <li key={i} className="text-sm text-hp-paper/70 leading-relaxed flex gap-2">
               <span className="text-pace-green flex-shrink-0">→</span>
               <span>{t}</span>
             </li>

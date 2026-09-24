@@ -153,7 +153,7 @@ export function PortalLogSessionClient() {
   if (loading && user?.playerId) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+        <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -161,8 +161,8 @@ export function PortalLogSessionClient() {
   if (!user?.playerId || !player) {
     return (
       <div className="max-w-2xl mx-auto px-6 py-16 text-center">
-        <p className="text-white font-semibold mb-2">No player linked to this account</p>
-        <p className="text-zinc-400 text-sm">Contact your coach or academy admin to get this fixed.</p>
+        <p className="text-hp-paper font-semibold mb-2">No player linked to this account</p>
+        <p className="text-hp-paper/45 text-sm">Contact your coach or academy admin to get this fixed.</p>
       </div>
     );
   }
@@ -171,17 +171,17 @@ export function PortalLogSessionClient() {
     return (
       <div className="max-w-2xl mx-auto px-6 py-16 text-center">
         <div className="w-14 h-14 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-2xl font-bold mx-auto mb-4">✓</div>
-        <p className="text-white font-semibold text-lg mb-1">Session saved</p>
-        <p className="text-zinc-400 text-sm mb-1">+{result.xpEarned} XP · {result.selfLogRemaining} self-logged session{result.selfLogRemaining === 1 ? "" : "s"} left this month</p>
+        <p className="text-hp-paper font-semibold text-lg mb-1">Session saved</p>
+        <p className="text-hp-paper/45 text-sm mb-1">+{result.xpEarned} XP · {result.selfLogRemaining} self-logged session{result.selfLogRemaining === 1 ? "" : "s"} left this month</p>
         {result.reportError ? (
           <p className="text-amber text-sm mt-4">Report generation did not complete: {result.reportError}. Your session is still saved — a coach can generate the report later from Sessions.</p>
         ) : result.hadVideo ? (
           <p className="text-pace-green text-sm mt-4">Your AI biomechanics report is ready in Reports.</p>
         ) : (
-          <p className="text-zinc-400 text-sm mt-4">No video was attached, so there&apos;s no AI report for this one — add a delivery video next time you want your action analyzed.</p>
+          <p className="text-hp-paper/45 text-sm mt-4">No video was attached, so there&apos;s no AI report for this one — add a delivery video next time you want your action analyzed.</p>
         )}
         <button type="button" onClick={() => router.push("/portal")}
-          className="mt-6 px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+          className="mt-6 px-5 py-2.5 bg-pace-green text-black text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer">
           Back to Portal
         </button>
       </div>
@@ -190,31 +190,31 @@ export function PortalLogSessionClient() {
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-8">
-      <h1 className="text-xl font-bold text-white mb-1">Log My Own Session</h1>
-      <p className="text-zinc-400 text-sm mb-6">
+      <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Log My Own Session</h1>
+      <p className="text-hp-paper/45 text-sm mb-6">
         No coach available right now? Log any session yourself — add a delivery video too if you want an AI biomechanics analysis.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="bg-surface rounded-2xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-hp-surface p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">Date</label>
-            <DateInput value={sessionDate} onChange={setSessionDate} className="w-full bg-ink rounded-xl px-3 py-2.5 text-sm text-white border border-zinc-700 focus:border-pace-green focus:outline-none" required />
+            <label className="block text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-1.5">Date</label>
+            <DateInput value={sessionDate} onChange={setSessionDate} className="w-full bg-hp-ink px-3 py-2.5 text-sm text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none" required />
           </div>
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">Session Type</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-1.5">Session Type</label>
             <select value={sessionType} onChange={(e) => setSessionType(e.target.value as BookingType)}
-              className="w-full bg-ink rounded-xl px-3 py-2.5 text-sm text-white border border-zinc-700 focus:border-pace-green focus:outline-none">
+              className="w-full bg-hp-ink px-3 py-2.5 text-sm text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none">
               {SESSION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">RPE (how hard did it feel, 1–10)</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-1.5">RPE (how hard did it feel, 1–10)</label>
             <div className="flex gap-1.5 flex-wrap">
               {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                 <button key={n} type="button" onClick={() => setRpe(rpe === n ? null : n)}
-                  className={`w-9 h-9 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                    rpe === n ? "bg-pace-green text-black border-pace-green" : "text-zinc-400 border-zinc-700 hover:border-zinc-500"
+                  className={`w-9 h-9 text-xs font-bold border transition-colors cursor-pointer ${
+                    rpe === n ? "bg-hp-cg text-hp-paper border-hp-cg" : "text-hp-paper/45 border-white/12 hover:border-white/25"
                   }`}>
                   {n}
                 </button>
@@ -222,16 +222,16 @@ export function PortalLogSessionClient() {
             </div>
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">Notes (optional)</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-1.5">Notes (optional)</label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
               placeholder="What were you working on this session?"
-              className="w-full bg-ink rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none resize-none" />
+              className="w-full bg-hp-ink px-3 py-2.5 text-sm text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none resize-none" />
           </div>
         </div>
 
-        <div className="bg-surface rounded-2xl p-6">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Camera Angles (optional)</p>
-          <p className="text-xs text-zinc-500 mb-4">Only needed if you want an AI biomechanics report — skip this for a Warm-up / Conditioning or Fitness Assessment session. Side-on gives the most accurate analysis when you do add one.</p>
+        <div className="bg-hp-surface p-6">
+          <p className="text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-1">Camera Angles (optional)</p>
+          <p className="text-xs text-hp-paper/45 mb-4">Only needed if you want an AI biomechanics report — skip this for a Warm-up / Conditioning or Fitness Assessment session. Side-on gives the most accurate analysis when you do add one.</p>
           <div className="space-y-3">
             {CAMERA_ANGLES.map((cam) => {
               const angleState = angles[cam.id];
@@ -239,38 +239,38 @@ export function PortalLogSessionClient() {
               const hasFile = !!file;
               const busy = status === "checking" || status === "transcoding" || status === "uploading";
               return (
-                <div key={cam.id} className={`rounded-xl border transition-colors ${
+                <div key={cam.id} className={`border transition-colors ${
                   status === "done" ? "border-pace-green/40 bg-pace-green/5" :
                   status === "error" || status === "invalid" ? "border-red-500/40 bg-red-500/5" :
-                  hasFile ? "border-zinc-500 bg-zinc-800/40" : "border-zinc-700"
+                  hasFile ? "border-white/25 bg-white/8" : "border-white/12"
                 }`}>
                   <div className="flex items-center gap-4 p-4">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    <div className={`w-10 h-10 flex items-center justify-center flex-shrink-0 ${
                       status === "done" ? "bg-pace-green/20" :
                       status === "error" || status === "invalid" ? "bg-red-500/20" :
-                      busy || hasFile ? "bg-zinc-700" : "bg-ink"
+                      busy || hasFile ? "bg-white/10" : "bg-hp-ink"
                     }`}>
                       {busy ? (
-                        <div className="w-4 h-4 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+                        <div className="w-4 h-4 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
                       ) : status === "done" ? (
                         <span className="text-pace-green text-sm font-bold">✓</span>
                       ) : status === "error" || status === "invalid" ? (
                         <span className="text-red-400 text-sm font-bold">✗</span>
                       ) : (
-                        <span className="text-zinc-500">{cam.icon}</span>
+                        <span className="text-hp-paper/45">{cam.icon}</span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-semibold ${
                         status === "done" ? "text-pace-green" :
                         status === "error" || status === "invalid" ? "text-red-400" :
-                        hasFile ? "text-white" : "text-zinc-400"
+                        hasFile ? "text-hp-paper" : "text-hp-paper/45"
                       }`}>
                         {cam.label}
                       </p>
                       {file ? (
                         <>
-                          <p className="text-xs text-zinc-500 truncate">
+                          <p className="text-xs text-hp-paper/45 truncate">
                             {file.name} · {(file.size / (1024 * 1024)).toFixed(1)} MB
                             {status === "checking" && " · Checking quality…"}
                             {status === "transcoding" && ` · Converting… ${Math.round((progress ?? 0) * 100)}%`}
@@ -283,13 +283,13 @@ export function PortalLogSessionClient() {
                           )}
                         </>
                       ) : (
-                        <p className="text-xs text-zinc-600">{cam.description}</p>
+                        <p className="text-xs text-hp-paper/35">{cam.description}</p>
                       )}
                     </div>
                     {!busy && status !== "done" && (
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <label className={`text-xs font-semibold px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
-                          hasFile ? "text-zinc-400 border-zinc-600 hover:border-zinc-400" : "text-pace-green border-pace-green/40 hover:bg-pace-green/10"
+                        <label className={`text-xs font-semibold px-3 py-1.5 border cursor-pointer transition-colors ${
+                          hasFile ? "text-hp-paper/45 border-white/15 hover:border-white/25" : "text-hp-paper/70 border-white/15 hover:border-hp-cg hover:text-hp-cg"
                         }`}>
                           {hasFile ? "Change" : "Select video"}
                           <input type="file" accept="video/mp4,video/quicktime,video/webm,video/*" className="sr-only"
@@ -297,7 +297,7 @@ export function PortalLogSessionClient() {
                         </label>
                         {hasFile && (
                           <button type="button" onClick={() => handleFileChange(cam.id, null)}
-                            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer">
+                            className="text-xs font-semibold px-3 py-1.5 border border-white/12 text-hp-paper/45 hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer">
                             Remove
                           </button>
                         )}
@@ -313,7 +313,7 @@ export function PortalLogSessionClient() {
         {submitError && <p className="text-red-400 text-sm">{submitError}</p>}
 
         <button type="submit" disabled={submitting || isBusy}
-          className="w-full px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+          className="w-full px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
           {submitting ? (submitStage || "Saving…") : "Save Session"}
         </button>
       </form>

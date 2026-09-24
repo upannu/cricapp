@@ -42,7 +42,7 @@ const STATUS_STYLES: Record<BookingStatus, string> = {
   Confirmed:  "bg-pace-green/20 text-pace-green border-pace-green/30",
   Pending:    "bg-amber/20 text-amber border-amber/30",
   Cancelled:  "bg-red-500/20 text-red-400 border-red-500/30",
-  Completed:  "bg-zinc-700 text-zinc-400 border-zinc-600",
+  Completed:  "bg-white/10 text-hp-paper/50 border-white/15",
 };
 
 const TYPE_STYLES: Record<BookingType, string> = {
@@ -51,7 +51,7 @@ const TYPE_STYLES: Record<BookingType, string> = {
   "Video Review":            "bg-purple-500/10 text-purple-400",
   "Fitness Assessment":      "bg-fire/10 text-fire",
   "Match Practice":          "bg-amber/10 text-amber",
-  "Warm-up / Conditioning":  "bg-zinc-700 text-zinc-300",
+  "Warm-up / Conditioning":  "bg-white/10 text-hp-paper/70",
 };
 
 type FilterTab = "Upcoming" | "Pending" | "Past" | "Cancelled" | "All" | "Platform Fees";
@@ -395,24 +395,24 @@ export function BookingsClient() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Bookings</h1>
+          <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Bookings</h1>
         </div>
         <button type="button" onClick={openAdd}
-          className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+          className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
           + New Booking
         </button>
       </div>
 
       {actionError && (
-        <div className="mb-6 px-5 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold flex items-center justify-between gap-4">
+        <div className="mb-6 px-5 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold flex items-center justify-between gap-4">
           <span>{actionError}</span>
-          <button type="button" onClick={() => setActionError("")} className="text-red-400 hover:text-white cursor-pointer flex-shrink-0">✕</button>
+          <button type="button" onClick={() => setActionError("")} className="text-red-400 hover:text-hp-paper cursor-pointer flex-shrink-0">✕</button>
         </div>
       )}
 
       {/* Stats */}
       <StatsGrid columns={4}>
-        <StatCard label="Total bookings" value={bookings.length} color="text-white" />
+        <StatCard label="Total bookings" value={bookings.length} color="text-hp-paper" />
         <StatCard label="This week" value={thisWeek.length} color="text-pace-green" />
         <StatCard label="Upcoming" value={upcomingAll.length} color="text-blue-400"
           onClick={() => setTab("Upcoming")} active={tab === "Upcoming"} />
@@ -425,8 +425,8 @@ export function BookingsClient() {
 
       {/* Create / Edit form */}
       {showForm && (
-        <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-6">
+        <div className="bg-hp-surface p-6 border border-hp-cg/30 mb-6">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-6">
             {editingId ? "Edit Booking" : "New Booking"}
           </h2>
 
@@ -477,10 +477,10 @@ export function BookingsClient() {
                       key={day}
                       type="button"
                       onClick={() => setDraft({ ...draft, date: nextOccurrence(i) })}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer border ${
+                      className={`flex-1 py-2 text-xs font-bold transition-colors cursor-pointer border ${
                         active
-                          ? "bg-pace-green text-black border-pace-green"
-                          : "bg-ink text-zinc-500 border-zinc-700 hover:border-zinc-500 hover:text-zinc-300"
+                          ? "bg-hp-cg text-hp-paper border-hp-cg"
+                          : "bg-hp-ink text-hp-paper/45 border-white/12 hover:border-white/30 hover:text-hp-paper/70"
                       }`}
                     >
                       {day}
@@ -520,7 +520,7 @@ export function BookingsClient() {
               >
                 {BOOKING_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
-              <p className="text-xs text-zinc-500 mt-1.5">
+              <p className="text-xs text-hp-paper/45 mt-1.5">
                 Marketplace bookings are billed per appointment — even Net Session here means this one paid slot, not a Squad Training membership credit.
               </p>
             </div>
@@ -529,7 +529,7 @@ export function BookingsClient() {
             <div>
               <label className={lbl}>Session Fee ({currencyForCoach(draft.coachId).toUpperCase()})</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-semibold">$</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-hp-paper/45 text-sm font-semibold">$</span>
                 <input
                   type="number"
                   min={0}
@@ -598,16 +598,16 @@ export function BookingsClient() {
 
           <div className="flex items-center gap-3">
             <button type="button" onClick={handleSave}
-              className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
+              className="px-6 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
               {editingId ? "Save Changes" : "Create Booking"}
             </button>
             <button type="button" onClick={closeForm}
-              className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+              className="px-6 py-2.5 text-sm font-medium text-hp-paper/60 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors cursor-pointer">
               Cancel
             </button>
             {editingId && (
               <button type="button" onClick={() => handleDelete(editingId)}
-                className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer">
+                className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors cursor-pointer">
                 Delete
               </button>
             )}
@@ -617,7 +617,7 @@ export function BookingsClient() {
 
       {/* Success banner */}
       {saved && !showForm && (
-        <div className="mb-5 px-5 py-3 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
+        <div className="mb-5 px-5 py-3 bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
           ✓ Booking saved
         </div>
       )}
@@ -625,12 +625,12 @@ export function BookingsClient() {
       {/* Search */}
       {tab !== "Platform Fees" && (
         <div className="relative max-w-md mb-4">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-hp-paper/40 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by player or coach…"
-            className="w-full bg-surface rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
+            className="w-full bg-hp-ink pl-10 pr-4 py-2.5 text-hp-paper placeholder-hp-paper/35 border border-white/12 focus:border-hp-cg focus:outline-none text-sm" />
         </div>
       )}
 
@@ -645,8 +645,8 @@ export function BookingsClient() {
           const badge = t === "Pending" ? pendingAll.length : t === "Platform Fees" ? pendingFeeDues : 0;
           return (
             <button key={t} type="button" onClick={() => setTab(t)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                tab === t ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
+              className={`px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                tab === t ? "bg-hp-cg text-hp-paper" : "bg-hp-surface text-hp-paper/50 hover:text-hp-paper"
               }`}>
               {t}
               {badge > 0 && (
@@ -664,23 +664,23 @@ export function BookingsClient() {
       {tab === "Platform Fees" && (
         <div className="space-y-4">
           {feeDues.length === 0 ? (
-            <div className="bg-surface rounded-2xl p-16 text-center">
-              <p className="text-zinc-400 text-sm">No cash/bank-transfer bookings owe a platform fee.</p>
+            <div className="bg-hp-surface border border-white/8 p-16 text-center">
+              <p className="text-hp-paper/60 text-sm">No cash/bank-transfer bookings owe a platform fee.</p>
             </div>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-4 mb-2">
-                <div className="bg-surface rounded-2xl p-5 text-center">
+                <div className="bg-hp-surface border border-white/8 p-5 text-center">
                   <div className="text-2xl font-bold text-amber mb-1">
                     {sumMoneyByCurrency(feeDues.filter((d) => d.status === "pending").map((d) => ({ amount: d.amountAud, currency: academyById(d.academyId)?.currency ?? DEFAULT_CURRENCY })))}
                   </div>
-                  <div className="text-xs text-zinc-400">Pending</div>
+                  <div className="text-xs text-hp-paper/45">Pending</div>
                 </div>
-                <div className="bg-surface rounded-2xl p-5 text-center">
+                <div className="bg-hp-surface border border-white/8 p-5 text-center">
                   <div className="text-2xl font-bold text-pace-green mb-1">
                     {sumMoneyByCurrency(feeDues.filter((d) => d.status === "collected").map((d) => ({ amount: d.amountAud, currency: academyById(d.academyId)?.currency ?? DEFAULT_CURRENCY })))}
                   </div>
-                  <div className="text-xs text-zinc-400">Collected</div>
+                  <div className="text-xs text-hp-paper/45">Collected</div>
                 </div>
               </div>
               <div className="space-y-3">
@@ -689,10 +689,10 @@ export function BookingsClient() {
                   const player = booking ? playerById(booking.playerId) : undefined;
                   const academy = academyById(due.academyId);
                   return (
-                    <div key={due.id} className="bg-surface rounded-2xl p-5 flex items-center justify-between gap-4">
+                    <div key={due.id} className="bg-hp-surface border border-white/8 p-5 flex items-center justify-between gap-4">
                       <div className="min-w-0">
-                        <div className="text-white font-semibold text-sm">{academy?.name ?? "Unknown academy"}</div>
-                        <div className="text-xs text-zinc-400">
+                        <div className="text-hp-paper font-semibold text-sm">{academy?.name ?? "Unknown academy"}</div>
+                        <div className="text-xs text-hp-paper/45">
                           {player?.name ?? "Unknown player"} · {due.feePercent}% platform fee
                           {due.status === "collected" && due.collectedDate && ` · collected ${formatDate(due.collectedDate)}`}
                         </div>
@@ -723,10 +723,10 @@ export function BookingsClient() {
 
       {/* Booking list */}
       {tab === "Platform Fees" ? null : filtered.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-16 text-center">
-          <p className="text-zinc-400 text-sm mb-4">No {tab.toLowerCase()} bookings.</p>
+        <div className="bg-hp-surface border border-white/8 p-16 text-center">
+          <p className="text-hp-paper/60 text-sm mb-4">No {tab.toLowerCase()} bookings.</p>
           <button type="button" onClick={openAdd}
-            className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
+            className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
             + New Booking
           </button>
         </div>
@@ -736,10 +736,10 @@ export function BookingsClient() {
           {grouped.map(([date, dayBookings]) => (
             <div key={date}>
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-sm font-bold text-white">{friendlyDate(date)}</span>
-                <span className="text-xs text-zinc-500">{formatDate(date)}</span>
-                <div className="flex-1 h-px bg-zinc-800" />
-                <span className="text-xs text-zinc-500">{dayBookings.length} session{dayBookings.length > 1 ? "s" : ""}</span>
+                <span className="text-sm font-bold text-hp-paper">{friendlyDate(date)}</span>
+                <span className="text-xs text-hp-paper/45">{formatDate(date)}</span>
+                <div className="flex-1 h-px bg-white/8" />
+                <span className="text-xs text-hp-paper/45">{dayBookings.length} session{dayBookings.length > 1 ? "s" : ""}</span>
               </div>
               <div className="space-y-3">
                 {dayBookings
@@ -778,7 +778,7 @@ export function BookingsClient() {
         <PaginationFooter
           show={totalPages > 1}
           label={
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-hp-paper/45">
               Showing {(currentPage - 1) * bookingsPerPage + 1}–{Math.min(currentPage * bookingsPerPage, filtered.length)} of {filtered.length}
             </p>
           }
@@ -841,25 +841,25 @@ function BookingCard({
   }
 
   return (
-    <div className={`bg-surface rounded-2xl border transition-colors ${highlight ? "border-pace-green/40" : "border-transparent hover:border-zinc-700"}`}>
+    <div className={`bg-hp-surface border transition-colors ${highlight ? "border-pace-green/40" : "border-white/8 hover:border-white/15"}`}>
       {/* Summary row */}
       <button type="button" onClick={() => setExpanded((v) => !v)} className="w-full text-left p-5 cursor-pointer">
         <div className="flex items-center gap-4">
           {/* Time block */}
           <div className="flex-shrink-0 w-16 text-center">
-            <div className="text-white font-bold text-sm">{b.time}</div>
-            <div className="text-zinc-500 text-xs">{endTime}</div>
+            <div className="text-hp-paper font-bold text-sm">{b.time}</div>
+            <div className="text-hp-paper/45 text-xs">{endTime}</div>
           </div>
 
           {/* Avatar */}
-          <div className="w-9 h-9 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-xs font-bold flex-shrink-0">
+          <div className="w-9 h-9 rounded-full bg-hp-cg/20 flex items-center justify-center text-hp-cg text-xs font-bold flex-shrink-0">
             {initials}
           </div>
 
           {/* Player + type */}
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-0.5">
-              <span className="text-white font-semibold text-sm">{player?.name ?? "Unknown"}</span>
+              <span className="text-hp-paper font-semibold text-sm">{player?.name ?? "Unknown"}</span>
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES[b.type]}`}>{b.type}</span>
               {b.source === "marketplace" && (
                 <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
@@ -867,9 +867,9 @@ function BookingCard({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-zinc-400 flex-wrap">
+            <div className="flex items-center gap-2 text-xs text-hp-paper/45 flex-wrap">
               <span>{b.durationMins} min</span>
-              {coach && <><span>·</span><span className="text-zinc-300">👤 {coach.name}</span></>}
+              {coach && <><span>·</span><span className="text-hp-paper/70">👤 {coach.name}</span></>}
               {b.feeAud > 0 && <><span>·</span><span className="text-amber font-semibold">{formatMoney(b.feeAud, currencyForCoach(b.coachId))}</span></>}
               {b.location && <><span>·</span><span className="truncate max-w-xs">{b.location}</span></>}
             </div>
@@ -880,18 +880,18 @@ function BookingCard({
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${STATUS_STYLES[b.status]}`}>
               {b.status}
             </span>
-            <span className={`text-zinc-400 text-sm transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>▾</span>
+            <span className={`text-hp-paper/45 text-sm transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}>▾</span>
           </div>
         </div>
       </button>
 
       {/* Expanded */}
       {expanded && (
-        <div className="px-5 pb-5 border-t border-zinc-700/50 pt-4 space-y-4">
+        <div className="px-5 pb-5 border-t border-white/8 pt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Details */}
-            <div className="bg-ink rounded-xl p-4 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Details</p>
+            <div className="bg-hp-ink p-4 space-y-2">
+              <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-3">Details</p>
               <Detail label="Coach" value={coach?.name ?? "—"} />
               <Detail label="Player" value={player?.name ?? "—"} />
               <Detail label="Date" value={formatDate(b.date)} />
@@ -900,26 +900,26 @@ function BookingCard({
               <Detail label="Location" value={b.location || "—"} />
               {b.netId && <Detail label="Net" value={_nets.find((n) => n.id === b.netId)?.name ?? "—"} />}
               {b.feeAud > 0 && (
-                <div className="mt-3 pt-3 border-t border-zinc-700/50 grid grid-cols-3 gap-2 text-center">
+                <div className="mt-3 pt-3 border-t border-white/8 grid grid-cols-3 gap-2 text-center">
                   <div>
-                    <div className="text-sm font-bold text-white">{formatMoney(b.feeAud, currencyForCoach(b.coachId))}</div>
-                    <div className="text-[10px] text-zinc-500">Session fee</div>
+                    <div className="text-sm font-bold text-hp-paper">{formatMoney(b.feeAud, currencyForCoach(b.coachId))}</div>
+                    <div className="text-[10px] text-hp-paper/40">Session fee</div>
                   </div>
                   <div>
                     <div className="text-sm font-bold text-amber">{formatMoney(b.feeAud * (platformFeePercentForCoach(b.coachId) / 100), currencyForCoach(b.coachId))}</div>
-                    <div className="text-[10px] text-zinc-500">Platform ({platformFeePercentForCoach(b.coachId)}%)</div>
+                    <div className="text-[10px] text-hp-paper/40">Platform ({platformFeePercentForCoach(b.coachId)}%)</div>
                   </div>
                   <div>
                     <div className="text-sm font-bold text-pace-green">{formatMoney(b.feeAud * (1 - platformFeePercentForCoach(b.coachId) / 100), currencyForCoach(b.coachId))}</div>
-                    <div className="text-[10px] text-zinc-500">Academy ({100 - platformFeePercentForCoach(b.coachId)}%)</div>
+                    <div className="text-[10px] text-hp-paper/40">Academy ({100 - platformFeePercentForCoach(b.coachId)}%)</div>
                   </div>
                 </div>
               )}
               {b.feeAud === 0 && feesWaivedForCoach(b.coachId) && (
-                <p className="text-xs text-pace-green mt-3 pt-3 border-t border-zinc-700/50">✓ Covered by the academy's plan — no session fee</p>
+                <p className="text-xs text-pace-green mt-3 pt-3 border-t border-white/8">✓ Covered by the academy's plan — no session fee</p>
               )}
               {b.feeAud > 0 && (
-                <div className="mt-3 pt-3 border-t border-zinc-700/50 flex items-center justify-between gap-3">
+                <div className="mt-3 pt-3 border-t border-white/8 flex items-center justify-between gap-3">
                   <span className={`text-xs font-semibold ${b.paymentStatus === "Paid" ? "text-pace-green" : "text-amber"}`}>
                     {b.paymentStatus === "Paid" ? "✓ Paid" : "Payment pending"}
                   </span>
@@ -936,30 +936,30 @@ function BookingCard({
             </div>
 
             {/* Notes */}
-            <div className="bg-ink rounded-xl p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Notes</p>
-              <p className="text-sm text-zinc-300 leading-relaxed">{b.notes || "No notes."}</p>
+            <div className="bg-hp-ink p-4">
+              <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-3">Notes</p>
+              <p className="text-sm text-hp-paper/70 leading-relaxed">{b.notes || "No notes."}</p>
             </div>
           </div>
 
           {/* Quick status change */}
           {b.status !== "Completed" && b.status !== "Cancelled" && !completingOpen && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-zinc-400">Quick update:</span>
+              <span className="text-xs text-hp-paper/45">Quick update:</span>
               {b.status !== "Confirmed" && (
                 <button type="button" onClick={() => onStatusChange("Confirmed")}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-pace-green/40 text-pace-green hover:bg-pace-green/10 cursor-pointer transition-colors">
+                  className="px-3 py-1.5 text-xs font-semibold border border-pace-green/40 text-pace-green hover:bg-pace-green/10 cursor-pointer transition-colors">
                   ✓ Confirm
                 </button>
               )}
               {b.date < today && (
                 <button type="button" onClick={() => setCompletingOpen(true)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-zinc-600 text-zinc-300 hover:border-zinc-400 cursor-pointer transition-colors">
+                  className="px-3 py-1.5 text-xs font-semibold border border-white/15 text-hp-paper/70 hover:border-white/30 cursor-pointer transition-colors">
                   Mark Completed
                 </button>
               )}
               <button type="button" onClick={() => onStatusChange("Cancelled")}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 cursor-pointer transition-colors">
+                className="px-3 py-1.5 text-xs font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/10 cursor-pointer transition-colors">
                 Cancel
               </button>
             </div>
@@ -967,24 +967,24 @@ function BookingCard({
 
           {/* Complete booking → log session */}
           {completingOpen && (
-            <div className="bg-ink rounded-xl p-4 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            <div className="bg-hp-ink p-4 space-y-3">
+              <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45">
                 Complete Booking — Log Session
               </p>
               <textarea
                 value={completeNotes}
                 onChange={(e) => setCompleteNotes(e.target.value)}
                 placeholder="Session notes — what was covered, observations, focus areas…"
-                className="w-full bg-surface rounded-xl px-3 py-2.5 text-sm text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none resize-none h-20"
+                className="w-full bg-hp-surface px-3 py-2.5 text-sm text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none resize-none h-20"
               />
               {completeError && <p className="text-xs text-red-400">{completeError}</p>}
               <div className="flex items-center gap-2">
                 <button type="button" onClick={handleComplete} disabled={completing}
-                  className="px-4 py-2 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 disabled:opacity-60 cursor-pointer transition-opacity">
+                  className="px-4 py-2 text-xs font-bold bg-pace-green text-black hover:opacity-90 disabled:opacity-60 cursor-pointer transition-opacity">
                   {completing ? "Completing…" : "Complete & Log Session"}
                 </button>
                 <button type="button" onClick={() => setCompletingOpen(false)} disabled={completing}
-                  className="text-xs text-zinc-400 hover:text-white cursor-pointer">
+                  className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer">
                   Cancel
                 </button>
               </div>
@@ -994,18 +994,18 @@ function BookingCard({
           {/* Actions */}
           <div className="flex items-center gap-3 pt-1">
             <button type="button" onClick={onEdit}
-              className="px-4 py-2 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors cursor-pointer">
+              className="px-4 py-2 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-white/30 hover:text-hp-paper transition-colors cursor-pointer">
               Edit Booking
             </button>
             {player && (
               <Link href={`/players/${player.id}`}
-                className="px-4 py-2 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
+                className="px-4 py-2 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-white/30 hover:text-hp-paper transition-colors">
                 View Player
               </Link>
             )}
             {player && (
               <Link href={`/players/${player.id}/new-session?bookingId=${b.id}&coachId=${b.coachId}&time=${b.time}&durationMins=${b.durationMins}&status=${b.status}`}
-                className="px-4 py-2 text-xs font-semibold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity">
+                className="px-4 py-2 text-xs font-semibold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors">
                 + Log Session
               </Link>
             )}
@@ -1044,7 +1044,7 @@ function BookingPayOnlineButton({ bookingId }: { bookingId: string }) {
   return (
     <div className="text-right">
       <button type="button" onClick={handlePay} disabled={loading}
-        className="px-3 py-1.5 text-xs font-bold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 cursor-pointer transition-colors disabled:opacity-60">
+        className="px-3 py-1.5 text-xs font-bold text-pace-green border border-pace-green/40 hover:bg-pace-green/10 cursor-pointer transition-colors disabled:opacity-60">
         {loading ? "Loading…" : "Pay Online"}
       </button>
       {error && <p className="text-[10px] text-red-400 mt-1 max-w-40">{error}</p>}
@@ -1064,13 +1064,13 @@ function BookingMarkPaidButton({ onPaid }: { onPaid: (paidDate: string) => void 
   if (showConfirm) {
     return (
       <div className="flex items-center gap-2">
-        <DateInput value={paidDate} onChange={setPaidDate} className="w-32 bg-ink rounded-lg px-3 py-1.5 text-xs border border-zinc-700 focus:border-pace-green focus:outline-none" />
+        <DateInput value={paidDate} onChange={setPaidDate} className="w-32 bg-hp-ink px-3 py-1.5 text-xs border border-white/12 focus:border-hp-cg focus:outline-none" />
         <button type="button" onClick={() => { onPaid(paidDate); setDone(true); }}
-          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 cursor-pointer transition-opacity">
+          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black hover:opacity-90 cursor-pointer transition-opacity">
           Confirm
         </button>
         <button type="button" onClick={() => setShowConfirm(false)}
-          className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+          className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer">
           Cancel
         </button>
       </div>
@@ -1079,7 +1079,7 @@ function BookingMarkPaidButton({ onPaid }: { onPaid: (paidDate: string) => void 
 
   return (
     <button type="button" onClick={() => setShowConfirm(true)}
-      className="px-3 py-1.5 text-xs font-bold text-zinc-300 border border-zinc-600 rounded-xl hover:border-zinc-400 cursor-pointer transition-colors">
+      className="px-3 py-1.5 text-xs font-bold text-hp-paper/70 border border-white/15 hover:border-white/30 cursor-pointer transition-colors">
       Mark Paid (Cash)
     </button>
   );
@@ -1106,12 +1106,12 @@ function BookingMarkFeeCollectedButton({ dueId, onCollected }: { dueId: string; 
   if (showConfirm) {
     return (
       <div className="flex items-center gap-2 flex-shrink-0">
-        <DateInput value={collectedDate} onChange={setCollectedDate} className="w-32 bg-ink rounded-lg px-3 py-1.5 text-xs border border-zinc-700 focus:border-pace-green focus:outline-none" />
+        <DateInput value={collectedDate} onChange={setCollectedDate} className="w-32 bg-hp-ink px-3 py-1.5 text-xs border border-white/12 focus:border-hp-cg focus:outline-none" />
         <button type="button" onClick={handleConfirm} disabled={saving}
-          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-60">
+          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-60">
           {saving ? "…" : "Confirm"}
         </button>
-        <button type="button" onClick={() => setShowConfirm(false)} className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+        <button type="button" onClick={() => setShowConfirm(false)} className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer">
           Cancel
         </button>
       </div>
@@ -1120,7 +1120,7 @@ function BookingMarkFeeCollectedButton({ dueId, onCollected }: { dueId: string; 
 
   return (
     <button type="button" onClick={() => setShowConfirm(true)}
-      className="px-3 py-1.5 text-xs font-bold text-amber border border-amber/30 rounded-lg hover:bg-amber/10 cursor-pointer transition-colors flex-shrink-0">
+      className="px-3 py-1.5 text-xs font-bold text-amber border border-amber/30 hover:bg-amber/10 cursor-pointer transition-colors flex-shrink-0">
       Mark Collected
     </button>
   );
@@ -1129,12 +1129,12 @@ function BookingMarkFeeCollectedButton({ dueId, onCollected }: { dueId: string; 
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <span className="text-xs text-zinc-400 flex-shrink-0">{label}</span>
-      <span className="text-xs text-white text-right">{value}</span>
+      <span className="text-xs text-hp-paper/45 flex-shrink-0">{label}</span>
+      <span className="text-xs text-hp-paper text-right">{value}</span>
     </div>
   );
 }
 
-const inp = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const sel = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
-const lbl = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const inp = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const sel = "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
+const lbl = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";

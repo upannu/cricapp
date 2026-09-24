@@ -705,7 +705,7 @@ export function AttendanceClient() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+        <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -719,15 +719,15 @@ export function AttendanceClient() {
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-white mb-1">Squad Training</h1>
+          <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Squad Training</h1>
         </div>
         <div className="flex gap-3 flex-shrink-0">
           <button type="button" onClick={openBulkGroupImport}
-            className="px-4 py-2 rounded-xl text-sm font-bold text-pace-green border border-pace-green/40 hover:bg-pace-green/10 transition-colors cursor-pointer">
+            className="px-4 py-2 text-sm font-bold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors cursor-pointer">
             Bulk Import Groups
           </button>
           <button type="button" onClick={openAdd}
-            className="px-4 py-2 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer">
+            className="px-4 py-2 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer">
             + New Group
           </button>
         </div>
@@ -735,22 +735,22 @@ export function AttendanceClient() {
 
       {groups.length > 0 && (
         <div className="relative mb-6 max-w-md">
-          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-hp-paper/45 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input type="text" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)}
             placeholder="Search groups by name…"
-            className="w-full bg-surface rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
+            className="w-full bg-hp-surface pl-10 pr-4 py-2.5 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none text-sm" />
         </div>
       )}
 
       {groups.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-16 text-center">
-          <p className="text-zinc-400 text-sm">No recurring group sessions yet.</p>
+        <div className="bg-hp-surface p-16 text-center">
+          <p className="text-hp-paper/45 text-sm">No recurring group sessions yet.</p>
         </div>
       ) : filteredGroups.length === 0 && (
-        <div className="bg-surface rounded-2xl p-16 text-center">
-          <p className="text-zinc-400 text-sm">No groups match &quot;{groupSearch.trim()}&quot;.</p>
+        <div className="bg-hp-surface p-16 text-center">
+          <p className="text-hp-paper/45 text-sm">No groups match &quot;{groupSearch.trim()}&quot;.</p>
         </div>
       )}
 
@@ -760,29 +760,29 @@ export function AttendanceClient() {
           const upcoming = upcomingByGroup[g.id] ?? [];
           const past = pastDates[g.id] ?? [];
           return (
-            <div key={g.id} className="bg-surface rounded-2xl border border-zinc-700/50 overflow-hidden">
+            <div key={g.id} className="bg-hp-surface border border-white/10 overflow-hidden">
               <div className="flex items-center gap-4 px-5 py-4 cursor-pointer" onClick={() => toggleExpand(g)}>
-                <svg className={`text-zinc-500 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+                <svg className={`text-hp-paper/45 flex-shrink-0 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
                   width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="m9 18 6-6-6-6" />
                 </svg>
                 <div className="flex-1 min-w-0">
-                  <div className="text-white font-bold text-sm">{g.name}</div>
-                  <div className="text-zinc-400 text-xs">
+                  <div className="text-hp-paper font-bold text-sm">{g.name}</div>
+                  <div className="text-hp-paper/45 text-xs">
                     {DAY_NAMES[g.dayOfWeek]}s · {g.time} · {g.sessionType} · {g.playerIds.length} player{g.playerIds.length === 1 ? "" : "s"}
                   </div>
                 </div>
                 <button type="button" onClick={(e) => { e.stopPropagation(); openEdit(g); }}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors flex-shrink-0">
+                  className="px-3 py-1.5 text-xs font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors flex-shrink-0">
                   Edit
                 </button>
               </div>
 
               {isExpanded && (
-                <div className="px-5 pb-5 border-t border-zinc-700/40 pt-4 space-y-4">
+                <div className="px-5 pb-5 border-t border-white/8 pt-4 space-y-4">
                   <div className="flex justify-end">
                     <button type="button" onClick={(e) => { e.stopPropagation(); openAttendanceCsv(g); }}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold text-pace-green border border-pace-green/30 hover:bg-pace-green/10 transition-colors cursor-pointer flex-shrink-0">
+                      className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors cursor-pointer flex-shrink-0">
                       Import Attendance CSV
                     </button>
                   </div>
@@ -795,13 +795,13 @@ export function AttendanceClient() {
                       ...visiblePast.map((o) => ({ date: o.date, occurrence: o })),
                     ];
                     return (
-                      <div className="bg-ink rounded-xl overflow-hidden border border-zinc-700/50">
+                      <div className="bg-hp-ink overflow-hidden border border-white/10">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b border-zinc-700/60">
-                              <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-2.5">Date</th>
-                              <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-2.5">Status</th>
-                              <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-2.5">Notes</th>
+                            <tr className="border-b border-white/12">
+                              <th className="text-left text-xs font-semibold text-hp-paper/70 uppercase tracking-wider px-4 py-2.5">Date</th>
+                              <th className="text-left text-xs font-semibold text-hp-paper/70 uppercase tracking-wider px-4 py-2.5">Status</th>
+                              <th className="text-left text-xs font-semibold text-hp-paper/70 uppercase tracking-wider px-4 py-2.5">Notes</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -809,20 +809,20 @@ export function AttendanceClient() {
                               const canceled = occurrence?.status === "canceled";
                               return (
                                 <tr key={date} onClick={() => openAttendance(g, date)}
-                                  className="border-b border-zinc-700/40 last:border-0 transition-colors hover:bg-white/[0.03] cursor-pointer">
-                                  <td className="px-4 py-2.5 text-white whitespace-nowrap">
+                                  className="border-b border-white/8 last:border-0 transition-colors hover:bg-white/[0.03] cursor-pointer">
+                                  <td className="px-4 py-2.5 text-hp-paper whitespace-nowrap">
                                     {new Date(date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}
                                   </td>
                                   <td className="px-4 py-2.5 whitespace-nowrap">
                                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
                                       canceled ? "border-amber/50 bg-amber/10 text-amber"
                                         : occurrence ? "border-pace-green/50 bg-pace-green/10 text-pace-green"
-                                        : "border-zinc-700 text-zinc-400"
+                                        : "border-white/12 text-hp-paper/45"
                                     }`}>
                                       {canceled ? "⊘ Canceled" : occurrence ? "✓ Recorded" : "Upcoming"}
                                     </span>
                                   </td>
-                                  <td className="px-4 py-2.5 text-zinc-400">
+                                  <td className="px-4 py-2.5 text-hp-paper/45">
                                     {occurrence?.hasNotes ? "📝" : "—"}
                                   </td>
                                 </tr>
@@ -831,7 +831,7 @@ export function AttendanceClient() {
                           </tbody>
                         </table>
                         {pastOnly.length > PAST_DATES_PREVIEW_COUNT && (
-                          <div className="px-4 py-2.5 border-t border-zinc-700/40">
+                          <div className="px-4 py-2.5 border-t border-white/8">
                             <button type="button" onClick={(e) => { e.stopPropagation(); setShowAllPast((v) => !v); }}
                               className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer">
                               {showAllPast ? "Show less" : `Show all ${pastOnly.length} past dates`}
@@ -852,10 +852,10 @@ export function AttendanceClient() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto" onClick={() => setShowForm(false)}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div className="relative bg-surface rounded-2xl w-full max-w-lg shadow-2xl border border-zinc-700/60 my-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-700/50">
-              <h2 className="text-white font-bold">{draft.id ? "Edit Group" : "New Group"}</h2>
-              <button type="button" onClick={() => setShowForm(false)} className="text-zinc-400 hover:text-white transition-colors cursor-pointer text-xl leading-none p-1">✕</button>
+          <div className="relative bg-hp-surface w-full max-w-lg shadow-2xl border border-white/12 my-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/10">
+              <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">{draft.id ? "Edit Group" : "New Group"}</h2>
+              <button type="button" onClick={() => setShowForm(false)} className="text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer text-xl leading-none p-1">✕</button>
             </div>
             <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
               <div>
@@ -910,9 +910,9 @@ export function AttendanceClient() {
                   </button>
                 </div>
                 {showRosterCsv && (
-                  <div className="bg-ink rounded-xl p-3 mb-3 border border-zinc-700">
+                  <div className="bg-hp-ink p-3 mb-3 border border-white/12">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs text-zinc-500">CSV with name and/or email columns — matched players are added to the roster below.</p>
+                      <p className="text-xs text-hp-paper/45">CSV with name and/or email columns — matched players are added to the roster below.</p>
                       <button type="button" onClick={downloadRosterCsvTemplate}
                         className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer flex-shrink-0 ml-2">
                         Template
@@ -920,14 +920,14 @@ export function AttendanceClient() {
                     </div>
                     <input type="file" accept=".csv,text/csv"
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRosterCsvFile(f); }}
-                      className="text-xs text-zinc-400 mb-2 w-full" />
+                      className="text-xs text-hp-paper/45 mb-2 w-full" />
                     {rosterCsvError && <p className="text-red-400 text-xs mb-2">{rosterCsvError}</p>}
                     {rosterCsvRows.length > 0 && (
                       <>
                         <div className="max-h-32 overflow-y-auto space-y-1 mb-2">
                           {rosterCsvRows.map((r) => (
-                            <div key={r.rowNum} className="flex items-center justify-between gap-2 text-xs px-2 py-1 rounded-lg bg-surface">
-                              <span className="text-zinc-300 truncate">{r.input}</span>
+                            <div key={r.rowNum} className="flex items-center justify-between gap-2 text-xs px-2 py-1 bg-hp-surface">
+                              <span className="text-hp-paper/70 truncate">{r.input}</span>
                               {r.player
                                 ? <span className="text-pace-green flex-shrink-0">✓ {r.player.name}</span>
                                 : <span className="text-red-400 flex-shrink-0">Not found</span>}
@@ -935,7 +935,7 @@ export function AttendanceClient() {
                           ))}
                         </div>
                         <button type="button" onClick={handleRosterCsvMerge} disabled={rosterCsvRows.every((r) => !r.player)}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50">
+                          className="px-3 py-1.5 text-xs font-bold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors cursor-pointer disabled:opacity-50">
                           Add {rosterCsvRows.filter((r) => r.player).length} matched player{rosterCsvRows.filter((r) => r.player).length === 1 ? "" : "s"}
                         </button>
                       </>
@@ -959,15 +959,15 @@ export function AttendanceClient() {
                     return (
                       <button key={p.id} type="button" onClick={() => toggleDraftPlayer(p.id)}
                         title={packOk ? undefined : `No active ${draft.sessionType} membership`}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors cursor-pointer text-left ${
-                          selected ? "border-pace-green/50 bg-pace-green/10"
-                            : packOk ? "border-zinc-700 bg-ink hover:border-zinc-500"
-                            : "border-zinc-800 bg-ink opacity-50 hover:border-red-500/50"
+                        className={`w-full flex items-center gap-2 px-3 py-2 border transition-colors cursor-pointer text-left ${
+                          selected ? "border-hp-cg/50 bg-hp-cg/10"
+                            : packOk ? "border-white/12 bg-hp-ink hover:border-white/25"
+                            : "border-white/8 bg-hp-ink opacity-50 hover:border-red-500/50"
                         }`}>
-                        <div className="w-6 h-6 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-[10px] font-bold flex-shrink-0">
+                        <div className="w-6 h-6 rounded-full bg-hp-cg/20 flex items-center justify-center text-hp-cg text-[10px] font-bold flex-shrink-0">
                           {p.name.split(" ").map((n) => n[0]).join("")}
                         </div>
-                        <span className="text-sm text-white">{p.name}</span>
+                        <span className="text-sm text-hp-paper">{p.name}</span>
                         {!packOk && <span className="text-[10px] text-red-400 ml-auto flex-shrink-0">No active membership</span>}
                       </button>
                     );
@@ -978,11 +978,11 @@ export function AttendanceClient() {
             </div>
             <div className="flex items-center gap-3 px-6 pb-6 pt-2">
               <button type="button" onClick={handleSaveGroup} disabled={saving}
-                className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+                className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                 {saving ? "Saving…" : draft.id ? "Save Changes" : "Create Group"}
               </button>
               <button type="button" onClick={() => setShowForm(false)}
-                className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                className="px-6 py-3 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
                 Cancel
               </button>
             </div>
@@ -994,38 +994,38 @@ export function AttendanceClient() {
       {attendanceFor && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto" onClick={() => setAttendanceFor(null)}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div className="relative bg-surface rounded-2xl w-full max-w-md shadow-2xl border border-zinc-700/60 my-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-700/50">
+          <div className="relative bg-hp-surface w-full max-w-md shadow-2xl border border-white/12 my-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/10">
               <div>
-                <h2 className="text-white font-bold">{attendanceFor.group.name}</h2>
-                <p className="text-zinc-400 text-xs">
+                <h2 className="font-display font-black uppercase text-hp-paper tracking-wide">{attendanceFor.group.name}</h2>
+                <p className="text-hp-paper/45 text-xs">
                   {new Date(attendanceFor.date + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "short", year: "numeric" })}
                 </p>
               </div>
-              <button type="button" onClick={() => setAttendanceFor(null)} className="text-zinc-400 hover:text-white transition-colors cursor-pointer text-xl leading-none p-1">✕</button>
+              <button type="button" onClick={() => setAttendanceFor(null)} className="text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer text-xl leading-none p-1">✕</button>
             </div>
             <div className="px-6 py-5 space-y-2 max-h-[60vh] overflow-y-auto">
               {attendanceFor.group.playerIds.map((playerId) => {
                 const status = attendanceDraft[playerId] ?? "Absent";
                 const pack = activePackFor(playerId, attendanceFor.group.sessionType);
                 return (
-                  <div key={playerId} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-ink border border-zinc-700">
+                  <div key={playerId} className="flex items-center justify-between gap-3 px-3 py-2.5 bg-hp-ink border border-white/12">
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-white truncate">{playerName(playerId)}</div>
-                      <div className="text-xs text-zinc-500">
+                      <div className="text-sm font-semibold text-hp-paper truncate">{playerName(playerId)}</div>
+                      <div className="text-xs text-hp-paper/45">
                         {pack ? `${pack.sessionsUsed}/${pack.totalSessions} sessions used` : "No active membership — won't consume a session"}
                       </div>
                     </div>
                     <div className="flex gap-1.5 flex-shrink-0">
                       <button type="button" onClick={() => setAttendanceDraft((prev) => ({ ...prev, [playerId]: "Present" }))}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                          status === "Present" ? "bg-pace-green text-black" : "bg-zinc-700/50 text-zinc-400 hover:text-white"
+                        className={`px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                          status === "Present" ? "bg-pace-green text-black" : "bg-white/10 text-hp-paper/45 hover:text-hp-paper"
                         }`}>
                         Present
                       </button>
                       <button type="button" onClick={() => setAttendanceDraft((prev) => ({ ...prev, [playerId]: "Absent" }))}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
-                          status === "Absent" ? "bg-red-500/80 text-white" : "bg-zinc-700/50 text-zinc-400 hover:text-white"
+                        className={`px-3 py-1.5 text-xs font-bold transition-colors cursor-pointer ${
+                          status === "Absent" ? "bg-red-500/80 text-hp-paper" : "bg-white/10 text-hp-paper/45 hover:text-hp-paper"
                         }`}>
                         Absent
                       </button>
@@ -1034,7 +1034,7 @@ export function AttendanceClient() {
                 );
               })}
               {attendanceFor.group.playerIds.length === 0 && (
-                <p className="text-zinc-500 text-sm text-center py-4">No players in this group&apos;s roster yet — edit the group to add some.</p>
+                <p className="text-hp-paper/45 text-sm text-center py-4">No players in this group&apos;s roster yet — edit the group to add some.</p>
               )}
             </div>
             {attendanceFor.group.playerIds.length > 0 && (
@@ -1042,7 +1042,7 @@ export function AttendanceClient() {
                 <label className={lbl}>Session Notes</label>
                 <textarea value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)} rows={2}
                   placeholder="e.g. Death bowling & power hitting — focus on execution under fatigue"
-                  className="w-full bg-ink rounded-xl px-3 py-2 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm resize-none" />
+                  className="w-full bg-hp-ink px-3 py-2 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm resize-none" />
               </div>
             )}
             {academyAllowsSquadVideo(attendanceFor.group.academyId) && (
@@ -1058,14 +1058,14 @@ export function AttendanceClient() {
                 </div>
                 {videoError && <p className="text-red-400 text-xs mb-2">{videoError}</p>}
                 {sessionVideos.length === 0 ? (
-                  <p className="text-zinc-500 text-xs">No recordings for this date yet.</p>
+                  <p className="text-hp-paper/45 text-xs">No recordings for this date yet.</p>
                 ) : (
                   <div className="space-y-3">
                     {sessionVideos.map((video) => (
-                      <div key={video.id} className="bg-ink rounded-xl border border-zinc-700 p-3">
+                      <div key={video.id} className="bg-hp-ink border border-white/12 p-3">
                         <video
                           ref={(el) => { videoRefs.current[video.id] = el; }}
-                          src={video.videoUrl} controls className="w-full rounded-lg bg-black mb-2" style={{ maxHeight: 200 }}
+                          src={video.videoUrl} controls className="w-full bg-black mb-2" style={{ maxHeight: 200 }}
                         />
                         <div className="flex items-center justify-between mb-2">
                           <button type="button" onClick={() => openTagForm(video.id, videoRefs.current[video.id]?.currentTime ?? 0)}
@@ -1073,21 +1073,21 @@ export function AttendanceClient() {
                             + Tag a player at current time
                           </button>
                           <button type="button" onClick={() => handleDeleteVideo(video.id)}
-                            className="text-xs text-zinc-500 hover:text-red-400 transition-colors cursor-pointer">
+                            className="text-xs text-hp-paper/45 hover:text-red-400 transition-colors cursor-pointer">
                             Delete video
                           </button>
                         </div>
                         {video.tags.length > 0 && (
                           <div className="space-y-1 mb-2">
                             {video.tags.map((tag) => (
-                              <div key={tag.id} className="flex items-center justify-between gap-2 text-xs bg-surface rounded-lg px-2.5 py-1.5">
-                                <span className="text-zinc-300">
-                                  <span className="font-semibold text-white">{playerName(tag.playerId)}</span>
+                              <div key={tag.id} className="flex items-center justify-between gap-2 text-xs bg-hp-surface px-2.5 py-1.5">
+                                <span className="text-hp-paper/70">
+                                  <span className="font-semibold text-hp-paper">{playerName(tag.playerId)}</span>
                                   {" "}at {formatTimestamp(tag.timestampSec)}
-                                  {tag.note && <span className="text-zinc-500"> — {tag.note}</span>}
+                                  {tag.note && <span className="text-hp-paper/45"> — {tag.note}</span>}
                                 </span>
                                 <button type="button" onClick={() => handleDeleteTag(video.id, tag.id)}
-                                  className="text-zinc-500 hover:text-red-400 transition-colors cursor-pointer flex-shrink-0">
+                                  className="text-hp-paper/45 hover:text-red-400 transition-colors cursor-pointer flex-shrink-0">
                                   ✕
                                 </button>
                               </div>
@@ -1095,22 +1095,22 @@ export function AttendanceClient() {
                           </div>
                         )}
                         {taggingVideoId === video.id && (
-                          <div className="bg-surface rounded-lg p-2.5 space-y-2">
+                          <div className="bg-hp-surface p-2.5 space-y-2">
                             <select value={tagPlayerId} onChange={(e) => setTagPlayerId(e.target.value)}
-                              className="w-full bg-ink text-white text-xs rounded-lg px-2.5 py-2 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer">
+                              className="w-full bg-hp-ink text-hp-paper text-xs px-2.5 py-2 border border-white/12 focus:border-hp-cg focus:outline-none cursor-pointer">
                               <option value="">— Select player —</option>
                               {attendanceFor.group.playerIds.map((pid) => <option key={pid} value={pid}>{playerName(pid)}</option>)}
                             </select>
-                            <p className="text-[11px] text-zinc-500">At {formatTimestamp(tagTimestamp)}</p>
+                            <p className="text-[11px] text-hp-paper/45">At {formatTimestamp(tagTimestamp)}</p>
                             <input type="text" value={tagNote} onChange={(e) => setTagNote(e.target.value)} placeholder="Optional note"
-                              className="w-full bg-ink text-white text-xs rounded-lg px-2.5 py-2 border border-zinc-700 focus:border-pace-green focus:outline-none placeholder-zinc-600" />
+                              className="w-full bg-hp-ink text-hp-paper text-xs px-2.5 py-2 border border-white/12 focus:border-hp-cg focus:outline-none placeholder-hp-paper/30" />
                             <div className="flex items-center gap-2">
                               <button type="button" onClick={handleSaveTag} disabled={!tagPlayerId || savingTag}
-                                className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50">
+                                className="px-3 py-1.5 text-xs font-bold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors cursor-pointer disabled:opacity-50">
                                 {savingTag ? "Saving…" : "Save Tag"}
                               </button>
                               <button type="button" onClick={() => setTaggingVideoId(null)}
-                                className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer">
+                                className="text-xs text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer">
                                 Cancel
                               </button>
                             </div>
@@ -1126,15 +1126,15 @@ export function AttendanceClient() {
               <div className="px-6 pb-2 flex justify-end">
                 {showCancelConfirm ? (
                   <div className="flex items-center gap-2 flex-wrap justify-end">
-                    <span className="text-xs text-zinc-300">
+                    <span className="text-xs text-hp-paper/70">
                       Cancel this session for all {attendanceFor.group.playerIds.length} player{attendanceFor.group.playerIds.length === 1 ? "" : "s"}? Nobody will be charged a session.
                     </span>
                     <button type="button" onClick={handleCancelSession} disabled={cancelingSession}
-                      className="px-3 py-1.5 text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 cursor-pointer transition-colors disabled:opacity-60 flex-shrink-0">
+                      className="px-3 py-1.5 text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 cursor-pointer transition-colors disabled:opacity-60 flex-shrink-0">
                       {cancelingSession ? "Canceling…" : "Yes, cancel session"}
                     </button>
                     <button type="button" onClick={() => setShowCancelConfirm(false)}
-                      className="text-xs text-zinc-500 hover:text-white cursor-pointer flex-shrink-0">
+                      className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer flex-shrink-0">
                       Never mind
                     </button>
                   </div>
@@ -1148,13 +1148,13 @@ export function AttendanceClient() {
             )}
             <div className="flex items-center gap-3 px-6 pb-6 pt-2">
               <button type="button" onClick={handleSaveAttendance} disabled={savingAttendance || attendanceFor.group.playerIds.length === 0}
-                className={`px-6 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer disabled:opacity-60 ${
-                  savedDate === attendanceFor.date ? "bg-pace-green/60 text-black" : "bg-pace-green text-black hover:opacity-90"
+                className={`px-6 py-3 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 ${
+                  savedDate === attendanceFor.date ? "bg-hp-cg/60 text-hp-paper" : "bg-hp-cg text-hp-paper hover:bg-hp-cg/90"
                 }`}>
                 {savingAttendance ? "Saving…" : savedDate === attendanceFor.date ? "✓ Saved" : "Save Attendance"}
               </button>
               <button type="button" onClick={() => setAttendanceFor(null)}
-                className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                className="px-6 py-3 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
                 Close
               </button>
             </div>
@@ -1166,17 +1166,17 @@ export function AttendanceClient() {
       {attendanceCsvFor && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto" onClick={() => setAttendanceCsvFor(null)}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div className="relative bg-surface rounded-2xl w-full max-w-2xl shadow-2xl border border-zinc-700/60 my-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-700/50">
+          <div className="relative bg-hp-surface w-full max-w-2xl shadow-2xl border border-white/12 my-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/10">
               <div>
-                <h2 className="text-white font-bold">Import Attendance — {attendanceCsvFor.name}</h2>
-                <p className="text-zinc-400 text-xs">Only the player + date rows in your file are recorded — other roster members are left untouched for those dates.</p>
+                <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">Import Attendance — {attendanceCsvFor.name}</h2>
+                <p className="text-hp-paper/45 text-xs">Only the player + date rows in your file are recorded — other roster members are left untouched for those dates.</p>
               </div>
-              <button type="button" onClick={() => setAttendanceCsvFor(null)} className="text-zinc-400 hover:text-white transition-colors cursor-pointer text-xl leading-none p-1 flex-shrink-0">✕</button>
+              <button type="button" onClick={() => setAttendanceCsvFor(null)} className="text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer text-xl leading-none p-1 flex-shrink-0">✕</button>
             </div>
             <div className="px-6 py-5 space-y-3 max-h-[65vh] overflow-y-auto">
               <div className="flex items-center justify-between">
-                <p className="text-xs text-zinc-500">Columns: date (YYYY-MM-DD or DD/MM/YYYY), player (name or email), status (Present/Absent).</p>
+                <p className="text-xs text-hp-paper/45">Columns: date (YYYY-MM-DD or DD/MM/YYYY), player (name or email), status (Present/Absent).</p>
                 <button type="button" onClick={downloadAttendanceCsvTemplate}
                   className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer flex-shrink-0 ml-2">
                   Template
@@ -1184,15 +1184,15 @@ export function AttendanceClient() {
               </div>
               <input type="file" accept=".csv,text/csv"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAttendanceCsvFile(f); }}
-                className="text-sm text-zinc-300 w-full" />
+                className="text-sm text-hp-paper/70 w-full" />
               {attendanceCsvError && <p className="text-red-400 text-xs">{attendanceCsvError}</p>}
               {attendanceCsvImportedCount !== null && (
                 <p className="text-pace-green text-xs">✓ Imported {attendanceCsvImportedCount} attendance record{attendanceCsvImportedCount === 1 ? "" : "s"} from {attendanceCsvFileName}.</p>
               )}
               {attendanceCsvRows.length > 0 && (
-                <div className="border border-zinc-700 rounded-xl overflow-hidden">
+                <div className="border border-white/12 overflow-hidden">
                   <table className="w-full text-xs">
-                    <thead className="bg-ink text-zinc-500">
+                    <thead className="bg-hp-ink text-hp-paper/45">
                       <tr>
                         <th className="text-left px-3 py-2 font-semibold">Date</th>
                         <th className="text-left px-3 py-2 font-semibold">Player</th>
@@ -1202,10 +1202,10 @@ export function AttendanceClient() {
                     </thead>
                     <tbody>
                       {attendanceCsvRows.map((r) => (
-                        <tr key={r.rowNum} className="border-t border-zinc-800">
-                          <td className="px-3 py-2 text-zinc-300">{r.dateInput}</td>
-                          <td className="px-3 py-2 text-zinc-300 truncate max-w-[140px]">{r.player?.name ?? r.playerInput}</td>
-                          <td className="px-3 py-2 text-zinc-300">{r.status ?? r.statusInput}</td>
+                        <tr key={r.rowNum} className="border-t border-white/8">
+                          <td className="px-3 py-2 text-hp-paper/70">{r.dateInput}</td>
+                          <td className="px-3 py-2 text-hp-paper/70 truncate max-w-[140px]">{r.player?.name ?? r.playerInput}</td>
+                          <td className="px-3 py-2 text-hp-paper/70">{r.status ?? r.statusInput}</td>
                           <td className="px-3 py-2">
                             {r.csvStatus === "ready" && <span className="text-pace-green">Ready</span>}
                             {r.csvStatus === "duplicate" && <span className="text-amber" title={r.issue}>Duplicate</span>}
@@ -1221,11 +1221,11 @@ export function AttendanceClient() {
             <div className="flex items-center gap-3 px-6 pb-6 pt-2">
               <button type="button" onClick={handleAttendanceCsvImport}
                 disabled={attendanceCsvImporting || attendanceCsvRows.filter((r) => r.csvStatus === "ready").length === 0}
-                className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+                className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                 {attendanceCsvImporting ? "Importing…" : `Import ${attendanceCsvRows.filter((r) => r.csvStatus === "ready").length} Record${attendanceCsvRows.filter((r) => r.csvStatus === "ready").length === 1 ? "" : "s"}`}
               </button>
               <button type="button" onClick={() => setAttendanceCsvFor(null)}
-                className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                className="px-6 py-3 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
                 Close
               </button>
             </div>
@@ -1237,17 +1237,17 @@ export function AttendanceClient() {
       {showBulkGroupForm && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto" onClick={() => setShowBulkGroupForm(false)}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div className="relative bg-surface rounded-2xl w-full max-w-2xl shadow-2xl border border-zinc-700/60 my-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-700/50">
+          <div className="relative bg-hp-surface w-full max-w-2xl shadow-2xl border border-white/12 my-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/10">
               <div>
-                <h2 className="text-white font-bold">Bulk Import Group Sessions</h2>
-                <p className="text-zinc-400 text-xs">Create several recurring squad training sessions at once — e.g. one per age group.</p>
+                <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">Bulk Import Group Sessions</h2>
+                <p className="text-hp-paper/45 text-xs">Create several recurring squad training sessions at once — e.g. one per age group.</p>
               </div>
-              <button type="button" onClick={() => setShowBulkGroupForm(false)} className="text-zinc-400 hover:text-white transition-colors cursor-pointer text-xl leading-none p-1 flex-shrink-0">✕</button>
+              <button type="button" onClick={() => setShowBulkGroupForm(false)} className="text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer text-xl leading-none p-1 flex-shrink-0">✕</button>
             </div>
             <div className="px-6 py-5 space-y-3 max-h-[65vh] overflow-y-auto">
               <div className="flex items-center justify-between">
-                <p className="text-xs text-zinc-500">Columns: name, dayOfWeek (name or 0-6), time (HH:MM), coach (name or email), location (optional), durationMins (optional, default 60).</p>
+                <p className="text-xs text-hp-paper/45">Columns: name, dayOfWeek (name or 0-6), time (HH:MM), coach (name or email), location (optional), durationMins (optional, default 60).</p>
                 <button type="button" onClick={downloadGroupCsvTemplate}
                   className="text-xs font-semibold text-pace-green hover:opacity-80 transition-opacity cursor-pointer flex-shrink-0 ml-2">
                   Template
@@ -1255,15 +1255,15 @@ export function AttendanceClient() {
               </div>
               <input type="file" accept=".csv,text/csv"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleBulkGroupCsvFile(f); }}
-                className="text-sm text-zinc-300 w-full" />
+                className="text-sm text-hp-paper/70 w-full" />
               {bulkGroupCsvError && <p className="text-red-400 text-xs">{bulkGroupCsvError}</p>}
               {bulkGroupCsvImportedCount !== null && (
                 <p className="text-pace-green text-xs">✓ Created {bulkGroupCsvImportedCount} group session{bulkGroupCsvImportedCount === 1 ? "" : "s"} from {bulkGroupCsvFileName}.</p>
               )}
               {bulkGroupCsvRows.length > 0 && (
-                <div className="border border-zinc-700 rounded-xl overflow-hidden">
+                <div className="border border-white/12 overflow-hidden">
                   <table className="w-full text-xs">
-                    <thead className="bg-ink text-zinc-500">
+                    <thead className="bg-hp-ink text-hp-paper/45">
                       <tr>
                         <th className="text-left px-3 py-2 font-semibold">Name</th>
                         <th className="text-left px-3 py-2 font-semibold">Day</th>
@@ -1274,11 +1274,11 @@ export function AttendanceClient() {
                     </thead>
                     <tbody>
                       {bulkGroupCsvRows.map((r) => (
-                        <tr key={r.rowNum} className="border-t border-zinc-800">
-                          <td className="px-3 py-2 text-zinc-300 truncate max-w-[160px]">{r.name || "—"}</td>
-                          <td className="px-3 py-2 text-zinc-300">{r.dayOfWeek !== null ? DAY_NAMES[r.dayOfWeek] : r.dayOfWeekInput || "—"}</td>
-                          <td className="px-3 py-2 text-zinc-300">{r.time || "—"}</td>
-                          <td className="px-3 py-2 text-zinc-300 truncate max-w-[140px]">{r.coach?.name ?? r.coachInput}</td>
+                        <tr key={r.rowNum} className="border-t border-white/8">
+                          <td className="px-3 py-2 text-hp-paper/70 truncate max-w-[160px]">{r.name || "—"}</td>
+                          <td className="px-3 py-2 text-hp-paper/70">{r.dayOfWeek !== null ? DAY_NAMES[r.dayOfWeek] : r.dayOfWeekInput || "—"}</td>
+                          <td className="px-3 py-2 text-hp-paper/70">{r.time || "—"}</td>
+                          <td className="px-3 py-2 text-hp-paper/70 truncate max-w-[140px]">{r.coach?.name ?? r.coachInput}</td>
                           <td className="px-3 py-2">
                             {r.csvStatus === "ready" && <span className="text-pace-green">Ready</span>}
                             {r.csvStatus === "duplicate" && <span className="text-amber" title={r.issue}>{r.issue}</span>}
@@ -1294,11 +1294,11 @@ export function AttendanceClient() {
             <div className="flex items-center gap-3 px-6 pb-6 pt-2">
               <button type="button" onClick={handleBulkGroupCsvImport}
                 disabled={bulkGroupCsvImporting || bulkGroupCsvRows.filter((r) => r.csvStatus === "ready").length === 0}
-                className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+                className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                 {bulkGroupCsvImporting ? "Importing…" : `Create ${bulkGroupCsvRows.filter((r) => r.csvStatus === "ready").length} Group${bulkGroupCsvRows.filter((r) => r.csvStatus === "ready").length === 1 ? "" : "s"}`}
               </button>
               <button type="button" onClick={() => setShowBulkGroupForm(false)}
-                className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                className="px-6 py-3 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
                 Close
               </button>
             </div>
@@ -1309,5 +1309,5 @@ export function AttendanceClient() {
   );
 }
 
-const inp = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const lbl = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const inp = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const lbl = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";

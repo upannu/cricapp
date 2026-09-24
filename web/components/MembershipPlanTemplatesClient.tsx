@@ -114,26 +114,26 @@ export function MembershipPlanTemplatesClient() {
     <div className="max-w-4xl mx-auto px-6 py-8">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Membership Plan Templates</h1>
-          <p className="text-sm text-zinc-500">Reusable packages to pick from when creating a new membership.</p>
+          <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Membership Plan Templates</h1>
+          <p className="text-sm text-hp-paper/45">Reusable packages to pick from when creating a new membership.</p>
         </div>
         <button type="button" onClick={openNew}
-          className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+          className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
           + New Plan
         </button>
       </div>
 
       {!loaded ? (
-        <p className="text-zinc-500 text-sm">Loading…</p>
+        <p className="text-hp-paper/45 text-sm">Loading…</p>
       ) : templates.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-10 text-center">
-          <p className="text-zinc-400 text-sm">No plan templates yet.</p>
+        <div className="bg-hp-surface p-10 text-center">
+          <p className="text-hp-paper/45 text-sm">No plan templates yet.</p>
         </div>
       ) : (
-        <div className="bg-surface rounded-2xl overflow-hidden">
+        <div className="bg-hp-surface overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-800 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              <tr className="border-b border-white/8 text-left text-xs font-semibold uppercase tracking-wider text-hp-paper/45">
                 <th className="px-5 py-3">Plan</th>
                 {user.role === "platform_admin" && <th className="px-5 py-3">Academy</th>}
                 <th className="px-5 py-3">Sessions</th>
@@ -145,17 +145,17 @@ export function MembershipPlanTemplatesClient() {
             </thead>
             <tbody>
               {templates.map((t) => (
-                <tr key={t.id} className="border-b border-zinc-800/60 last:border-0">
-                  <td className="px-5 py-4 text-white font-semibold">{t.name}</td>
-                  {user.role === "platform_admin" && <td className="px-5 py-4 text-zinc-300">{academyName(t.academyId)}</td>}
-                  <td className="px-5 py-4 text-zinc-300">{t.totalSessions}</td>
-                  <td className="px-5 py-4 text-zinc-300">{formatMoney(t.feePerSession, academyCurrency(t.academyId))}</td>
+                <tr key={t.id} className="border-b border-white/8/60 last:border-0">
+                  <td className="px-5 py-4 text-hp-paper font-semibold">{t.name}</td>
+                  {user.role === "platform_admin" && <td className="px-5 py-4 text-hp-paper/70">{academyName(t.academyId)}</td>}
+                  <td className="px-5 py-4 text-hp-paper/70">{t.totalSessions}</td>
+                  <td className="px-5 py-4 text-hp-paper/70">{formatMoney(t.feePerSession, academyCurrency(t.academyId))}</td>
                   <td className="px-5 py-4">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${t.status === "active" ? "bg-pace-green/15 text-pace-green" : "bg-zinc-700 text-zinc-400"}`}>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${t.status === "active" ? "bg-pace-green/15 text-pace-green" : "bg-white/10 text-hp-paper/45"}`}>
                       {t.status === "active" ? "Active" : "Archived"}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-zinc-500">{formatDate(t.effectiveFrom)}</td>
+                  <td className="px-5 py-4 text-hp-paper/45">{formatDate(t.effectiveFrom)}</td>
                   <td className="px-5 py-4">
                     <RowActionsMenu items={[
                       { label: "Edit (new version)", icon: <EditIcon />, onClick: () => openEdit(t) },
@@ -173,47 +173,47 @@ export function MembershipPlanTemplatesClient() {
 
       {draft && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-          <div className="bg-surface rounded-2xl p-6 w-full max-w-md">
-            <h2 className="text-white font-bold text-sm mb-4">{draft.planKey ? "Edit Plan (creates a new version)" : "New Plan Template"}</h2>
+          <div className="bg-hp-surface p-6 w-full max-w-md">
+            <h2 className="font-mono text-xs uppercase tracking-widest text-hp-cg font-bold mb-4">{draft.planKey ? "Edit Plan (creates a new version)" : "New Plan Template"}</h2>
             <div className="space-y-4">
               {user.role === "platform_admin" && (
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Academy</label>
+                  <label className="block text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-1.5">Academy</label>
                   <select value={draft.academyId} onChange={(e) => setDraft({ ...draft, academyId: e.target.value })}
-                    className="w-full bg-ink rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm">
+                    className="w-full bg-hp-ink px-4 py-2.5 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none text-sm">
                     <option value="">— Select academy —</option>
                     {academies.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                 </div>
               )}
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Name</label>
+                <label className="block text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-1.5">Name</label>
                 <input type="text" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                   placeholder="10 Session Package"
-                  className="w-full bg-ink rounded-xl px-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
+                  className="w-full bg-hp-ink px-4 py-2.5 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none text-sm" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Total Sessions</label>
+                  <label className="block text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-1.5">Total Sessions</label>
                   <input type="number" min={1} value={draft.totalSessions}
                     onChange={(e) => setDraft({ ...draft, totalSessions: Number(e.target.value) })}
-                    className="w-full bg-ink rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
+                    className="w-full bg-hp-ink px-4 py-2.5 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none text-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Fee / Session</label>
+                  <label className="block text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-1.5">Fee / Session</label>
                   <input type="number" min={0} step={0.01} value={draft.feePerSession}
                     onChange={(e) => setDraft({ ...draft, feePerSession: Number(e.target.value) })}
-                    className="w-full bg-ink rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
+                    className="w-full bg-hp-ink px-4 py-2.5 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none text-sm" />
                 </div>
               </div>
               {saveError && <p className="text-red-400 text-sm">{saveError}</p>}
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setDraft(null)}
-                  className="px-5 py-2.5 text-sm font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer">
+                  className="px-5 py-2.5 text-sm font-medium text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer">
                   Cancel
                 </button>
                 <button type="button" onClick={handleSave} disabled={saving}
-                  className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+                  className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                   {saving ? "Saving…" : "Save"}
                 </button>
               </div>
