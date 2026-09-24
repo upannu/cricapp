@@ -7,7 +7,7 @@
 // that status filter) rather than a dead number; `active` highlights it when the filter it links
 // to is the one currently applied.
 export function StatCard({
-  label, value, color = "text-white", onClick, active,
+  label, value, color = "text-hp-paper", onClick, active,
 }: {
   label: string;
   value: string | number;
@@ -17,21 +17,21 @@ export function StatCard({
 }) {
   const content = (
     <>
-      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">{label}</p>
+      <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-1">{label}</p>
       <p className={`text-3xl font-bold ${color}`}>{value}</p>
     </>
   );
 
   if (!onClick) {
-    return <div className="bg-surface rounded-2xl p-5">{content}</div>;
+    return <div className="bg-hp-surface border border-white/8 p-5">{content}</div>;
   }
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`bg-surface rounded-2xl p-5 text-left transition-colors cursor-pointer hover:bg-white/5 ${
-        active ? "ring-1 ring-pace-green" : ""
+      className={`bg-hp-surface border border-white/8 p-5 text-left transition-colors cursor-pointer hover:bg-white/5 ${
+        active ? "ring-1 ring-hp-cg" : ""
       }`}
     >
       {content}

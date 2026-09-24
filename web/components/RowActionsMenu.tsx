@@ -15,7 +15,7 @@ export interface RowActionItem {
 }
 
 const VARIANT_CLASSES: Record<NonNullable<RowActionItem["variant"]>, string> = {
-  default: "text-zinc-200 hover:bg-zinc-700 hover:text-white",
+  default: "text-hp-paper/85 hover:bg-white/5 hover:text-hp-paper",
   danger: "text-red-400 hover:bg-red-500/10",
   warning: "text-amber hover:bg-amber/10",
   success: "text-pace-green hover:bg-pace-green/10",
@@ -122,8 +122,8 @@ export function RowActionsMenu({ items, align = "right" }: { items: RowActionIte
         onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
         title="More actions"
         aria-label="More actions"
-        className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${
-          open ? "border-zinc-500 bg-zinc-700 text-white" : "border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500"
+        className={`w-8 h-8 flex items-center justify-center border transition-colors cursor-pointer ${
+          open ? "border-white/40 bg-white/10 text-hp-paper" : "border-white/12 text-hp-paper/60 hover:text-hp-paper hover:border-white/30"
         }`}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -135,11 +135,11 @@ export function RowActionsMenu({ items, align = "right" }: { items: RowActionIte
         <div
           ref={menuRef}
           style={{ position: "fixed", left: position.left, top: position.top, visibility: position.ready ? "visible" : "hidden" }}
-          className="z-50 w-48 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden"
+          className="z-50 w-48 bg-hp-surface border border-white/12 shadow-xl py-1 overflow-hidden"
         >
           {items.map((item, i) => (
             <div key={i}>
-              {item.dividerBefore && <div className="h-px bg-zinc-700 mx-3 my-1" />}
+              {item.dividerBefore && <div className="h-px bg-white/12 mx-3 my-1" />}
               <button
                 type="button"
                 disabled={item.disabled}

@@ -67,10 +67,10 @@ describe("SelectPill", () => {
     const { rerender } = render(<SelectPill value="none" options={options} onChange={() => {}} ariaLabel="Group by" />);
     const trigger = screen.getByRole("button", { name: "Group by" });
     // Not selected, not applied — the plain default styling.
-    expect(trigger.className).not.toContain("border-pace-green");
+    expect(trigger.className).not.toContain("border-hp-cg");
 
     rerender(<SelectPill value="age" options={options} onChange={() => {}} ariaLabel="Group by" active />);
-    expect(trigger.className).toContain("border-pace-green/50");
+    expect(trigger.className).toContain("border-hp-cg/50");
   });
 
   test("iconOnly renders a funnel glyph instead of the selected label, but still opens the same options", async () => {
