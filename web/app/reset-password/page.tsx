@@ -70,7 +70,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-ink flex items-center justify-center p-4">
+    <div className="min-h-screen bg-hp-ink flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-3 mb-3">
@@ -78,16 +78,16 @@ export default function ResetPasswordPage() {
             <img src="/hp-logo.svg" alt="CRIC HQ" width={48} height={36}
               style={{ height: 48, width: "auto", objectFit: "contain", mixBlendMode: "screen" }}
               className="flex-shrink-0" />
-            <span className="text-3xl font-bold tracking-widest text-white font-mono">CRIC HQ</span>
+            <span className="font-display font-black text-3xl tracking-wide text-hp-paper uppercase">CRIC HQ</span>
           </div>
-          <p className="text-zinc-400 text-sm tracking-wide">Fast Bowling Performance Platform</p>
+          <p className="font-mono text-hp-paper/52 text-xs uppercase tracking-[0.2em]">Fast Bowling Performance Platform</p>
         </div>
 
-        <div className="bg-surface rounded-2xl p-8 shadow-2xl">
+        <div className="border border-white/12 bg-hp-surface p-8">
           {stage === "waiting" && (
             <div className="text-center py-6">
-              <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin mx-auto mb-4" />
-              <p className="text-zinc-400 text-sm">Verifying your link…</p>
+              <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin mx-auto mb-4" />
+              <p className="text-hp-paper/60 text-sm">Verifying your link…</p>
             </div>
           )}
 
@@ -98,12 +98,12 @@ export default function ResetPasswordPage() {
                   <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">This link isn&apos;t working</h2>
-              <p className="text-zinc-400 text-sm leading-relaxed mb-6">
+              <h2 className="font-display font-black uppercase text-xl text-hp-paper mb-2 tracking-wide">This link isn&apos;t working</h2>
+              <p className="text-hp-paper/60 text-sm leading-relaxed mb-6">
                 It may have expired, already been used, or been opened in a different browser than the one you requested it from.
                 Request a fresh link and open it in the same browser right away.
               </p>
-              <a href="/forgot-password" className="inline-block w-full bg-pace-green text-black font-bold py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm uppercase tracking-wider text-center">
+              <a href="/forgot-password" className="inline-block w-full bg-hp-cg text-hp-paper font-display font-black py-3.5 hover:bg-hp-cg/90 transition-colors text-sm uppercase tracking-[0.12em] text-center">
                 Request a New Link
               </a>
             </div>
@@ -111,42 +111,42 @@ export default function ResetPasswordPage() {
 
           {stage === "done" && (
             <div className="text-center">
-              <div className="w-14 h-14 rounded-full bg-pace-green/10 border border-pace-green/30 flex items-center justify-center mx-auto mb-5">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00D4AA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <div className="w-14 h-14 rounded-full bg-hp-cg/10 border border-hp-cg/30 flex items-center justify-center mx-auto mb-5">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E8362A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 6L9 17l-5-5" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Password set!</h2>
-              <p className="text-zinc-400 text-sm">Taking you to the dashboard…</p>
+              <h2 className="font-display font-black uppercase text-xl text-hp-paper mb-2 tracking-wide">Password set!</h2>
+              <p className="text-hp-paper/60 text-sm">Taking you to the dashboard…</p>
             </div>
           )}
 
           {stage === "ready" && (
             <>
-              <h2 className="text-xl font-semibold text-white mb-2 text-center">Set your password</h2>
-              <p className="text-zinc-400 text-sm text-center mb-6">Choose a password to secure your CRIC HQ account.</p>
+              <h2 className="font-display font-black uppercase text-2xl text-hp-paper mb-2 text-center tracking-wide">Set your password</h2>
+              <p className="text-hp-paper/60 text-sm text-center mb-6">Choose a password to secure your CRIC HQ account.</p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">New Password</label>
+                  <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">New Password</label>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                    className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                    className="w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm"
                     placeholder="Min. 8 characters"
                     minLength={8}
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Confirm Password</label>
+                  <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Confirm Password</label>
                   <input
                     type="password"
                     value={confirm}
                     onChange={(e) => { setConfirm(e.target.value); setError(""); }}
-                    className={`w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border focus:outline-none transition-colors text-sm ${
-                      error ? "border-red-500" : "border-zinc-700 focus:border-pace-green"
+                    className={`w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border focus:outline-none transition-colors text-sm ${
+                      error ? "border-red-500" : "border-white/12 focus:border-hp-cg"
                     }`}
                     placeholder="Re-enter password"
                     required
@@ -156,7 +156,7 @@ export default function ResetPasswordPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-pace-green text-black font-bold py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm uppercase tracking-wider cursor-pointer disabled:opacity-60 mt-2"
+                  className="w-full bg-hp-cg text-hp-paper font-display font-black py-3.5 hover:bg-hp-cg/90 transition-colors text-sm uppercase tracking-[0.12em] cursor-pointer disabled:opacity-60 mt-2"
                 >
                   {loading ? "Saving…" : "Set Password & Sign In"}
                 </button>

@@ -130,7 +130,7 @@ function SignUpForm() {
   }
 
   return (
-    <div className="min-h-screen bg-ink flex items-center justify-center p-4">
+    <div className="min-h-screen bg-hp-ink flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-10">
@@ -139,13 +139,13 @@ function SignUpForm() {
             <img src="/hp-logo.svg" alt="CRIC HQ" width={48} height={36}
               style={{ height: 48, width: "auto", objectFit: "contain", mixBlendMode: "screen" }}
               className="flex-shrink-0" />
-            <span className="text-3xl font-bold tracking-widest text-white font-mono">CRIC HQ</span>
+            <span className="font-display font-black text-3xl tracking-wide text-hp-paper uppercase">CRIC HQ</span>
           </div>
-          <p className="text-zinc-400 text-sm tracking-wide">Fast Bowling Performance Platform</p>
+          <p className="font-mono text-hp-paper/52 text-xs uppercase tracking-[0.2em]">Fast Bowling Performance Platform</p>
         </div>
 
         {done ? (
-          <div className="bg-surface rounded-2xl p-8 shadow-2xl text-center">
+          <div className="border border-white/12 bg-hp-surface p-8 text-center">
             <div className="w-16 h-16 rounded-full bg-amber/10 border border-amber/30 flex items-center justify-center mx-auto mb-5">
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" />
@@ -153,40 +153,40 @@ function SignUpForm() {
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">
+            <h2 className="font-display font-black uppercase text-xl text-hp-paper mb-2 tracking-wide">
               {checkEmailAddress ? "Check your email" : autoApproved ? "You're all set" : "Request submitted"}
             </h2>
             {checkEmailAddress ? (
               <>
-                <p className="text-zinc-400 text-sm leading-relaxed mb-2">
-                  If <span className="text-white font-semibold">{checkEmailAddress}</span> matches a player on file,
+                <p className="text-hp-paper/60 text-sm leading-relaxed mb-2">
+                  If <span className="text-hp-paper font-semibold">{checkEmailAddress}</span> matches a player on file,
                   we&apos;ve sent instructions there to finish creating your account.
                 </p>
-                <p className="text-zinc-500 text-xs leading-relaxed mb-6">
+                <p className="text-hp-paper/40 text-xs leading-relaxed mb-6">
                   Didn&apos;t get anything after a few minutes? Double check the email your coach has on file, or ask them to add the player first.
                 </p>
               </>
             ) : linked ? (
               <>
-                <p className="text-zinc-400 text-sm leading-relaxed mb-2">
+                <p className="text-hp-paper/60 text-sm leading-relaxed mb-2">
                   This email already has a CRIC HQ account — your request to link a{" "}
                   <span className="text-amber font-semibold">{ROLE_OPTIONS.find((o) => o.value === role)?.label}</span>{" "}
                   identity to it is <span className="text-amber font-semibold">pending approval</span>.
                 </p>
-                <p className="text-zinc-500 text-xs leading-relaxed mb-6">
+                <p className="text-hp-paper/40 text-xs leading-relaxed mb-6">
                   Once approved, sign in as usual and use the role switcher to move between your linked identities.
                 </p>
               </>
             ) : autoApproved ? (
               <>
-                <p className="text-zinc-400 text-sm leading-relaxed mb-2">
+                <p className="text-hp-paper/60 text-sm leading-relaxed mb-2">
                   {needsEmailConfirm ? (
-                    <>Check your email and confirm your address — <span className="text-pace-green font-semibold">no approval wait</span>, you can sign in the moment it&apos;s confirmed.</>
+                    <>Check your email and confirm your address — <span className="text-hp-cg font-semibold">no approval wait</span>, you can sign in the moment it&apos;s confirmed.</>
                   ) : (
-                    <>Your account is ready — <span className="text-pace-green font-semibold">sign in now</span>.</>
+                    <>Your account is ready — <span className="text-hp-cg font-semibold">sign in now</span>.</>
                   )}
                 </p>
-                <p className="text-zinc-500 text-xs leading-relaxed mb-6">
+                <p className="text-hp-paper/40 text-xs leading-relaxed mb-6">
                   {isNewPlayer
                     ? "Your player profile has been created — head to Find a Coach once you're signed in to get matched with one."
                     : "Your player record was already on file, so there's no admin review for this account."}
@@ -194,24 +194,24 @@ function SignUpForm() {
               </>
             ) : (
               <>
-                <p className="text-zinc-400 text-sm leading-relaxed mb-2">
+                <p className="text-hp-paper/60 text-sm leading-relaxed mb-2">
                   Your account is <span className="text-amber font-semibold">pending approval</span> from a platform admin.
                 </p>
-                <p className="text-zinc-500 text-xs leading-relaxed mb-6">
+                <p className="text-hp-paper/40 text-xs leading-relaxed mb-6">
                   You&apos;ll be notified once your account is approved. This usually takes less than 24 hours.
                 </p>
               </>
             )}
             <Link
               href="/login"
-              className="inline-block w-full bg-surface border border-zinc-700 text-zinc-300 font-bold py-3.5 rounded-xl hover:border-zinc-500 transition-colors text-sm uppercase tracking-wider text-center"
+              className="inline-block w-full border border-white/15 text-hp-paper/80 font-bold py-3.5 hover:border-white/30 transition-colors text-sm uppercase tracking-wider text-center"
             >
               Back to Sign In
             </Link>
           </div>
         ) : (
-          <div className="bg-surface rounded-2xl p-8 shadow-2xl">
-            <h2 className="text-xl font-semibold text-white mb-6 text-center">Create your account</h2>
+          <div className="border border-white/12 bg-hp-surface p-8">
+            <h2 className="font-display font-black uppercase text-2xl text-hp-paper mb-6 text-center tracking-wide">Create your account</h2>
 
             {/* Role selector */}
             <div className="grid grid-cols-2 gap-2 mb-6">
@@ -220,16 +220,16 @@ function SignUpForm() {
                   key={opt.value}
                   type="button"
                   onClick={() => { setRole(opt.value); setNewPlayerMode(false); }}
-                  className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  className={`p-3.5 border text-left transition-all cursor-pointer ${
                     role === opt.value
-                      ? "border-pace-green bg-pace-green/10"
-                      : "border-zinc-700 hover:border-zinc-500"
+                      ? "border-hp-cg bg-hp-cg/10"
+                      : "border-white/12 hover:border-white/25"
                   }`}
                 >
-                  <div className={`text-sm font-semibold mb-0.5 ${role === opt.value ? "text-pace-green" : "text-white"}`}>
+                  <div className={`text-sm font-semibold mb-0.5 ${role === opt.value ? "text-hp-cg" : "text-hp-paper"}`}>
                     {opt.label}
                   </div>
-                  <div className="text-xs text-zinc-500 leading-snug">{opt.desc}</div>
+                  <div className="text-xs text-hp-paper/45 leading-snug">{opt.desc}</div>
                 </button>
               ))}
             </div>
@@ -245,8 +245,8 @@ function SignUpForm() {
                       key={String(opt.value)}
                       type="button"
                       onClick={() => { setNewPlayerMode(opt.value); setError(""); }}
-                      className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                        newPlayerMode === opt.value ? "bg-pace-green text-black" : "bg-ink text-zinc-400 hover:text-white border border-zinc-700"
+                      className={`flex-1 px-3 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                        newPlayerMode === opt.value ? "bg-hp-cg text-hp-paper" : "bg-hp-ink text-hp-paper/60 hover:text-hp-paper border border-white/12"
                       }`}
                     >
                       {opt.label}
@@ -257,28 +257,28 @@ function SignUpForm() {
 
               {isNewPlayer ? (
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Age Group</label>
+                  <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Age Group</label>
                   <select
                     value={newPlayerAgeGroup}
                     onChange={(e) => setNewPlayerAgeGroup(e.target.value as AgeGroup)}
-                    className="w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer"
+                    className="w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer"
                   >
                     {AGE_GROUPS.map((g) => <option key={g} value={g}>{g}</option>)}
                   </select>
-                  <p className="text-zinc-500 text-xs mt-1.5">
+                  <p className="text-hp-paper/45 text-xs mt-1.5">
                     No coach yet? That&apos;s fine — you can find one from your account once you&apos;re signed in.
                   </p>
                 </div>
               ) : NEEDS_PLAYER_LOOKUP.includes(role) && (
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">
                     {role === "parent" ? "Your Child's Registered Email" : "Your Registered Player Email"}
                   </label>
                   <input
                     type="email"
                     value={playerEmail}
                     onChange={(e) => { setPlayerEmail(e.target.value); setError(""); }}
-                    className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                    className="w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm"
                     placeholder="The email your coach has on file"
                     required
                   />
@@ -291,23 +291,23 @@ function SignUpForm() {
               {role === "academy_admin" && (
                 <>
                   <div>
-                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Academy Name</label>
+                    <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Academy Name</label>
                     <input
                       type="text"
                       value={academyName}
                       onChange={(e) => { setAcademyName(e.target.value); setError(""); }}
-                      className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                      className="w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm"
                       placeholder="e.g. Bella Vista Fast Bowling"
                       required
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Academy Location (optional)</label>
+                    <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Academy Location (optional)</label>
                     <input
                       type="text"
                       value={academyLocation}
                       onChange={(e) => setAcademyLocation(e.target.value)}
-                      className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                      className="w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm"
                       placeholder="e.g. Sydney, NSW"
                     />
                   </div>
@@ -315,24 +315,24 @@ function SignUpForm() {
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Full Name</label>
+                <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Full Name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => { setName(e.target.value); setError(""); }}
-                  className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                  className="w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm"
                   placeholder={role === "coach" ? "Coach name" : "Your full name"}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Email</label>
+                <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Email</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                  className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                  className="w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm"
                   placeholder="your@email.com"
                   required
                 />
@@ -347,12 +347,12 @@ function SignUpForm() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Password</label>
+                <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Password</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                  className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                  className="w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm"
                   placeholder="Min. 8 characters"
                   minLength={8}
                   required
@@ -360,13 +360,13 @@ function SignUpForm() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Confirm Password</label>
+                <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Confirm Password</label>
                 <input
                   type="password"
                   value={confirm}
                   onChange={(e) => { setConfirm(e.target.value); setError(""); }}
-                  className={`w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border focus:outline-none transition-colors text-sm ${
-                    error ? "border-red-500" : "border-zinc-700 focus:border-pace-green"
+                  className={`w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border focus:outline-none transition-colors text-sm ${
+                    error ? "border-red-500" : "border-white/12 focus:border-hp-cg"
                   }`}
                   placeholder="Re-enter password"
                   required
@@ -377,15 +377,15 @@ function SignUpForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-pace-green text-black font-bold py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm uppercase tracking-wider cursor-pointer disabled:opacity-60 mt-2"
+                className="w-full bg-hp-cg text-hp-paper font-display font-black py-3.5 hover:bg-hp-cg/90 transition-colors text-sm uppercase tracking-[0.12em] cursor-pointer disabled:opacity-60 mt-2"
               >
                 {loading ? "Creating account…" : "Create Account"}
               </button>
             </form>
 
-            <p className="text-center text-zinc-400 text-sm mt-6">
+            <p className="text-center text-hp-paper/50 text-sm mt-6">
               Already have an account?{" "}
-              <Link href="/login" className="text-pace-green hover:underline font-medium">
+              <Link href="/login" className="text-hp-cg hover:underline font-medium">
                 Sign in
               </Link>
             </p>
