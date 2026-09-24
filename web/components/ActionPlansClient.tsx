@@ -10,12 +10,12 @@ import { DateInput } from "@/components/DateInput";
 const PRIORITY_STYLES: Record<ActionPlanPriority, string> = {
   High: "bg-fire/20 text-fire",
   Medium: "bg-amber/20 text-amber",
-  Low: "bg-zinc-700 text-zinc-300",
+  Low: "bg-white/10 text-hp-paper/70",
 };
 
 const STATUS_STYLES: Record<ActionPlanStatus, string> = {
   "In Progress": "bg-pace-green/20 text-pace-green",
-  Pending: "bg-zinc-700 text-zinc-400",
+  Pending: "bg-white/10 text-hp-paper/45",
   Completed: "bg-blue-500/20 text-blue-400",
 };
 

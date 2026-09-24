@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Report, ReportReviewStatus } from "@/lib/types";
 
 const STATUS_STYLES: Record<ReportReviewStatus, string> = {
-  not_reviewed: "bg-zinc-700 text-zinc-300 border-zinc-600",
+  not_reviewed: "bg-white/10 text-hp-paper/70 border-white/15",
   under_review: "bg-amber/10 text-amber border-amber/30",
   completed: "bg-pace-green/10 text-pace-green border-pace-green/30",
 };
@@ -92,21 +92,21 @@ export function ReportReview({
             value={summaryDraft}
             onChange={(e) => setSummaryDraft(e.target.value)}
             rows={10}
-            className="w-full bg-ink rounded-xl px-3 py-2.5 text-sm leading-relaxed text-zinc-200 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors resize-y"
+            className="w-full bg-hp-ink px-3 py-2.5 text-sm leading-relaxed text-hp-paper/80 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors resize-y"
           />
           <input
             type="text"
             value={highlightDraft}
             onChange={(e) => setHighlightDraft(e.target.value)}
             placeholder="Highlight (optional)"
-            className="w-full bg-ink rounded-xl px-3 py-2 text-xs text-zinc-200 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors"
+            className="w-full bg-hp-ink px-3 py-2 text-xs text-hp-paper/80 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors"
           />
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => save("under_review", "under_review")}
               disabled={saving !== null}
-              className="px-3 py-1.5 text-xs font-semibold text-amber border border-amber/30 rounded-lg hover:bg-amber/10 transition-colors disabled:opacity-60 cursor-pointer"
+              className="px-3 py-1.5 text-xs font-semibold text-amber border border-amber/30 hover:bg-amber/10 transition-colors disabled:opacity-60 cursor-pointer"
             >
               {saving === "under_review" ? "Saving…" : "Save & Mark Under Review"}
             </button>
@@ -114,7 +114,7 @@ export function ReportReview({
               type="button"
               onClick={() => save("completed", "completed")}
               disabled={saving !== null}
-              className="px-3 py-1.5 text-xs font-semibold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity disabled:opacity-60 cursor-pointer"
+              className="px-3 py-1.5 text-xs font-semibold bg-pace-green text-black hover:opacity-90 transition-opacity disabled:opacity-60 cursor-pointer"
             >
               {saving === "completed" ? "Saving…" : "Save & Complete"}
             </button>
@@ -123,14 +123,14 @@ export function ReportReview({
         </div>
       ) : (
         <div>
-          <p className="text-sm text-zinc-300 leading-relaxed">{summary}</p>
+          <p className="text-sm text-hp-paper/70 leading-relaxed">{summary}</p>
           {highlight && <p className="mt-1.5 text-xs text-amber font-semibold">★ {highlight}</p>}
           {canReview && status === "completed" && (
             <button
               type="button"
               onClick={() => save("under_review", "reopen")}
               disabled={saving !== null}
-              className="mt-2 text-xs font-semibold text-zinc-500 hover:text-amber transition-colors cursor-pointer"
+              className="mt-2 text-xs font-semibold text-hp-paper/45 hover:text-amber transition-colors cursor-pointer"
             >
               {saving === "reopen" ? "Reopening…" : "Reopen for Edits"}
             </button>
