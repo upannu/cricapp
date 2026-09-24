@@ -19,7 +19,7 @@ import { PLAYER_ENTITY_ID } from "../../../seed/fixtures";
 function reportCard(page: Page): Locator {
   return page
     .getByText("Low risk")
-    .locator("xpath=ancestor::div[contains(@class,'bg-surface')][1]");
+    .locator("xpath=ancestor::div[contains(@class,'bg-hp-surface')][1]");
 }
 
 test("a report stays invisible to the player until the coach marks review Completed", async ({ page, browser }) => {
