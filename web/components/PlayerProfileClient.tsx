@@ -285,21 +285,25 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
               Manage Subscription
             </Link>
           )}
+          {/* + Log Session is the one solid-filled (brand red) action in this row — the single
+              primary thing a coach does from a player's profile. Every other action here,
+              including Edit Player, is a neutral outline — a row of several red-outlined buttons
+              reads as "everything here is a warning" rather than "these are ordinary actions". */}
           <Link
             href={`/players/${playerId}/new-session`}
-            className="px-5 py-2.5 text-sm font-semibold text-hp-cg border border-hp-cg/40 hover:bg-hp-cg/10 transition-colors"
+            className="px-5 py-2.5 text-sm font-semibold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors"
           >
             + Log Session
           </Link>
           <Link
             href={`/players/${playerId}/passport`}
-            className="px-5 py-2.5 text-sm font-semibold text-hp-cg border border-hp-cg/40 hover:bg-hp-cg/10 transition-colors"
+            className="px-5 py-2.5 text-sm font-medium text-hp-paper/70 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors"
           >
             Cricket Passport
           </Link>
           <Link
             href={`/players/${playerId}/edit`}
-            className="px-5 py-2.5 text-sm font-semibold text-hp-cg border border-hp-cg/40 hover:bg-hp-cg/10 transition-colors"
+            className="px-5 py-2.5 text-sm font-medium text-hp-paper/70 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors"
           >
             Edit Player
           </Link>

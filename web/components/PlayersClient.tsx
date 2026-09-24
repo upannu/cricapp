@@ -749,7 +749,11 @@ export function PlayersClient() {
             <button
               type="button"
               onClick={() => { setShowAddPlayer((v) => !v); setAddPlayerError(""); }}
-              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-hp-cg border border-hp-cg/40 hover:bg-hp-cg/10 transition-colors cursor-pointer"
+              className={`flex-shrink-0 px-4 py-2 text-sm font-semibold transition-colors cursor-pointer ${
+                showAddPlayer
+                  ? "text-hp-paper/70 border border-white/15 hover:text-hp-paper hover:border-white/30"
+                  : "bg-hp-cg text-hp-paper hover:bg-hp-cg/90"
+              }`}
             >
               {showAddPlayer ? "Cancel" : "+ Add Player"}
             </button>

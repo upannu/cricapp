@@ -180,7 +180,7 @@ describe("PlayerProfileClient", () => {
   // Edit Player moved out of the top bar into the identity card's own action row (alongside
   // View All Reports/Action Plans/etc.), outlined rather than solid-filled — matching how Coaches'
   // own profile page places "Edit Coach" next to its other actions instead of up in the top bar.
-  test("Edit Player sits in the action row, outlined, not solid-filled in the top bar", async () => {
+  test("Edit Player sits in the action row, outlined, not solid-filled", async () => {
     setupDefaults();
     fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
 
@@ -189,14 +189,16 @@ describe("PlayerProfileClient", () => {
 
     const editLink = screen.getByRole("link", { name: "Edit Player" });
     expect(editLink).toHaveAttribute("href", "/players/p1/edit");
-    expect(editLink).toHaveClass("text-hp-cg", "border-hp-cg/40");
+    expect(editLink).toHaveClass("border", "border-white/15");
     expect(editLink).not.toHaveClass("bg-hp-cg");
     // Lives beside the other per-player actions, not alone up in the top bar next to Back.
     expect(editLink.closest("div")).toBe(screen.getByRole("link", { name: "View All Reports" }).closest("div"));
   });
 
-  // +Log Session matches Edit Player's outlined style — no button in this row is solid-filled.
-  test("+Log Session is outlined, matching Edit Player, not solid-filled", async () => {
+  // +Log Session is the row's one solid-filled action — the single primary thing a coach does
+  // from here. Every other action in the row (Edit Player included) is a neutral outline, so the
+  // row doesn't read as "everything here is a warning" the way several red-outlined buttons would.
+  test("+Log Session is the row's one solid-filled primary action", async () => {
     setupDefaults();
     fetchPlayer.mockResolvedValue(makePlayer({ id: "p1", name: "Alice Bowler" }));
 
@@ -204,8 +206,12 @@ describe("PlayerProfileClient", () => {
     await screen.findByText("Alice Bowler");
 
     const newSessionLink = screen.getByRole("link", { name: "+ Log Session" });
-    expect(newSessionLink).toHaveClass("text-hp-cg", "border-hp-cg/40");
-    expect(newSessionLink).not.toHaveClass("bg-hp-cg");
+    expect(newSessionLink).toHaveClass("bg-hp-cg", "text-hp-paper");
+
+    const editLink = screen.getByRole("link", { name: "Edit Player" });
+    const passportLink = screen.getByRole("link", { name: "Cricket Passport" });
+    expect(editLink).not.toHaveClass("bg-hp-cg");
+    expect(passportLink).not.toHaveClass("bg-hp-cg");
   });
 
   // Edit Player stays at the end of the row — View All Reports, Manage Subscription, +Log
