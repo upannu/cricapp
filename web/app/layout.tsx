@@ -36,7 +36,7 @@ export default function RootLayout({
       lang="en-AU"
       className={`${geistSans.variable} ${geistMono.variable} ${barlowCondensed.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-ink text-white flex flex-col">
+      <body className="min-h-full bg-hp-ink text-hp-paper flex flex-col">
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
