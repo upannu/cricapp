@@ -835,11 +835,11 @@ export function AcademyClient() {
       {/* Page header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Academies</h1>
+          <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">Academies</h1>
         </div>
         {user?.role === "platform_admin" && (
           <button type="button" onClick={openAdd}
-            className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+            className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
             + New Academy
           </button>
         )}
@@ -851,38 +851,38 @@ export function AcademyClient() {
         <StatCard label="Active programs" value={activeCount} color="text-pace-green"
           onClick={() => { setStatusFilter((prev) => (prev === "Active" ? "All" : "Active")); setPage(1); }} active={statusFilter === "Active"} />
         <StatCard label="Total players" value={grandTotal} color="text-amber" />
-        <StatCard label="Inactive" value={inactiveCount} color="text-zinc-400"
+        <StatCard label="Inactive" value={inactiveCount} color="text-hp-paper/45"
           onClick={() => { setStatusFilter((prev) => (prev === "Inactive" ? "All" : "Inactive")); setPage(1); }} active={statusFilter === "Inactive"} />
       </StatsGrid>
 
       {/* Filter bar — the old "Sort: …" dropdown is gone now that the table's own column headers
           are click-to-sort (see SortableHeader below), same as Coaches/Players. */}
-      <div className="bg-surface rounded-2xl p-4 mb-6 flex flex-wrap gap-3 items-center">
+      <div className="bg-hp-surface p-4 mb-6 flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-48">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-hp-paper/45" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
           </svg>
           <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             placeholder="Search by name or location…"
-            className="w-full bg-ink rounded-xl pl-9 pr-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
+            className="w-full bg-hp-ink pl-9 pr-4 py-2.5 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none text-sm" />
         </div>
         <div className="flex gap-1">
           {(["All", "Active", "Inactive"] as const).map((s) => (
             <button key={s} type="button" onClick={() => { setStatusFilter(s); setPage(1); }}
-              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                statusFilter === s ? "bg-pace-green text-black" : "bg-ink text-zinc-400 hover:text-white border border-zinc-700"
+              className={`px-3 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                statusFilter === s ? "bg-hp-cg text-hp-paper" : "bg-hp-ink text-hp-paper/45 hover:text-hp-paper border border-white/12"
               }`}>{s}</button>
           ))}
         </div>
         <select value={stageFilter} onChange={(e) => { setStageFilter(e.target.value as "All" | AcademyStage); setPage(1); }}
-          className="bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer">
+          className="bg-hp-ink text-hp-paper text-sm px-3 py-2.5 border border-white/12 focus:border-hp-cg focus:outline-none cursor-pointer">
           <option value="All">All Stages</option>
           {STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
         </select>
       </div>
 
       {savedId && (
-        <div className="mb-4 px-5 py-3 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
+        <div className="mb-4 px-5 py-3 bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
           ✓ Academy saved successfully
         </div>
       )}
@@ -892,35 +892,35 @@ export function AcademyClient() {
           never applies). Only Deactivate/Activate has a coherent bulk form — Billing and Edit stay
           per-row, single-academy actions. */}
       {user?.role === "platform_admin" && selectedIds.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3">
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 px-4 py-3">
           <span className="text-blue-400 text-sm font-semibold">
             {selectedIds.size} academ{selectedIds.size !== 1 ? "ies" : "y"} selected
           </span>
           <button
             type="button"
             onClick={() => setBulkToggleTarget("Inactive")}
-            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors cursor-pointer"
           >
             Deactivate
           </button>
           <button
             type="button"
             onClick={() => setBulkToggleTarget("Active")}
-            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors cursor-pointer"
           >
             Activate
           </button>
           <button
             type="button"
             onClick={handleExportCsv}
-            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:bg-white/5 transition-colors cursor-pointer"
           >
             Export CSV
           </button>
           <button
             type="button"
             onClick={clearSelection}
-            className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer sm:ml-auto"
+            className="text-xs text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer sm:ml-auto"
           >
             Clear
           </button>
@@ -932,21 +932,21 @@ export function AcademyClient() {
           still lives directly underneath a clicked row exactly as before, unchanged — this phase
           only replaces the outer shell; dedicated View/Edit pages come in a later phase. */}
       {displayed.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-16 text-center">
-          <p className="text-zinc-400 text-sm mb-4">No academies found.</p>
+        <div className="bg-hp-surface p-16 text-center">
+          <p className="text-hp-paper/45 text-sm mb-4">No academies found.</p>
           {user?.role === "platform_admin" && (
             <button type="button" onClick={openAdd}
-              className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
+              className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
               + Create First Academy
             </button>
           )}
         </div>
       ) : (
-        <div className="bg-surface rounded-2xl overflow-hidden">
+        <div className="bg-hp-surface overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-zinc-700/60">
+                <tr className="border-b border-white/12">
                   {user?.role === "platform_admin" && (
                     <th className="text-center px-4 py-3 pl-6 whitespace-nowrap">
                       <input
@@ -954,7 +954,7 @@ export function AcademyClient() {
                         checked={allSelected}
                         ref={(el) => { if (el) el.indeterminate = someSelected; }}
                         onChange={toggleSelectAll}
-                        className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+                        className="w-3.5 h-3.5 accent-hp-cg cursor-pointer"
                         title="Select all"
                       />
                     </th>
@@ -965,7 +965,7 @@ export function AcademyClient() {
                   <SortableHeader label="Players" sortKey="players" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                   <SortableHeader label="Coaches" sortKey="coaches" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                   <SortableHeader label="Location" sortKey="location" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                  <th className="sticky right-0 bg-surface text-right text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap shadow-[-8px_0_8px_-4px_rgba(0,0,0,0.3)]">Actions</th>
+                  <th className="sticky right-0 bg-hp-surface text-right text-xs font-semibold text-hp-paper/70 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap shadow-[-8px_0_8px_-4px_rgba(0,0,0,0.3)]">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -973,11 +973,11 @@ export function AcademyClient() {
             const canManage       = user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === academy.id);
             const assignedPlayers = allPlayers.filter((p) => academy.playerIds.includes(p.id));
             const assignedCoaches = allCoaches.filter((c) => (academy.coachIds ?? []).includes(c.id));
-            // Shared with the sticky Actions cell below — a plain "bg-surface" there would visibly
+            // Shared with the sticky Actions cell below — a plain "bg-hp-surface" there would visibly
             // seam against a selected/saved row's own tint as content scrolls under it.
             const rowBg = selectedIds.has(academy.id)
               ? "bg-blue-500/5"
-              : savedId === academy.id ? "bg-pace-green/5" : "bg-surface";
+              : savedId === academy.id ? "bg-pace-green/5" : "bg-hp-surface";
 
             // Billing/Edit Academy/Deactivate collapse into one ⋮ menu for whichever role can act
             // on this academy — previously Billing+Edit were separate always-visible buttons only
@@ -1011,8 +1011,8 @@ export function AcademyClient() {
 
             return (
               <tr key={academy.id}
-                className={`border-b border-zinc-700/40 last:border-0 transition-colors cursor-pointer select-none ${rowBg} ${
-                  selectedIds.has(academy.id) || savedId === academy.id ? "" : "hover:bg-surface/80"
+                className={`border-b border-white/8 last:border-0 transition-colors cursor-pointer select-none ${rowBg} ${
+                  selectedIds.has(academy.id) || savedId === academy.id ? "" : "hover:bg-hp-surface/80"
                 }`}
                 onClick={() => router.push(`/academies/${academy.id}`)}
               >
@@ -1022,25 +1022,25 @@ export function AcademyClient() {
                       type="checkbox"
                       checked={selectedIds.has(academy.id)}
                       onChange={() => toggleSelect(academy.id)}
-                      className="w-4 h-4 accent-pace-green cursor-pointer"
+                      className="w-4 h-4 accent-hp-cg cursor-pointer"
                       title="Select for bulk actions"
                     />
                   </td>
                 )}
                 <td className={`px-4 py-4 ${user?.role === "platform_admin" ? "" : "pl-6"}`}>
-                  <span className="text-white font-medium text-sm whitespace-nowrap">{academy.name}</span>
+                  <span className="text-hp-paper font-medium text-sm whitespace-nowrap">{academy.name}</span>
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STAGE_STYLES[academy.stage]}`}>{academy.stage}</span>
                 </td>
                 <td className="px-4 py-4 whitespace-nowrap">
                   <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                    academy.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
+                    academy.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-white/10 text-hp-paper/45"
                   }`}>{academy.status}</span>
                 </td>
                 <td className="px-4 py-4 text-sm font-bold text-pace-green font-mono">{assignedPlayers.length}</td>
                 <td className="px-4 py-4 text-sm font-bold text-blue-400 font-mono">{assignedCoaches.length}</td>
-                <td className="px-4 py-4 text-sm text-zinc-400 whitespace-nowrap">{academy.location || <span className="text-zinc-600">—</span>}</td>
+                <td className="px-4 py-4 text-sm text-hp-paper/45 whitespace-nowrap">{academy.location || <span className="text-hp-paper/35">—</span>}</td>
                 <td className={`sticky right-0 px-4 py-4 pr-6 text-right transition-colors shadow-[-8px_0_8px_-4px_rgba(0,0,0,0.3)] ${rowBg}`}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -1056,7 +1056,7 @@ export function AcademyClient() {
           </div>
           <PaginationFooter
             label={
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-hp-paper/45">
                 Showing {displayed.length === 0 ? 0 : (currentPage - 1) * academiesPerPage + 1}–{Math.min(currentPage * academiesPerPage, displayed.length)} of {displayed.length}
               </p>
             }
@@ -1065,7 +1065,7 @@ export function AcademyClient() {
             onPageChange={setPage}
             itemsPerPage={academiesPerPage}
             onItemsPerPageChange={(n) => { setAcademiesPerPage(n); setPage(1); }}
-            className="px-6 py-3 border-t border-zinc-700/60"
+            className="px-6 py-3 border-t border-white/12"
           />
         </div>
       )}
@@ -1143,7 +1143,7 @@ export function AcademyClient() {
       {ownerMissing && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setOwnerMissing(false)} />
-          <div className="relative bg-surface rounded-2xl w-full max-w-xs shadow-2xl border border-red-500/30 p-6 text-center">
+          <div className="relative bg-hp-surface w-full max-w-xs shadow-2xl border border-red-500/30 p-6 text-center">
             <div className="w-12 h-12 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>
@@ -1151,12 +1151,12 @@ export function AcademyClient() {
                 <line x1="12" y1="16" x2="12.01" y2="16"/>
               </svg>
             </div>
-            <h3 className="text-white font-bold mb-2">Academy Owner Required</h3>
-            <p className="text-zinc-400 text-sm mb-5">
+            <h3 className="text-hp-paper font-bold mb-2">Academy Owner Required</h3>
+            <p className="text-hp-paper/45 text-sm mb-5">
               Every academy must have a Head Coach / Owner before it can be saved. Please select one from the Coaches section.
             </p>
             <button type="button" onClick={() => setOwnerMissing(false)}
-              className="w-full px-4 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
+              className="w-full px-4 py-2.5 text-sm font-bold text-hp-paper/70 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors cursor-pointer">
               Got it
             </button>
           </div>
@@ -1167,11 +1167,11 @@ export function AcademyClient() {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-8 overflow-y-auto" onClick={closeModal}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-          <div className="relative bg-surface rounded-2xl w-full max-w-2xl shadow-2xl border border-zinc-700/60 my-4"
+          <div className="relative bg-hp-surface w-full max-w-2xl shadow-2xl border border-white/12 my-4"
             onClick={(e) => e.stopPropagation()}>
 
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-zinc-700/50">
-              <h2 className="text-white font-bold">{editingId ? "Edit Academy" : "New Academy"}</h2>
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/10">
+              <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">{editingId ? "Edit Academy" : "New Academy"}</h2>
               <div className="flex items-center gap-3">
                 {editingId && (user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === editingId)) && (
                   <Link
@@ -1182,7 +1182,7 @@ export function AcademyClient() {
                   </Link>
                 )}
                 <button type="button" onClick={closeModal}
-                  className="text-zinc-400 hover:text-white transition-colors cursor-pointer text-xl leading-none p-1">✕</button>
+                  className="text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer text-xl leading-none p-1">✕</button>
               </div>
             </div>
 
@@ -1217,7 +1217,7 @@ export function AcademyClient() {
                       className={`${sel} ${academyCountryLocked ? "opacity-60 cursor-not-allowed" : ""}`}>
                       {COUNTRY_OPTIONS.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
                     </select>
-                    <p className="text-xs text-zinc-500 mt-1">
+                    <p className="text-xs text-hp-paper/45 mt-1">
                       Players are billed and the academy paid out in {(COUNTRY_OPTIONS.find((c) => c.code === draft.country)?.currency ?? DEFAULT_CURRENCY).toUpperCase()}.
                       {academyCountryLocked && " Locked — a coach here already has a Stripe payout account set up."}
                     </p>
@@ -1227,7 +1227,7 @@ export function AcademyClient() {
                     <input type="tel" value={draft.phone}
                       onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
                       className={inp} placeholder="e.g. 0412 345 678" />
-                    <p className="text-xs text-zinc-500 mt-1">Used as a fallback SMS contact for payment reminders when a player has no coach assigned.</p>
+                    <p className="text-xs text-hp-paper/45 mt-1">Used as a fallback SMS contact for payment reminders when a player has no coach assigned.</p>
                   </div>
                   <div>
                     <label className={lbl}>Start Date</label>
@@ -1268,8 +1268,8 @@ export function AcademyClient() {
 
                 {/* Inline create-coach form */}
                 {showNewCoach && (
-                  <div className="bg-ink rounded-xl p-4 mb-4 border border-pace-green/30">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-3">New Coach</p>
+                  <div className="bg-hp-ink p-4 mb-4 border border-hp-cg/30">
+                    <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-3">New Coach</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                       <div>
                         <label className={lbl}>Full Name *</label>
@@ -1306,7 +1306,7 @@ export function AcademyClient() {
                     </div>
                     {newCoachError && <p className="text-red-400 text-xs mb-2">{newCoachError}</p>}
                     <button type="button" onClick={handleAddNewCoach} disabled={savingCoach}
-                      className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-60">
+                      className="px-4 py-2 bg-hp-cg text-hp-paper text-xs font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                       {savingCoach ? "Creating…" : "Create & Set as Owner"}
                     </button>
                   </div>
@@ -1318,20 +1318,20 @@ export function AcademyClient() {
                     <button type="button"
                       onClick={handleAddSelfAsCoachToDraft}
                       disabled={savingCoach}
-                      className="w-full flex items-center gap-3 px-4 py-3 bg-ink border border-zinc-700 rounded-xl hover:border-pace-green transition-colors cursor-pointer disabled:opacity-60 text-left">
-                      <span className="w-8 h-8 rounded-lg bg-pace-green/15 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">★</span>
+                      className="w-full flex items-center gap-3 px-4 py-3 bg-hp-ink border border-white/12 hover:border-hp-cg transition-colors cursor-pointer disabled:opacity-60 text-left">
+                      <span className="w-8 h-8 bg-pace-green/15 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">★</span>
                       <span className="min-w-0">
-                        <span className="block text-sm font-semibold text-white">{savingCoach ? "Adding…" : "Add Yourself as Head Coach"}</span>
-                        <span className="block text-xs text-zinc-500">Uses your own name &amp; email — one click</span>
+                        <span className="block text-sm font-semibold text-hp-paper">{savingCoach ? "Adding…" : "Add Yourself as Head Coach"}</span>
+                        <span className="block text-xs text-hp-paper/45">Uses your own name &amp; email — one click</span>
                       </span>
                     </button>
                     <button type="button"
                       onClick={() => { setShowNewCoach(true); setNewCoachError(""); }}
-                      className="w-full flex items-center gap-3 px-4 py-3 bg-ink border border-zinc-700 rounded-xl hover:border-pace-green transition-colors cursor-pointer text-left">
-                      <span className="w-8 h-8 rounded-lg bg-zinc-700/60 text-zinc-400 flex items-center justify-center text-sm font-bold flex-shrink-0">+</span>
+                      className="w-full flex items-center gap-3 px-4 py-3 bg-hp-ink border border-white/12 hover:border-hp-cg transition-colors cursor-pointer text-left">
+                      <span className="w-8 h-8 bg-white/10 text-hp-paper/45 flex items-center justify-center text-sm font-bold flex-shrink-0">+</span>
                       <span className="min-w-0">
-                        <span className="block text-sm font-semibold text-white">Create New Coach</span>
-                        <span className="block text-xs text-zinc-500">For someone you&apos;ve hired to coach here</span>
+                        <span className="block text-sm font-semibold text-hp-paper">Create New Coach</span>
+                        <span className="block text-xs text-hp-paper/45">For someone you&apos;ve hired to coach here</span>
                       </span>
                     </button>
                   </div>
@@ -1340,11 +1340,11 @@ export function AcademyClient() {
                     {/* Step 1 — Academy Owner (always visible, required) */}
                     <div className="mb-4">
                       <label className={lbl}>Academy Owner (Head Coach) *</label>
-                      <p className="text-zinc-500 text-xs mb-2">The main person responsible for running this academy.</p>
+                      <p className="text-hp-paper/45 text-xs mb-2">The main person responsible for running this academy.</p>
 
                       {/* Suggested owner notice */}
                       {ownerSuggested && (
-                        <div className="mb-2 flex items-start gap-2 px-3 py-2.5 bg-amber/10 border border-amber/30 rounded-xl">
+                        <div className="mb-2 flex items-start gap-2 px-3 py-2.5 bg-amber/10 border border-amber/30">
                           <svg className="text-amber flex-shrink-0 mt-0.5" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                           </svg>
@@ -1367,13 +1367,13 @@ export function AcademyClient() {
                         const owner = allCoaches.find((c) => c.id === draft.headCoachId);
                         if (!owner) return null;
                         return (
-                          <div className="mt-2 flex items-center gap-3 px-3 py-2.5 bg-pace-green/10 border border-pace-green/30 rounded-xl">
+                          <div className="mt-2 flex items-center gap-3 px-3 py-2.5 bg-pace-green/10 border border-pace-green/30">
                             <div className="w-8 h-8 rounded-full bg-pace-green flex items-center justify-center text-black text-xs font-bold flex-shrink-0">
                               {owner.name.split(" ").map((n) => n[0]).join("")}
                             </div>
                             <div className="min-w-0">
                               <div className="text-sm font-semibold text-pace-green truncate">{owner.name}</div>
-                              <div className="text-xs text-zinc-400">{owner.specialization || owner.certificationLevel} · {owner.email}</div>
+                              <div className="text-xs text-hp-paper/45">{owner.specialization || owner.certificationLevel} · {owner.email}</div>
                             </div>
                             <span className="ml-auto text-pace-green text-xs font-bold flex-shrink-0">★ Owner</span>
                           </div>
@@ -1387,7 +1387,7 @@ export function AcademyClient() {
                         <label className={lbl}>
                           Additional Coaches
                           {draft.coachIds.length > 1 && (
-                            <span className="text-pace-green normal-case font-normal ml-1">
+                            <span className="text-hp-cg normal-case font-normal ml-1">
                               ({draft.coachIds.length - 1} added)
                             </span>
                           )}
@@ -1398,22 +1398,22 @@ export function AcademyClient() {
                             const inAcademies = coachAcademyMap[c.id] ?? [];
                             return (
                               <button key={c.id} type="button" onClick={() => toggleCoach(c.id)}
-                                className={`flex items-start gap-3 px-3 py-2.5 rounded-xl border text-left transition-colors cursor-pointer ${
-                                  selected ? "border-pace-green/50 bg-pace-green/10" : "border-zinc-700 bg-ink hover:border-zinc-500"
+                                className={`flex items-start gap-3 px-3 py-2.5 border text-left transition-colors cursor-pointer ${
+                                  selected ? "border-hp-cg/50 bg-hp-cg/10" : "border-white/12 bg-hp-ink hover:border-white/25"
                                 }`}>
-                                <div className="w-8 h-8 rounded-full bg-pace-green/40 flex items-center justify-center text-black text-xs font-bold flex-shrink-0 mt-0.5">
+                                <div className="w-8 h-8 rounded-full bg-hp-cg/40 flex items-center justify-center text-hp-paper text-xs font-bold flex-shrink-0 mt-0.5">
                                   {c.name.split(" ").map((n) => n[0]).join("")}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                  <div className="text-sm font-semibold text-white truncate">{c.name}</div>
-                                  <div className="text-xs text-zinc-400 truncate">{c.specialization || c.certificationLevel}</div>
+                                  <div className="text-sm font-semibold text-hp-paper truncate">{c.name}</div>
+                                  <div className="text-xs text-hp-paper/45 truncate">{c.specialization || c.certificationLevel}</div>
                                   {inAcademies.length > 0 && (
-                                    <div className="text-[10px] text-zinc-500 mt-0.5 truncate">
+                                    <div className="text-[10px] text-hp-paper/45 mt-0.5 truncate">
                                       In: {inAcademies.join(", ")}
                                     </div>
                                   )}
                                 </div>
-                                <span className={`text-xs font-bold flex-shrink-0 mt-0.5 ${selected ? "text-pace-green" : "text-zinc-600"}`}>
+                                <span className={`text-xs font-bold flex-shrink-0 mt-0.5 ${selected ? "text-hp-cg" : "text-hp-paper/35"}`}>
                                   {selected ? "✓" : "+"}
                                 </span>
                               </button>
@@ -1429,12 +1429,12 @@ export function AcademyClient() {
               {/* Pricing */}
               <section>
                 <p className={sectionLbl}>Pricing</p>
-                <div className="bg-ink rounded-xl p-4 space-y-4">
+                <div className="bg-hp-ink p-4 space-y-4">
                   <div>
                     <label className={lbl}>Default Session Fee ({currencyForCountry(draft.country).toUpperCase()})</label>
                     <div className="flex items-center gap-4">
                       <div className="relative max-w-xs flex-1">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-semibold">$</span>
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-hp-paper/45 text-sm font-semibold">$</span>
                         <input type="number" min={0} step={5}
                           value={draft.sessionFeeAud === 0 ? "" : draft.sessionFeeAud}
                           onChange={(e) => setDraft({ ...draft, sessionFeeAud: parseFloat(e.target.value) || 0 })}
@@ -1444,7 +1444,7 @@ export function AcademyClient() {
                         const feePct = editingId ? getPlatformFeePercent(editingId, academies, orgPlans) : 10;
                         const draftCurrency = currencyForCountry(draft.country);
                         return (
-                          <div className="text-xs text-zinc-400 space-y-0.5">
+                          <div className="text-xs text-hp-paper/45 space-y-0.5">
                             <div>Platform ({feePct}%): <span className="text-amber font-semibold">{formatMoney(draft.sessionFeeAud * (feePct / 100), draftCurrency)}</span></div>
                             <div>Academy: <span className="text-pace-green font-semibold">{formatMoney(draft.sessionFeeAud * (1 - feePct / 100), draftCurrency)}</span></div>
                           </div>
@@ -1453,13 +1453,13 @@ export function AcademyClient() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Fee per session type</p>
+                    <p className="text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-2">Fee per session type</p>
                     <div className="grid grid-cols-2 gap-2">
                       {SESSION_TYPES.map((t) => (
                         <div key={t}>
-                          <label className="block text-xs text-zinc-500 mb-1">{t}</label>
+                          <label className="block text-xs text-hp-paper/45 mb-1">{t}</label>
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs">$</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-hp-paper/45 text-xs">$</span>
                             <input type="number" min={0} step={5}
                               value={(draft.sessionTypeFees[t] ?? 0) === 0 ? "" : draft.sessionTypeFees[t]}
                               onChange={(e) => setDraft({ ...draft, sessionTypeFees: { ...draft.sessionTypeFees, [t]: parseFloat(e.target.value) || 0 } })}
@@ -1471,13 +1471,13 @@ export function AcademyClient() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Fee by age group</p>
+                    <p className="text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-2">Fee by age group</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {AGE_GROUPS.map((g) => (
                         <div key={g}>
-                          <label className="block text-xs text-zinc-500 mb-1">{g}</label>
+                          <label className="block text-xs text-hp-paper/45 mb-1">{g}</label>
                           <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-xs">$</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-hp-paper/45 text-xs">$</span>
                             <input type="number" min={0} step={5}
                               value={(draft.ageFees[g] ?? 0) === 0 ? "" : draft.ageFees[g]}
                               onChange={(e) => setDraft({ ...draft, ageFees: { ...draft.ageFees, [g]: parseFloat(e.target.value) || 0 } })}
@@ -1493,18 +1493,18 @@ export function AcademyClient() {
               {/* Payout Model */}
               <section>
                 <p className={sectionLbl}>Payout Model</p>
-                <div className="bg-ink rounded-xl p-4 space-y-2">
+                <div className="bg-hp-ink p-4 space-y-2">
                   <label className="flex items-start gap-2.5 cursor-pointer select-none">
                     <input
                       type="radio"
                       name="payoutModel"
                       checked={draft.payoutModel === "head_coach"}
                       onChange={() => setDraft({ ...draft, payoutModel: "head_coach" })}
-                      className="w-4 h-4 mt-0.5 accent-pace-green cursor-pointer"
+                      className="w-4 h-4 mt-0.5 accent-hp-cg cursor-pointer"
                     />
                     <span>
-                      <span className="text-sm text-white font-medium block">Head Coach Receives All</span>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-sm text-hp-paper font-medium block">Head Coach Receives All</span>
+                      <span className="text-xs text-hp-paper/45">
                         {allCoaches.find((c) => c.id === draft.headCoachId)?.name ?? "The head coach"} receives all booking and pack revenue for this academy.
                       </span>
                     </span>
@@ -1515,11 +1515,11 @@ export function AcademyClient() {
                       name="payoutModel"
                       checked={draft.payoutModel === "split_by_coach"}
                       onChange={() => setDraft({ ...draft, payoutModel: "split_by_coach" })}
-                      className="w-4 h-4 mt-0.5 accent-pace-green cursor-pointer"
+                      className="w-4 h-4 mt-0.5 accent-hp-cg cursor-pointer"
                     />
                     <span>
-                      <span className="text-sm text-white font-medium block">Split by Servicing Coach</span>
-                      <span className="text-xs text-zinc-500">Each coach receives revenue for the bookings and memberships tied to them directly.</span>
+                      <span className="text-sm text-hp-paper font-medium block">Split by Servicing Coach</span>
+                      <span className="text-xs text-hp-paper/45">Each coach receives revenue for the bookings and memberships tied to them directly.</span>
                     </span>
                   </label>
                 </div>
@@ -1530,7 +1530,7 @@ export function AcademyClient() {
                 <div className="flex items-center justify-between mb-3">
                   <p className={sectionLbl}>
                     Players {draft.playerIds.length > 0 && (
-                      <span className="text-pace-green normal-case font-normal">({draft.playerIds.length} assigned)</span>
+                      <span className="text-hp-cg normal-case font-normal">({draft.playerIds.length} assigned)</span>
                     )}
                   </p>
                   <div className="flex items-center gap-3">
@@ -1552,7 +1552,7 @@ export function AcademyClient() {
                   const activePlan = orgPlans.find((p) => p.id === editingAcademy?.planId);
                   if (!activePlan?.seatCap || draft.playerIds.length <= activePlan.seatCap) return null;
                   return (
-                    <div className="mb-3 px-3 py-2 rounded-lg bg-amber/10 border border-amber/30 text-amber text-xs">
+                    <div className="mb-3 px-3 py-2 bg-amber/10 border border-amber/30 text-amber text-xs">
                       {draft.playerIds.length} bowlers assigned, but the {activePlan.name} plan is capped at {activePlan.seatCap}.{" "}
                       <Link href={`/academies/${editingId}/billing`} className="underline hover:opacity-80">Upgrade the license</Link> to cover the extra seats.
                     </div>
@@ -1560,8 +1560,8 @@ export function AcademyClient() {
                 })()}
 
                 {showNewPlayer && (
-                  <div className="bg-ink rounded-xl p-4 mb-3 border border-pace-green/30">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-3">New Player</p>
+                  <div className="bg-hp-ink p-4 mb-3 border border-hp-cg/30">
+                    <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-3">New Player</p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                       <div>
                         <label className={lbl}>Full Name *</label>
@@ -1600,28 +1600,28 @@ export function AcademyClient() {
                     </div>
                     {newPlayerError && <p className="text-red-400 text-xs mb-2">{newPlayerError}</p>}
                     <button type="button" onClick={handleAddNewPlayer}
-                      className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer">
+                      className="px-4 py-2 bg-hp-cg text-hp-paper text-xs font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
                       Create & Assign
                     </button>
                   </div>
                 )}
 
                 {showCsvImport && editingId && (
-                  <div className="bg-ink rounded-xl p-4 mb-3 border border-pace-green/30">
+                  <div className="bg-hp-ink p-4 mb-3 border border-hp-cg/30">
                     <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-pace-green">Import Players from CSV</p>
+                      <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">Import Players from CSV</p>
                       <button type="button" onClick={downloadCsvTemplate}
-                        className="text-xs text-zinc-400 hover:text-white cursor-pointer underline">
+                        className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer underline">
                         Download template
                       </button>
                     </div>
-                    <p className="text-xs text-zinc-500 mb-3">
-                      Columns: <span className="text-zinc-300">name*, email*, ageGroup, bowlingStyle, club, phone</span>. Name and email are required — other columns fall back to sensible defaults if missing or unrecognized.
+                    <p className="text-xs text-hp-paper/45 mb-3">
+                      Columns: <span className="text-hp-paper/70">name*, email*, ageGroup, bowlingStyle, club, phone</span>. Name and email are required — other columns fall back to sensible defaults if missing or unrecognized.
                     </p>
                     <input
                       type="file" accept=".csv,text/csv"
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvFileSelected(f); }}
-                      className="text-xs text-zinc-300 mb-3 cursor-pointer file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-pace-green file:text-black file:text-xs file:font-bold file:cursor-pointer"
+                      className="text-xs text-hp-paper/70 mb-3 cursor-pointer file:mr-3 file:px-3 file:py-1.5 file:border-0 file:bg-hp-cg file:text-hp-paper file:text-xs file:font-bold file:cursor-pointer"
                     />
                     {csvError && <p className="text-red-400 text-xs mb-2">{csvError}</p>}
                     {csvImportedCount !== null && (
@@ -1629,10 +1629,10 @@ export function AcademyClient() {
                     )}
                     {csvRows.length > 0 && (
                       <>
-                        <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-700 mb-3">
+                        <div className="max-h-64 overflow-y-auto border border-white/12 mb-3">
                           <table className="w-full text-xs">
-                            <thead className="bg-zinc-800 sticky top-0">
-                              <tr className="text-left text-zinc-400">
+                            <thead className="bg-white/5 sticky top-0">
+                              <tr className="text-left text-hp-paper/45">
                                 <th className="px-2 py-1.5">Row</th>
                                 <th className="px-2 py-1.5">Name</th>
                                 <th className="px-2 py-1.5">Email</th>
@@ -1643,12 +1643,12 @@ export function AcademyClient() {
                             </thead>
                             <tbody>
                               {csvRows.map((row) => (
-                                <tr key={row.rowNum} className="border-t border-zinc-800">
-                                  <td className="px-2 py-1.5 text-zinc-500">{row.rowNum}</td>
-                                  <td className="px-2 py-1.5 text-white">{row.name || "—"}</td>
-                                  <td className="px-2 py-1.5 text-zinc-300">{row.email || "—"}</td>
-                                  <td className="px-2 py-1.5 text-zinc-300">{row.ageGroup}</td>
-                                  <td className="px-2 py-1.5 text-zinc-300">{row.bowlingStyle}</td>
+                                <tr key={row.rowNum} className="border-t border-white/8">
+                                  <td className="px-2 py-1.5 text-hp-paper/45">{row.rowNum}</td>
+                                  <td className="px-2 py-1.5 text-hp-paper">{row.name || "—"}</td>
+                                  <td className="px-2 py-1.5 text-hp-paper/70">{row.email || "—"}</td>
+                                  <td className="px-2 py-1.5 text-hp-paper/70">{row.ageGroup}</td>
+                                  <td className="px-2 py-1.5 text-hp-paper/70">{row.bowlingStyle}</td>
                                   <td className="px-2 py-1.5">
                                     <span
                                       title={row.issues.join("; ")}
@@ -1671,7 +1671,7 @@ export function AcademyClient() {
                           </table>
                         </div>
                         <button type="button" onClick={handleCsvImport} disabled={csvImporting || csvRows.every((r) => r.status === "skipped")}
-                          className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-60">
+                          className="px-4 py-2 bg-hp-cg text-hp-paper text-xs font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                           {csvImporting ? "Importing…" : `Import ${csvRows.filter((r) => r.status !== "skipped").length} Player${csvRows.filter((r) => r.status !== "skipped").length === 1 ? "" : "s"}`}
                         </button>
                       </>
@@ -1684,14 +1684,14 @@ export function AcademyClient() {
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     <button type="button"
                       onClick={() => setPlayerAgeFilter("All")}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                        playerAgeFilter === "All" ? "bg-pace-green text-black" : "bg-ink text-zinc-400 border border-zinc-700 hover:border-zinc-500"
+                      className={`px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+                        playerAgeFilter === "All" ? "bg-hp-cg text-hp-paper" : "bg-hp-ink text-hp-paper/45 border border-white/12 hover:border-white/25"
                       }`}>All</button>
                     {ageGroupsWithPlayers.map((g) => (
                       <button key={g} type="button"
                         onClick={() => setPlayerAgeFilter(g === playerAgeFilter ? "All" : g)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                          playerAgeFilter === g ? "bg-pace-green text-black" : "bg-ink text-zinc-400 border border-zinc-700 hover:border-zinc-500"
+                        className={`px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer ${
+                          playerAgeFilter === g ? "bg-hp-cg text-hp-paper" : "bg-hp-ink text-hp-paper/45 border border-white/12 hover:border-white/25"
                         }`}>{g}</button>
                     ))}
                   </div>
@@ -1700,7 +1700,7 @@ export function AcademyClient() {
                   className={`${inp} mb-2`} placeholder="Search by name or club…" />
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
                   {filteredPlayers.length === 0 && (
-                    <p className="text-zinc-500 text-xs text-center py-4">No players match this filter.</p>
+                    <p className="text-hp-paper/45 text-xs text-center py-4">No players match this filter.</p>
                   )}
                   {filteredPlayers.map((p) => {
                     const assigned = draft.playerIds.includes(p.id);
@@ -1709,22 +1709,22 @@ export function AcademyClient() {
                     );
                     return (
                       <button key={p.id} type="button" onClick={() => togglePlayer(p.id)}
-                        className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl border transition-colors cursor-pointer text-left ${
-                          assigned ? "border-pace-green/50 bg-pace-green/10" : "border-zinc-700 bg-ink hover:border-zinc-500"
+                        className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 border transition-colors cursor-pointer text-left ${
+                          assigned ? "border-hp-cg/50 bg-hp-cg/10" : "border-white/12 bg-hp-ink hover:border-white/25"
                         }`}>
                         <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-7 h-7 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-xs font-bold flex-shrink-0">
+                          <div className="w-7 h-7 rounded-full bg-hp-cg/20 flex items-center justify-center text-hp-cg text-xs font-bold flex-shrink-0">
                             {p.name.split(" ").map((n) => n[0]).join("")}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-sm font-semibold text-white truncate">{p.name}</div>
-                            <div className="text-xs text-zinc-400">
+                            <div className="text-sm font-semibold text-hp-paper truncate">{p.name}</div>
+                            <div className="text-xs text-hp-paper/45">
                               {p.ageGroup} · {p.club || p.bowlingStyle}
-                              {inAcademy && <span className="text-zinc-500"> · In: {inAcademy.name}</span>}
+                              {inAcademy && <span className="text-hp-paper/45"> · In: {inAcademy.name}</span>}
                             </div>
                           </div>
                         </div>
-                        <span className={`text-xs font-bold flex-shrink-0 ${assigned ? "text-pace-green" : "text-zinc-500"}`}>
+                        <span className={`text-xs font-bold flex-shrink-0 ${assigned ? "text-hp-cg" : "text-hp-paper/45"}`}>
                           {assigned ? "✓" : "+"}
                         </span>
                       </button>
@@ -1736,13 +1736,13 @@ export function AcademyClient() {
               {formError && <p className="text-red-400 text-sm">{formError}</p>}
             </div>
 
-            <div className="flex items-center gap-3 px-6 py-4 border-t border-zinc-700/50">
+            <div className="flex items-center gap-3 px-6 py-4 border-t border-white/10">
               <button type="button" onClick={handleSave} disabled={saving}
-                className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer disabled:opacity-60">
+                className="px-6 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                 {saving ? "Saving…" : editingId ? "Save Changes" : "Create Academy"}
               </button>
               <button type="button" onClick={closeModal}
-                className="px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                className="px-4 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
                 Cancel
               </button>
             </div>
@@ -1753,7 +1753,7 @@ export function AcademyClient() {
   );
 }
 
-const inp        = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const sel        = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
-const lbl        = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
-const sectionLbl = "block text-xs font-bold uppercase tracking-wider text-zinc-300 mb-3";
+const inp        = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const sel        = "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
+const lbl        = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";
+const sectionLbl = "block text-xs font-bold uppercase tracking-wider text-hp-paper/70 mb-3";

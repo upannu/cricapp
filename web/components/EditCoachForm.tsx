@@ -116,19 +116,19 @@ export function EditCoachForm({ coach }: { coach: Coach }) {
       <div className="mb-6">
         <Link
           href={`/coaches/${coach.id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-hp-paper/45 hover:text-hp-paper transition-colors"
         >
           ← Back to Profile
         </Link>
       </div>
 
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-14 h-14 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-xl flex-shrink-0">
+        <div className="w-14 h-14 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-xl flex-shrink-0">
           {initials}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white">Edit Coach</h1>
-          <p className="text-zinc-400 text-sm">{coach.name}</p>
+          <h1 className="font-display font-black uppercase text-xl text-hp-paper tracking-wide">Edit Coach</h1>
+          <p className="text-hp-paper/45 text-sm">{coach.name}</p>
         </div>
       </div>
 
@@ -140,7 +140,7 @@ export function EditCoachForm({ coach }: { coach: Coach }) {
             </Field>
             <Field label="Email *">
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputCls} placeholder="coach@email.com" disabled={user?.role === "coach"} required />
-              {user?.role === "coach" && <p className="text-xs text-zinc-500 mt-1">Contact your academy admin to change your email.</p>}
+              {user?.role === "coach" && <p className="text-xs text-hp-paper/45 mt-1">Contact your academy admin to change your email.</p>}
             </Field>
             <Field label="Phone">
               <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={inputCls} placeholder="+61 4XX XXX XXX" />
@@ -157,20 +157,20 @@ export function EditCoachForm({ coach }: { coach: Coach }) {
               </select>
             </Field>
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Bio</label>
+              <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Bio</label>
               <textarea value={bio} onChange={(e) => setBio(e.target.value)} className={`${inputCls} resize-none h-20`} placeholder="Background, experience, coaching philosophy…" />
             </div>
           </div>
 
           <div className="mt-5">
-            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Age Groups Focus</label>
+            <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Age Groups Focus</label>
             <div className="flex flex-wrap gap-2 mt-1">
               {AGE_GROUPS.map((g) => {
                 const isSel = ageGroupsFocus.includes(g);
                 return (
                   <button key={g} type="button" onClick={() => toggleAgeGroup(g)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
-                      isSel ? "bg-pace-green/20 border-pace-green text-pace-green" : "bg-ink border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                    className={`px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer ${
+                      isSel ? "bg-hp-cg/20 border-hp-cg text-hp-cg" : "bg-hp-ink border-white/12 text-hp-paper/45 hover:border-white/25"
                     }`}>
                     {g}
                   </button>
@@ -192,7 +192,7 @@ export function EditCoachForm({ coach }: { coach: Coach }) {
               <DateInput value={joinedDate} onChange={setJoinedDate} className={inputCls} />
             </Field>
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Academy</label>
+              <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Academy</label>
               <select
                 value={academyId}
                 onChange={(e) => setAcademyId(e.target.value)}
@@ -212,16 +212,16 @@ export function EditCoachForm({ coach }: { coach: Coach }) {
                   checked={marketplaceVisible}
                   disabled={marketplaceLocked}
                   onChange={(e) => setMarketplaceVisible(e.target.checked)}
-                  className="w-4 h-4 rounded accent-pace-green cursor-pointer disabled:cursor-not-allowed"
+                  className="w-4 h-4 rounded accent-hp-cg cursor-pointer disabled:cursor-not-allowed"
                 />
-                <span className="text-sm text-white font-medium">Visible in the coach marketplace</span>
+                <span className="text-sm text-hp-paper font-medium">Visible in the coach marketplace</span>
               </label>
               {marketplaceLocked ? (
                 <p className="text-xs text-amber mt-1 ml-6">
                   Requires Coach Pro. <Link href="/coach/subscription" className="underline hover:opacity-80">Upgrade</Link> to become discoverable and get booked by players.
                 </p>
               ) : (
-                <p className="text-xs text-zinc-500 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
+                <p className="text-xs text-hp-paper/45 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
               )}
             </div>
             <div className="sm:col-span-2">
@@ -230,11 +230,11 @@ export function EditCoachForm({ coach }: { coach: Coach }) {
                   type="checkbox"
                   checked={available}
                   onChange={(e) => setAvailable(e.target.checked)}
-                  className="w-4 h-4 rounded accent-pace-green cursor-pointer"
+                  className="w-4 h-4 rounded accent-hp-cg cursor-pointer"
                 />
-                <span className="text-sm text-white font-medium">Actively taking new players</span>
+                <span className="text-sm text-hp-paper font-medium">Actively taking new players</span>
               </label>
-              <p className="text-xs text-zinc-500 mt-1 ml-6">Turn off to stay listed in the marketplace but show as unavailable for new bookings.</p>
+              <p className="text-xs text-hp-paper/45 mt-1 ml-6">Turn off to stay listed in the marketplace but show as unavailable for new bookings.</p>
             </div>
           </div>
         </Section>
@@ -245,15 +245,15 @@ export function EditCoachForm({ coach }: { coach: Coach }) {
           <button
             type="submit"
             disabled={saving || saved}
-            className={`px-6 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer disabled:opacity-60 ${
-              saved ? "bg-pace-green/60 text-black" : "bg-pace-green text-black hover:opacity-90"
+            className={`px-6 py-3 text-sm font-bold transition-all cursor-pointer disabled:opacity-60 ${
+              saved ? "bg-hp-cg/60 text-hp-paper" : "bg-hp-cg text-hp-paper hover:bg-hp-cg/90"
             }`}
           >
             {saved ? "✓ Saved" : saving ? "Saving…" : "Save Changes"}
           </button>
           <Link
             href={`/coaches/${coach.id}`}
-            className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors"
+            className="px-6 py-3 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors"
           >
             Cancel
           </Link>
@@ -265,8 +265,8 @@ export function EditCoachForm({ coach }: { coach: Coach }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-surface rounded-2xl p-6">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">{title}</h2>
+    <div className="bg-hp-surface border border-white/8 p-6">
+      <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-5">{title}</h2>
       {children}
     </div>
   );
@@ -275,11 +275,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">{label}</label>
+      <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">{label}</label>
       {children}
     </div>
   );
 }
 
-const inputCls = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const selectCls = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
+const inputCls = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const selectCls = "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
