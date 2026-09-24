@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useRef, useState } from "react";
-import type { UserRole } from "@/lib/types";
+import type { PartnershipApplication, UserRole } from "@/lib/types";
 
 /**
  * Grouped primary navigation — Training/Academy/Insights are dropdowns; everything else is a
@@ -90,6 +90,7 @@ export function NavBar() {
   const router = useRouter();
   const { user, logout, refreshUser } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
+  const [partnershipPendingCount, setPartnershipPendingCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   // Which single desktop dropdown is open, if any — Training/Academy/Insights and Admin Center
   // are mutually exclusive by construction (opening one closes any other via the same state).
@@ -111,6 +112,22 @@ export function NavBar() {
       .then((d) => setPendingCount(d.requests?.length ?? 0))
       .catch(() => {});
   }, [user]);
+
+  // Newly submitted (not yet reviewed) Cricket Board Partnership applications — same "silent
+  // otherwise" gap the Approvals badge already covers for role requests: the /apply form sends a
+  // best-effort admin email, but if that fails there was previously nothing in-app to notice a
+  // new lead came in.
+  useEffect(() => {
+    if (user?.role !== "platform_admin") return;
+    fetch("/api/partnerships/list")
+      .then((r) => r.json())
+      .then((d) => setPartnershipPendingCount(
+        (d.applications as PartnershipApplication[] ?? []).filter((a) => a.status === "submitted").length,
+      ))
+      .catch(() => {});
+  }, [user]);
+
+  const totalPendingCount = pendingCount + partnershipPendingCount;
 
   // Two linked children of the same role both show as "Player"/"Parent / Guardian" unless we
   // fetch their actual names — RLS only lets the caller read their currently-active player row,
@@ -252,11 +269,16 @@ export function NavBar() {
   return (
     <header className="bg-surface border-b border-zinc-700/60 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center h-16 gap-4 xl:gap-5">
-        {/* Logo */}
+        {/* Logo — same vectorized mark as the public site (public/hp-logo.svg), swapped in for
+            brand continuity between the marketing site and the dashboard. Screen blend mode
+            reads the same way against this header's dark bg-surface as it does against the
+            public site's hp-ink; the wordmark stays a plain text span rather than switching to
+            Barlow Condensed, since the dashboard keeps its own (Geist) type system. */}
         <Link href={isPlayerOrParent ? "/portal" : "/players"} className="flex items-center gap-2 flex-shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
-          <img src="/crichq_logo.jpeg" alt="CRIC HQ" width={32} height={32}
-            className="w-8 h-8 rounded-full bg-white p-0.5 object-contain flex-shrink-0" />
+          <img src="/hp-logo.svg" alt="CRIC HQ" width={36} height={27}
+            style={{ height: 36, width: "auto", objectFit: "contain", mixBlendMode: "screen" }}
+            className="flex-shrink-0" />
           <span className="text-lg font-bold tracking-widest text-white font-mono hidden sm:inline">
             CRIC HQ
           </span>
@@ -358,9 +380,9 @@ export function NavBar() {
                     <circle cx="12" cy="12" r="3" />
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                   </svg>
-                  {pendingCount > 0 && (
+                  {totalPendingCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold px-1 py-0.5 rounded-full min-w-[16px] text-center leading-none">
-                      {pendingCount}
+                      {totalPendingCount}
                     </span>
                   )}
                 </button>
@@ -384,6 +406,11 @@ export function NavBar() {
                             {tool.href === "/admin/approvals" && pendingCount > 0 && (
                               <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                                 {pendingCount}
+                              </span>
+                            )}
+                            {tool.href === "/admin/partnerships" && partnershipPendingCount > 0 && (
+                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                {partnershipPendingCount}
                               </span>
                             )}
                           </Link>
@@ -561,9 +588,9 @@ export function NavBar() {
                 >
                   <span className="flex items-center gap-2">
                     Admin Center
-                    {pendingCount > 0 && (
+                    {totalPendingCount > 0 && (
                       <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
-                        {pendingCount}
+                        {totalPendingCount}
                       </span>
                     )}
                   </span>
@@ -589,6 +616,11 @@ export function NavBar() {
                             {tool.href === "/admin/approvals" && pendingCount > 0 && (
                               <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                                 {pendingCount}
+                              </span>
+                            )}
+                            {tool.href === "/admin/partnerships" && partnershipPendingCount > 0 && (
+                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                {partnershipPendingCount}
                               </span>
                             )}
                           </Link>
