@@ -25,8 +25,8 @@ const DIRECTION_ICON: Record<InjuryRiskTrend["direction"], string> = {
 const DIRECTION_STYLE: Record<InjuryRiskTrend["direction"], string> = {
   worsening: "text-red-400",
   improving: "text-pace-green",
-  stable: "text-zinc-400",
-  unknown: "text-zinc-600",
+  stable: "text-hp-paper/45",
+  unknown: "text-hp-paper/35",
 };
 
 interface PlayerRow {
@@ -72,13 +72,13 @@ export function PerformanceClient() {
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white mb-1">Performance Dashboard</h1>
-        <p className="text-zinc-400 text-sm">Injury-risk trends and training load (RPE) across your squad</p>
+        <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Performance Dashboard</h1>
+        <p className="text-hp-paper/45 text-sm">Injury-risk trends and training load (RPE) across your squad</p>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+          <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
         </div>
       ) : (
         <>
@@ -87,15 +87,15 @@ export function PerformanceClient() {
               <p className="text-xs font-bold uppercase tracking-wider text-red-400 mb-3">⚠ Needs Attention ({alerting.length})</p>
               <div className="space-y-3">
                 {alerting.map(({ player, riskTrend }) => (
-                  <div key={player.id} className="bg-red-500/5 border border-red-500/30 rounded-2xl p-4 flex items-center gap-4">
+                  <div key={player.id} className="bg-red-500/5 border border-red-500/30 p-4 flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center text-red-400 text-sm font-bold flex-shrink-0">
                       {getInitials(player.name)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white font-semibold text-sm">{player.name}</p>
+                      <p className="text-hp-paper font-semibold text-sm">{player.name}</p>
                       <p className="text-red-400 text-xs">{riskTrend.alertReason}</p>
                     </div>
-                    <Link href={`/players/${player.id}`} className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors flex-shrink-0">
+                    <Link href={`/players/${player.id}`} className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors flex-shrink-0">
                       View Player
                     </Link>
                   </div>
@@ -106,13 +106,13 @@ export function PerformanceClient() {
 
           <div className="space-y-3">
             {rows.map(({ player, riskTrend, rpe }) => (
-              <div key={player.id} className="bg-surface rounded-2xl p-5">
+              <div key={player.id} className="bg-hp-surface p-5">
                 <div className="flex flex-wrap items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-sm font-bold flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-hp-cg/20 flex items-center justify-center text-hp-cg text-sm font-bold flex-shrink-0">
                     {getInitials(player.name)}
                   </div>
                   <div className="flex-1 min-w-40">
-                    <Link href={`/players/${player.id}`} className="text-white font-semibold text-sm hover:text-pace-green transition-colors">
+                    <Link href={`/players/${player.id}`} className="text-hp-paper font-semibold text-sm hover:text-hp-cg transition-colors">
                       {player.name}
                     </Link>
                     <div className="flex items-center gap-2 mt-1">
@@ -121,7 +121,7 @@ export function PerformanceClient() {
                           {riskTrend.current} risk
                         </span>
                       ) : (
-                        <span className="text-xs text-zinc-600">No reports yet</span>
+                        <span className="text-xs text-hp-paper/35">No reports yet</span>
                       )}
                       {riskTrend.current && (
                         <span className={`text-xs font-bold ${DIRECTION_STYLE[riskTrend.direction]}`}>
@@ -133,7 +133,7 @@ export function PerformanceClient() {
 
                   {riskTrend.history.length > 1 && (
                     <div className="flex-shrink-0">
-                      <p className="text-[10px] text-zinc-500 uppercase tracking-wide mb-1 text-center">Overall Score Trend</p>
+                      <p className="text-[10px] text-hp-paper/45 uppercase tracking-wide mb-1 text-center">Overall Score Trend</p>
                       <Sparkline
                         values={riskTrend.history.map((h) => h.overallScore ?? 0)}
                         min={0} max={100}
@@ -143,13 +143,13 @@ export function PerformanceClient() {
                   )}
 
                   <div className="flex-shrink-0 text-right min-w-24">
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-wide mb-0.5">7-day RPE load</p>
-                    <p className="text-sm font-bold font-mono text-white">{rpe.weeklyLoad || "—"}</p>
+                    <p className="text-[10px] text-hp-paper/45 uppercase tracking-wide mb-0.5">7-day RPE load</p>
+                    <p className="text-sm font-bold font-mono text-hp-paper">{rpe.weeklyLoad || "—"}</p>
                   </div>
 
                   {rpe.history.length > 1 && (
                     <div className="flex-shrink-0">
-                      <p className="text-[10px] text-zinc-500 uppercase tracking-wide mb-1 text-center">RPE Trend</p>
+                      <p className="text-[10px] text-hp-paper/45 uppercase tracking-wide mb-1 text-center">RPE Trend</p>
                       <Sparkline values={rpe.history.map((h) => h.rpe)} min={1} max={10} color="#E8B93F" />
                     </div>
                   )}
@@ -159,12 +159,12 @@ export function PerformanceClient() {
           </div>
 
           {rows.length === 0 && (
-            <div className="bg-surface rounded-2xl p-16 text-center">
-              <p className="text-zinc-400 text-sm">No players to show yet.</p>
+            <div className="bg-hp-surface p-16 text-center">
+              <p className="text-hp-paper/45 text-sm">No players to show yet.</p>
             </div>
           )}
 
-          <p className="text-xs text-zinc-600 mt-6 text-center">
+          <p className="text-xs text-hp-paper/35 mt-6 text-center">
             Injury-risk trend is computed from each player&apos;s AI biomechanics reports (guideline-based, not a clinical assessment).
             7-day RPE load is a simple sum of logged perceived-exertion scores, not a validated training-load model.
           </p>
