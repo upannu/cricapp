@@ -747,7 +747,7 @@ function PlanBadge({ plan }: { plan: string }) {
   const styles: Record<string, string> = {
     "Coach Pro": "border-pace-green text-pace-green",
     "Player Pro": "border-blue-400 text-blue-400",
-    Free: "border-zinc-500 text-zinc-500",
+    Free: "border-white/25 text-hp-paper/45",
   };
   return (
     <span
