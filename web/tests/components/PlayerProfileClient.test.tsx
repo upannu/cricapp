@@ -189,8 +189,8 @@ describe("PlayerProfileClient", () => {
 
     const editLink = screen.getByRole("link", { name: "Edit Player" });
     expect(editLink).toHaveAttribute("href", "/players/p1/edit");
-    expect(editLink).toHaveClass("text-pace-green", "border-pace-green/40");
-    expect(editLink).not.toHaveClass("bg-pace-green");
+    expect(editLink).toHaveClass("text-hp-cg", "border-hp-cg/40");
+    expect(editLink).not.toHaveClass("bg-hp-cg");
     // Lives beside the other per-player actions, not alone up in the top bar next to Back.
     expect(editLink.closest("div")).toBe(screen.getByRole("link", { name: "View All Reports" }).closest("div"));
   });
@@ -204,8 +204,8 @@ describe("PlayerProfileClient", () => {
     await screen.findByText("Alice Bowler");
 
     const newSessionLink = screen.getByRole("link", { name: "+ Log Session" });
-    expect(newSessionLink).toHaveClass("text-pace-green", "border-pace-green/40");
-    expect(newSessionLink).not.toHaveClass("bg-pace-green");
+    expect(newSessionLink).toHaveClass("text-hp-cg", "border-hp-cg/40");
+    expect(newSessionLink).not.toHaveClass("bg-hp-cg");
   });
 
   // Edit Player stays at the end of the row — View All Reports, Manage Subscription, +Log
