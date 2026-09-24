@@ -138,15 +138,15 @@ export function VideoAnnotator({ videoUrl, angle, sessionId, playerId, onClose, 
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface rounded-2xl p-5 max-w-2xl w-full max-h-[92vh] overflow-y-auto">
+      <div className="bg-hp-surface p-5 max-w-2xl w-full max-h-[92vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-bold text-white">Markup — {angle} camera</h2>
-          <button type="button" onClick={onClose} className="text-zinc-500 hover:text-white text-xl leading-none cursor-pointer">×</button>
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">Markup — {angle} camera</h2>
+          <button type="button" onClick={onClose} className="text-hp-paper/45 hover:text-hp-paper text-xl leading-none cursor-pointer">×</button>
         </div>
-        <p className="text-xs text-zinc-500 mb-3">Pause the clip where you want to make a point, draw on it, and save — the markup is saved as an image attached to this session.</p>
+        <p className="text-xs text-hp-paper/45 mb-3">Pause the clip where you want to make a point, draw on it, and save — the markup is saved as an image attached to this session.</p>
 
         {loadError ? (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm mb-4">{loadError}</div>
+          <div className="bg-red-500/10 border border-red-500/30 px-4 py-3 text-red-400 text-sm mb-4">{loadError}</div>
         ) : (
           <>
             <div className="relative w-full mb-3" style={{ aspectRatio: videoSize ? `${videoSize.width}/${videoSize.height}` : "16/9" }}>
@@ -157,7 +157,7 @@ export function VideoAnnotator({ videoUrl, angle, sessionId, playerId, onClose, 
                 crossOrigin="anonymous"
                 onLoadedMetadata={handleLoadedMetadata}
                 onError={() => setLoadError("Couldn't load this video.")}
-                className="absolute inset-0 w-full h-full rounded-lg bg-black"
+                className="absolute inset-0 w-full h-full bg-black"
               />
               {videoSize && (
                 <canvas
@@ -168,7 +168,7 @@ export function VideoAnnotator({ videoUrl, angle, sessionId, playerId, onClose, 
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerUp}
                   onPointerLeave={handlePointerUp}
-                  className="absolute inset-0 w-full h-full rounded-lg cursor-crosshair"
+                  className="absolute inset-0 w-full h-full cursor-crosshair"
                 />
               )}
             </div>
@@ -180,8 +180,8 @@ export function VideoAnnotator({ videoUrl, angle, sessionId, playerId, onClose, 
                   key={t}
                   type="button"
                   onClick={() => setTool(t)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer capitalize ${
-                    tool === t ? "bg-pace-green/20 border-pace-green text-pace-green" : "bg-ink border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                  className={`px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer capitalize ${
+                    tool === t ? "bg-hp-cg/20 border-hp-cg text-hp-cg" : "bg-hp-ink border-white/12 text-hp-paper/45 hover:border-white/25"
                   }`}
                 >
                   {t}
@@ -199,20 +199,20 @@ export function VideoAnnotator({ videoUrl, angle, sessionId, playerId, onClose, 
                   />
                 ))}
               </div>
-              <button type="button" onClick={undo} disabled={strokes.length === 0} className="ml-auto text-xs text-zinc-400 hover:text-white underline cursor-pointer disabled:opacity-40 disabled:cursor-default">
+              <button type="button" onClick={undo} disabled={strokes.length === 0} className="ml-auto text-xs text-hp-paper/45 hover:text-hp-paper underline cursor-pointer disabled:opacity-40 disabled:cursor-default">
                 Undo
               </button>
-              <button type="button" onClick={clearAll} disabled={strokes.length === 0} className="text-xs text-zinc-400 hover:text-red-400 underline cursor-pointer disabled:opacity-40 disabled:cursor-default">
+              <button type="button" onClick={clearAll} disabled={strokes.length === 0} className="text-xs text-hp-paper/45 hover:text-red-400 underline cursor-pointer disabled:opacity-40 disabled:cursor-default">
                 Clear
               </button>
             </div>
 
-            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Note</label>
+            <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Note</label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="What are you pointing out?"
-              className="w-full bg-ink rounded-xl px-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm resize-none h-16 mb-3"
+              className="w-full bg-hp-ink px-4 py-2.5 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none text-sm resize-none h-16 mb-3"
             />
 
             {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
@@ -222,11 +222,11 @@ export function VideoAnnotator({ videoUrl, angle, sessionId, playerId, onClose, 
                 type="button"
                 onClick={handleSave}
                 disabled={saving || !videoSize}
-                className="px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2.5 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {saving ? "Saving…" : "Save Markup"}
               </button>
-              <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white transition-colors cursor-pointer">
+              <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper transition-colors cursor-pointer">
                 Cancel
               </button>
             </div>
