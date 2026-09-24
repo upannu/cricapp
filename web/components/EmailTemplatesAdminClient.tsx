@@ -98,20 +98,20 @@ export function EmailTemplatesAdminClient() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
       <div className="mb-6">
-        <Link href="/players" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors">
+        <Link href="/players" className="inline-flex items-center gap-1.5 text-sm text-hp-paper/45 hover:text-hp-paper transition-colors">
           ← Back
         </Link>
       </div>
 
-      <h1 className="text-xl font-bold text-white mb-1">Welcome Email Templates</h1>
-      <p className="text-zinc-400 text-sm mb-6">
+      <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Welcome Email Templates</h1>
+      <p className="text-hp-paper/45 text-sm mb-6">
         Sent automatically when a signup is approved (see Approvals). Use <code className="text-pace-green">{"{{name}}"}</code> anywhere
         to insert the person&apos;s name. Blank lines in the body start a new paragraph.
       </p>
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+          <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
         </div>
       ) : (
         <>
@@ -121,8 +121,8 @@ export function EmailTemplatesAdminClient() {
                 key={r.id}
                 type="button"
                 onClick={() => { setActiveRole(r.id); setError(""); }}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  activeRole === r.id ? "bg-pace-green text-black" : "bg-ink text-zinc-400 hover:text-white"
+                className={`px-4 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                  activeRole === r.id ? "bg-hp-cg text-hp-paper" : "bg-hp-ink text-hp-paper/45 hover:text-hp-paper"
                 }`}
               >
                 {r.label}
@@ -132,7 +132,7 @@ export function EmailTemplatesAdminClient() {
 
           {draft && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-surface rounded-2xl p-6 space-y-5">
+              <div className="bg-hp-surface p-6 space-y-5">
                 <div>
                   <label className={lbl}>Email subject</label>
                   <input type="text" value={draft.subject} onChange={(e) => setDraft({ subject: e.target.value })} className={inputCls} />
@@ -157,21 +157,21 @@ export function EmailTemplatesAdminClient() {
                   type="button"
                   onClick={handleSave}
                   disabled={saving || !dirty}
-                  className={`px-6 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer ${
-                    saved ? "bg-pace-green/60 text-black" : "bg-pace-green text-black hover:opacity-90 disabled:opacity-40"
+                  className={`px-6 py-3 text-sm font-bold transition-all cursor-pointer ${
+                    saved ? "bg-hp-cg/60 text-hp-paper" : "bg-hp-cg text-hp-paper hover:bg-hp-cg/90 disabled:opacity-40"
                   }`}
                 >
                   {saved ? "✓ Saved" : saving ? "Saving…" : "Save Changes"}
                 </button>
               </div>
 
-              <div className="bg-ink rounded-2xl p-6 border border-zinc-700/60">
+              <div className="bg-hp-ink p-6 border border-white/12">
                 <p className={lbl}>Preview (sample name: {PREVIEW_VARS.name})</p>
-                <div className="bg-surface rounded-xl p-5">
-                  <p className="text-xs text-zinc-500 mb-3">Subject: {renderTemplate(draft.subject, PREVIEW_VARS)}</p>
-                  <h2 className="text-lg font-bold text-white mb-3">{renderTemplate(draft.heading, PREVIEW_VARS)}</h2>
+                <div className="bg-hp-surface p-5">
+                  <p className="text-xs text-hp-paper/45 mb-3">Subject: {renderTemplate(draft.subject, PREVIEW_VARS)}</p>
+                  <h2 className="text-lg font-bold text-hp-paper mb-3">{renderTemplate(draft.heading, PREVIEW_VARS)}</h2>
                   {renderTemplate(draft.body, PREVIEW_VARS).split(/\n{2,}/).filter((p) => p.trim()).map((p, i) => (
-                    <p key={i} className="text-sm text-zinc-300 leading-relaxed mb-3 whitespace-pre-line">{p}</p>
+                    <p key={i} className="text-sm text-hp-paper/70 leading-relaxed mb-3 whitespace-pre-line">{p}</p>
                   ))}
                 </div>
               </div>
@@ -184,6 +184,6 @@ export function EmailTemplatesAdminClient() {
 }
 
 const inputCls =
-  "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
+  "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
 
-const lbl = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const lbl = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";

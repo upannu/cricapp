@@ -140,12 +140,12 @@ export function AcademyContentAdminClient() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-white">Academy Content</h1>
-        <p className="text-zinc-400 text-sm">Manage curriculum articles and daily tips.</p>
+        <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">Academy Content</h1>
+        <p className="text-hp-paper/45 text-sm">Manage curriculum articles and daily tips.</p>
       </div>
 
       {error && (
-        <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+        <div className="mb-4 bg-red-500/10 border border-red-500/30 px-4 py-3 flex items-center justify-between gap-3">
           <p className="text-red-400 text-sm">{error}</p>
           <button type="button" onClick={() => setError("")} className="text-red-400/60 hover:text-red-400 text-lg leading-none cursor-pointer">×</button>
         </div>
@@ -154,8 +154,8 @@ export function AcademyContentAdminClient() {
       <div className="flex gap-2 mb-6">
         {(["Articles", "Daily Tips"] as PageTab[]).map((t) => (
           <button key={t} type="button" onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
-              tab === t ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
+            className={`px-4 py-2 text-sm font-semibold transition-colors cursor-pointer ${
+              tab === t ? "bg-hp-cg text-hp-paper" : "bg-hp-surface text-hp-paper/45 hover:text-hp-paper"
             }`}>
             {t}
           </button>
@@ -163,12 +163,12 @@ export function AcademyContentAdminClient() {
         <div className="flex-1" />
         {tab === "Articles" ? (
           <button type="button" onClick={() => setArticleDraft({ ...EMPTY_ARTICLE, orderInStage: (articles.filter((a) => a.stage === "Foundation").length || 0) + 1 })}
-            className="px-4 py-2 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer">
+            className="px-4 py-2 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer">
             + New Article
           </button>
         ) : (
           <button type="button" onClick={() => setTipDraft({ ...EMPTY_TIP })}
-            className="px-4 py-2 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer">
+            className="px-4 py-2 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer">
             + New Tip
           </button>
         )}
@@ -176,38 +176,38 @@ export function AcademyContentAdminClient() {
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+          <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
         </div>
       ) : tab === "Articles" ? (
         <div className="space-y-4">
           {STAGE_ORDER.map((stage) => {
             const stageArticles = articles.filter((a) => a.stage === stage);
             return (
-              <div key={stage} className="bg-surface rounded-2xl p-5">
-                <h2 className="text-sm font-bold text-white mb-3">{stage} <span className="text-zinc-500 font-normal">({stageArticles.length})</span></h2>
+              <div key={stage} className="bg-hp-surface p-5">
+                <h2 className="text-sm font-bold text-hp-paper mb-3">{stage} <span className="text-hp-paper/45 font-normal">({stageArticles.length})</span></h2>
                 <div className="space-y-1.5">
                   {stageArticles.map((a) => (
-                    <div key={a.id} className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl bg-ink">
+                    <div key={a.id} className="flex items-center justify-between gap-3 px-3 py-2.5 bg-hp-ink">
                       <div className="min-w-0">
-                        <p className="text-sm text-white truncate">
-                          {!a.published && <span className="text-zinc-500">(unpublished) </span>}
+                        <p className="text-sm text-hp-paper truncate">
+                          {!a.published && <span className="text-hp-paper/45">(unpublished) </span>}
                           {a.title}
                         </p>
-                        <p className="text-xs text-zinc-500">#{a.orderInStage} · {a.readTimeMinutes} min{a.videoUrl && " · 🎬 video"}</p>
+                        <p className="text-xs text-hp-paper/45">#{a.orderInStage} · {a.readTimeMinutes} min{a.videoUrl && " · 🎬 video"}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <button type="button" onClick={() => setArticleDraft({ ...a, relatedMetric: a.relatedMetric ?? "", videoUrl: a.videoUrl ?? "" })}
-                          className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors cursor-pointer">
+                          className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors cursor-pointer">
                           Edit
                         </button>
                         <button type="button" onClick={() => setConfirmDelete({ kind: "article", id: a.id, label: a.title })}
-                          className="px-3 py-1.5 text-xs font-semibold text-zinc-400 border border-zinc-700 rounded-lg hover:border-red-500/40 hover:text-red-400 transition-colors cursor-pointer">
+                          className="px-3 py-1.5 text-xs font-semibold text-hp-paper/45 border border-white/12 hover:border-red-500/40 hover:text-red-400 transition-colors cursor-pointer">
                           Delete
                         </button>
                       </div>
                     </div>
                   ))}
-                  {stageArticles.length === 0 && <p className="text-xs text-zinc-600 py-2">No articles yet.</p>}
+                  {stageArticles.length === 0 && <p className="text-xs text-hp-paper/35 py-2">No articles yet.</p>}
                 </div>
               </div>
             );
@@ -216,27 +216,27 @@ export function AcademyContentAdminClient() {
       ) : (
         <div className="space-y-2">
           {tips.map((t) => (
-            <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface">
+            <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-hp-surface">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-xs text-zinc-500">{t.publishDate}</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-ink text-zinc-400 border border-zinc-700">{t.category}</span>
+                  <span className="text-xs text-hp-paper/45">{t.publishDate}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-hp-ink text-hp-paper/45 border border-white/12">{t.category}</span>
                 </div>
-                <p className="text-sm text-zinc-300 truncate">{t.body}</p>
+                <p className="text-sm text-hp-paper/70 truncate">{t.body}</p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button type="button" onClick={() => setTipDraft({ ...t, relatedArticleId: t.relatedArticleId ?? "" })}
-                  className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors cursor-pointer">
+                  className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors cursor-pointer">
                   Edit
                 </button>
                 <button type="button" onClick={() => setConfirmDelete({ kind: "tip", id: t.id, label: t.publishDate })}
-                  className="px-3 py-1.5 text-xs font-semibold text-zinc-400 border border-zinc-700 rounded-lg hover:border-red-500/40 hover:text-red-400 transition-colors cursor-pointer">
+                  className="px-3 py-1.5 text-xs font-semibold text-hp-paper/45 border border-white/12 hover:border-red-500/40 hover:text-red-400 transition-colors cursor-pointer">
                   Delete
                 </button>
               </div>
             </div>
           ))}
-          {tips.length === 0 && <p className="text-sm text-zinc-500 text-center py-10">No daily tips yet.</p>}
+          {tips.length === 0 && <p className="text-sm text-hp-paper/45 text-center py-10">No daily tips yet.</p>}
         </div>
       )}
 
@@ -244,8 +244,8 @@ export function AcademyContentAdminClient() {
       {articleDraft && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setArticleDraft(null)} />
-          <div className="relative bg-surface rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-zinc-700/50 p-6">
-            <h3 className="text-white font-bold mb-4">{articleDraft.id ? "Edit Article" : "New Article"}</h3>
+          <div className="relative bg-hp-surface w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl border border-white/10 p-6">
+            <h3 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-4">{articleDraft.id ? "Edit Article" : "New Article"}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className={lbl}>Stage</label>
@@ -268,12 +268,12 @@ export function AcademyContentAdminClient() {
                   onChange={(e) => setArticleDraft({ ...articleDraft, readTimeMinutes: parseInt(e.target.value) || 1 })} className={inp} />
               </div>
               <div>
-                <label className={lbl}>Related Metric <span className="normal-case text-zinc-600">(optional)</span></label>
+                <label className={lbl}>Related Metric <span className="normal-case text-hp-paper/35">(optional)</span></label>
                 <input type="text" value={articleDraft.relatedMetric} placeholder="e.g. impact_zone.front_knee_angle_at_contact_deg"
                   onChange={(e) => setArticleDraft({ ...articleDraft, relatedMetric: e.target.value })} className={inp} />
               </div>
               <div className="sm:col-span-2">
-                <label className={lbl}>Video URL <span className="normal-case text-zinc-600">(optional — YouTube, Vimeo, or direct file link)</span></label>
+                <label className={lbl}>Video URL <span className="normal-case text-hp-paper/35">(optional — YouTube, Vimeo, or direct file link)</span></label>
                 <input type="text" value={articleDraft.videoUrl} onChange={(e) => setArticleDraft({ ...articleDraft, videoUrl: e.target.value })} className={inp} />
               </div>
             </div>
@@ -291,7 +291,7 @@ export function AcademyContentAdminClient() {
                       }} className={inp} />
                     <button type="button"
                       onClick={() => setArticleDraft({ ...articleDraft, keyTakeaways: articleDraft.keyTakeaways.filter((_, idx) => idx !== i) })}
-                      className="px-3 text-zinc-500 hover:text-red-400 transition-colors cursor-pointer">✕</button>
+                      className="px-3 text-hp-paper/45 hover:text-red-400 transition-colors cursor-pointer">✕</button>
                   </div>
                 ))}
               </div>
@@ -308,17 +308,17 @@ export function AcademyContentAdminClient() {
             <label className="flex items-center gap-2.5 cursor-pointer select-none mb-6">
               <input type="checkbox" checked={articleDraft.published}
                 onChange={(e) => setArticleDraft({ ...articleDraft, published: e.target.checked })}
-                className="w-4 h-4 rounded accent-pace-green cursor-pointer" />
-              <span className="text-sm text-white font-medium">Published (visible to players)</span>
+                className="w-4 h-4 rounded accent-hp-cg cursor-pointer" />
+              <span className="text-sm text-hp-paper font-medium">Published (visible to players)</span>
             </label>
 
             <div className="flex gap-3">
               <button type="button" onClick={() => setArticleDraft(null)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
                 Cancel
               </button>
               <button type="button" onClick={handleSaveArticle} disabled={saving}
-                className="flex-1 px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+                className="flex-1 px-4 py-2.5 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                 {saving ? "Saving…" : "Save Article"}
               </button>
             </div>
@@ -330,8 +330,8 @@ export function AcademyContentAdminClient() {
       {tipDraft && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setTipDraft(null)} />
-          <div className="relative bg-surface rounded-2xl w-full max-w-md shadow-2xl border border-zinc-700/50 p-6">
-            <h3 className="text-white font-bold mb-4">{tipDraft.id ? "Edit Tip" : "New Tip"}</h3>
+          <div className="relative bg-hp-surface w-full max-w-md shadow-2xl border border-white/10 p-6">
+            <h3 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-4">{tipDraft.id ? "Edit Tip" : "New Tip"}</h3>
             <div className="space-y-4 mb-6">
               <div>
                 <label className={lbl}>Publish Date</label>
@@ -344,11 +344,11 @@ export function AcademyContentAdminClient() {
                 </select>
               </div>
               <div>
-                <label className={lbl}>Body <span className="normal-case text-zinc-600">(80–120 words)</span></label>
+                <label className={lbl}>Body <span className="normal-case text-hp-paper/35">(80–120 words)</span></label>
                 <textarea value={tipDraft.body} onChange={(e) => setTipDraft({ ...tipDraft, body: e.target.value })} className={`${inp} h-28 resize-none`} />
               </div>
               <div>
-                <label className={lbl}>Related Article <span className="normal-case text-zinc-600">(optional)</span></label>
+                <label className={lbl}>Related Article <span className="normal-case text-hp-paper/35">(optional)</span></label>
                 <select value={tipDraft.relatedArticleId} onChange={(e) => setTipDraft({ ...tipDraft, relatedArticleId: e.target.value })} className={sel}>
                   <option value="">— None —</option>
                   {articles.map((a) => <option key={a.id} value={a.id}>{a.title}</option>)}
@@ -357,11 +357,11 @@ export function AcademyContentAdminClient() {
             </div>
             <div className="flex gap-3">
               <button type="button" onClick={() => setTipDraft(null)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
                 Cancel
               </button>
               <button type="button" onClick={handleSaveTip} disabled={saving}
-                className="flex-1 px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+                className="flex-1 px-4 py-2.5 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                 {saving ? "Saving…" : "Save Tip"}
               </button>
             </div>
@@ -373,16 +373,16 @@ export function AcademyContentAdminClient() {
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setConfirmDelete(null)} />
-          <div className="relative bg-surface rounded-2xl w-full max-w-sm shadow-2xl border border-red-500/20 p-6 text-center">
-            <h3 className="text-white font-bold mb-1">Delete this {confirmDelete.kind}?</h3>
-            <p className="text-zinc-400 text-sm mb-6">{confirmDelete.label}</p>
+          <div className="relative bg-hp-surface w-full max-w-sm shadow-2xl border border-red-500/20 p-6 text-center">
+            <h3 className="text-hp-paper font-bold mb-1">Delete this {confirmDelete.kind}?</h3>
+            <p className="text-hp-paper/45 text-sm mb-6">{confirmDelete.label}</p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setConfirmDelete(null)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
                 Cancel
               </button>
               <button type="button" onClick={handleDeleteConfirmed}
-                className="flex-1 px-4 py-2.5 text-sm font-bold text-red-400 border border-red-500/40 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer">
+                className="flex-1 px-4 py-2.5 text-sm font-bold text-red-400 border border-red-500/40 hover:bg-red-500/10 transition-colors cursor-pointer">
                 Delete
               </button>
             </div>
@@ -393,6 +393,6 @@ export function AcademyContentAdminClient() {
   );
 }
 
-const inp = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const sel = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
-const lbl = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const inp = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const sel = "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
+const lbl = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";

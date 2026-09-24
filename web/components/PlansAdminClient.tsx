@@ -190,20 +190,20 @@ export function PlansAdminClient() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <Link href="/players" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors">
+        <Link href="/players" className="inline-flex items-center gap-1.5 text-sm text-hp-paper/45 hover:text-hp-paper transition-colors">
           ← Back
         </Link>
         <button
           type="button"
           onClick={openAdd}
-          className="px-4 py-2 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer"
+          className="px-4 py-2 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer"
         >
           + New Plan
         </button>
       </div>
 
-      <h1 className="text-xl font-bold text-white mb-1">Plan Catalog</h1>
-      <p className="text-zinc-400 text-sm mb-6">
+      <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Plan Catalog</h1>
+      <p className="text-hp-paper/45 text-sm mb-6">
         B2C and B2B pricing tiers beyond Player Pro / Coach Pro — Library access, one-time
         assessments, and Academy/Club/Board licenses. Add, edit, or deactivate tiers here without
         touching code.
@@ -211,19 +211,19 @@ export function PlansAdminClient() {
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+          <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
         </div>
       ) : (
         <div className="space-y-3">
           {plans.map((p) => (
             <div
               key={p.id}
-              className={`bg-surface rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4 ${!p.active ? "opacity-50" : ""}`}
+              className={`bg-hp-surface p-5 flex flex-wrap items-center justify-between gap-4 ${!p.active ? "opacity-50" : ""}`}
             >
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-white font-semibold">{p.name}</span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">
+                  <span className="text-hp-paper font-semibold">{p.name}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/10 text-hp-paper/70">
                     {p.audience}
                   </span>
                   {!p.active && (
@@ -247,12 +247,12 @@ export function PlansAdminClient() {
                     </span>
                   )}
                   {p.locked && (
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/10 text-hp-paper/70">
                       System Plan
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-zinc-400">
+                <div className="text-xs text-hp-paper/45">
                   {formatMoney(p.priceAud, "aud")}
                   {p.billingType === "subscription" ? ` / ${p.billingInterval}` : " one-time"}
                   {p.seatCap != null && (p.slug === "coach-free" || p.slug === "coach-pro"
@@ -261,39 +261,39 @@ export function PlansAdminClient() {
                   {p.accessDurationMonths != null && ` · access for ${p.accessDurationMonths} month${p.accessDurationMonths === 1 ? "" : "s"}`}
                   {OTHER_CURRENCIES.filter((c) => p.pricesByCurrency[c] != null).map((c) => ` · ${formatMoney(p.pricesByCurrency[c]!, c)}`).join("")}
                 </div>
-                {p.includedNotes && <div className="text-xs text-zinc-500 mt-1">{p.includedNotes}</div>}
+                {p.includedNotes && <div className="text-xs text-hp-paper/45 mt-1">{p.includedNotes}</div>}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => openEdit(p)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer"
                 >
                   Edit
                 </button>
                 <button
                   type="button"
                   onClick={() => toggleActive(p)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer"
                 >
                   {p.active ? "Deactivate" : "Activate"}
                 </button>
               </div>
             </div>
           ))}
-          {plans.length === 0 && <p className="text-zinc-500 text-sm">No plans yet.</p>}
+          {plans.length === 0 && <p className="text-hp-paper/45 text-sm">No plans yet.</p>}
         </div>
       )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50" onClick={() => setShowModal(false)}>
           <div
-            className="bg-surface rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4"
+            className="bg-hp-surface p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-bold text-white">{draft.id ? "Edit Plan" : "New Plan"}</h2>
+            <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">{draft.id ? "Edit Plan" : "New Plan"}</h2>
             {draft.locked && (
-              <p className="text-xs text-amber bg-amber/10 border border-amber/30 rounded-lg px-3 py-2">
+              <p className="text-xs text-amber bg-amber/10 border border-amber/30 px-3 py-2">
                 This is a system plan (Free / Player Pro / Coach Pro) — its slug, audience, and billing type are
                 locked because code looks it up by slug. Price, limits, and everything else are still editable.
               </p>
@@ -361,13 +361,13 @@ export function PlansAdminClient() {
 
             <div>
               <label className={lbl}>Other currencies (optional)</label>
-              <p className="text-xs text-zinc-500 mb-2">
+              <p className="text-xs text-hp-paper/45 mb-2">
                 Leave blank to not offer this plan in that currency — checkout falls back to the AUD price.
               </p>
               <div className="grid grid-cols-3 gap-3">
                 {OTHER_CURRENCIES.map((c) => (
                   <div key={c}>
-                    <label className="text-[11px] text-zinc-500 uppercase">{c}</label>
+                    <label className="text-[11px] text-hp-paper/45 uppercase">{c}</label>
                     <input
                       type="number" min={0} step="0.01" className={inp}
                       value={draft.pricesByCurrency[c] ?? ""}
@@ -391,12 +391,12 @@ export function PlansAdminClient() {
                   placeholder="Uncapped"
                 />
                 {draft.slug === "coach-free" && (
-                  <p className="text-xs text-zinc-500 mt-1.5">
+                  <p className="text-xs text-hp-paper/45 mt-1.5">
                     Governs how many of their own players an independent coach on this plan can add (Players page). This plan is separate from the player-facing Free plan.
                   </p>
                 )}
                 {draft.slug === "coach-pro" && (
-                  <p className="text-xs text-zinc-500 mt-1.5">Should stay blank (uncapped) — Coach Pro is the unlimited-roster tier.</p>
+                  <p className="text-xs text-hp-paper/45 mt-1.5">Should stay blank (uncapped) — Coach Pro is the unlimited-roster tier.</p>
                 )}
               </div>
               <div>
@@ -419,29 +419,29 @@ export function PlansAdminClient() {
             </div>
 
             <div>
-              <label className="flex items-start gap-2.5 text-sm text-zinc-300 cursor-pointer select-none">
+              <label className="flex items-start gap-2.5 text-sm text-hp-paper/70 cursor-pointer select-none">
                 <input
                   type="checkbox" checked={draft.waivesSessionFees}
                   onChange={(e) => setDraft({ ...draft, waivesSessionFees: e.target.checked })}
                   className="mt-0.5"
                 />
                 <span>
-                  <span className="block text-white font-medium">Waives player session fees</span>
-                  <span className="block text-xs text-zinc-500">Players never pay for bookings or memberships — the academy's own subscription covers it. Existing academies on this plan pick this up automatically.</span>
+                  <span className="block text-hp-paper font-medium">Waives player session fees</span>
+                  <span className="block text-xs text-hp-paper/45">Players never pay for bookings or memberships — the academy's own subscription covers it. Existing academies on this plan pick this up automatically.</span>
                 </span>
               </label>
             </div>
 
             <div>
-              <label className="flex items-start gap-2.5 text-sm text-zinc-300 cursor-pointer select-none">
+              <label className="flex items-start gap-2.5 text-sm text-hp-paper/70 cursor-pointer select-none">
                 <input
                   type="checkbox" checked={draft.platformAdminOnly}
                   onChange={(e) => setDraft({ ...draft, platformAdminOnly: e.target.checked })}
                   className="mt-0.5"
                 />
                 <span>
-                  <span className="block text-white font-medium">Platform admin only</span>
-                  <span className="block text-xs text-zinc-500">Hidden from the academy/player-facing plan pickers — only you see and can assign it. For internal or test tiers, not something to offer real customers.</span>
+                  <span className="block text-hp-paper font-medium">Platform admin only</span>
+                  <span className="block text-xs text-hp-paper/45">Hidden from the academy/player-facing plan pickers — only you see and can assign it. For internal or test tiers, not something to offer real customers.</span>
                 </span>
               </label>
             </div>
@@ -455,7 +455,7 @@ export function PlansAdminClient() {
                 onChange={(e) => setDraft({ ...draft, platformFeePercent: e.target.value })}
                 placeholder="10"
               />
-              <p className="text-xs text-zinc-500 mt-1">Share of membership/booking revenue the platform takes via Stripe for academies on this plan. Defaults to 10% — lower it for an academy paying well upfront.</p>
+              <p className="text-xs text-hp-paper/45 mt-1">Share of membership/booking revenue the platform takes via Stripe for academies on this plan. Defaults to 10% — lower it for an academy paying well upfront.</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -474,7 +474,7 @@ export function PlansAdminClient() {
                   value={draft.selfLogSessionsPerMonthLimit} onChange={(e) => setDraft({ ...draft, selfLogSessionsPerMonthLimit: e.target.value })}
                   placeholder="4"
                 />
-                <p className="text-xs text-zinc-500 mt-1">Always a real cap — a self-logged session has no coach naturally rate-limiting it, so this cannot be left unlimited.</p>
+                <p className="text-xs text-hp-paper/45 mt-1">Always a real cap — a self-logged session has no coach naturally rate-limiting it, so this cannot be left unlimited.</p>
               </div>
               <div>
                 <label className={lbl}>Coach AI messages / day limit</label>
@@ -487,14 +487,14 @@ export function PlansAdminClient() {
             </div>
 
             <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-sm text-hp-paper/70 cursor-pointer select-none">
                 <input
                   type="checkbox" checked={draft.aiReportsEnabled}
                   onChange={(e) => setDraft({ ...draft, aiReportsEnabled: e.target.checked })}
                 />
                 AI biomechanics reports
               </label>
-              <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer select-none">
+              <label className="flex items-center gap-2 text-sm text-hp-paper/70 cursor-pointer select-none">
                 <input
                   type="checkbox" checked={draft.marketplaceEnabled}
                   onChange={(e) => setDraft({ ...draft, marketplaceEnabled: e.target.checked })}
@@ -512,7 +512,7 @@ export function PlansAdminClient() {
                 />
               </div>
               <div className="flex items-end pb-3">
-                <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
+                <label className="flex items-center gap-2 text-sm text-hp-paper/70 cursor-pointer">
                   <input
                     type="checkbox" checked={draft.active}
                     onChange={(e) => setDraft({ ...draft, active: e.target.checked })}
@@ -529,14 +529,14 @@ export function PlansAdminClient() {
                 type="button"
                 onClick={() => save()}
                 disabled={saving}
-                className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+                className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60"
               >
                 {saving ? "Saving…" : "Save"}
               </button>
               <button
                 type="button"
                 onClick={() => setShowModal(false)}
-                className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer"
+                className="px-6 py-3 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -549,6 +549,6 @@ export function PlansAdminClient() {
 }
 
 const inp =
-  "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
+  "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
 const sel = inp;
-const lbl = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const lbl = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";

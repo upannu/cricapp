@@ -188,13 +188,13 @@ export default function ApprovalsPage() {
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white mb-1">Pending Approvals</h1>
-        <p className="text-zinc-400 text-sm">Review and approve new coach and academy admin accounts</p>
+        <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Pending Approvals</h1>
+        <p className="text-hp-paper/45 text-sm">Review and approve new coach and academy admin accounts</p>
       </div>
 
       {/* Error banner */}
       {errorMsg && (
-        <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
+        <div className="mb-4 bg-red-500/10 border border-red-500/30 px-4 py-3 flex items-start gap-3">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" className="flex-shrink-0 mt-0.5">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
@@ -205,13 +205,13 @@ export default function ApprovalsPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+          <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
         </div>
       ) : requests.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-16 text-center">
+        <div className="bg-hp-surface p-16 text-center">
           <div className="text-pace-green text-3xl mb-3">✓</div>
-          <p className="text-white font-semibold mb-1">All caught up</p>
-          <p className="text-zinc-400 text-sm">No pending account requests.</p>
+          <p className="text-hp-paper font-semibold mb-1">All caught up</p>
+          <p className="text-hp-paper/45 text-sm">No pending account requests.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -222,13 +222,13 @@ export default function ApprovalsPage() {
               hour: "2-digit", minute: "2-digit",
             });
             return (
-              <div key={req.id} className="bg-surface rounded-2xl p-5 flex items-center gap-4">
-                <div className="w-11 h-11 rounded-full bg-zinc-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              <div key={req.id} className="bg-hp-surface p-5 flex items-center gap-4">
+                <div className="w-11 h-11 rounded-full bg-hp-cg/20 flex items-center justify-center text-hp-cg text-sm font-bold flex-shrink-0">
                   {initials}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <span className="text-white font-semibold text-sm">{req.name}</span>
+                    <span className="text-hp-paper font-semibold text-sm">{req.name}</span>
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${ROLE_STYLES[req.role]}`}>
                       {ROLE_LABELS[req.role]}
                     </span>
@@ -238,7 +238,7 @@ export default function ApprovalsPage() {
                       </span>
                     )}
                   </div>
-                  <div className="text-zinc-400 text-xs">{req.email}</div>
+                  <div className="text-hp-paper/45 text-xs">{req.email}</div>
                   {req.request_type === "link" && (
                     <div className="text-xs mt-0.5 text-amber">
                       This account already exists — approving links a {ROLE_LABELS[req.role]} identity to it.
@@ -255,19 +255,19 @@ export default function ApprovalsPage() {
                       )}
                     </div>
                   )}
-                  <div className="text-zinc-600 text-xs mt-0.5">Requested {date}</div>
+                  <div className="text-hp-paper/35 text-xs mt-0.5">Requested {date}</div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button type="button"
                     onClick={() => setConfirmReject(req)}
                     disabled={approving === req.id || rejecting === req.id}
-                    className="px-4 py-2.5 text-sm font-semibold text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-40">
+                    className="px-4 py-2.5 text-sm font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-40">
                     Reject
                   </button>
                   <button type="button"
                     onClick={() => handleApproveClick(req)}
                     disabled={approving === req.id || rejecting === req.id}
-                    className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+                    className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
                     {approving === req.id ? "Approving…" : "Approve"}
                   </button>
                 </div>
@@ -281,10 +281,10 @@ export default function ApprovalsPage() {
       {assignDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setAssignDialog(null)} />
-          <div className="relative bg-surface rounded-2xl w-full max-w-sm shadow-2xl border border-zinc-700/50 p-6">
-            <h3 className="text-white font-bold mb-1">Assign Academy</h3>
-            <p className="text-zinc-400 text-sm mb-4">
-              Which academy will <span className="text-white font-semibold">{assignDialog.name}</span> manage?
+          <div className="relative bg-hp-surface w-full max-w-sm shadow-2xl border border-white/10 p-6">
+            <h3 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-1">Assign Academy</h3>
+            <p className="text-hp-paper/45 text-sm mb-4">
+              Which academy will <span className="text-hp-paper font-semibold">{assignDialog.name}</span> manage?
             </p>
 
             {/* Explicit choice, not a dropdown-plus-hidden-link — this exact ambiguity has
@@ -293,8 +293,8 @@ export default function ApprovalsPage() {
               <button
                 type="button"
                 onClick={() => setCreatingAcademy(true)}
-                className={`px-3 py-2.5 rounded-xl text-sm font-semibold border transition-colors cursor-pointer ${
-                  creatingAcademy ? "border-pace-green bg-pace-green/10 text-pace-green" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                className={`px-3 py-2.5 text-sm font-semibold border transition-colors cursor-pointer ${
+                  creatingAcademy ? "border-hp-cg bg-hp-cg/10 text-hp-cg" : "border-white/12 text-hp-paper/45 hover:border-white/25"
                 }`}
               >
                 New Academy
@@ -302,8 +302,8 @@ export default function ApprovalsPage() {
               <button
                 type="button"
                 onClick={() => setCreatingAcademy(false)}
-                className={`px-3 py-2.5 rounded-xl text-sm font-semibold border transition-colors cursor-pointer ${
-                  !creatingAcademy ? "border-pace-green bg-pace-green/10 text-pace-green" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                className={`px-3 py-2.5 text-sm font-semibold border transition-colors cursor-pointer ${
+                  !creatingAcademy ? "border-hp-cg bg-hp-cg/10 text-hp-cg" : "border-white/12 text-hp-paper/45 hover:border-white/25"
                 }`}
               >
                 Existing Academy
@@ -314,23 +314,23 @@ export default function ApprovalsPage() {
               {creatingAcademy ? (
                 <div className="space-y-2">
                   <div>
-                    <label className="block text-zinc-400 text-xs font-medium mb-1.5">Academy Name *</label>
+                    <label className="block text-hp-paper/45 text-xs font-medium mb-1.5">Academy Name *</label>
                     <input
                       type="text"
                       value={newAcademyName}
                       onChange={(e) => setNewAcademyName(e.target.value)}
                       placeholder="e.g. Bella Vista Fast Bowling"
-                      className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-pace-green"
+                      className="w-full bg-white/5 border border-white/12 text-hp-paper text-sm px-3 py-2.5 focus:outline-none focus:border-hp-cg"
                     />
                   </div>
                   <div>
-                    <label className="block text-zinc-400 text-xs font-medium mb-1.5">Location (optional)</label>
+                    <label className="block text-hp-paper/45 text-xs font-medium mb-1.5">Location (optional)</label>
                     <input
                       type="text"
                       value={newAcademyLocation}
                       onChange={(e) => setNewAcademyLocation(e.target.value)}
                       placeholder="e.g. Sydney, NSW"
-                      className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:border-pace-green"
+                      className="w-full bg-white/5 border border-white/12 text-hp-paper text-sm px-3 py-2.5 focus:outline-none focus:border-hp-cg"
                     />
                   </div>
                   {selectedAcademy ? (
@@ -340,7 +340,7 @@ export default function ApprovalsPage() {
                       type="button"
                       onClick={handleCreateAcademy}
                       disabled={!newAcademyName.trim() || savingAcademy}
-                      className="w-full px-3 py-2.5 text-sm font-bold bg-pace-green text-black rounded-lg hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
+                      className="w-full px-3 py-2.5 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       {savingAcademy ? "Creating…" : "Create Academy"}
                     </button>
@@ -348,11 +348,11 @@ export default function ApprovalsPage() {
                 </div>
               ) : (
                 <>
-                  <label className="block text-zinc-400 text-xs font-medium mb-1.5">Academy</label>
+                  <label className="block text-hp-paper/45 text-xs font-medium mb-1.5">Academy</label>
                   <select
                     value={selectedAcademy}
                     onChange={(e) => setSelectedAcademy(e.target.value)}
-                    className="w-full bg-zinc-800 border border-zinc-700 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-pace-green"
+                    className="w-full bg-white/5 border border-white/12 text-hp-paper text-sm px-3 py-2.5 focus:outline-none focus:border-hp-cg"
                   >
                     <option value="">— Select academy —</option>
                     {academies.map((a) => (
@@ -367,13 +367,13 @@ export default function ApprovalsPage() {
             </div>
             <div className="flex gap-3">
               <button type="button" onClick={() => setAssignDialog(null)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
                 Cancel
               </button>
               <button type="button"
                 onClick={() => doApprove(assignDialog, selectedAcademy || undefined)}
                 disabled={creatingAcademy && !selectedAcademy}
-                className="flex-1 px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-40">
+                className="flex-1 px-4 py-2.5 text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-40">
                 Approve
               </button>
             </div>
@@ -385,7 +385,7 @@ export default function ApprovalsPage() {
       {confirmReject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setConfirmReject(null)} />
-          <div className="relative bg-surface rounded-2xl w-full max-w-sm shadow-2xl border border-red-500/20 p-6">
+          <div className="relative bg-hp-surface w-full max-w-sm shadow-2xl border border-red-500/20 p-6">
             <div className="w-12 h-12 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-4">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>
@@ -393,24 +393,24 @@ export default function ApprovalsPage() {
                 <line x1="9" y1="9" x2="15" y2="15"/>
               </svg>
             </div>
-            <h3 className="text-white font-bold text-center mb-1">Reject Account?</h3>
-            <p className="text-zinc-400 text-sm text-center mb-1">
-              <span className="text-white font-semibold">{confirmReject.name}</span> ({confirmReject.email})
+            <h3 className="text-hp-paper font-bold text-center mb-1">Reject Account?</h3>
+            <p className="text-hp-paper/45 text-sm text-center mb-1">
+              <span className="text-hp-paper font-semibold">{confirmReject.name}</span> ({confirmReject.email})
             </p>
-            <p className="text-zinc-500 text-xs text-center mb-6">
+            <p className="text-hp-paper/45 text-xs text-center mb-6">
               {confirmReject.request_type === "link"
                 ? "Only this request is removed — their existing account is untouched."
                 : "Their account will be permanently deleted. They can re-apply using the signup page."}
             </p>
             <div className="flex gap-3">
               <button type="button" onClick={() => setConfirmReject(null)}
-                className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
                 Cancel
               </button>
               <button type="button"
                 onClick={() => handleReject(confirmReject.id)}
                 disabled={rejecting === confirmReject.id}
-                className="flex-1 px-4 py-2.5 text-sm font-bold text-red-400 border border-red-500/40 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-60">
+                className="flex-1 px-4 py-2.5 text-sm font-bold text-red-400 border border-red-500/40 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-60">
                 {rejecting === confirmReject.id ? "Rejecting…" : "Yes, Reject"}
               </button>
             </div>
