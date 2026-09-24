@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { PartnershipOrgType } from "@/lib/types";
 
-const inputCls = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const labelCls = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const inputCls = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const labelCls = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";
 
 type Draft = {
   organisationName: string; country: string;
@@ -97,10 +97,10 @@ export function QuickPartnershipForm({
 
   return (
     <div className="max-w-lg mx-auto px-6 py-10">
-      <h1 className="text-xl font-bold text-white mb-1">{heading}</h1>
-      <p className="text-zinc-400 text-sm mb-6">{subheading}</p>
+      <h1 className="font-display font-black uppercase text-xl text-hp-paper mb-1">{heading}</h1>
+      <p className="text-hp-paper/52 text-sm mb-6">{subheading}</p>
 
-      <form onSubmit={handleSubmit} className="bg-surface rounded-2xl p-6 space-y-4">
+      <form onSubmit={handleSubmit} className="border border-white/10 p-6 space-y-4">
         <div>
           <label htmlFor="qp-org-name" className={labelCls}>{nameLabel} *</label>
           <input id="qp-org-name" type="text" value={draft.organisationName}
@@ -151,8 +151,8 @@ export function QuickPartnershipForm({
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               {scaleQuestion.options.map((o) => (
                 <button key={o} type="button" onClick={() => update("scaleValue", draft.scaleValue === o ? "" : o)}
-                  className={`px-4 py-3 rounded-xl text-sm font-semibold border transition-colors cursor-pointer ${
-                    draft.scaleValue === o ? "bg-pace-green text-black border-pace-green" : "bg-ink text-zinc-300 border-zinc-700 hover:border-zinc-500"
+                  className={`px-4 py-3 text-sm font-display font-bold uppercase border transition-colors cursor-pointer ${
+                    draft.scaleValue === o ? "bg-hp-cg text-hp-paper border-hp-cg" : "bg-hp-ink text-hp-paper/70 border-white/12 hover:border-white/25"
                   }`}>
                   {o}
                 </button>
@@ -164,13 +164,13 @@ export function QuickPartnershipForm({
         {error && <p className="text-red-400 text-sm">{error}</p>}
 
         <button type="submit" disabled={submitting}
-          className="w-full px-6 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+          className="w-full px-6 py-3 bg-hp-cg text-hp-paper text-sm font-display font-black uppercase tracking-[0.12em] hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
           {submitting ? "Submitting…" : "Register Your Interest"}
         </button>
       </form>
 
       <p className="text-center mt-6">
-        <Link href={backHref} className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+        <Link href={backHref} className="font-mono text-xs text-hp-paper/50 hover:text-hp-paper/80 transition-colors uppercase tracking-wider">
           ← Back to overview
         </Link>
       </p>

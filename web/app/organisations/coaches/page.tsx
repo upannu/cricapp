@@ -1,5 +1,6 @@
-import Link from "next/link";
 import { PartnershipPageShell } from "@/components/PartnershipPageShell";
+import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid } from "@/components/editorial/EditorialUI";
+import Link from "next/link";
 
 // Every item here maps to a capability the coach dashboard already has today (players,
 // bookings/group sessions, attendance_records, action plans, assessments, biomechanics
@@ -25,52 +26,39 @@ export default function CoachesPage() {
     <PartnershipPageShell>
       <div className="max-w-5xl mx-auto px-6 sm:px-10">
         {/* Hero */}
-        <div className="pt-10 pb-16 text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-pace-green mb-4">👨‍🏫 For Coaches</p>
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 text-balance">CRIC HQ for Coaches</h1>
-          <p className="text-lg text-zinc-300 max-w-2xl mx-auto mb-3">
+        <div className="pt-14 pb-16 text-center">
+          <div className="flex justify-center mb-6"><Eyebrow>For Coaches</Eyebrow></div>
+          <EditorialHeading size="lg" level="h1">CRIC HQ for Coaches</EditorialHeading>
+          <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
             Spend less time managing administration. More time developing players.
           </p>
-          <p className="text-sm text-zinc-500 max-w-xl mx-auto mb-8">
+          <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
             Plan sessions, track attendance and development, and follow every player&apos;s progress in one connected platform.
           </p>
-          <Link href="/organisations/coaches/apply"
-            className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Register Your Interest
-          </Link>
+          <EditorialButton href="/organisations/coaches/apply" size="lg">Register Your Interest</EditorialButton>
         </div>
 
         {/* Capabilities */}
         <div className="mb-16">
-          <h2 className="text-xl font-bold text-white text-center mb-8">Everything You Need to Coach</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {CAPABILITIES.map((c) => (
-              <div key={c.title} className="bg-surface rounded-2xl p-5">
-                <p className="text-white font-semibold text-sm mb-1">{c.title}</p>
-                <p className="text-zinc-500 text-xs">{c.body}</p>
-              </div>
-            ))}
-          </div>
+          <div className="text-center mb-10"><EditorialHeading size="sm">Everything You Need to Coach</EditorialHeading></div>
+          <CapabilityGrid items={CAPABILITIES} cols={3} />
         </div>
 
         {/* Specialist program cross-sell */}
-        <p className="text-center text-sm text-zinc-500 mb-16">
+        <p className="text-center text-sm text-hp-paper/50 mb-16">
           Looking for specialist fast bowling coaching?{" "}
-          <Link href="/programs/fast-bowling-development" className="text-pace-green font-semibold hover:underline">
+          <Link href="/programs/fast-bowling-development" className="text-hp-cg font-semibold hover:underline">
             Explore our Fast Bowling Development Program →
           </Link>
         </p>
 
         {/* Final CTA */}
-        <div className="text-center pb-16">
-          <h2 className="text-xl font-bold text-white mb-2">Ready to Coach with CRIC HQ?</h2>
-          <p className="text-sm text-zinc-500 mb-6">
+        <div className="text-center pb-20">
+          <EditorialHeading size="sm">Ready to Coach with CRIC HQ?</EditorialHeading>
+          <p className="text-sm text-hp-paper/50 mt-4 mb-8">
             See how CRIC HQ can take the administration off your plate so you can focus on coaching.
           </p>
-          <Link href="/organisations/coaches/apply"
-            className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Register Your Interest
-          </Link>
+          <EditorialButton href="/organisations/coaches/apply" size="lg">Register Your Interest</EditorialButton>
         </div>
       </div>
     </PartnershipPageShell>

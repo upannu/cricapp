@@ -18,15 +18,15 @@ const ACADEMY_SCALE = ["1–5", "6–20", "21–50", "51–100", "100+"];
 const REGION_SCALE = ["1", "2–5", "6–10", "10+"];
 
 const INTERESTS = [
-  { id: "player_development", icon: "👥", title: "Player Development", body: "Track player pathways" },
-  { id: "coach_management", icon: "🏏", title: "Coach Management", body: "Manage coaching staff and programs" },
-  { id: "academy_management", icon: "🏫", title: "Academy Management", body: "Connect affiliated academies and clubs" },
-  { id: "performance_analytics", icon: "📊", title: "Performance Analytics", body: "Board-wide performance insight" },
-  { id: "ai_video_analysis", icon: "🎥", title: "AI Video Analysis", body: "Automated biomechanics reports" },
-  { id: "talent_identification", icon: "🔍", title: "Talent Identification", body: "Spot and track emerging talent" },
-  { id: "board_reporting", icon: "📈", title: "Board Reporting", body: "Ecosystem-wide reporting" },
-  { id: "centralised_data", icon: "🗂️", title: "Centralised Data", body: "One source of truth across regions" },
-  { id: "custom_integrations", icon: "🔗", title: "Custom Integrations", body: "Connect existing systems" },
+  { id: "player_development", title: "Player Development", body: "Track player pathways" },
+  { id: "coach_management", title: "Coach Management", body: "Manage coaching staff and programs" },
+  { id: "academy_management", title: "Academy Management", body: "Connect affiliated academies and clubs" },
+  { id: "performance_analytics", title: "Performance Analytics", body: "Board-wide performance insight" },
+  { id: "ai_video_analysis", title: "AI Video Analysis", body: "Automated biomechanics reports" },
+  { id: "talent_identification", title: "Talent Identification", body: "Spot and track emerging talent" },
+  { id: "board_reporting", title: "Board Reporting", body: "Ecosystem-wide reporting" },
+  { id: "centralised_data", title: "Centralised Data", body: "One source of truth across regions" },
+  { id: "custom_integrations", title: "Custom Integrations", body: "Connect existing systems" },
 ];
 
 const CURRENT_SYSTEMS = ["Spreadsheets", "Multiple Software Systems", "Custom Internal Platform", "Manual Processes", "Existing Cricket Platform", "Other"];
@@ -52,17 +52,17 @@ const EMPTY_DRAFT: Draft = {
   budgetRange: "", additionalNotes: "",
 };
 
-const inputCls = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const selectCls = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
-const labelCls = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const inputCls = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const selectCls = "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
+const labelCls = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";
 
 function ScalePicker({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
       {options.map((o) => (
         <button key={o} type="button" onClick={() => onChange(value === o ? "" : o)}
-          className={`px-4 py-3 rounded-xl text-sm font-semibold border transition-colors cursor-pointer ${
-            value === o ? "bg-pace-green text-black border-pace-green" : "bg-ink text-zinc-300 border-zinc-700 hover:border-zinc-500"
+          className={`px-4 py-3 text-sm font-display font-bold uppercase border transition-colors cursor-pointer ${
+            value === o ? "bg-hp-cg text-hp-paper border-hp-cg" : "bg-hp-ink text-hp-paper/70 border-white/12 hover:border-white/25"
           }`}>
           {o}
         </button>
@@ -143,23 +143,23 @@ export function PartnershipApplicationForm() {
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-10">
-      <h1 className="text-xl font-bold text-white mb-1">Cricket Board Partnership</h1>
-      <p className="text-zinc-400 text-sm mb-6">Tell us about your organisation</p>
+      <h1 className="font-display font-black uppercase text-xl text-hp-paper mb-1">Cricket Board Partnership</h1>
+      <p className="text-hp-paper/52 text-sm mb-6">Tell us about your organisation</p>
 
       {/* Progress */}
       <div className="mb-8">
-        <p className="text-xs text-zinc-500 mb-2">Step {step} of 5 — {STEP_LABELS[step - 1]}</p>
+        <p className="font-mono text-xs text-hp-paper/45 uppercase tracking-wider mb-2">Step {step} of 5 — {STEP_LABELS[step - 1]}</p>
         <div className="flex gap-1.5">
           {STEP_LABELS.map((label, i) => (
-            <div key={label} className={`h-1.5 flex-1 rounded-full ${i + 1 <= step ? "bg-pace-green" : "bg-zinc-700"}`} />
+            <div key={label} className={`h-1.5 flex-1 ${i + 1 <= step ? "bg-hp-cg" : "bg-white/10"}`} />
           ))}
         </div>
       </div>
 
-      <div className="bg-surface rounded-2xl p-6">
+      <div className="border border-white/10 p-6">
         {step === 1 && (
           <div className="space-y-4">
-            <h2 className="text-white font-bold text-sm mb-2">About Your Organisation</h2>
+            <h2 className="font-display font-black uppercase text-hp-paper text-sm mb-2">About Your Organisation</h2>
             <div>
               <label htmlFor="pa-org-name" className={labelCls}>Organisation Name *</label>
               <input id="pa-org-name" type="text" value={draft.organisationName} onChange={(e) => update("organisationName", e.target.value)} className={inputCls} />
@@ -190,7 +190,7 @@ export function PartnershipApplicationForm() {
 
         {step === 2 && (
           <div className="space-y-6">
-            <h2 className="text-white font-bold text-sm mb-2">Your Cricket Ecosystem</h2>
+            <h2 className="font-display font-black uppercase text-hp-paper text-sm mb-2">Your Cricket Ecosystem</h2>
             <div>
               <label className={labelCls}>Approximately how many players?</label>
               <ScalePicker options={PLAYER_SCALE} value={draft.scalePlayers} onChange={(v) => update("scalePlayers", v)} />
@@ -213,21 +213,20 @@ export function PartnershipApplicationForm() {
         {step === 3 && (
           <div>
             <div className="flex items-center justify-between mb-1">
-              <h2 className="text-white font-bold text-sm">What Are You Interested In?</h2>
-              <span className="text-xs text-pace-green font-semibold">Selected: {draft.interests.length}</span>
+              <h2 className="font-display font-black uppercase text-hp-paper text-sm">What Are You Interested In?</h2>
+              <span className="text-xs text-hp-cg font-mono font-semibold">Selected: {draft.interests.length}</span>
             </div>
-            <p className="text-zinc-500 text-xs mb-4">Select all that apply</p>
+            <p className="text-hp-paper/45 text-xs mb-4">Select all that apply</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {INTERESTS.map((f) => {
                 const checked = draft.interests.includes(f.id);
                 return (
                   <button key={f.id} type="button" onClick={() => toggleListValue("interests", f.id)}
-                    className={`text-left rounded-xl border px-4 py-3 transition-colors cursor-pointer ${
-                      checked ? "border-pace-green bg-pace-green/5" : "border-zinc-700 hover:border-zinc-500"
+                    className={`text-left border px-4 py-3 transition-colors cursor-pointer ${
+                      checked ? "border-hp-cg bg-hp-cg/5" : "border-white/12 hover:border-white/25"
                     }`}>
-                    <div className="text-xl mb-1.5">{f.icon}</div>
-                    <p className={`text-sm font-semibold mb-0.5 ${checked ? "text-pace-green" : "text-white"}`}>{f.title}</p>
-                    <p className="text-xs text-zinc-500">{f.body}</p>
+                    <p className={`text-sm font-display font-bold uppercase mb-0.5 ${checked ? "text-hp-cg" : "text-hp-paper"}`}>{f.title}</p>
+                    <p className="text-xs text-hp-paper/45">{f.body}</p>
                   </button>
                 );
               })}
@@ -237,7 +236,7 @@ export function PartnershipApplicationForm() {
 
         {step === 4 && (
           <div className="space-y-5">
-            <h2 className="text-white font-bold text-sm mb-2">Help Us Understand Your Needs</h2>
+            <h2 className="font-display font-black uppercase text-hp-paper text-sm mb-2">Help Us Understand Your Needs</h2>
             <div>
               <label htmlFor="pa-challenges" className={labelCls}>What challenges are you trying to solve?</label>
               <textarea id="pa-challenges" rows={4} value={draft.challenges} onChange={(e) => update("challenges", e.target.value)}
@@ -247,8 +246,8 @@ export function PartnershipApplicationForm() {
               <label className={labelCls}>Current Systems</label>
               <div className="space-y-2">
                 {CURRENT_SYSTEMS.map((s) => (
-                  <label key={s} className="flex items-center gap-2.5 text-sm text-zinc-300 cursor-pointer">
-                    <input type="checkbox" checked={draft.currentSystems.includes(s)} onChange={() => toggleListValue("currentSystems", s)} className="accent-pace-green w-4 h-4" />
+                  <label key={s} className="flex items-center gap-2.5 text-sm text-hp-paper/75 cursor-pointer">
+                    <input type="checkbox" checked={draft.currentSystems.includes(s)} onChange={() => toggleListValue("currentSystems", s)} className="accent-hp-cg w-4 h-4" />
                     {s}
                   </label>
                 ))}
@@ -259,8 +258,8 @@ export function PartnershipApplicationForm() {
               <div className="flex flex-wrap gap-2">
                 {TIMELINES.map((t) => (
                   <button key={t} type="button" onClick={() => update("timeline", draft.timeline === t ? "" : t)}
-                    className={`px-4 py-2 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
-                      draft.timeline === t ? "bg-pace-green text-black border-pace-green" : "bg-ink text-zinc-300 border-zinc-700 hover:border-zinc-500"
+                    className={`px-4 py-2 text-xs font-display font-bold uppercase border transition-colors cursor-pointer ${
+                      draft.timeline === t ? "bg-hp-cg text-hp-paper border-hp-cg" : "bg-hp-ink text-hp-paper/70 border-white/12 hover:border-white/25"
                     }`}>
                     {t}
                   </button>
@@ -272,7 +271,7 @@ export function PartnershipApplicationForm() {
 
         {step === 5 && (
           <div className="space-y-4">
-            <h2 className="text-white font-bold text-sm mb-2">Your Contact Details</h2>
+            <h2 className="font-display font-black uppercase text-hp-paper text-sm mb-2">Your Contact Details</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="pa-first-name" className={labelCls}>First Name *</label>
@@ -320,19 +319,19 @@ export function PartnershipApplicationForm() {
         <div className="flex items-center gap-3 mt-6">
           {step > 1 && (
             <button type="button" onClick={handleBack}
-              className="px-5 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+              className="px-5 py-2.5 text-sm font-mono font-medium text-hp-paper/60 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
               ← Back
             </button>
           )}
           <div className="flex-1" />
           {step < 5 ? (
             <button type="button" onClick={handleContinue}
-              className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+              className="px-6 py-2.5 bg-hp-cg text-hp-paper text-sm font-display font-black uppercase tracking-wider hover:bg-hp-cg/90 transition-colors cursor-pointer">
               Continue →
             </button>
           ) : (
             <button type="button" onClick={handleSubmit} disabled={submitting}
-              className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+              className="px-6 py-2.5 bg-hp-cg text-hp-paper text-sm font-display font-black uppercase tracking-wider hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
               {submitting ? "Submitting…" : "Submit Partnership Application"}
             </button>
           )}
@@ -340,7 +339,7 @@ export function PartnershipApplicationForm() {
       </div>
 
       <p className="text-center mt-6">
-        <Link href="/partnerships/cricket-board" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+        <Link href="/partnerships/cricket-board" className="font-mono text-xs text-hp-paper/50 hover:text-hp-paper/80 transition-colors uppercase tracking-wider">
           ← Back to overview
         </Link>
       </p>

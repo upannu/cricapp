@@ -1,57 +1,23 @@
-import Link from "next/link";
+import { SiteNav } from "@/components/SiteNav";
+import { SiteFooter } from "@/components/SiteFooter";
 
-/** Shared chrome for the public Contact/Terms/Privacy pages — same dark theme and logo header as
- * the homepage, plus a footer that cross-links the three so a visitor on any one can reach the
- * others. The logo links to / (the actual homepage) rather than /login, matching every other
- * public shell — /login is now a lean sign-in-only page, not the site's front door. */
+/** Shared chrome for the public Contact/Terms/Privacy pages — same dark editorial theme (Barlow
+ * Condensed, hp-* tokens, the real vectorized logo) as the homepage and PartnershipPageShell.
+ * Uses the same SiteNav/SiteFooter as every other public shell so neither changes shape between
+ * pages. */
 export function LegalPageShell({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-ink">
-      <div className="flex items-center justify-between px-6 sm:px-10 py-4 max-w-3xl mx-auto">
-        <Link href="/" className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
-          <img src="/crichq_logo.jpeg" alt="CRIC HQ" width={32} height={32}
-            className="w-8 h-8 rounded-full bg-white p-0.5 object-contain flex-shrink-0" />
-          <span className="text-lg font-bold tracking-widest text-white font-mono">CRIC HQ</span>
-        </Link>
-        <div className="flex items-center gap-5">
-          <Link href="/about" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
-            About
-          </Link>
-          <Link href="/organisations" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
-            Organisations
-          </Link>
-          <Link href="/login" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
-            Login
-          </Link>
-          <Link href="/contact" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
-            Contact
-          </Link>
-        </div>
-      </div>
+    <div className="min-h-screen bg-hp-ink">
+      <SiteNav />
 
-      <div className="max-w-3xl mx-auto px-6 sm:px-10 pb-20">
-        <h1 className="text-2xl font-bold text-white mt-6 mb-8">{title}</h1>
-        <div className="text-sm text-zinc-300 leading-relaxed space-y-5">
+      <div className="max-w-3xl mx-auto px-6 sm:px-10 pb-20 pt-[108px]">
+        <h1 className="font-display font-black uppercase text-3xl text-hp-paper mt-6 mb-8">{title}</h1>
+        <div className="text-sm text-hp-paper/72 leading-relaxed space-y-5">
           {children}
         </div>
       </div>
 
-      <div className="border-t border-zinc-800">
-        <div className="max-w-3xl mx-auto px-6 sm:px-10 py-6 flex flex-col items-end gap-2 text-sm text-zinc-500">
-          <div className="flex flex-wrap justify-end gap-5 text-base">
-            <Link href="/about" className="hover:text-white transition-colors">About</Link>
-            <Link href="/organisations" className="hover:text-white transition-colors">Organisations</Link>
-            <Link href="/partnerships/cricket-board" className="hover:text-white transition-colors">Cricket Board Partnership</Link>
-            <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
-            <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
-            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
-          </div>
-          <p className="text-right text-xs text-zinc-600">
-            Copyright © {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved. Design &amp; Developed by Kaus Milestone Pty Ltd
-          </p>
-        </div>
-      </div>
+      <SiteFooter />
     </div>
   );
 }

@@ -97,8 +97,8 @@ export default function TermsPage() {
       <Section title="11. Contact">
         <p>
           Questions about these Terms? Reach us at{" "}
-          <a href="mailto:support@crichq.com.au" className="text-pace-green hover:underline">support@crichq.com.au</a>{" "}
-          or via our <a href="/contact" className="text-pace-green hover:underline">Contact page</a>.
+          <a href="mailto:support@crichq.com.au" className="text-hp-cg hover:underline">support@crichq.com.au</a>{" "}
+          or via our <a href="/contact" className="text-hp-cg hover:underline">Contact page</a>.
         </p>
       </Section>
     </LegalPageShell>

@@ -136,8 +136,9 @@ function SignUpForm() {
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-3 mb-3">
             {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
-            <img src="/crichq_logo.jpeg" alt="CRIC HQ" width={48} height={48}
-              className="w-12 h-12 rounded-full bg-white p-1 object-contain flex-shrink-0" />
+            <img src="/hp-logo.svg" alt="CRIC HQ" width={48} height={36}
+              style={{ height: 48, width: "auto", objectFit: "contain", mixBlendMode: "screen" }}
+              className="flex-shrink-0" />
             <span className="text-3xl font-bold tracking-widest text-white font-mono">CRIC HQ</span>
           </div>
           <p className="text-zinc-400 text-sm tracking-wide">Fast Bowling Performance Platform</p>

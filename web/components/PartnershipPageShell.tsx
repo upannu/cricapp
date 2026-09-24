@@ -1,58 +1,36 @@
 import Link from "next/link";
+import { SiteNav } from "@/components/SiteNav";
+import { SiteFooter } from "@/components/SiteFooter";
 
 /** Shared header/footer chrome for the public Cricket Board Partnership pages (landing, apply,
- * success), the Organisations hub, and the specialist program pages — same dark theme/logo as
- * LegalPageShell, but a full-width content slot rather than LegalPageShell's narrow single-column
- * prose layout, since these pages need a proper hero + card-grid marketing layout, not an
- * article. The logo links to / (the actual homepage), not any one of these pages. `minimal` drops
- * the nav/footer for the multi-step application form, where a visitor mid-form shouldn't be
- * tempted away by unrelated links. */
+ * success), the Organisations hub, and the specialist program pages — same dark editorial theme
+ * as the homepage (Barlow Condensed, hp-* tokens, the real vectorized logo) and as LegalPageShell,
+ * but a full-width content slot rather than LegalPageShell's narrow single-column prose layout,
+ * since these pages need a proper hero + card-grid marketing layout, not an article. Uses the same
+ * SiteNav/SiteFooter as the homepage so neither visibly changes shape when a visitor clicks from
+ * the homepage into one of these pages. `minimal` drops the nav/footer for the multi-step
+ * application form, where a visitor mid-form shouldn't be tempted away by unrelated links — that
+ * mode keeps just a bare logo, not the full SiteNav. */
 export function PartnershipPageShell({ children, minimal = false }: { children: React.ReactNode; minimal?: boolean }) {
   return (
-    <div className="min-h-screen bg-ink">
-      <div className="flex items-center justify-between px-6 sm:px-10 py-4 max-w-6xl mx-auto">
-        <Link href="/" className="flex items-center gap-2.5">
-          {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
-          <img src="/crichq_logo.jpeg" alt="CRIC HQ" width={32} height={32}
-            className="w-8 h-8 rounded-full bg-white p-0.5 object-contain flex-shrink-0" />
-          <span className="text-lg font-bold tracking-widest text-white font-mono">CRIC HQ</span>
-        </Link>
-        {!minimal && (
-          <div className="flex items-center gap-5">
-            <Link href="/about" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
-              About
-            </Link>
-            <Link href="/organisations" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
-              Organisations
-            </Link>
-            <Link href="/login" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
-              Login
-            </Link>
-            <Link href="/contact" className="text-base text-zinc-400 hover:text-white transition-colors font-mono">
-              Contact
-            </Link>
-          </div>
-        )}
+    <div className="min-h-screen bg-hp-ink">
+      {minimal ? (
+        <div className="flex items-center px-6 sm:px-10 py-4 max-w-6xl mx-auto">
+          <Link href="/" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- small static logo mark, next/image is overkill */}
+            <img src="/hp-logo.svg" alt="CRIC HQ" width={40} height={40}
+              style={{ height: 40, width: "auto", objectFit: "contain", mixBlendMode: "screen" }} />
+          </Link>
+        </div>
+      ) : (
+        <SiteNav />
+      )}
+
+      <div className={minimal ? undefined : "pt-[84px]"}>
+        {children}
       </div>
 
-      {children}
-
-      {!minimal && (
-        <div className="border-t border-zinc-800">
-          <div className="max-w-6xl mx-auto px-6 sm:px-10 py-6 flex flex-col items-end gap-2 text-sm text-zinc-500">
-            <div className="flex flex-wrap justify-end gap-5 text-base">
-              <Link href="/about" className="hover:text-white transition-colors">About</Link>
-              <Link href="/organisations" className="hover:text-white transition-colors">Organisations</Link>
-              <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
-              <Link href="/terms" className="hover:text-white transition-colors">Terms &amp; Conditions</Link>
-              <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
-            </div>
-            <p className="text-right text-xs text-zinc-600">
-              Copyright © {new Date().getFullYear()} CRIC HQ PTY LTD. All rights reserved. Design &amp; Developed by Kaus Milestone Pty Ltd
-            </p>
-          </div>
-        </div>
-      )}
+      {!minimal && <SiteFooter />}
     </div>
   );
 }

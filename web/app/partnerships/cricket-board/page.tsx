@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { PartnershipPageShell } from "@/components/PartnershipPageShell";
+import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid } from "@/components/editorial/EditorialUI";
 
 // Mirrors PartnershipApplicationForm's ORG_TYPES (minus "Other") so this section and the
 // application form's own dropdown describe the same taxonomy.
 const ORG_TYPES = [
-  { icon: "🌏", title: "National Cricket Boards", body: "Manage cricket at national scale." },
-  { icon: "🏏", title: "State Associations", body: "Connect regions and development pathways." },
-  { icon: "📍", title: "Regional Associations", body: "Manage local cricket ecosystems." },
-  { icon: "🏆", title: "District Associations", body: "Support clubs, coaches and players." },
-  { icon: "🏫", title: "Academy Networks", body: "Connect affiliated academies and programs." },
-  { icon: "🎯", title: "Professional Organisations", body: "Support elite pathways and performance." },
+  { title: "National Cricket Boards", body: "Manage cricket at national scale." },
+  { title: "State Associations", body: "Connect regions and development pathways." },
+  { title: "Regional Associations", body: "Manage local cricket ecosystems." },
+  { title: "District Associations", body: "Support clubs, coaches and players." },
+  { title: "Academy Networks", body: "Connect affiliated academies and programs." },
+  { title: "Professional Organisations", body: "Support elite pathways and performance." },
 ];
 
 // Deliberately hedged ("can become", "often") rather than stated as universal fact — this
@@ -68,47 +69,36 @@ export default function CricketBoardLandingPage() {
     <PartnershipPageShell>
       <div className="max-w-5xl mx-auto px-6 sm:px-10">
         {/* Hero */}
-        <div className="pt-10 pb-16 text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-pace-green mb-4">🏏 Cricket Board Partnership</p>
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 text-balance">Power Your Cricket Ecosystem</h1>
-          <p className="text-lg text-zinc-300 max-w-2xl mx-auto mb-3">
+        <div className="pt-14 pb-16 text-center">
+          <div className="flex justify-center mb-6"><Eyebrow>Cricket Board Partnership</Eyebrow></div>
+          <EditorialHeading size="lg" level="h1">Power Your Cricket Ecosystem</EditorialHeading>
+          <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
             One connected platform for cricket boards, associations and governing bodies.
           </p>
-          <p className="text-sm text-zinc-500 max-w-xl mx-auto mb-8">
+          <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
             Connect players, coaches, academies, clubs and programs while giving your organisation greater visibility across development and performance.
           </p>
-          <Link href="/partnerships/cricket-board/apply"
-            className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Register Your Interest
-          </Link>
+          <EditorialButton href="/partnerships/cricket-board/apply" size="lg">Register Your Interest</EditorialButton>
         </div>
 
         {/* Built for cricket organisations */}
         <div className="mb-16">
-          <h2 className="text-xl font-bold text-white text-center mb-8">Built for Cricket Organisations</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {ORG_TYPES.map((o) => (
-              <div key={o.title} className="bg-surface rounded-2xl p-5 text-center">
-                <div className="text-3xl mb-3">{o.icon}</div>
-                <p className="text-white font-semibold text-sm mb-1">{o.title}</p>
-                <p className="text-zinc-500 text-xs">{o.body}</p>
-              </div>
-            ))}
-          </div>
+          <div className="text-center mb-10"><EditorialHeading size="sm">Built for Cricket Organisations</EditorialHeading></div>
+          <CapabilityGrid items={ORG_TYPES} cols={3} />
         </div>
 
         {/* Problem / pain points — a divided list rather than another card grid, so it doesn't
             repeat the "Built for Cricket Organisations" grid immediately above it. */}
         <div className="mb-16">
-          <h2 className="text-xl font-bold text-white text-center mb-2">Is Your Cricket Ecosystem Running on Disconnected Systems?</h2>
-          <p className="text-sm text-zinc-500 text-center max-w-2xl mx-auto mb-8">
+          <div className="text-center mb-2"><EditorialHeading size="sm">Is Your Cricket Ecosystem Running on Disconnected Systems?</EditorialHeading></div>
+          <p className="text-sm text-hp-paper/50 text-center max-w-2xl mx-auto mb-8">
             As cricket organisations grow, player, coaching, program and performance information can become spread across different systems, teams and processes.
           </p>
-          <div className="bg-surface rounded-2xl divide-y divide-zinc-800">
+          <div className="border border-white/8 divide-y divide-white/8">
             {PAIN_POINTS.map((p) => (
               <div key={p.title} className="p-5 sm:flex sm:items-baseline sm:gap-6">
-                <p className="text-white font-semibold text-sm sm:w-60 sm:flex-shrink-0">{p.title}</p>
-                <p className="text-zinc-500 text-xs mt-1 sm:mt-0">{p.body}</p>
+                <p className="font-display font-black text-hp-paper text-sm uppercase sm:w-60 sm:flex-shrink-0">{p.title}</p>
+                <p className="text-hp-paper/55 text-xs mt-1 sm:mt-0">{p.body}</p>
               </div>
             ))}
           </div>
@@ -116,32 +106,32 @@ export default function CricketBoardLandingPage() {
 
         {/* One connected ecosystem */}
         <div className="mb-16">
-          <h2 className="text-xl font-bold text-white text-center mb-2">One Connected Cricket Ecosystem</h2>
-          <p className="text-sm text-zinc-500 text-center max-w-2xl mx-auto mb-8">
+          <div className="text-center mb-2"><EditorialHeading size="sm">One Connected Cricket Ecosystem</EditorialHeading></div>
+          <p className="text-sm text-hp-paper/50 text-center max-w-2xl mx-auto mb-8">
             Connect the organisations, people and programs that support player development — from the board level through to the player.
           </p>
-          <div className="bg-surface rounded-2xl p-8 flex flex-col items-center gap-3">
+          <div className="border border-white/8 p-10 flex flex-col items-center gap-3">
             {["Cricket Board", "Regions / Associations"].map((step) => (
               <div key={step} className="flex flex-col items-center gap-3">
-                <div className="px-5 py-2.5 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-bold text-center">
+                <div className="px-5 py-2.5 border border-hp-cg/30 bg-hp-cg/5 text-hp-cg text-sm font-display font-bold uppercase text-center">
                   {step}
                 </div>
-                <div className="w-px h-5 bg-zinc-700" />
+                <div className="w-px h-5 bg-white/10" />
               </div>
             ))}
             <div className="flex flex-wrap justify-center gap-3">
               {["Academy", "Club", "Program"].map((step) => (
-                <div key={step} className="px-5 py-2.5 rounded-xl bg-ink border border-zinc-700 text-zinc-300 text-sm font-semibold">
+                <div key={step} className="px-5 py-2.5 border border-white/10 text-hp-paper/75 text-sm font-display font-semibold uppercase">
                   {step}
                 </div>
               ))}
             </div>
-            <div className="w-px h-5 bg-zinc-700" />
-            <div className="px-5 py-2.5 rounded-xl bg-ink border border-zinc-700 text-zinc-300 text-sm font-semibold">
+            <div className="w-px h-5 bg-white/10" />
+            <div className="px-5 py-2.5 border border-white/10 text-hp-paper/75 text-sm font-display font-semibold uppercase">
               Coaches
             </div>
-            <div className="w-px h-5 bg-zinc-700" />
-            <div className="px-5 py-2.5 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-bold">
+            <div className="w-px h-5 bg-white/10" />
+            <div className="px-5 py-2.5 border border-hp-cg/30 bg-hp-cg/5 text-hp-cg text-sm font-display font-bold uppercase">
               Players
             </div>
           </div>
@@ -150,14 +140,14 @@ export default function CricketBoardLandingPage() {
         {/* Capabilities — 3 paired rows instead of a 6-cell grid, so consecutive sections don't
             all read as the same uniform card shape. */}
         <div className="mb-12">
-          <h2 className="text-xl font-bold text-white text-center mb-8">A Connected Platform for Cricket Organisations</h2>
-          <div className="space-y-4">
+          <div className="text-center mb-10"><EditorialHeading size="sm">A Connected Platform for Cricket Organisations</EditorialHeading></div>
+          <div className="space-y-px">
             {[0, 2, 4].map((i) => (
-              <div key={i} className="bg-surface rounded-2xl grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-zinc-800">
+              <div key={i} className="border border-white/8 grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-white/8">
                 {CAPABILITIES.slice(i, i + 2).map((c) => (
                   <div key={c.title} className="p-6">
-                    <p className="text-white font-semibold text-sm mb-1.5">{c.title}</p>
-                    <p className="text-zinc-500 text-xs">{c.body}</p>
+                    <p className="font-display font-black text-hp-paper text-sm uppercase mb-1.5">{c.title}</p>
+                    <p className="text-hp-paper/55 text-xs leading-relaxed">{c.body}</p>
                   </div>
                 ))}
               </div>
@@ -168,11 +158,11 @@ export default function CricketBoardLandingPage() {
         {/* Outcomes — a slim wrapping strip rather than another full card grid, so this reads as
             a quick-scan summary of the capabilities above it, not a repeat of them. */}
         <div className="mb-16">
-          <h2 className="text-lg font-bold text-white text-center mb-4">What CRIC HQ Helps You Achieve</h2>
-          <div className="bg-surface rounded-2xl px-6 py-5 flex flex-wrap justify-center gap-x-8 gap-y-3">
+          <div className="text-center mb-4"><EditorialHeading size="sm">What CRIC HQ Helps You Achieve</EditorialHeading></div>
+          <div className="border border-white/8 px-6 py-5 flex flex-wrap justify-center gap-x-8 gap-y-3">
             {OUTCOMES.map((o) => (
-              <p key={o.title} className="text-sm text-zinc-400 whitespace-nowrap">
-                <span className="text-pace-green font-semibold">{o.title}</span> — {o.body}
+              <p key={o.title} className="text-sm text-hp-paper/60 whitespace-nowrap">
+                <span className="text-hp-cg font-semibold">{o.title}</span> — {o.body}
               </p>
             ))}
           </div>
@@ -182,15 +172,15 @@ export default function CricketBoardLandingPage() {
             replacement for it; the program itself stays independently reachable from
             Academies/Coaches too, so it isn't gated behind an enterprise conversation. */}
         <div className="mb-16">
-          <div className="bg-surface rounded-2xl p-6 sm:p-8 sm:flex sm:items-center sm:justify-between gap-6">
+          <div className="border border-white/8 p-6 sm:p-8 sm:flex sm:items-center sm:justify-between gap-6">
             <div className="mb-4 sm:mb-0">
-              <p className="text-white font-semibold text-sm mb-1">Specialist Fast Bowling Development Program</p>
-              <p className="text-zinc-500 text-xs max-w-md">
+              <p className="font-display font-black text-hp-paper text-sm uppercase mb-1">Specialist Fast Bowling Development Program</p>
+              <p className="text-hp-paper/50 text-xs max-w-md">
                 A dedicated fast bowling coaching and athlete development program, available as part of a Cricket Board partnership for federation-wide rollout.
               </p>
             </div>
             <Link href="/programs/fast-bowling-development"
-              className="inline-block px-6 py-2.5 text-zinc-300 text-sm font-bold rounded-xl border border-zinc-700 hover:bg-zinc-800 transition-colors whitespace-nowrap">
+              className="inline-block px-6 py-2.5 text-hp-paper/75 text-sm font-display font-bold uppercase tracking-wider border border-white/20 hover:bg-white/4 transition-colors whitespace-nowrap">
               Learn More →
             </Link>
           </div>
@@ -200,20 +190,20 @@ export default function CricketBoardLandingPage() {
             starts from the "Register Your Interest" click itself (not just the later
             configuration work), since that's the exact moment a visitor is hesitating. */}
         <div className="mb-16">
-          <h2 className="text-xl font-bold text-white text-center mb-2">What Happens After You Apply</h2>
-          <p className="text-sm text-zinc-500 text-center max-w-2xl mx-auto mb-8">
+          <div className="text-center mb-2"><EditorialHeading size="sm">What Happens After You Apply</EditorialHeading></div>
+          <p className="text-sm text-hp-paper/50 text-center max-w-2xl mx-auto mb-8">
             Every cricket organisation has a different structure, pathway and set of requirements. Here&apos;s what to expect from application through to going live.
           </p>
-          <div className="bg-surface rounded-2xl p-8">
+          <div className="border border-white/8 p-8">
             <div className="flex flex-col gap-5 sm:hidden">
               {PARTNERSHIP_JOURNEY.map((step, i) => (
                 <div key={step.title} className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-full border-2 border-pace-green text-pace-green flex items-center justify-center text-xs font-bold flex-shrink-0">
+                  <div className="w-7 h-7 rounded-full border-2 border-hp-cg text-hp-cg flex items-center justify-center text-xs font-bold flex-shrink-0">
                     {i + 1}
                   </div>
                   <div>
-                    <p className="text-white text-sm font-semibold">{step.title}</p>
-                    <p className="text-zinc-500 text-xs">{step.body}</p>
+                    <p className="font-display font-bold text-hp-paper text-sm">{step.title}</p>
+                    <p className="text-hp-paper/50 text-xs">{step.body}</p>
                   </div>
                 </div>
               ))}
@@ -222,13 +212,13 @@ export default function CricketBoardLandingPage() {
               {PARTNERSHIP_JOURNEY.map((step, i) => (
                 <div key={step.title} className="contents">
                   <div className="flex flex-col items-center text-center w-32 flex-shrink-0">
-                    <div className="w-8 h-8 rounded-full border-2 border-pace-green text-pace-green flex items-center justify-center text-xs font-bold mb-2">
+                    <div className="w-8 h-8 rounded-full border-2 border-hp-cg text-hp-cg flex items-center justify-center text-xs font-bold mb-2">
                       {i + 1}
                     </div>
-                    <p className="text-white text-xs font-semibold mb-1">{step.title}</p>
-                    <p className="text-zinc-500 text-[11px]">{step.body}</p>
+                    <p className="font-display font-bold text-hp-paper text-xs mb-1">{step.title}</p>
+                    <p className="text-hp-paper/50 text-[11px]">{step.body}</p>
                   </div>
-                  {i < PARTNERSHIP_JOURNEY.length - 1 && <div className="flex-1 h-px bg-zinc-700 mt-4" />}
+                  {i < PARTNERSHIP_JOURNEY.length - 1 && <div className="flex-1 h-px bg-white/10 mt-4" />}
                 </div>
               ))}
             </div>
@@ -236,15 +226,12 @@ export default function CricketBoardLandingPage() {
         </div>
 
         {/* Final CTA */}
-        <div className="text-center pb-16">
-          <h2 className="text-xl font-bold text-white mb-2">Ready to Build a More Connected Cricket Ecosystem?</h2>
-          <p className="text-sm text-zinc-500 mb-6">
+        <div className="text-center pb-20">
+          <EditorialHeading size="sm">Ready to Build a More Connected Cricket Ecosystem?</EditorialHeading>
+          <p className="text-sm text-hp-paper/50 mt-4 mb-8">
             Tell us about your organisation and explore how CRIC HQ could support your cricket ecosystem.
           </p>
-          <Link href="/partnerships/cricket-board/apply"
-            className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Register Your Interest
-          </Link>
+          <EditorialButton href="/partnerships/cricket-board/apply" size="lg">Register Your Interest</EditorialButton>
         </div>
       </div>
     </PartnershipPageShell>

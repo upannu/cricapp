@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { PartnershipPageShell } from "@/components/PartnershipPageShell";
+import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid } from "@/components/editorial/EditorialUI";
 
 // Coach management, player pathways and performance insights are real, delivered
 // capabilities today. The multi-organisation/affiliation layer (regions, affiliated clubs,
@@ -28,37 +28,34 @@ export default function AssociationsPage() {
     <PartnershipPageShell>
       <div className="max-w-5xl mx-auto px-6 sm:px-10">
         {/* Hero */}
-        <div className="pt-10 pb-16 text-center">
-          <p className="text-xs font-bold uppercase tracking-widest text-pace-green mb-4">🏛 For Cricket Associations</p>
-          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 text-balance">CRIC HQ for Cricket Associations</h1>
-          <p className="text-lg text-zinc-300 max-w-2xl mx-auto mb-3">
+        <div className="pt-14 pb-16 text-center">
+          <div className="flex justify-center mb-6"><Eyebrow>For Cricket Associations</Eyebrow></div>
+          <EditorialHeading size="lg" level="h1">CRIC HQ for Cricket Associations</EditorialHeading>
+          <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
             Connect your cricket ecosystem in one platform.
           </p>
-          <p className="text-sm text-zinc-500 max-w-xl mx-auto mb-8">
+          <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
             Connect clubs, academies, coaches and player pathways while giving your association greater visibility across development and performance.
           </p>
-          <Link href="/organisations/associations/apply"
-            className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Register Your Interest
-          </Link>
+          <EditorialButton href="/organisations/associations/apply" size="lg">Register Your Interest</EditorialButton>
         </div>
 
         {/* Hierarchy */}
         <div className="mb-16">
-          <h2 className="text-xl font-bold text-white text-center mb-2">One Connected Cricket Ecosystem</h2>
-          <p className="text-sm text-zinc-500 text-center max-w-2xl mx-auto mb-8">
+          <div className="text-center mb-2"><EditorialHeading size="sm">One Connected Cricket Ecosystem</EditorialHeading></div>
+          <p className="text-sm text-hp-paper/50 text-center max-w-2xl mx-auto mb-10">
             Connect the organisations, people and programs that support player development — from association level through to the player.
           </p>
-          <div className="bg-surface rounded-2xl p-8 flex flex-col items-center gap-3">
+          <div className="border border-white/8 p-10 flex flex-col items-center gap-3">
             {["Cricket Association", "Regions / Districts", "Clubs / Academies", "Programs", "Coaches"].map((step) => (
               <div key={step} className="flex flex-col items-center gap-3">
-                <div className="px-5 py-2.5 rounded-xl bg-ink border border-zinc-700 text-zinc-300 text-sm font-semibold text-center">
+                <div className="px-5 py-2.5 border border-white/10 text-hp-paper/75 text-sm font-display font-semibold uppercase text-center">
                   {step}
                 </div>
-                <div className="w-px h-5 bg-zinc-700" />
+                <div className="w-px h-5 bg-white/10" />
               </div>
             ))}
-            <div className="px-5 py-2.5 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-bold">
+            <div className="px-5 py-2.5 border border-hp-cg/30 bg-hp-cg/5 text-hp-cg text-sm font-display font-bold uppercase">
               Players
             </div>
           </div>
@@ -66,27 +63,17 @@ export default function AssociationsPage() {
 
         {/* Capabilities */}
         <div className="mb-16">
-          <h2 className="text-xl font-bold text-white text-center mb-8">Built for Cricket Associations</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {CAPABILITIES.map((c) => (
-              <div key={c.title} className="bg-surface rounded-2xl p-5">
-                <p className="text-white font-semibold text-sm mb-1">{c.title}</p>
-                <p className="text-zinc-500 text-xs">{c.body}</p>
-              </div>
-            ))}
-          </div>
+          <div className="text-center mb-10"><EditorialHeading size="sm">Built for Cricket Associations</EditorialHeading></div>
+          <CapabilityGrid items={CAPABILITIES} cols={3} />
         </div>
 
         {/* Final CTA */}
-        <div className="text-center pb-16">
-          <h2 className="text-xl font-bold text-white mb-2">Ready to Connect Your Cricket Association?</h2>
-          <p className="text-sm text-zinc-500 mb-6">
+        <div className="text-center pb-20">
+          <EditorialHeading size="sm">Ready to Connect Your Cricket Association?</EditorialHeading>
+          <p className="text-sm text-hp-paper/50 mt-4 mb-8">
             Tell us about your association and explore how CRIC HQ could support your cricket ecosystem.
           </p>
-          <Link href="/organisations/associations/apply"
-            className="inline-block px-7 py-3 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity">
-            Register Your Interest
-          </Link>
+          <EditorialButton href="/organisations/associations/apply" size="lg">Register Your Interest</EditorialButton>
         </div>
       </div>
     </PartnershipPageShell>
