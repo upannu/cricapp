@@ -14,7 +14,7 @@ export default async function CricketBoardSuccessPage({
   const { ref } = await searchParams;
 
   return (
-    <PartnershipPageShell minimal>
+    <PartnershipPageShell minimal backgroundImage="/hp/final-cta.jpg">
       <div className="max-w-lg mx-auto px-6 py-20 text-center">
         <div className="w-14 h-14 rounded-full border border-hp-cg/30 bg-hp-cg/10 flex items-center justify-center mx-auto mb-6 text-2xl text-hp-cg">
           ✓

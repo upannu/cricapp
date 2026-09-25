@@ -97,14 +97,16 @@ export function QuickPartnershipForm({
 
   return (
     <div className="max-w-lg mx-auto px-6 py-10">
-      <h1 className="font-display font-black uppercase text-xl text-hp-paper mb-1">{heading}</h1>
-      <p className="text-hp-paper/52 text-sm mb-6">{subheading}</p>
+      <div className="bg-hp-surface border border-white/10 border-t-2 border-t-hp-cg p-6 sm:p-8 shadow-[0_12px_48px_-12px_rgba(0,0,0,0.5)]">
+        <h1 className="font-display font-black uppercase text-xl text-hp-paper mb-1">{heading}</h1>
+        <p className="text-hp-paper/52 text-sm mb-6">{subheading}</p>
 
-      <form onSubmit={handleSubmit} className="border border-white/10 p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="qp-org-name" className={labelCls}>{nameLabel} *</label>
           <input id="qp-org-name" type="text" value={draft.organisationName}
             onChange={(e) => update("organisationName", e.target.value)} className={inputCls} placeholder={namePlaceholder} />
+          <p className="text-xs text-hp-paper/40 mt-1.5">Legal or trading name — whatever&apos;s on your paperwork.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -131,6 +133,7 @@ export function QuickPartnershipForm({
             <label htmlFor="qp-email" className={labelCls}>Email *</label>
             <input id="qp-email" type="email" value={draft.email}
               onChange={(e) => update("email", e.target.value)} className={inputCls} />
+            <p className="text-xs text-hp-paper/40 mt-1.5">We&apos;ll send confirmation and next steps here.</p>
           </div>
           <div>
             <label htmlFor="qp-phone" className={labelCls}>Phone</label>
@@ -167,7 +170,8 @@ export function QuickPartnershipForm({
           className="w-full px-6 py-3 bg-hp-cg text-hp-paper text-sm font-display font-black uppercase tracking-[0.12em] hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
           {submitting ? "Submitting…" : "Register Your Interest"}
         </button>
-      </form>
+        </form>
+      </div>
 
       <p className="text-center mt-6">
         <Link href={backHref} className="font-mono text-xs text-hp-paper/50 hover:text-hp-paper/80 transition-colors uppercase tracking-wider">

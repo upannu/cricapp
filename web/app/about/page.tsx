@@ -2,7 +2,7 @@ import { LegalPageShell } from "@/components/LegalPageShell";
 
 export default function AboutPage() {
   return (
-    <LegalPageShell title="About CRIC HQ">
+    <LegalPageShell title="About CRIC HQ" backgroundImage="/hp/hero.jpg">
       <p>
         CRIC HQ builds AI-powered tools for cricket fast bowling
         coaching — from grassroots academies to elite performance programs. Our mission is simple:

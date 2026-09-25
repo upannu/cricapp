@@ -5,7 +5,7 @@ export const metadata = { title: "Apply for Partnership — CRIC HQ" };
 
 export default function CricketBoardApplyPage() {
   return (
-    <PartnershipPageShell minimal>
+    <PartnershipPageShell minimal backgroundImage="/hp/final-cta.jpg">
       <PartnershipApplicationForm />
     </PartnershipPageShell>
   );

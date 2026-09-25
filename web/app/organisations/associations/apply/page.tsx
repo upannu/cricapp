@@ -7,7 +7,7 @@ export const metadata = { title: "Register Association Interest — CRIC HQ" };
 
 export default function AssociationApplyPage() {
   return (
-    <PartnershipPageShell minimal>
+    <PartnershipPageShell minimal backgroundImage="/hp/flywheel.jpg">
       <QuickPartnershipForm
         orgType="Cricket Association"
         heading="Register Association Interest"

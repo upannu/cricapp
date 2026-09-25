@@ -1,5 +1,5 @@
 import { PartnershipPageShell } from "@/components/PartnershipPageShell";
-import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid } from "@/components/editorial/EditorialUI";
+import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid, PageHero } from "@/components/editorial/EditorialUI";
 
 // Coach management, player pathways and performance insights are real, delivered
 // capabilities today. The multi-organisation/affiliation layer (regions, affiliated clubs,
@@ -26,20 +26,19 @@ export const metadata = {
 export default function AssociationsPage() {
   return (
     <PartnershipPageShell>
-      <div className="max-w-5xl mx-auto px-6 sm:px-10">
-        {/* Hero */}
-        <div className="pt-14 pb-16 text-center">
-          <div className="flex justify-center mb-6"><Eyebrow>For Cricket Associations</Eyebrow></div>
-          <EditorialHeading size="lg" level="h1">CRIC HQ for Cricket Associations</EditorialHeading>
-          <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
-            Connect your cricket ecosystem in one platform.
-          </p>
-          <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
-            Connect clubs, academies, coaches and player pathways while giving your association greater visibility across development and performance.
-          </p>
-          <EditorialButton href="/organisations/associations/apply" size="lg">Register Your Interest</EditorialButton>
-        </div>
+      <PageHero image="/hp/flywheel.jpg">
+        <div className="flex justify-center mb-6"><Eyebrow>For Cricket Associations</Eyebrow></div>
+        <EditorialHeading size="lg" level="h1">CRIC HQ for Cricket Associations</EditorialHeading>
+        <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
+          Connect your cricket ecosystem in one platform.
+        </p>
+        <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
+          Connect clubs, academies, coaches and player pathways while giving your association greater visibility across development and performance.
+        </p>
+        <EditorialButton href="/organisations/associations/apply" size="lg">Register Your Interest</EditorialButton>
+      </PageHero>
 
+      <div className="max-w-5xl mx-auto px-6 sm:px-10">
         {/* Hierarchy */}
         <div className="mb-16">
           <div className="text-center mb-2"><EditorialHeading size="sm">One Connected Cricket Ecosystem</EditorialHeading></div>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PartnershipPageShell } from "@/components/PartnershipPageShell";
-import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid } from "@/components/editorial/EditorialUI";
+import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid, PageHero } from "@/components/editorial/EditorialUI";
 
 // Mirrors PartnershipApplicationForm's ORG_TYPES (minus "Other") so this section and the
 // application form's own dropdown describe the same taxonomy.
@@ -67,20 +67,19 @@ export const metadata = {
 export default function CricketBoardLandingPage() {
   return (
     <PartnershipPageShell>
-      <div className="max-w-5xl mx-auto px-6 sm:px-10">
-        {/* Hero */}
-        <div className="pt-14 pb-16 text-center">
-          <div className="flex justify-center mb-6"><Eyebrow>Cricket Board Partnership</Eyebrow></div>
-          <EditorialHeading size="lg" level="h1">Power Your Cricket Ecosystem</EditorialHeading>
-          <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
-            One connected platform for cricket boards, associations and governing bodies.
-          </p>
-          <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
-            Connect players, coaches, academies, clubs and programs while giving your organisation greater visibility across development and performance.
-          </p>
-          <EditorialButton href="/partnerships/cricket-board/apply" size="lg">Register Your Interest</EditorialButton>
-        </div>
+      <PageHero image="/hp/final-cta.jpg">
+        <div className="flex justify-center mb-6"><Eyebrow>Cricket Board Partnership</Eyebrow></div>
+        <EditorialHeading size="lg" level="h1">Power Your Cricket Ecosystem</EditorialHeading>
+        <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
+          One connected platform for cricket boards, associations and governing bodies.
+        </p>
+        <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
+          Connect players, coaches, academies, clubs and programs while giving your organisation greater visibility across development and performance.
+        </p>
+        <EditorialButton href="/partnerships/cricket-board/apply" size="lg">Register Your Interest</EditorialButton>
+      </PageHero>
 
+      <div className="max-w-5xl mx-auto px-6 sm:px-10">
         {/* Built for cricket organisations */}
         <div className="mb-16">
           <div className="text-center mb-10"><EditorialHeading size="sm">Built for Cricket Organisations</EditorialHeading></div>

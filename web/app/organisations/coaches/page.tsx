@@ -1,5 +1,5 @@
 import { PartnershipPageShell } from "@/components/PartnershipPageShell";
-import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid } from "@/components/editorial/EditorialUI";
+import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid, PageHero } from "@/components/editorial/EditorialUI";
 import Link from "next/link";
 
 // Every item here maps to a capability the coach dashboard already has today (players,
@@ -24,20 +24,19 @@ export const metadata = {
 export default function CoachesPage() {
   return (
     <PartnershipPageShell>
-      <div className="max-w-5xl mx-auto px-6 sm:px-10">
-        {/* Hero */}
-        <div className="pt-14 pb-16 text-center">
-          <div className="flex justify-center mb-6"><Eyebrow>For Coaches</Eyebrow></div>
-          <EditorialHeading size="lg" level="h1">CRIC HQ for Coaches</EditorialHeading>
-          <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
-            Spend less time managing administration. More time developing players.
-          </p>
-          <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
-            Plan sessions, track attendance and development, and follow every player&apos;s progress in one connected platform.
-          </p>
-          <EditorialButton href="/organisations/coaches/apply" size="lg">Register Your Interest</EditorialButton>
-        </div>
+      <PageHero image="/hp/what-is.jpg">
+        <div className="flex justify-center mb-6"><Eyebrow>For Coaches</Eyebrow></div>
+        <EditorialHeading size="lg" level="h1">CRIC HQ for Coaches</EditorialHeading>
+        <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
+          Spend less time managing administration. More time developing players.
+        </p>
+        <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
+          Plan sessions, track attendance and development, and follow every player&apos;s progress in one connected platform.
+        </p>
+        <EditorialButton href="/organisations/coaches/apply" size="lg">Register Your Interest</EditorialButton>
+      </PageHero>
 
+      <div className="max-w-5xl mx-auto px-6 sm:px-10">
         {/* Capabilities */}
         <div className="mb-16">
           <div className="text-center mb-10"><EditorialHeading size="sm">Everything You Need to Coach</EditorialHeading></div>

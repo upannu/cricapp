@@ -1,5 +1,5 @@
 import { PartnershipPageShell } from "@/components/PartnershipPageShell";
-import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid } from "@/components/editorial/EditorialUI";
+import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid, PageHero } from "@/components/editorial/EditorialUI";
 
 // The three pillars are grouped intentionally: Coach Development and Athlete Development
 // describe the program itself (coach-led, hedged where the coach-pathway/certification model
@@ -34,20 +34,19 @@ export const metadata = {
 export default function FastBowlingDevelopmentPage() {
   return (
     <PartnershipPageShell>
-      <div className="max-w-5xl mx-auto px-6 sm:px-10">
-        {/* Hero */}
-        <div className="pt-14 pb-16 text-center">
-          <div className="flex justify-center mb-6"><Eyebrow>Specialist Development Program</Eyebrow></div>
-          <EditorialHeading size="lg" level="h1">Build Better Fast Bowlers. Build Better Coaches.</EditorialHeading>
-          <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
-            A complete fast bowling development ecosystem combining specialist coaching, athlete development and CRIC HQ technology.
-          </p>
-          <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
-            Delivered by a specialist fast bowling coaching lead, powered by the CRIC HQ platform.
-          </p>
-          <EditorialButton href="/programs/fast-bowling-development/apply" size="lg">Register Your Interest</EditorialButton>
-        </div>
+      <PageHero image="/hp/performance.jpg">
+        <div className="flex justify-center mb-6"><Eyebrow>Specialist Development Program</Eyebrow></div>
+        <EditorialHeading size="lg" level="h1">Build Better Fast Bowlers. Build Better Coaches.</EditorialHeading>
+        <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
+          A complete fast bowling development ecosystem combining specialist coaching, athlete development and CRIC HQ technology.
+        </p>
+        <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
+          Delivered by a specialist fast bowling coaching lead, powered by the CRIC HQ platform.
+        </p>
+        <EditorialButton href="/programs/fast-bowling-development/apply" size="lg">Register Your Interest</EditorialButton>
+      </PageHero>
 
+      <div className="max-w-5xl mx-auto px-6 sm:px-10">
         {/* Three pillars */}
         <div className="mb-16">
           <div className="text-center mb-10"><EditorialHeading size="sm">Coach. Athlete. Intelligence.</EditorialHeading></div>

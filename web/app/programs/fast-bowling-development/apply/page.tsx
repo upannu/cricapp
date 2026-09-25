@@ -7,7 +7,7 @@ export const metadata = { title: "Register Program Interest — CRIC HQ" };
 
 export default function FastBowlingProgramApplyPage() {
   return (
-    <PartnershipPageShell minimal>
+    <PartnershipPageShell minimal backgroundImage="/hp/performance.jpg">
       <QuickPartnershipForm
         orgType="Fast Bowling Program"
         heading="Register Program Interest"
