@@ -35,7 +35,7 @@ const TYPE_STYLES: Record<BookingType, string> = {
   "Video Review":           "bg-purple-500/15 text-purple-400",
   "Fitness Assessment":     "bg-fire/15 text-fire",
   "Match Practice":         "bg-amber/15 text-amber",
-  "Warm-up / Conditioning": "bg-zinc-700 text-zinc-300",
+  "Warm-up / Conditioning": "bg-white/10 text-hp-paper/70",
 };
 
 let _packPlayers: Player[] = [];
@@ -712,42 +712,42 @@ export function SessionPacksClient() {
     const academy = pack ? academyById(pack.academyId) : undefined;
     const isSelected = selectedIds.has(player.id);
     return (
-      <tr key={player.id} className={`border-b border-zinc-700/40 last:border-0 transition-colors ${isSelected ? "bg-blue-500/5" : "hover:bg-surface/80"}`}>
+      <tr key={player.id} className={`border-b border-white/12/40 last:border-0 transition-colors ${isSelected ? "bg-blue-500/5" : "hover:bg-hp-surface/80"}`}>
         <td className="px-4 py-4 pl-6 text-center">
           <input
             type="checkbox"
             checked={isSelected}
             onChange={() => toggleSelect(player.id)}
-            className="w-4 h-4 accent-pace-green cursor-pointer"
+            className="w-4 h-4 accent-hp-cg cursor-pointer"
             title="Select for bulk actions"
           />
         </td>
         <td className="px-4 py-4">
           <button type="button" onClick={() => router.push(pack ? `/session-packs/${pack.id}` : `/players/${player.id}`)}
             className="flex items-center gap-3 text-left cursor-pointer group">
-            <div className="w-9 h-9 rounded-full bg-pace-green/20 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">
+            <div className="w-9 h-9 rounded-full bg-hp-cg/20 text-hp-cg flex items-center justify-center text-sm font-bold flex-shrink-0">
               {initials(player.name)}
             </div>
             <div>
-              <p className="text-white text-sm font-medium whitespace-nowrap group-hover:text-pace-green transition-colors">{player.name}</p>
-              <p className="text-zinc-400 text-xs">{player.ageGroup}</p>
+              <p className="text-hp-paper text-sm font-medium whitespace-nowrap group-hover:text-pace-green transition-colors">{player.name}</p>
+              <p className="text-hp-paper/45 text-xs">{player.ageGroup}</p>
             </div>
           </button>
         </td>
-        <td className="px-4 py-4 text-zinc-300 text-xs whitespace-nowrap">{academy?.name ?? "—"}</td>
-        <td className="px-4 py-4 text-zinc-300 text-xs whitespace-nowrap">{getCoachOrAcademyLabel(player, _packCoaches, _packAcademies)}</td>
+        <td className="px-4 py-4 text-hp-paper/70 text-xs whitespace-nowrap">{academy?.name ?? "—"}</td>
+        <td className="px-4 py-4 text-hp-paper/70 text-xs whitespace-nowrap">{getCoachOrAcademyLabel(player, _packCoaches, _packAcademies)}</td>
         <td className="px-4 py-4 text-sm font-semibold whitespace-nowrap">
           {pack ? (
-            <span className={remaining === 0 ? "text-red-400" : remaining! <= 2 ? "text-amber" : "text-white"}>{remaining}</span>
+            <span className={remaining === 0 ? "text-red-400" : remaining! <= 2 ? "text-amber" : "text-hp-paper"}>{remaining}</span>
           ) : (
-            <span className="text-zinc-600">—</span>
+            <span className="text-hp-paper/35">—</span>
           )}
         </td>
         <td className="px-4 py-4">
           {pack ? (
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${
-                pack.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
+                pack.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-white/10 text-hp-paper/45"
               }`}>
                 {pack.status}
               </span>
@@ -762,10 +762,10 @@ export function SessionPacksClient() {
               )}
             </div>
           ) : (
-            <span className="text-zinc-600 text-xs whitespace-nowrap">No Membership</span>
+            <span className="text-hp-paper/35 text-xs whitespace-nowrap">No Membership</span>
           )}
         </td>
-        <td className="sticky right-0 z-10 bg-surface px-4 py-4 pr-6">
+        <td className="sticky right-0 z-10 bg-hp-surface px-4 py-4 pr-6">
           <RowActionsMenu items={pack ? [
             { label: "View", icon: <EyeIcon />, onClick: () => router.push(`/session-packs/${pack.id}`) },
             { label: "Edit", icon: <EditIcon />, onClick: () => router.push(`/session-packs/${pack.id}/edit`) },
@@ -790,20 +790,20 @@ export function SessionPacksClient() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Memberships</h1>
+          <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Memberships</h1>
         </div>
         {canAddPack && (
           <div className="flex items-center gap-3">
             <Link href="/session-packs/plans"
-              className="px-5 py-2.5 text-zinc-300 text-sm font-bold rounded-xl border border-zinc-700 hover:bg-zinc-800 transition-colors">
+              className="px-5 py-2.5 text-hp-paper/70 text-sm font-bold border border-white/12 hover:bg-white/5 transition-colors">
               Plan Templates
             </Link>
             <button type="button" onClick={openBulkAdd}
-              className="px-5 py-2.5 text-pace-green text-sm font-bold rounded-xl border border-pace-green/40 hover:bg-pace-green/10 transition-colors cursor-pointer">
+              className="px-5 py-2.5 text-pace-green text-sm font-bold border border-pace-green/40 hover:bg-pace-green/10 transition-colors cursor-pointer">
               Bulk Import Memberships
             </button>
             <button type="button" onClick={openAdd}
-              className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+              className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
               + New Membership
             </button>
           </div>
@@ -815,8 +815,8 @@ export function SessionPacksClient() {
         <StatCard label="Active memberships" value={String(activePacks.length)} color="text-pace-green"
           onClick={() => { setPageTab("Memberships"); setFilter("Active"); }}
           active={pageTab === "Memberships" && filter === "Active"} />
-        <StatCard label="Sessions remaining" value={String(totalRemain)} color="text-white" />
-        <StatCard label="Fees outstanding" value={sumMoneyByCurrency(feesDuePacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))} color={totalOutstanding > 0 ? "text-red-400" : "text-zinc-500"} />
+        <StatCard label="Sessions remaining" value={String(totalRemain)} color="text-hp-paper" />
+        <StatCard label="Fees outstanding" value={sumMoneyByCurrency(feesDuePacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))} color={totalOutstanding > 0 ? "text-red-400" : "text-hp-paper/45"} />
         <StatCard label="Gross revenue" value={sumMoneyByCurrency(scopedPacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))} color="text-amber" />
       </StatsGrid>
 
@@ -830,12 +830,12 @@ export function SessionPacksClient() {
             : null;
           return (
             <button key={t} type="button" onClick={() => setPageTab(t)}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer flex items-center gap-2 ${
-                isActive ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
+              className={`px-5 py-2 text-sm font-semibold transition-colors cursor-pointer flex items-center gap-2 ${
+                isActive ? "bg-hp-cg text-hp-paper" : "bg-hp-surface text-hp-paper/45 hover:text-hp-paper"
               }`}>
               {t}
               {badge && (
-                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-black/20 text-black" : "bg-red-500 text-white"}`}>
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${isActive ? "bg-hp-paper/20 text-hp-paper" : "bg-red-500 text-hp-paper"}`}>
                   {badge}
                 </span>
               )}
@@ -849,9 +849,9 @@ export function SessionPacksClient() {
 
       {/* Bulk import packs form */}
       {showBulkForm && (
-        <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-1">Bulk Import Memberships</h2>
-          <p className="text-xs text-zinc-500 mb-6">Set the shared membership details below, then upload a player list — every matched player gets an identical Net Session membership (session count can be overridden per row).</p>
+        <div className="bg-hp-surface p-6 border border-hp-cg/30 mb-6">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-1">Bulk Import Memberships</h2>
+          <p className="text-xs text-hp-paper/45 mb-6">Set the shared membership details below, then upload a player list — every matched player gets an identical Net Session membership (session count can be overridden per row).</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
             <div>
@@ -895,7 +895,7 @@ export function SessionPacksClient() {
             </div>
           </div>
 
-          <div className="border-t border-zinc-700/50 pt-4">
+          <div className="border-t border-white/12/50 pt-4">
             <div className="flex items-center justify-between mb-2">
               <label className={lbl}>Player CSV</label>
               <button type="button" onClick={downloadPackCsvTemplate}
@@ -907,19 +907,19 @@ export function SessionPacksClient() {
               type="file" accept=".csv,text/csv"
               disabled={!bulkSettings.academyId || bulkSettings.agreedDays.length === 0}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePackCsvFile(f); }}
-              className="text-sm text-zinc-300 w-full mb-2 disabled:opacity-50"
+              className="text-sm text-hp-paper/70 w-full mb-2 disabled:opacity-50"
             />
             {(!bulkSettings.academyId || bulkSettings.agreedDays.length === 0) && (
-              <p className="text-xs text-zinc-500 mb-2">Select an academy and at least one session day before uploading — these apply to every imported row.</p>
+              <p className="text-xs text-hp-paper/45 mb-2">Select an academy and at least one session day before uploading — these apply to every imported row.</p>
             )}
             {packCsvError && <p className="text-red-400 text-xs mb-2">{packCsvError}</p>}
             {packCsvImportedCount !== null && (
               <p className="text-pace-green text-xs mb-2">✓ Imported {packCsvImportedCount} membership{packCsvImportedCount === 1 ? "" : "s"} from {packCsvFileName}.</p>
             )}
             {packCsvRows.length > 0 && (
-              <div className="border border-zinc-700 rounded-xl overflow-hidden mb-4">
+              <div className="border border-white/12 overflow-hidden mb-4">
                 <table className="w-full text-xs">
-                  <thead className="bg-ink text-zinc-500">
+                  <thead className="bg-hp-ink text-hp-paper/45">
                     <tr>
                       <th className="text-left px-3 py-2 font-semibold">Player</th>
                       <th className="text-left px-3 py-2 font-semibold">Sessions</th>
@@ -929,10 +929,10 @@ export function SessionPacksClient() {
                   </thead>
                   <tbody>
                     {packCsvRows.map((r) => (
-                      <tr key={r.rowNum} className="border-t border-zinc-800">
-                        <td className="px-3 py-2 text-zinc-300 truncate max-w-[160px]">{r.player?.name ?? r.playerInput}</td>
-                        <td className="px-3 py-2 text-zinc-300">{r.totalSessions}</td>
-                        <td className="px-3 py-2 text-zinc-300">{formatMoney(r.feePerSession, academyById(bulkSettings.academyId)?.currency ?? DEFAULT_CURRENCY)}</td>
+                      <tr key={r.rowNum} className="border-t border-white/8">
+                        <td className="px-3 py-2 text-hp-paper/70 truncate max-w-[160px]">{r.player?.name ?? r.playerInput}</td>
+                        <td className="px-3 py-2 text-hp-paper/70">{r.totalSessions}</td>
+                        <td className="px-3 py-2 text-hp-paper/70">{formatMoney(r.feePerSession, academyById(bulkSettings.academyId)?.currency ?? DEFAULT_CURRENCY)}</td>
                         <td className="px-3 py-2">
                           {r.csvStatus === "ready" && <span className="text-pace-green">Ready</span>}
                           {r.csvStatus === "duplicate" && <span className="text-amber" title={r.issue}>{r.issue}</span>}
@@ -949,11 +949,11 @@ export function SessionPacksClient() {
           <div className="flex items-center gap-3">
             <button type="button" onClick={handlePackCsvImport}
               disabled={packCsvImporting || packCsvRows.filter((r) => r.csvStatus === "ready").length === 0}
-              className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+              className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
               {packCsvImporting ? "Importing…" : `Import ${packCsvRows.filter((r) => r.csvStatus === "ready").length} Membership${packCsvRows.filter((r) => r.csvStatus === "ready").length === 1 ? "" : "s"}`}
             </button>
             <button type="button" onClick={() => setShowBulkForm(false)}
-              className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+              className="px-6 py-3 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/30 transition-colors cursor-pointer">
               Close
             </button>
           </div>
@@ -962,8 +962,8 @@ export function SessionPacksClient() {
 
       {/* New pack form */}
       {showForm && (
-        <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-6">New Membership</h2>
+        <div className="bg-hp-surface p-6 border border-hp-cg/30 mb-6">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-6">New Membership</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
             <div className="sm:col-span-2">
@@ -984,7 +984,7 @@ export function SessionPacksClient() {
               <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES["Net Session"]}`}>
                 Net Session
               </span>
-              <p className="text-xs text-zinc-500 mt-1.5">Memberships are only used for group net sessions — individual bookings are paid per session.</p>
+              <p className="text-xs text-hp-paper/45 mt-1.5">Memberships are only used for group net sessions — individual bookings are paid per session.</p>
             </div>
 
             <div>
@@ -1014,7 +1014,7 @@ export function SessionPacksClient() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-              <p className="text-xs text-zinc-500 mt-1">Who this membership's revenue pays out to, if the academy splits payouts by coach.</p>
+              <p className="text-xs text-hp-paper/45 mt-1">Who this membership's revenue pays out to, if the academy splits payouts by coach.</p>
             </div>
 
             {draft.academyId && _packPlanTemplates.some((t) => t.academyId === draft.academyId) && (
@@ -1026,7 +1026,7 @@ export function SessionPacksClient() {
                     <option key={t.id} value={t.id}>{t.name} — {t.totalSessions} sessions @ {formatMoney(t.feePerSession, academyById(draft.academyId)?.currency)}</option>
                   ))}
                 </select>
-                <p className="text-xs text-zinc-500 mt-1">Pre-fills sessions and fee below — still editable, and won&apos;t change if the template is edited later.</p>
+                <p className="text-xs text-hp-paper/45 mt-1">Pre-fills sessions and fee below — still editable, and won&apos;t change if the template is edited later.</p>
               </div>
             )}
 
@@ -1059,7 +1059,7 @@ export function SessionPacksClient() {
                 onToggle={handleToggleDraftGroupSession}
               />
               {draft.agreedDays.length > 0 && (
-                <p className="text-xs text-zinc-500 mt-1.5">
+                <p className="text-xs text-hp-paper/45 mt-1.5">
                   ≈{Math.ceil(draft.totalSessions / draft.agreedDays.length)} weeks at {draft.agreedDays.length} day{draft.agreedDays.length > 1 ? "s" : ""}/week
                 </p>
               )}
@@ -1068,7 +1068,7 @@ export function SessionPacksClient() {
             <div>
               <label className={lbl}>Fee per Session ({(academyById(draft.academyId)?.currency ?? DEFAULT_CURRENCY).toUpperCase()})</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-semibold">$</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-hp-paper/45 text-sm font-semibold">$</span>
                 <input
                   type="number"
                   min={0}
@@ -1101,18 +1101,18 @@ export function SessionPacksClient() {
             const feePct = getPlatformFeePercent(draft.academyId, _packAcademies, _packPlans);
             const packCurrency = academyById(draft.academyId)?.currency ?? DEFAULT_CURRENCY;
             return (
-              <div className="mb-5 bg-ink rounded-xl p-4 grid grid-cols-3 gap-4 text-center">
+              <div className="mb-5 bg-hp-ink p-4 grid grid-cols-3 gap-4 text-center">
                 <div>
-                  <div className="text-lg font-bold text-white">{formatMoney(draft.feePerSession * draft.totalSessions, packCurrency)}</div>
-                  <div className="text-xs text-zinc-500 mt-0.5">Total collected</div>
+                  <div className="text-lg font-bold text-hp-paper">{formatMoney(draft.feePerSession * draft.totalSessions, packCurrency)}</div>
+                  <div className="text-xs text-hp-paper/45 mt-0.5">Total collected</div>
                 </div>
                 <div>
                   <div className="text-lg font-bold text-amber">{formatMoney(draft.feePerSession * draft.totalSessions * (feePct / 100), packCurrency)}</div>
-                  <div className="text-xs text-zinc-500 mt-0.5">Platform fee ({feePct}%)</div>
+                  <div className="text-xs text-hp-paper/45 mt-0.5">Platform fee ({feePct}%)</div>
                 </div>
                 <div>
                   <div className="text-lg font-bold text-pace-green">{formatMoney(draft.feePerSession * draft.totalSessions * (1 - feePct / 100), packCurrency)}</div>
-                  <div className="text-xs text-zinc-500 mt-0.5">Academy receives ({100 - feePct}%)</div>
+                  <div className="text-xs text-hp-paper/45 mt-0.5">Academy receives ({100 - feePct}%)</div>
                 </div>
               </div>
             );
@@ -1122,11 +1122,11 @@ export function SessionPacksClient() {
 
           <div className="flex items-center gap-3">
             <button type="button" onClick={handleSave}
-              className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
+              className="px-6 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
               Create Membership
             </button>
             <button type="button" onClick={() => setShowForm(false)}
-              className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+              className="px-6 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/30 transition-colors cursor-pointer">
               Cancel
             </button>
           </div>
@@ -1137,26 +1137,26 @@ export function SessionPacksClient() {
       {pageTab === "Fees Due" && (
         <div className="space-y-4">
           {feesDuePacks.length === 0 ? (
-            <div className="bg-surface rounded-2xl p-16 text-center">
+            <div className="bg-hp-surface p-16 text-center">
               <p className="text-pace-green text-2xl mb-2">✓</p>
-              <p className="text-white font-semibold mb-1">All fees collected</p>
-              <p className="text-zinc-400 text-sm">No outstanding payments across your memberships.</p>
+              <p className="text-hp-paper font-semibold mb-1">All fees collected</p>
+              <p className="text-hp-paper/45 text-sm">No outstanding payments across your memberships.</p>
             </div>
           ) : (
             <>
               {/* Outstanding summary */}
               <div className="grid grid-cols-3 gap-4 mb-2">
-                <div className="bg-surface rounded-2xl p-5 text-center">
+                <div className="bg-hp-surface p-5 text-center">
                   <div className="text-2xl font-bold text-red-400 mb-1">{sumMoneyByCurrency(feesDuePacks.map((pk) => ({ amount: pk.totalSessions * pk.feePerSession, currency: academyById(pk.academyId)?.currency ?? DEFAULT_CURRENCY })))}</div>
-                  <div className="text-xs text-zinc-400">Total outstanding</div>
+                  <div className="text-xs text-hp-paper/45">Total outstanding</div>
                 </div>
-                <div className="bg-surface rounded-2xl p-5 text-center">
+                <div className="bg-hp-surface p-5 text-center">
                   <div className="text-2xl font-bold text-amber mb-1">{feesDuePacks.filter(pk => resolvedPaymentStatus(pk) === "Pending").length}</div>
-                  <div className="text-xs text-zinc-400">Pending</div>
+                  <div className="text-xs text-hp-paper/45">Pending</div>
                 </div>
-                <div className="bg-surface rounded-2xl p-5 text-center">
+                <div className="bg-hp-surface p-5 text-center">
                   <div className="text-2xl font-bold text-red-500 mb-1">{overduePacks.length}</div>
-                  <div className="text-xs text-zinc-400">Overdue</div>
+                  <div className="text-xs text-hp-paper/45">Overdue</div>
                 </div>
               </div>
 
@@ -1170,7 +1170,7 @@ export function SessionPacksClient() {
                       <span className={`text-xs font-bold uppercase tracking-wider ${status === "Overdue" ? "text-red-400" : "text-amber"}`}>
                         {status}
                       </span>
-                      <div className="flex-1 h-px bg-zinc-800" />
+                      <div className="flex-1 h-px bg-white/8" />
                     </div>
                     <div className="space-y-3">
                       {group.map((pk) => {
@@ -1181,14 +1181,14 @@ export function SessionPacksClient() {
                         const daysOverdue = Math.round((Date.now() - new Date(pk.paymentDueDate).getTime()) / 86400000);
                         const ini = initials(player.name);
                         return (
-                          <div key={pk.id} className={`bg-surface rounded-2xl p-5 border ${status === "Overdue" ? "border-red-500/20" : "border-amber/20"}`}>
+                          <div key={pk.id} className={`bg-hp-surface p-5 border ${status === "Overdue" ? "border-red-500/20" : "border-amber/20"}`}>
                             <div className="flex items-center gap-4">
-                              <div className="w-10 h-10 rounded-full bg-pace-green/15 flex items-center justify-center text-pace-green text-sm font-bold flex-shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-hp-cg/15 flex items-center justify-center text-hp-cg text-sm font-bold flex-shrink-0">
                                 {ini}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                                  <span className="text-white font-bold text-sm">{player.name}</span>
+                                  <span className="text-hp-paper font-bold text-sm">{player.name}</span>
                                   <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${TYPE_STYLES[pk.sessionType]}`}>
                                     {pk.sessionType}
                                   </span>
@@ -1205,7 +1205,7 @@ export function SessionPacksClient() {
                                     </span>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
+                                <div className="flex items-center gap-3 text-xs text-hp-paper/45 flex-wrap">
                                   <span>{academy?.name}</span>
                                   <span>·</span>
                                   <span>{pk.totalSessions} sessions × {formatMoney(pk.feePerSession, academy?.currency ?? DEFAULT_CURRENCY)}</span>
@@ -1218,8 +1218,8 @@ export function SessionPacksClient() {
                               </div>
                               <div className="flex items-center gap-4 flex-shrink-0">
                                 <div className="text-right">
-                                  <div className="text-lg font-bold text-white">${total.toLocaleString()}</div>
-                                  <div className="text-[10px] text-zinc-500">total due</div>
+                                  <div className="text-lg font-bold text-hp-paper">${total.toLocaleString()}</div>
+                                  <div className="text-[10px] text-hp-paper/45">total due</div>
                                 </div>
                                 <PayOnlineButton packId={pk.id} />
                                 <MarkPaidButton onPaid={(paidDate) => handleMarkPaid(pk.id, paidDate)} />
@@ -1229,18 +1229,18 @@ export function SessionPacksClient() {
                               </div>
                             </div>
                             {/* Fee split */}
-                            <div className="mt-4 pt-4 border-t border-zinc-700/50 grid grid-cols-3 gap-3 text-center">
+                            <div className="mt-4 pt-4 border-t border-white/12/50 grid grid-cols-3 gap-3 text-center">
                               <div>
-                                <div className="text-sm font-bold text-white">${total.toLocaleString()}</div>
-                                <div className="text-[10px] text-zinc-500 mt-0.5">Collect from player</div>
+                                <div className="text-sm font-bold text-hp-paper">${total.toLocaleString()}</div>
+                                <div className="text-[10px] text-hp-paper/45 mt-0.5">Collect from player</div>
                               </div>
                               <div>
                                 <div className="text-sm font-bold text-amber">${(total * (getPlatformFeePercent(pk.academyId, _packAcademies, _packPlans) / 100)).toFixed(0)}</div>
-                                <div className="text-[10px] text-zinc-500 mt-0.5">Platform ({getPlatformFeePercent(pk.academyId, _packAcademies, _packPlans)}%)</div>
+                                <div className="text-[10px] text-hp-paper/45 mt-0.5">Platform ({getPlatformFeePercent(pk.academyId, _packAcademies, _packPlans)}%)</div>
                               </div>
                               <div>
                                 <div className="text-sm font-bold text-pace-green">${(total * (1 - getPlatformFeePercent(pk.academyId, _packAcademies, _packPlans) / 100)).toFixed(0)}</div>
-                                <div className="text-[10px] text-zinc-500 mt-0.5">Academy keeps ({100 - getPlatformFeePercent(pk.academyId, _packAcademies, _packPlans)}%)</div>
+                                <div className="text-[10px] text-hp-paper/45 mt-0.5">Academy keeps ({100 - getPlatformFeePercent(pk.academyId, _packAcademies, _packPlans)}%)</div>
                               </div>
                             </div>
                           </div>
@@ -1260,23 +1260,23 @@ export function SessionPacksClient() {
       {pageTab === "Platform Fees" && (
         <div className="space-y-4">
           {feeDues.length === 0 ? (
-            <div className="bg-surface rounded-2xl p-16 text-center">
-              <p className="text-zinc-400 text-sm">No cash/bank-transfer memberships owe a platform fee.</p>
+            <div className="bg-hp-surface p-16 text-center">
+              <p className="text-hp-paper/45 text-sm">No cash/bank-transfer memberships owe a platform fee.</p>
             </div>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-4 mb-2">
-                <div className="bg-surface rounded-2xl p-5 text-center">
+                <div className="bg-hp-surface p-5 text-center">
                   <div className="text-2xl font-bold text-amber mb-1">
                     {sumMoneyByCurrency(feeDues.filter((d) => d.status === "pending").map((d) => ({ amount: d.amountAud, currency: academyById(d.academyId)?.currency ?? DEFAULT_CURRENCY })))}
                   </div>
-                  <div className="text-xs text-zinc-400">Pending</div>
+                  <div className="text-xs text-hp-paper/45">Pending</div>
                 </div>
-                <div className="bg-surface rounded-2xl p-5 text-center">
+                <div className="bg-hp-surface p-5 text-center">
                   <div className="text-2xl font-bold text-pace-green mb-1">
                     {sumMoneyByCurrency(feeDues.filter((d) => d.status === "collected").map((d) => ({ amount: d.amountAud, currency: academyById(d.academyId)?.currency ?? DEFAULT_CURRENCY })))}
                   </div>
-                  <div className="text-xs text-zinc-400">Collected</div>
+                  <div className="text-xs text-hp-paper/45">Collected</div>
                 </div>
               </div>
               <div className="space-y-3">
@@ -1285,10 +1285,10 @@ export function SessionPacksClient() {
                   const player = pack ? playerById(pack.playerId) : undefined;
                   const academy = academyById(due.academyId);
                   return (
-                    <div key={due.id} className="bg-surface rounded-2xl p-5 flex items-center justify-between gap-4">
+                    <div key={due.id} className="bg-hp-surface p-5 flex items-center justify-between gap-4">
                       <div className="min-w-0">
-                        <div className="text-white font-semibold text-sm">{academy?.name ?? "Unknown academy"}</div>
-                        <div className="text-xs text-zinc-400">
+                        <div className="text-hp-paper font-semibold text-sm">{academy?.name ?? "Unknown academy"}</div>
+                        <div className="text-xs text-hp-paper/45">
                           {player?.name ?? "Unknown player"} · {due.feePercent}% platform fee
                           {due.status === "collected" && due.collectedDate && ` · collected ${formatDate(due.collectedDate)}`}
                         </div>
@@ -1321,7 +1321,7 @@ export function SessionPacksClient() {
       {pageTab === "Memberships" && <>
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3">
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 px-4 py-3">
           <span className="text-blue-400 text-sm font-semibold">
             {selectedIds.size} player{selectedIds.size !== 1 ? "s" : ""} selected
           </span>
@@ -1329,7 +1329,7 @@ export function SessionPacksClient() {
             <button
               type="button"
               onClick={() => { setBulkMarkPaidDate(today); setBulkMarkPaidOpen(true); }}
-              className="px-3 py-1.5 text-xs font-semibold text-black bg-pace-green rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
+              className="px-3 py-1.5 text-xs font-semibold text-black bg-pace-green hover:opacity-90 transition-opacity cursor-pointer"
             >
               Mark Paid ({selectedPacksPendingPayment.length})
             </button>
@@ -1338,7 +1338,7 @@ export function SessionPacksClient() {
             <button
               type="button"
               onClick={() => setBulkRenewOpen(true)}
-              className="px-3 py-1.5 text-xs font-semibold text-amber border border-amber/30 rounded-lg hover:bg-amber/10 transition-colors cursor-pointer"
+              className="px-3 py-1.5 text-xs font-semibold text-amber border border-amber/30 hover:bg-amber/10 transition-colors cursor-pointer"
             >
               Renew ({selectedExhaustedRows.length})
             </button>
@@ -1346,29 +1346,29 @@ export function SessionPacksClient() {
           <button
             type="button"
             onClick={handleExportCsv}
-            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:bg-white/5 transition-colors cursor-pointer"
           >
             Export CSV
           </button>
           <button
             type="button"
             onClick={clearSelection}
-            className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer sm:ml-auto"
+            className="text-xs text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer sm:ml-auto"
           >
             Clear
           </button>
         </div>
       )}
-      <div className="bg-surface rounded-2xl overflow-hidden">
+      <div className="bg-hp-surface overflow-hidden">
         {/* Search + filters — one unified bar, matching Players' own layout */}
-        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+        <div className="px-6 py-4 border-b border-white/12/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
           <div className="relative w-full sm:max-w-[280px]">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-hp-paper/45 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input type="text" value={search} onChange={(e) => handleSearchChange(e.target.value)}
               placeholder="Search by player name…"
-              className="w-full bg-ink rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm" />
+              className="w-full bg-hp-ink pl-10 pr-4 py-2.5 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none text-sm" />
           </div>
           <SelectPill
             value={filter} ariaLabel="Status" active={filter !== "All"}
@@ -1387,7 +1387,7 @@ export function SessionPacksClient() {
           )}
           {hasActiveFilters && (
             <button type="button" onClick={clearAllFilters}
-              className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer whitespace-nowrap">
+              className="text-xs text-hp-paper/45 hover:text-hp-paper underline transition-colors cursor-pointer whitespace-nowrap">
               Reset filters
             </button>
           )}
@@ -1396,14 +1396,14 @@ export function SessionPacksClient() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-zinc-700/60">
+              <tr className="border-b border-white/12/60">
                 <th className="text-center px-4 py-3 pl-6 whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={allSelected}
                     ref={(el) => { if (el) el.indeterminate = someSelected; }}
                     onChange={toggleAll}
-                    className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+                    className="w-3.5 h-3.5 accent-hp-cg cursor-pointer"
                     title="Select all"
                   />
                 </th>
@@ -1412,7 +1412,7 @@ export function SessionPacksClient() {
                 <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Sessions Remaining" sortKey="remaining" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <th className="sticky right-0 z-10 bg-surface text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
+                <th className="sticky right-0 z-10 bg-hp-surface text-left text-xs font-semibold text-hp-paper/70 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -1420,7 +1420,7 @@ export function SessionPacksClient() {
             </tbody>
           </table>
           {sortedRows.length === 0 && (
-            <div className="px-6 py-16 text-center text-zinc-400 text-sm">
+            <div className="px-6 py-16 text-center text-hp-paper/45 text-sm">
               {searchTerm || hasActiveFilters ? "No players match this search/filter." : "No players in your scope."}
             </div>
           )}
@@ -1428,7 +1428,7 @@ export function SessionPacksClient() {
 
         <PaginationFooter
           label={
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-hp-paper/45">
               Showing {sortedRows.length === 0 ? 0 : (currentPage - 1) * packsPerPage + 1}–{Math.min(currentPage * packsPerPage, sortedRows.length)} of {sortedRows.length}
             </p>
           }
@@ -1437,7 +1437,7 @@ export function SessionPacksClient() {
           onPageChange={setPage}
           itemsPerPage={packsPerPage}
           onItemsPerPageChange={(n) => { setPacksPerPage(n); setPage(1); }}
-          className="px-6 py-3 border-t border-zinc-700/60"
+          className="px-6 py-3 border-t border-white/12/60"
         />
       </div>
       </>}
@@ -1526,7 +1526,7 @@ function PayOnlineButton({ packId }: { packId: string }) {
   return (
     <div className="text-right">
       <button type="button" onClick={handlePay} disabled={loading}
-        className="px-4 py-2 text-xs font-bold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 cursor-pointer transition-colors disabled:opacity-60">
+        className="px-4 py-2 text-xs font-bold text-pace-green border border-pace-green/40 hover:bg-pace-green/10 cursor-pointer transition-colors disabled:opacity-60">
         {loading ? "Loading…" : "Pay Online"}
       </button>
       {error && <p className="text-[10px] text-red-400 mt-1 max-w-32">{error}</p>}
@@ -1546,13 +1546,13 @@ function MarkPaidButton({ onPaid }: { onPaid: (paidDate: string) => void }) {
   if (showConfirm) {
     return (
       <div className="flex items-center gap-2">
-        <DateInput value={paidDate} onChange={setPaidDate} className="w-32 bg-ink rounded-lg px-3 py-1.5 text-xs border border-zinc-700 focus:border-pace-green focus:outline-none" />
+        <DateInput value={paidDate} onChange={setPaidDate} className="w-32 bg-hp-ink px-3 py-1.5 text-xs border border-white/12 focus:border-hp-cg focus:outline-none" />
         <button type="button" onClick={() => { onPaid(paidDate); setDone(true); }}
-          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 cursor-pointer transition-opacity">
+          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black hover:opacity-90 cursor-pointer transition-opacity">
           Confirm
         </button>
         <button type="button" onClick={() => setShowConfirm(false)}
-          className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+          className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer">
           Cancel
         </button>
       </div>
@@ -1567,7 +1567,7 @@ function MarkPaidButton({ onPaid }: { onPaid: (paidDate: string) => void }) {
     // (see the webhook's own reconciliation for the other half of that fix). Matches
     // BookingsClient's own identically-shaped "Mark Paid (Cash)" button.
     <button type="button" onClick={() => setShowConfirm(true)}
-      className="px-4 py-2 text-xs font-bold bg-pace-green text-black rounded-xl hover:opacity-90 cursor-pointer transition-opacity">
+      className="px-4 py-2 text-xs font-bold text-hp-paper/70 border border-white/15 hover:border-white/30 cursor-pointer transition-colors">
       Mark Paid (Cash)
     </button>
   );
@@ -1594,12 +1594,12 @@ function MarkFeeCollectedButton({ dueId, onCollected }: { dueId: string; onColle
   if (showConfirm) {
     return (
       <div className="flex items-center gap-2 flex-shrink-0">
-        <DateInput value={collectedDate} onChange={setCollectedDate} className="w-32 bg-ink rounded-lg px-3 py-1.5 text-xs border border-zinc-700 focus:border-pace-green focus:outline-none" />
+        <DateInput value={collectedDate} onChange={setCollectedDate} className="w-32 bg-hp-ink px-3 py-1.5 text-xs border border-white/12 focus:border-hp-cg focus:outline-none" />
         <button type="button" onClick={handleConfirm} disabled={saving}
-          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-60">
+          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-60">
           {saving ? "…" : "Confirm"}
         </button>
-        <button type="button" onClick={() => setShowConfirm(false)} className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+        <button type="button" onClick={() => setShowConfirm(false)} className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer">
           Cancel
         </button>
       </div>
@@ -1608,7 +1608,7 @@ function MarkFeeCollectedButton({ dueId, onCollected }: { dueId: string; onColle
 
   return (
     <button type="button" onClick={() => setShowConfirm(true)}
-      className="px-3 py-1.5 text-xs font-bold text-amber border border-amber/30 rounded-lg hover:bg-amber/10 cursor-pointer transition-colors flex-shrink-0">
+      className="px-3 py-1.5 text-xs font-bold text-amber border border-amber/30 hover:bg-amber/10 cursor-pointer transition-colors flex-shrink-0">
       Mark Collected
     </button>
   );
@@ -1646,7 +1646,7 @@ function ReactivateButton({ playerId, onReactivated }: { playerId: string; onRea
   return (
     <div className="text-right">
       <button type="button" onClick={handleClick} disabled={loading}
-        className="px-4 py-2 text-xs font-bold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 cursor-pointer transition-colors disabled:opacity-60">
+        className="px-4 py-2 text-xs font-bold text-pace-green border border-pace-green/40 hover:bg-pace-green/10 cursor-pointer transition-colors disabled:opacity-60">
         {loading ? "Loading…" : "Reactivate"}
       </button>
       {error && <p className="text-[10px] text-red-400 mt-1 max-w-32">{error}</p>}
@@ -1661,12 +1661,12 @@ function ReactivateButton({ playerId, onReactivated }: { playerId: string; onRea
 function GroupSessionPicker({ academyId, selectedIds, coaches, onToggle }: {
   academyId: string; selectedIds: string[]; coaches: Coach[]; onToggle: (groupSessionId: string) => void;
 }) {
-  if (!academyId) return <p className="text-xs text-zinc-500">Select an academy first.</p>;
+  if (!academyId) return <p className="text-xs text-hp-paper/45">Select an academy first.</p>;
   const sessions = groupSessionsForAcademy(academyId);
   if (sessions.length === 0) {
     return (
-      <div className="bg-ink rounded-xl p-4">
-        <p className="text-xs text-zinc-400 mb-1">This academy has no active squad training sessions yet.</p>
+      <div className="bg-hp-ink p-4">
+        <p className="text-xs text-hp-paper/45 mb-1">This academy has no active squad training sessions yet.</p>
         <Link href="/attendance" className="text-xs text-pace-green font-semibold hover:underline">Create one in Attendance →</Link>
       </div>
     );
@@ -1676,13 +1676,13 @@ function GroupSessionPicker({ academyId, selectedIds, coaches, onToggle }: {
       {sessions.map((g) => {
         const checked = selectedIds.includes(g.id);
         return (
-          <label key={g.id} className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 cursor-pointer transition-colors ${
-            checked ? "border-pace-green bg-pace-green/5" : "border-zinc-700 hover:border-zinc-500"
+          <label key={g.id} className={`flex items-center gap-3 border px-4 py-2.5 cursor-pointer transition-colors ${
+            checked ? "border-pace-green bg-pace-green/5" : "border-white/12 hover:border-white/30"
           }`}>
-            <input type="checkbox" checked={checked} onChange={() => onToggle(g.id)} className="accent-pace-green" />
+            <input type="checkbox" checked={checked} onChange={() => onToggle(g.id)} className="accent-hp-cg" />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-white truncate">{g.name}</p>
-              <p className="text-xs text-zinc-500">
+              <p className="text-sm font-semibold text-hp-paper truncate">{g.name}</p>
+              <p className="text-xs text-hp-paper/45">
                 {DAY_TOKENS[g.dayOfWeek]} · {g.time} · {coaches.find((c) => c.id === g.coachId)?.name ?? "Unassigned"}
                 {g.location ? ` · ${g.location}` : ""}
               </p>
@@ -1696,6 +1696,6 @@ function GroupSessionPicker({ academyId, selectedIds, coaches, onToggle }: {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const inp = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const sel = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
-const lbl = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const inp = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const sel = "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
+const lbl = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";

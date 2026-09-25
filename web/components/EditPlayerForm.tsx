@@ -131,7 +131,7 @@ export function EditPlayerForm({ player }: { player: Player }) {
       <div className="flex items-center justify-between mb-6">
         <Link
           href={`/players/${player.id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-hp-paper/50 hover:text-hp-paper transition-colors"
         >
           ← Back to Profile
         </Link>
@@ -139,12 +139,12 @@ export function EditPlayerForm({ player }: { player: Player }) {
 
       {/* Player identity */}
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-14 h-14 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-xl flex-shrink-0">
+        <div className="w-14 h-14 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-xl flex-shrink-0">
           {initials}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white">Edit Player</h1>
-          <p className="text-zinc-400 text-sm">{player.name}</p>
+          <h1 className="font-display font-black uppercase text-xl text-hp-paper tracking-wide">Edit Player</h1>
+          <p className="text-hp-paper/60 text-sm">{player.name}</p>
         </div>
       </div>
 
@@ -379,7 +379,7 @@ export function EditPlayerForm({ player }: { player: Player }) {
                   onChange={setLastPaymentDate}
                   className={inputCls}
                 />
-                <p className="text-xs text-zinc-500 mt-1.5">
+                <p className="text-xs text-hp-paper/45 mt-1.5">
                   {detectedPayment === undefined ? (
                     "Staff-only fallback — checking for a recorded membership or Stripe payment…"
                   ) : detectedPayment && detectedPayment.source !== "manual" ? (
@@ -398,17 +398,17 @@ export function EditPlayerForm({ player }: { player: Player }) {
           <button
             type="submit"
             disabled={saved}
-            className={`px-6 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+            className={`px-6 py-3 text-sm font-bold transition-all cursor-pointer ${
               saved
-                ? "bg-pace-green/60 text-black"
-                : "bg-pace-green text-black hover:opacity-90"
+                ? "bg-hp-cg/60 text-hp-paper"
+                : "bg-hp-cg text-hp-paper hover:bg-hp-cg/90"
             }`}
           >
             {saved ? "✓ Saved" : "Save Changes"}
           </button>
           <Link
             href={`/players/${player.id}`}
-            className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors"
+            className="px-6 py-3 text-sm font-medium text-hp-paper/60 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors"
           >
             Cancel
           </Link>
@@ -428,8 +428,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-surface rounded-2xl p-6">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">
+    <div className="bg-hp-surface border border-white/8 p-6">
+      <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-5">
         {title}
       </h2>
       {children}
@@ -446,7 +446,7 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+      <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">
         {label}
       </label>
       {children}
@@ -455,7 +455,7 @@ function Field({
 }
 
 const inputCls =
-  "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
+  "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
 
 const selectCls =
-  "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
+  "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";

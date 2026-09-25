@@ -10,12 +10,12 @@ import { DateInput } from "@/components/DateInput";
 const PRIORITY_STYLES: Record<ActionPlanPriority, string> = {
   High: "bg-fire/20 text-fire",
   Medium: "bg-amber/20 text-amber",
-  Low: "bg-zinc-700 text-zinc-300",
+  Low: "bg-white/10 text-hp-paper/70",
 };
 
 const STATUS_STYLES: Record<ActionPlanStatus, string> = {
   "In Progress": "bg-pace-green/20 text-pace-green",
-  Pending: "bg-zinc-700 text-zinc-400",
+  Pending: "bg-white/10 text-hp-paper/45",
   Completed: "bg-blue-500/20 text-blue-400",
 };
 
@@ -192,7 +192,7 @@ export function ActionPlansClient({ player }: { player: Player }) {
       <div className="mb-6">
         <Link
           href={`/players/${player.id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-hp-paper/50 hover:text-hp-paper transition-colors"
         >
           ← Back to Profile
         </Link>
@@ -201,24 +201,24 @@ export function ActionPlansClient({ player }: { player: Player }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-xl flex-shrink-0">
+          <div className="w-14 h-14 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-xl flex-shrink-0">
             {initials}
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">Action Plans</h1>
-            <p className="text-zinc-400 text-sm">{player.name}</p>
+            <h1 className="font-display font-black uppercase text-xl text-hp-paper tracking-wide">Action Plans</h1>
+            <p className="text-hp-paper/60 text-sm">{player.name}</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right">
             <div className="text-2xl font-bold text-pace-green">{inProgress}</div>
-            <div className="text-xs text-zinc-400">active plans</div>
+            <div className="text-xs text-hp-paper/45">active plans</div>
           </div>
           <button
             type="button"
             onClick={startAdd}
             disabled={adding}
-            className="px-4 py-2 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50"
+            className="px-4 py-2 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-50"
           >
             + Add Plan
           </button>
@@ -226,12 +226,12 @@ export function ActionPlansClient({ player }: { player: Player }) {
       </div>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm mb-4">{error}</div>
+        <div className="bg-red-500/10 border border-red-500/30 px-4 py-3 text-red-400 text-sm mb-4">{error}</div>
       )}
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+          <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
         </div>
       ) : (
         <>
@@ -274,11 +274,11 @@ export function ActionPlansClient({ player }: { player: Player }) {
               }
 
               return (
-                <div key={plan.id} className="bg-surface rounded-2xl p-6">
+                <div key={plan.id} className="bg-hp-surface border border-white/8 p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
                     <div>
                       <div className="flex items-center gap-2 mb-1.5">
-                        <h2 className="text-white font-bold text-base">{plan.title}</h2>
+                        <h2 className="text-hp-paper font-bold text-base">{plan.title}</h2>
                         {wasSaved && (
                           <span className="text-pace-green text-xs font-semibold">✓ Saved</span>
                         )}
@@ -294,8 +294,8 @@ export function ActionPlansClient({ player }: { player: Player }) {
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
                       <div className="text-right">
-                        <div className="text-xs text-zinc-400 mb-0.5">Target date</div>
-                        <div className="text-sm font-semibold text-white">
+                        <div className="text-xs text-hp-paper/45 mb-0.5">Target date</div>
+                        <div className="text-sm font-semibold text-hp-paper">
                           {plan.dueDate
                             ? new Date(plan.dueDate).toLocaleDateString("en-GB", {
                                 day: "2-digit",
@@ -308,7 +308,7 @@ export function ActionPlansClient({ player }: { player: Player }) {
                       <button
                         type="button"
                         onClick={() => startEdit(plan)}
-                        className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors cursor-pointer"
+                        className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors cursor-pointer"
                       >
                         Edit
                       </button>
@@ -317,25 +317,25 @@ export function ActionPlansClient({ player }: { player: Player }) {
 
                   {/* Drills */}
                   <div className="mb-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2.5">
+                    <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-2.5">
                       Drills
                     </p>
                     <ul className="space-y-2">
                       {plan.drills.map((d, i) => (
                         <li key={i} className="flex items-start gap-2.5">
-                          <span className="text-pace-green mt-0.5 text-sm flex-shrink-0">→</span>
-                          <span className="text-zinc-300 text-sm">{d}</span>
+                          <span className="text-hp-cg mt-0.5 text-sm flex-shrink-0">→</span>
+                          <span className="text-hp-paper/70 text-sm">{d}</span>
                         </li>
                       ))}
                     </ul>
                   </div>
 
                   {/* Notes */}
-                  <div className="rounded-xl bg-ink px-4 py-3">
-                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">
+                  <div className="bg-hp-ink px-4 py-3">
+                    <p className="text-xs font-mono font-semibold text-hp-paper/45 uppercase tracking-widest mb-1">
                       Coach notes
                     </p>
-                    <p className="text-sm text-zinc-300 leading-relaxed">{plan.notes}</p>
+                    <p className="text-sm text-hp-paper/70 leading-relaxed">{plan.notes}</p>
                   </div>
                 </div>
               );
@@ -343,12 +343,12 @@ export function ActionPlansClient({ player }: { player: Player }) {
           </div>
 
           {plans.length === 0 && !adding && (
-            <div className="bg-surface rounded-2xl p-12 text-center">
-              <p className="text-zinc-400 text-sm mb-4">No action plans yet.</p>
+            <div className="bg-hp-surface border border-white/8 p-12 text-center">
+              <p className="text-hp-paper/60 text-sm mb-4">No action plans yet.</p>
               <button
                 type="button"
                 onClick={startAdd}
-                className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer"
+                className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer"
               >
                 + Add First Plan
               </button>
@@ -358,14 +358,14 @@ export function ActionPlansClient({ player }: { player: Player }) {
       )}
 
       {/* AI-generated action plan from biomechanics data */}
-      <div className="mt-8 rounded-2xl border border-pace-green/20 bg-pace-green/5 p-5">
+      <div className="mt-8 border border-hp-cg/20 bg-hp-cg/5 p-5">
         {latestUsableReport ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-pace-green text-xs font-semibold uppercase tracking-wider mb-1">
+              <p className="text-hp-cg text-xs font-semibold uppercase tracking-wider mb-1">
                 AI-Generated Action Plan
               </p>
-              <p className="text-zinc-400 text-xs">
+              <p className="text-hp-paper/45 text-xs">
                 Builds a plan from the {formatDate(latestUsableReport.date)} biomechanics report's flagged
                 issues and matched drills.
               </p>
@@ -374,14 +374,14 @@ export function ActionPlansClient({ player }: { player: Player }) {
               type="button"
               onClick={generateAiPlan}
               disabled={generating}
-              className="px-4 py-2 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-50 flex-shrink-0"
+              className="px-4 py-2 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-50 flex-shrink-0"
             >
               {generating ? "Generating…" : "✨ Generate AI Action Plan"}
             </button>
           </div>
         ) : (
-          <p className="text-zinc-500 text-xs text-center">
-            <span className="w-1.5 h-1.5 rounded-full bg-zinc-600 inline-block mr-2" />
+          <p className="text-hp-paper/45 text-xs text-center">
+            <span className="w-1.5 h-1.5 rounded-full bg-white/25 inline-block mr-2" />
             Generate a biomechanics report with a flagged issue first to unlock an AI-generated action plan.
           </p>
         )}
@@ -416,8 +416,8 @@ function PlanForm({
   isNew?: boolean;
 }) {
   return (
-    <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-5">
+    <div className="bg-hp-surface border border-hp-cg/30 p-6 mb-4">
+      <h3 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-5">
         {isNew ? "New Action Plan" : "Edit Action Plan"}
       </h3>
 
@@ -486,7 +486,7 @@ function PlanForm({
                 <button
                   type="button"
                   onClick={() => removeDrill(i)}
-                  className="text-zinc-500 hover:text-red-400 transition-colors text-lg leading-none cursor-pointer flex-shrink-0"
+                  className="text-hp-paper/45 hover:text-red-400 transition-colors text-lg leading-none cursor-pointer flex-shrink-0"
                   title="Remove drill"
                 >
                   ×
@@ -498,7 +498,7 @@ function PlanForm({
         <button
           type="button"
           onClick={addDrill}
-          className="mt-2 text-xs text-pace-green hover:opacity-80 transition-opacity cursor-pointer font-semibold"
+          className="mt-2 text-xs text-hp-cg hover:opacity-80 transition-opacity cursor-pointer font-semibold"
         >
           + Add drill
         </button>
@@ -521,7 +521,7 @@ function PlanForm({
           type="button"
           onClick={onSave}
           disabled={!draft.title.trim() || saving}
-          className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-40"
+          className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-40"
         >
           {saving ? "Saving…" : isNew ? "Create Plan" : "Save Changes"}
         </button>
@@ -529,7 +529,7 @@ function PlanForm({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="px-5 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer disabled:opacity-40"
+          className="px-5 py-2.5 text-sm font-medium text-hp-paper/60 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors cursor-pointer disabled:opacity-40"
         >
           Cancel
         </button>
@@ -538,7 +538,7 @@ function PlanForm({
             type="button"
             onClick={onDelete}
             disabled={saving}
-            className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-40"
+            className="ml-auto px-4 py-2.5 text-sm font-medium text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-40"
           >
             Delete Plan
           </button>
@@ -549,9 +549,9 @@ function PlanForm({
 }
 
 const inputCls =
-  "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
+  "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
 
 const selectCls =
-  "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
+  "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
 
-const labelCls = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const labelCls = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";

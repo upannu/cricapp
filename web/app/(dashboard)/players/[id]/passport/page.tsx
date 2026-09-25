@@ -51,18 +51,18 @@ export default async function PlayerPassportPage({
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
       <div className="mb-6">
-        <Link href={`/players/${id}`} className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors">
+        <Link href={`/players/${id}`} className="inline-flex items-center gap-1.5 text-sm text-hp-paper/50 hover:text-hp-paper transition-colors">
           ← Back to Profile
         </Link>
       </div>
 
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-14 h-14 rounded-full bg-pace-green/10 border border-pace-green/30 flex items-center justify-center text-pace-green font-bold text-lg flex-shrink-0">
+        <div className="w-14 h-14 rounded-full bg-hp-cg/10 border border-hp-cg/30 flex items-center justify-center text-hp-cg font-bold text-lg flex-shrink-0">
           {initials}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white">Cricket Passport</h1>
-          <p className="text-zinc-400 text-sm">{player.name}</p>
+          <h1 className="font-display font-black uppercase text-xl text-hp-paper tracking-wide">Cricket Passport</h1>
+          <p className="text-hp-paper/60 text-sm">{player.name}</p>
         </div>
       </div>
 
@@ -82,26 +82,26 @@ export default async function PlayerPassportPage({
       <div className="mb-4">
         <InfoCard title="Organisation Timeline">
           {timeline.length === 0 ? (
-            <p className="text-zinc-500 text-sm">No organisation history recorded yet.</p>
+            <p className="text-hp-paper/45 text-sm">No organisation history recorded yet.</p>
           ) : (
             <div className="space-y-4">
               {timeline.map((period) => (
                 <div key={period.id} className="flex items-start gap-3">
                   <div
                     className={`mt-1.5 w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                      period.endDate ? "bg-zinc-600" : "bg-pace-green"
+                      period.endDate ? "bg-white/25" : "bg-pace-green"
                     }`}
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-white text-sm font-semibold">{period.orgLabel}</span>
+                      <span className="text-hp-paper text-sm font-semibold">{period.orgLabel}</span>
                       {!period.endDate && (
                         <span className="text-[10px] font-bold uppercase tracking-wider text-pace-green bg-pace-green/10 border border-pace-green/30 rounded-full px-2 py-0.5">
                           Current
                         </span>
                       )}
                     </div>
-                    <p className="text-zinc-500 text-xs mt-0.5">
+                    <p className="text-hp-paper/45 text-xs mt-0.5">
                       {formatMonthYear(period.startDate)} — {period.endDate ? formatMonthYear(period.endDate) : "Present"}
                     </p>
                   </div>
@@ -131,8 +131,8 @@ export default async function PlayerPassportPage({
 
       {/* Honest about what isn't here yet — no fabricated batting/bowling/fielding career stats.
           Those depend on ball-by-ball match scoring, which doesn't exist in the product yet. */}
-      <div className="rounded-2xl border border-dashed border-zinc-700 p-5 text-center">
-        <p className="text-zinc-500 text-sm">
+      <div className="border border-dashed border-white/15 p-5 text-center">
+        <p className="text-hp-paper/45 text-sm">
           Batting, bowling and fielding career stats will appear here once match scoring is live.
         </p>
       </div>

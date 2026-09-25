@@ -152,6 +152,6 @@ describe("BookingsClient", () => {
     // The Pending tab pill itself reflects the same state the stat card just set — anchored to
     // its own no-space count badge ("Pending1"), since the "Pending confirm" stat card's label
     // also starts with "Pending".
-    expect(screen.getByRole("button", { name: /^Pending\d/ })).toHaveClass("bg-pace-green");
+    expect(screen.getByRole("button", { name: /^Pending\d/ })).toHaveClass("bg-hp-cg");
   });
 });

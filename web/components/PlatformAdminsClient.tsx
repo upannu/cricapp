@@ -53,26 +53,26 @@ export function PlatformAdminsClient() {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
-      <Link href="/players" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors mb-6">
+      <Link href="/players" className="inline-flex items-center gap-1.5 text-sm text-hp-paper/45 hover:text-hp-paper transition-colors mb-6">
         ← Back
       </Link>
 
-      <h1 className="text-xl font-bold text-white mb-1">Platform Admins</h1>
-      <p className="text-zinc-400 text-sm mb-6">
+      <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Platform Admins</h1>
+      <p className="text-hp-paper/45 text-sm mb-6">
         Promote or remove platform_admin access for already-approved accounts. Platform admins can
         manage the Plan Catalog, approvals, KPIs, and every academy on the platform.
       </p>
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+          <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
         </div>
       ) : loadError ? (
         <p className="text-red-400 text-sm">{loadError}</p>
       ) : (
         <div className="space-y-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-3">
+            <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-3">
               Platform Admins ({admins.length})
             </p>
             <div className="space-y-2">
@@ -83,7 +83,7 @@ export function PlatformAdminsClient() {
           </div>
 
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
+            <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-3">
               Everyone Else ({others.length})
             </p>
             <div className="space-y-2">
@@ -100,16 +100,16 @@ export function PlatformAdminsClient() {
 
 function UserRow({ u, isSelf, onChanged }: { u: AdminUser; isSelf: boolean; onChanged: (userId: string, newRole: string) => void }) {
   return (
-    <div className="bg-surface rounded-2xl p-4 flex items-center justify-between gap-4">
+    <div className="bg-hp-surface p-4 flex items-center justify-between gap-4">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-white font-semibold text-sm truncate">{u.name}</span>
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-zinc-700 text-zinc-300 flex-shrink-0">
+          <span className="text-hp-paper font-semibold text-sm truncate">{u.name}</span>
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/10 text-hp-paper/70 flex-shrink-0">
             {ROLE_LABELS[u.role] ?? u.role}
           </span>
-          {isSelf && <span className="text-[10px] text-zinc-500 flex-shrink-0">(you)</span>}
+          {isSelf && <span className="text-[10px] text-hp-paper/45 flex-shrink-0">(you)</span>}
         </div>
-        <div className="text-xs text-zinc-500 truncate">{u.email}</div>
+        <div className="text-xs text-hp-paper/45 truncate">{u.email}</div>
       </div>
       {!isSelf && (
         u.role === "platform_admin"
@@ -150,7 +150,7 @@ function PromoteButton({ userId, onDone }: { userId: string; onDone: () => void 
   return (
     <div className="text-right flex-shrink-0">
       <button type="button" onClick={handleClick} disabled={loading}
-        className="px-4 py-2 text-xs font-bold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 cursor-pointer transition-colors disabled:opacity-60">
+        className="px-4 py-2 text-xs font-bold text-pace-green border border-pace-green/40 hover:bg-pace-green/10 cursor-pointer transition-colors disabled:opacity-60">
         {loading ? "Loading…" : "Make Platform Admin"}
       </button>
       {error && <p className="text-[10px] text-red-400 mt-1 max-w-40">{error}</p>}
@@ -198,15 +198,15 @@ function DemoteButton({ userId, onDone }: { userId: string; onDone: (newRole: st
         <select
           value={fallbackRole}
           onChange={(e) => setFallbackRole(e.target.value as "academy_admin" | "coach")}
-          className="bg-ink rounded-lg px-2 py-1.5 text-xs text-white border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+          className="bg-hp-ink px-2 py-1.5 text-xs text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none cursor-pointer"
         >
           {FALLBACK_ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
         </select>
         <button type="button" onClick={handleConfirm} disabled={loading}
-          className="px-3 py-1.5 text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 cursor-pointer transition-colors disabled:opacity-60">
+          className="px-3 py-1.5 text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 cursor-pointer transition-colors disabled:opacity-60">
           {loading ? "…" : "Confirm"}
         </button>
-        <button type="button" onClick={() => setShowPicker(false)} className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+        <button type="button" onClick={() => setShowPicker(false)} className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer">
           Cancel
         </button>
         {error && <p className="text-[10px] text-red-400 max-w-40">{error}</p>}
@@ -216,7 +216,7 @@ function DemoteButton({ userId, onDone }: { userId: string; onDone: (newRole: st
 
   return (
     <button type="button" onClick={() => setShowPicker(true)}
-      className="px-4 py-2 text-xs font-semibold text-red-400 border border-red-500/30 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer flex-shrink-0">
+      className="px-4 py-2 text-xs font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors cursor-pointer flex-shrink-0">
       Remove Platform Admin
     </button>
   );

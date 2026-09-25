@@ -159,7 +159,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
       <div className="flex items-center justify-between mb-6">
         <Link
           href={backHref}
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-hp-paper/50 hover:text-hp-paper transition-colors"
         >
           ← Back{backHref === "/portal" ? "" : " to Profile"}
         </Link>
@@ -167,18 +167,18 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
 
       {/* Player identity */}
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-14 h-14 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-xl flex-shrink-0">
+        <div className="w-14 h-14 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-xl flex-shrink-0">
           {initials}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white">Manage Subscription</h1>
-          <p className="text-zinc-400 text-sm">{player.name}</p>
+          <h1 className="font-display font-black uppercase text-xl text-hp-paper tracking-wide">Manage Subscription</h1>
+          <p className="text-hp-paper/60 text-sm">{player.name}</p>
         </div>
       </div>
 
       {isAcademyPlayer && (
-        <div className="rounded-2xl p-5 mb-6 border bg-blue-500/10 border-blue-500/30">
-          <p className="text-sm text-zinc-300">
+        <div className="p-5 mb-6 border bg-blue-500/10 border-blue-500/30">
+          <p className="text-sm text-hp-paper/70">
             Your academy&apos;s plan covers your session fees — but your monthly session-logging,
             AI chat, and report limits below are still your own individual plan, separate from
             that. Upgrade any time if you need more than what Free includes.
@@ -188,7 +188,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
 
       {/* Current subscription status card */}
       <div
-        className={`rounded-2xl p-6 mb-6 border ${
+        className={`p-6 mb-6 border ${
           status === "Expired"
             ? "bg-red-500/10 border-red-500/30"
             : status === "Expiring"
@@ -210,7 +210,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
               >
                 {status}
               </span>
-              <span className="text-white font-semibold">{player.subscription.plan}</span>
+              <span className="text-hp-paper font-semibold">{player.subscription.plan}</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-8 gap-y-2 mt-3">
               <Stat label="Start date" value={formatDate(player.subscription.startDate)} />
@@ -230,12 +230,12 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
             {status === "Expired" ? (
               <div className="text-red-400">
                 <div className="text-3xl font-bold">{Math.abs(daysLeft)}</div>
-                <div className="text-xs text-zinc-400">days overdue</div>
+                <div className="text-xs text-hp-paper/60">days overdue</div>
               </div>
             ) : (
               <div className={status === "Expiring" ? "text-amber" : "text-pace-green"}>
                 <div className="text-3xl font-bold">{daysLeft}</div>
-                <div className="text-xs text-zinc-400">days remaining</div>
+                <div className="text-xs text-hp-paper/60">days remaining</div>
               </div>
             )}
           </div>
@@ -244,13 +244,13 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
         {/* Sessions progress bar */}
         {currentSessionsLimit && (
           <div className="mt-5">
-            <div className="flex justify-between text-xs text-zinc-400 mb-1.5">
+            <div className="flex justify-between text-xs text-hp-paper/60 mb-1.5">
               <span>Sessions used</span>
               <span>
                 {player.subscription.sessionsUsed} / {currentSessionsLimit}
               </span>
             </div>
-            <div className="h-2 bg-ink rounded-full overflow-hidden">
+            <div className="h-2 bg-hp-ink rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
                   player.subscription.sessionsUsed / currentSessionsLimit > 0.85
@@ -282,18 +282,18 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
       </div>
 
       {/* Plan selection */}
-      <div className="bg-surface rounded-2xl p-6 mb-6">
+      <div className="bg-hp-surface border border-white/8 p-6 mb-6">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45">
             Choose Plan
           </h2>
-          <label className="flex items-center gap-2 text-xs text-zinc-400">
+          <label className="flex items-center gap-2 text-xs text-hp-paper/60">
             Bill me in
             <select
               value={currency}
               disabled={currencySaving}
               onChange={(e) => handleCurrencyChange(e.target.value as Currency)}
-              className="bg-ink border border-zinc-700 rounded-lg px-2 py-1.5 text-white text-xs focus:border-pace-green focus:outline-none disabled:opacity-60"
+              className="bg-hp-ink border border-white/12 px-2 py-1.5 text-hp-paper text-xs focus:border-hp-cg focus:outline-none disabled:opacity-60"
             >
               {SUPPORTED_CURRENCIES.map((c) => (
                 <option key={c} value={c}>{CURRENCY_LABELS[c]}</option>
@@ -309,26 +309,26 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
                 key={p.tier}
                 type="button"
                 onClick={() => setSelectedPlan(p.tier)}
-                className={`text-left p-5 rounded-xl border-2 transition-all cursor-pointer ${
+                className={`text-left p-5 border-2 transition-all cursor-pointer ${
                   isActive
-                    ? "border-pace-green bg-pace-green/10"
-                    : "border-zinc-700 hover:border-zinc-500 bg-ink"
+                    ? "border-hp-cg bg-hp-cg/10"
+                    : "border-white/12 hover:border-white/30 bg-hp-ink"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <span
-                    className={`text-sm font-bold ${isActive ? "text-pace-green" : "text-white"}`}
+                    className={`text-sm font-bold ${isActive ? "text-hp-cg" : "text-hp-paper"}`}
                   >
                     {p.tier}
                   </span>
                   {isActive && (
-                    <span className="text-pace-green text-sm font-bold flex-shrink-0">✓</span>
+                    <span className="text-hp-cg text-sm font-bold flex-shrink-0">✓</span>
                   )}
                 </div>
-                <div className="text-lg font-bold text-white mb-3">{p.price}</div>
+                <div className="text-lg font-bold text-hp-paper mb-3">{p.price}</div>
                 <ul className="space-y-1.5">
                   {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-1.5 text-xs text-zinc-400">
+                    <li key={f} className="flex items-start gap-1.5 text-xs text-hp-paper/60">
                       <span className="text-pace-green mt-0.5 flex-shrink-0">✓</span>
                       {f}
                     </li>
@@ -341,7 +341,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
       </div>
 
       {error && (
-        <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
           {error}
         </div>
       )}
@@ -353,7 +353,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
             type="button"
             onClick={handleManageBilling}
             disabled={redirecting}
-            className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+            className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60"
           >
             {redirecting ? "Redirecting…" : "Manage Billing"}
           </button>
@@ -362,7 +362,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
             type="button"
             onClick={handleCheckout}
             disabled={redirecting || !isPaidPlan(selectedPlan) || !planChanged}
-            className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+            className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60"
           >
             {redirecting ? "Redirecting…" : `Subscribe to ${selectedPlan}`}
           </button>
@@ -372,21 +372,21 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
             type="button"
             onClick={handleManageBilling}
             disabled={redirecting}
-            className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer"
+            className="px-6 py-3 text-sm font-medium text-hp-paper/60 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors cursor-pointer"
           >
             View billing history
           </button>
         )}
         <Link
           href={backHref}
-          className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors"
+          className="px-6 py-3 text-sm font-medium text-hp-paper/60 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors"
         >
           Cancel
         </Link>
       </div>
 
       {hasActiveSub && (
-        <p className="text-zinc-500 text-xs -mt-4 mb-8">
+        <p className="text-hp-paper/45 text-xs -mt-4 mb-8">
           To switch plans, update your payment method, or cancel, use Manage Billing above — it opens Stripe&apos;s secure billing portal. For a full record of every payment (subscriptions, bookings, packs, assessments), see Invoice History below.
         </p>
       )}
@@ -394,19 +394,19 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
       {/* Add-ons — independent of the plan above: Library can be bought without Player Pro,
           and an Assessment credit is a one-time purchase, not a subscription. */}
       {(libraryPlan || assessmentPlan) && (
-        <div className="bg-surface rounded-2xl p-6 mb-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">Add-ons</h2>
+        <div className="bg-hp-surface border border-white/8 p-6 mb-6">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-5">Add-ons</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {libraryPlan && (
-              <div className="p-5 rounded-xl border-2 border-zinc-700 bg-ink">
-                <div className="text-sm font-bold text-white mb-1">{libraryPlan.name}</div>
-                <div className="text-lg font-bold text-white mb-3">
+              <div className="p-5 border-2 border-white/12 bg-hp-ink">
+                <div className="text-sm font-bold text-hp-paper mb-1">{libraryPlan.name}</div>
+                <div className="text-lg font-bold text-hp-paper mb-3">
                   {(() => {
                     const { amount, currency: billCurrency } = resolvePlanPrice(libraryPlan.priceAud, libraryPlan.pricesByCurrency, currency);
                     return `${formatMoney(amount, billCurrency)} / ${libraryPlan.billingInterval}`;
                   })()}
                 </div>
-                <p className="text-xs text-zinc-400 mb-4">
+                <p className="text-xs text-hp-paper/60 mb-4">
                   Unlocks the Academy article library independently of your main plan above.
                 </p>
                 {hasLibraryAccess ? (
@@ -414,7 +414,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
                     type="button"
                     onClick={handleManageBilling}
                     disabled={redirecting}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm font-bold bg-pace-green/20 text-pace-green cursor-pointer disabled:opacity-60"
+                    className="w-full px-4 py-2.5 text-sm font-bold bg-pace-green/20 text-pace-green cursor-pointer disabled:opacity-60"
                   >
                     ✓ Active — Manage Billing
                   </button>
@@ -423,7 +423,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
                     type="button"
                     onClick={() => handleAddonCheckout("library")}
                     disabled={addonRedirecting === "library"}
-                    className="w-full px-4 py-2.5 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+                    className="w-full px-4 py-2.5 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60"
                   >
                     {addonRedirecting === "library" ? "Redirecting…" : "Subscribe"}
                   </button>
@@ -431,15 +431,15 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
               </div>
             )}
             {assessmentPlan && (
-              <div className="p-5 rounded-xl border-2 border-zinc-700 bg-ink">
-                <div className="text-sm font-bold text-white mb-1">{assessmentPlan.name}</div>
-                <div className="text-lg font-bold text-white mb-3">
+              <div className="p-5 border-2 border-white/12 bg-hp-ink">
+                <div className="text-sm font-bold text-hp-paper mb-1">{assessmentPlan.name}</div>
+                <div className="text-lg font-bold text-hp-paper mb-3">
                   {(() => {
                     const { amount, currency: billCurrency } = resolvePlanPrice(assessmentPlan.priceAud, assessmentPlan.pricesByCurrency, currency);
                     return `${formatMoney(amount, billCurrency)} one-time`;
                   })()}
                 </div>
-                <p className="text-xs text-zinc-400 mb-4">
+                <p className="text-xs text-hp-paper/60 mb-4">
                   Buy a single AI biomechanics report, no subscription required.
                   {player.assessmentCredits > 0 && (
                     <span className="block mt-1 text-pace-green font-semibold">
@@ -451,7 +451,7 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
                   type="button"
                   onClick={() => handleAddonCheckout("assessment")}
                   disabled={addonRedirecting === "assessment"}
-                  className="w-full px-4 py-2.5 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+                  className="w-full px-4 py-2.5 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60"
                 >
                   {addonRedirecting === "assessment" ? "Redirecting…" : "Buy Assessment"}
                 </button>
@@ -470,8 +470,8 @@ export function SubscriptionPage({ player, isAcademyPlayer = false }: { player: 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs text-zinc-400 mb-0.5">{label}</div>
-      <div className="text-sm font-semibold text-white">{value}</div>
+      <div className="text-xs text-hp-paper/50 mb-0.5">{label}</div>
+      <div className="text-sm font-semibold text-hp-paper">{value}</div>
     </div>
   );
 }

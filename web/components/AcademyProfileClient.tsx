@@ -29,9 +29,9 @@ const STAGE_STYLES: Record<Academy["stage"], string> = {
   Elite:      "bg-pace-green/20 text-pace-green",
 };
 
-const inp = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const sel = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
-const lbl = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const inp = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const sel = "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
+const lbl = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";
 
 type NewPlayerDraft = { name: string; email: string; ageGroup: AgeGroup; bowlingStyle: BowlingStyle; club: string };
 const EMPTY_NEW_PLAYER: NewPlayerDraft = { name: "", email: "", ageGroup: "U14", bowlingStyle: "Right Arm Fast", club: "" };
@@ -123,7 +123,7 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
 
   if (notFound) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-16 text-center text-zinc-400">
+      <div className="max-w-5xl mx-auto px-6 py-16 text-center text-hp-paper/45">
         Academy not found.{" "}
         <Link href="/academy" className="text-pace-green hover:underline">
           Back to Academies
@@ -375,26 +375,26 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
     <div className="max-w-5xl mx-auto px-6 py-8">
       {/* Back */}
       <div className="mb-6">
-        <Link href="/academy" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors">
+        <Link href="/academy" className="inline-flex items-center gap-1.5 text-sm text-hp-paper/45 hover:text-hp-paper transition-colors">
           ← Back to Academies
         </Link>
       </div>
 
       {/* Header card + actions */}
-      <div className="bg-surface rounded-2xl p-6 mb-1 flex flex-wrap items-center justify-between gap-5">
+      <div className="bg-hp-surface border border-white/8 p-6 mb-1 flex flex-wrap items-center justify-between gap-5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
-            <h1 className="text-2xl font-bold text-white">{academy.name}</h1>
+            <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">{academy.name}</h1>
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${STAGE_STYLES[academy.stage]}`}>{academy.stage}</span>
             <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-              academy.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
+              academy.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-white/10 text-hp-paper/45"
             }`}>{academy.status}</span>
           </div>
-          <p className="text-zinc-400 text-sm flex items-center gap-3 flex-wrap">
+          <p className="text-hp-paper/45 text-sm flex items-center gap-3 flex-wrap">
             {academy.location && <span>📍 {academy.location}</span>}
             {headCoach && (
               <span className="flex items-center gap-1.5">
-                <span className="w-4 h-4 rounded-full bg-pace-green inline-flex items-center justify-center text-black font-bold text-[9px]">
+                <span className="w-4 h-4 rounded-full bg-hp-cg inline-flex items-center justify-center text-hp-paper font-bold text-[9px]">
                   {headCoach.name[0]}
                 </span>
                 {headCoach.name}
@@ -407,13 +407,13 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
         <div className="flex items-center gap-2.5">
           <Link
             href={`/academy?edit=${academy.id}`}
-            className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
+            className="px-5 py-2.5 text-sm font-medium text-hp-paper/70 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors"
           >
             Edit Academy
           </Link>
           <Link
             href={`/academies/${academy.id}/billing`}
-            className="px-5 py-2.5 bg-pace-green text-black rounded-xl text-sm font-bold hover:opacity-90 transition-opacity inline-flex items-center gap-1.5"
+            className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors inline-flex items-center gap-1.5"
           >
             <CreditCardIcon width={14} height={14} /> Billing
           </Link>
@@ -422,7 +422,7 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
       </div>
 
       {formError && !confirmToggle && (
-        <div className="mt-3 mb-3 px-5 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
+        <div className="mt-3 mb-3 px-5 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
           {formError}
         </div>
       )}
@@ -431,8 +431,8 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
       <div className="flex gap-1 mt-6 mb-4">
         {(["players", "coaches", "pricing", "nets"] as const).map((t) => (
           <button key={t} type="button" onClick={() => setTab(t)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold capitalize transition-colors cursor-pointer ${
-              tab === t ? "bg-pace-green text-black" : "bg-surface text-zinc-400 hover:text-white"
+            className={`px-4 py-1.5 text-xs font-semibold capitalize transition-colors cursor-pointer ${
+              tab === t ? "bg-hp-cg text-hp-paper" : "bg-hp-surface text-hp-paper/45 hover:text-hp-paper"
             }`}>
             {t === "players" ? `Players (${assignedPlayers.length})`
               : t === "coaches" ? `Coaches (${assignedCoaches.length})`
@@ -442,7 +442,7 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
         ))}
       </div>
 
-      <div className="bg-surface rounded-2xl p-5">
+      <div className="bg-hp-surface p-5">
         {/* Players tab */}
         {tab === "players" && (
           <>
@@ -454,8 +454,8 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
               </button>
             </div>
             {tabAddPlayer && (
-              <div className="bg-ink rounded-xl p-4 mb-3 border border-pace-green/30">
-                <p className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-3">New Player</p>
+              <div className="bg-hp-ink p-4 mb-3 border border-hp-cg/30">
+                <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-3">New Player</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <div>
                     <label className={lbl}>Full Name *</label>
@@ -494,13 +494,13 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
                 </div>
                 {tabPlayerError && <p className="text-red-400 text-xs mb-2">{tabPlayerError}</p>}
                 <button type="button" onClick={handleTabAddPlayer} disabled={tabSavingPlayer}
-                  className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-60">
+                  className="px-4 py-2 bg-hp-cg text-hp-paper text-xs font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                   {tabSavingPlayer ? "Adding…" : "Create & Assign"}
                 </button>
               </div>
             )}
             {assignedPlayers.length === 0 ? (
-              <p className="text-zinc-500 text-sm py-8 text-center">No players assigned yet.</p>
+              <p className="text-hp-paper/45 text-sm py-8 text-center">No players assigned yet.</p>
             ) : (
               <>
               {ageGroupsPresent.length > 0 && (
@@ -510,19 +510,19 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
                     return (
                       <button key={g} type="button"
                         onClick={() => setActiveGroupView(isActive ? null : g)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+                        className={`flex items-center gap-1.5 px-3 py-1.5 border text-xs font-semibold transition-colors cursor-pointer ${
                           isActive
-                            ? "bg-pace-green/20 border-pace-green text-pace-green"
-                            : "bg-ink border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                            ? "bg-hp-cg/20 border-hp-cg text-hp-cg"
+                            : "bg-hp-ink border-white/12 text-hp-paper/45 hover:border-white/25"
                         }`}>
                         <span>{g}</span>
-                        <span className={`font-bold ${isActive ? "text-pace-green" : "text-white"}`}>{countsByGroup[g]}</span>
+                        <span className={`font-bold ${isActive ? "text-hp-cg" : "text-hp-paper"}`}>{countsByGroup[g]}</span>
                       </button>
                     );
                   })}
                   {activeGroupView && (
                     <button type="button" onClick={() => setActiveGroupView(null)}
-                      className="px-3 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-white cursor-pointer">
+                      className="px-3 py-1.5 text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer">
                       Show all
                     </button>
                   )}
@@ -533,18 +533,18 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
                   ? assignedPlayers.filter((p) => p.ageGroup === activeGroupView)
                   : assignedPlayers
                 ).map((p) => (
-                  <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-ink rounded-xl">
+                  <div key={p.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-hp-ink">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-xs font-bold flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-hp-cg/20 flex items-center justify-center text-hp-cg text-xs font-bold flex-shrink-0">
                         {p.name.split(" ").map((n) => n[0]).join("")}
                       </div>
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold text-white truncate">{p.name}</div>
-                        <div className="text-xs text-zinc-400">{p.ageGroup} · {p.bowlingStyle}</div>
+                        <div className="text-sm font-semibold text-hp-paper truncate">{p.name}</div>
+                        <div className="text-xs text-hp-paper/45">{p.ageGroup} · {p.bowlingStyle}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className="text-xs text-zinc-500 hidden sm:block">
+                      <span className="text-xs text-hp-paper/45 hidden sm:block">
                         Active {new Date(p.lastActive).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
                       </span>
                       <Link href={`/players/${p.id}`} className="text-xs text-pace-green hover:underline">View →</Link>
@@ -568,8 +568,8 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
               </button>
             </div>
             {tabAddCoach && (
-              <div className="bg-ink rounded-xl p-4 mb-3 border border-pace-green/30">
-                <p className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-3">New Coach</p>
+              <div className="bg-hp-ink p-4 mb-3 border border-hp-cg/30">
+                <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-3">New Coach</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   <div>
                     <label className={lbl}>Full Name *</label>
@@ -606,7 +606,7 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
                 </div>
                 {tabCoachError && <p className="text-red-400 text-xs mb-2">{tabCoachError}</p>}
                 <button type="button" onClick={handleTabAddCoach} disabled={tabSavingCoach}
-                  className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-60">
+                  className="px-4 py-2 bg-hp-cg text-hp-paper text-xs font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                   {tabSavingCoach ? "Adding…" : "Create & Assign"}
                 </button>
               </div>
@@ -618,22 +618,22 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
                   <button type="button"
                     onClick={handleAddSelfAsCoach}
                     disabled={addingSelf}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-ink border border-zinc-700 rounded-xl hover:border-pace-green transition-colors cursor-pointer disabled:opacity-60 text-left">
-                    <span className="w-8 h-8 rounded-lg bg-pace-green/15 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">★</span>
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-hp-ink border border-white/12 hover:border-hp-cg transition-colors cursor-pointer disabled:opacity-60 text-left">
+                    <span className="w-8 h-8 bg-pace-green/15 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">★</span>
                     <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-white">
+                      <span className="block text-sm font-semibold text-hp-paper">
                         {addingSelf ? "Adding…" : "Add Yourself as Head Coach"}
                       </span>
-                      <span className="block text-xs text-zinc-500">Uses your own name &amp; email — one click</span>
+                      <span className="block text-xs text-hp-paper/45">Uses your own name &amp; email — one click</span>
                     </span>
                   </button>
                   <button type="button"
                     onClick={() => { setTabAddCoach(true); setTabCoachError(""); }}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-ink border border-zinc-700 rounded-xl hover:border-pace-green transition-colors cursor-pointer text-left">
-                    <span className="w-8 h-8 rounded-lg bg-zinc-700/60 text-zinc-400 flex items-center justify-center text-sm font-bold flex-shrink-0">+</span>
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-hp-ink border border-white/12 hover:border-hp-cg transition-colors cursor-pointer text-left">
+                    <span className="w-8 h-8 bg-white/10 text-hp-paper/45 flex items-center justify-center text-sm font-bold flex-shrink-0">+</span>
                     <span className="min-w-0">
-                      <span className="block text-sm font-semibold text-white">Create New Coach</span>
-                      <span className="block text-xs text-zinc-500">For someone you&apos;ve hired to coach here</span>
+                      <span className="block text-sm font-semibold text-hp-paper">Create New Coach</span>
+                      <span className="block text-xs text-hp-paper/45">For someone you&apos;ve hired to coach here</span>
                     </span>
                   </button>
                 </div>
@@ -643,9 +643,9 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
                 {assignedCoaches.map((c) => {
                   const isOwner = c.id === academy.headCoachId;
                   return (
-                    <div key={c.id} className={`bg-ink rounded-xl p-4 flex items-start gap-3 ${isOwner ? "border border-pace-green/30" : ""}`}>
+                    <div key={c.id} className={`bg-hp-ink p-4 flex items-start gap-3 ${isOwner ? "border border-pace-green/30" : ""}`}>
                       <div className="relative flex-shrink-0">
-                        <div className="w-10 h-10 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm">
+                        <div className="w-10 h-10 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-sm">
                           {c.name.split(" ").map((n) => n[0]).join("")}
                         </div>
                         {isOwner && (
@@ -654,19 +654,19 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                          <span className="text-white font-semibold text-sm">{c.name}</span>
+                          <span className="text-hp-paper font-semibold text-sm">{c.name}</span>
                           {isOwner && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-pace-green/20 text-pace-green">Owner</span>}
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                             c.certificationLevel === "Elite" ? "bg-pace-green/20 text-pace-green" :
-                            c.certificationLevel === "Level 3" ? "bg-amber/20 text-amber" : "bg-zinc-700 text-zinc-400"
+                            c.certificationLevel === "Level 3" ? "bg-amber/20 text-amber" : "bg-white/10 text-hp-paper/45"
                           }`}>{c.certificationLevel}</span>
                         </div>
-                        <p className="text-zinc-400 text-xs mb-1">{c.specialization || "—"}</p>
-                        <p className="text-zinc-500 text-xs">{c.email}</p>
+                        <p className="text-hp-paper/45 text-xs mb-1">{c.specialization || "—"}</p>
+                        <p className="text-hp-paper/45 text-xs">{c.email}</p>
                         {c.ageGroupsFocus.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             {c.ageGroupsFocus.map((g) => (
-                              <span key={g} className="px-1.5 py-0.5 rounded bg-surface text-zinc-400 text-[10px]">{g}</span>
+                              <span key={g} className="px-1.5 py-0.5 rounded bg-hp-surface text-hp-paper/45 text-[10px]">{g}</span>
                             ))}
                           </div>
                         )}
@@ -682,18 +682,18 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
         {/* Pricing tab */}
         {tab === "pricing" && (
           <div className="space-y-4">
-            <div className="bg-ink rounded-xl p-4">
-              <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Default Session Fee</p>
+            <div className="bg-hp-ink p-4">
+              <p className="text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-2">Default Session Fee</p>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-pace-green">
                   {academy.sessionFeeAud > 0 ? formatMoney(academy.sessionFeeAud, academy.currency) : "—"}
                 </span>
-                {academy.sessionFeeAud > 0 && <span className="text-zinc-400 text-sm">{academy.currency.toUpperCase()} per session</span>}
+                {academy.sessionFeeAud > 0 && <span className="text-hp-paper/45 text-sm">{academy.currency.toUpperCase()} per session</span>}
               </div>
               {academy.sessionFeeAud > 0 && (() => {
                 const feePct = getPlatformFeePercent(academy.id, [academy], orgPlans);
                 return (
-                  <div className="flex gap-6 mt-1.5 text-xs text-zinc-400">
+                  <div className="flex gap-6 mt-1.5 text-xs text-hp-paper/45">
                     <span>Platform fee ({feePct}%): <span className="text-amber font-semibold">{formatMoney(academy.sessionFeeAud * (feePct / 100), academy.currency)}</span></span>
                     <span>Academy receives: <span className="text-pace-green font-semibold">{formatMoney(academy.sessionFeeAud * (1 - feePct / 100), academy.currency)}</span></span>
                   </div>
@@ -701,14 +701,14 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
               })()}
             </div>
             {Object.entries(academy.sessionTypeFees).some(([, v]) => (v ?? 0) > 0) && (
-              <div className="bg-ink rounded-xl p-4">
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Fee by Session Type</p>
+              <div className="bg-hp-ink p-4">
+                <p className="text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-3">Fee by Session Type</p>
                 <div className="grid grid-cols-2 gap-y-2 gap-x-4">
                   {Object.entries(academy.sessionTypeFees).map(([type, fee]) =>
                     (fee ?? 0) > 0 ? (
                       <div key={type} className="flex items-center justify-between">
-                        <span className="text-xs text-zinc-400">{type}</span>
-                        <span className="text-xs font-bold text-white">{formatMoney(fee ?? 0, academy.currency)}</span>
+                        <span className="text-xs text-hp-paper/45">{type}</span>
+                        <span className="text-xs font-bold text-hp-paper">{formatMoney(fee ?? 0, academy.currency)}</span>
                       </div>
                     ) : null
                   )}
@@ -716,12 +716,12 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
               </div>
             )}
             {Object.keys(academy.ageFees).length > 0 && (
-              <div className="bg-ink rounded-xl p-4">
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">Fee by Age Group</p>
+              <div className="bg-hp-ink p-4">
+                <p className="text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-3">Fee by Age Group</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {AGE_GROUPS.filter((g) => (academy.ageFees[g] ?? 0) > 0).map((g) => (
-                    <div key={g} className="bg-surface rounded-lg p-2 text-center">
-                      <div className="text-xs text-zinc-400 mb-0.5">{g}</div>
+                    <div key={g} className="bg-hp-surface p-2 text-center">
+                      <div className="text-xs text-hp-paper/45 mb-0.5">{g}</div>
                       <div className="text-sm font-bold text-pace-green">{formatMoney(academy.ageFees[g] ?? 0, academy.currency)}</div>
                     </div>
                   ))}
@@ -735,20 +735,20 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
         {tab === "nets" && (
           <div className="space-y-3">
             {academyNets.length === 0 && !showNetForm && (
-              <p className="text-zinc-500 text-sm py-4 text-center">No nets configured yet. Bookings for this academy will use free-text location until you add one.</p>
+              <p className="text-hp-paper/45 text-sm py-4 text-center">No nets configured yet. Bookings for this academy will use free-text location until you add one.</p>
             )}
             {academyNets.map((net) => (
-              <div key={net.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-ink rounded-xl">
+              <div key={net.id} className="flex items-center justify-between gap-3 px-4 py-3 bg-hp-ink">
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold text-white truncate">{net.name}</div>
-                  {net.dimensions && <div className="text-xs text-zinc-400">{net.dimensions}</div>}
+                  <div className="text-sm font-semibold text-hp-paper truncate">{net.name}</div>
+                  {net.dimensions && <div className="text-xs text-hp-paper/45">{net.dimensions}</div>}
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   {confirmDeleteNetId === net.id ? (
                     <>
-                      <span className="text-xs text-zinc-400">Delete this net?</span>
+                      <span className="text-xs text-hp-paper/45">Delete this net?</span>
                       <button type="button" onClick={() => handleDeleteNet(net.id)} className="text-xs font-semibold text-red-400 hover:underline cursor-pointer">Confirm</button>
-                      <button type="button" onClick={() => setConfirmDeleteNetId(null)} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Cancel</button>
+                      <button type="button" onClick={() => setConfirmDeleteNetId(null)} className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer">Cancel</button>
                     </>
                   ) : (
                     <>
@@ -761,36 +761,36 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
             ))}
 
             {showNetForm ? (
-              <div className="bg-ink rounded-xl p-4 space-y-3">
+              <div className="bg-hp-ink p-4 space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Name *</label>
+                    <label className="block text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-1.5">Name *</label>
                     <input type="text" value={netDraft.name} onChange={(e) => setNetDraft({ ...netDraft, name: e.target.value })}
-                      className="w-full bg-surface rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
+                      className="w-full bg-hp-surface px-4 py-2.5 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none text-sm"
                       placeholder="e.g. Net 1" />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Dimensions</label>
+                    <label className="block text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-1.5">Dimensions</label>
                     <input type="text" value={netDraft.dimensions} onChange={(e) => setNetDraft({ ...netDraft, dimensions: e.target.value })}
-                      className="w-full bg-surface rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
+                      className="w-full bg-hp-surface px-4 py-2.5 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none text-sm"
                       placeholder="e.g. 30m x 3.5m" />
                   </div>
                 </div>
                 {netError && <p className="text-red-400 text-xs">{netError}</p>}
                 <div className="flex items-center gap-3">
                   <button type="button" onClick={handleSaveNet}
-                    className="px-4 py-2 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+                    className="px-4 py-2 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer">
                     {editingNetId ? "Save Changes" : "Add Net"}
                   </button>
                   <button type="button" onClick={closeNetForm}
-                    className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer">
+                    className="px-4 py-2 text-sm font-medium text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer">
                     Cancel
                   </button>
                 </div>
               </div>
             ) : (
               <button type="button" onClick={openAddNet}
-                className="px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/30 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer">
+                className="px-4 py-2 text-sm font-semibold text-hp-cg border border-hp-cg/40 hover:bg-hp-cg/10 transition-colors cursor-pointer">
                 + Add Net
               </button>
             )}

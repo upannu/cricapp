@@ -13,7 +13,7 @@ const STATUS_STYLES: Record<PartnershipStatus, string> = {
   needs_information: "bg-amber/15 text-amber",
   qualified: "bg-pace-green/15 text-pace-green",
   declined: "bg-red-500/15 text-red-400",
-  withdrawn: "bg-zinc-700 text-zinc-400",
+  withdrawn: "bg-white/10 text-hp-paper/45",
 };
 
 const STATUS_LABELS: Record<PartnershipStatus, string> = {
@@ -52,8 +52,8 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   if (!value) return null;
   return (
     <div>
-      <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">{label}</p>
-      <p className="text-white text-sm">{value}</p>
+      <p className="text-xs font-mono font-semibold text-hp-paper/45 uppercase tracking-widest mb-1">{label}</p>
+      <p className="text-hp-paper text-sm">{value}</p>
     </div>
   );
 }
@@ -90,13 +90,13 @@ export function PartnershipDetailClient({ id }: { id: string }) {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
-      <Link href="/admin/partnerships" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors mb-6">
+      <Link href="/admin/partnerships" className="inline-flex items-center gap-1.5 text-sm text-hp-paper/45 hover:text-hp-paper transition-colors mb-6">
         ← Back to Partnerships
       </Link>
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+          <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
         </div>
       ) : loadError ? (
         <p className="text-red-400 text-sm">{loadError}</p>
@@ -104,8 +104,8 @@ export function PartnershipDetailClient({ id }: { id: string }) {
         <>
           <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-2xl font-bold text-white mb-1">{application.organisationName}</h1>
-              <p className="text-zinc-500 text-sm">{application.reference} · Submitted {formatDate(application.createdAt)}</p>
+              <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">{application.organisationName}</h1>
+              <p className="text-hp-paper/45 text-sm">{application.reference} · Submitted {formatDate(application.createdAt)}</p>
             </div>
             <span className={`px-3 py-1 rounded-full text-xs font-semibold ${STATUS_STYLES[application.status]}`}>
               {STATUS_LABELS[application.status]}
@@ -114,8 +114,8 @@ export function PartnershipDetailClient({ id }: { id: string }) {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-2 space-y-6">
-              <div className="bg-surface rounded-2xl p-6">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-4">Organisation</h2>
+              <div className="bg-hp-surface p-6">
+                <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-4">Organisation</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="Type" value={application.organisationType} />
                   <Field label="Country" value={application.region ? `${application.country}, ${application.region}` : application.country} />
@@ -124,7 +124,7 @@ export function PartnershipDetailClient({ id }: { id: string }) {
                   )} />
                 </div>
                 {(application.scalePlayers || application.scaleCoaches || application.scaleAcademies || application.scaleRegions) && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-zinc-800">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 pt-4 border-t border-white/8">
                     <Field label="Players" value={application.scalePlayers} />
                     <Field label="Coaches" value={application.scaleCoaches} />
                     <Field label="Academies" value={application.scaleAcademies} />
@@ -134,8 +134,8 @@ export function PartnershipDetailClient({ id }: { id: string }) {
               </div>
 
               {(application.interests.length > 0 || application.challenges || application.currentSystems.length > 0 || application.timeline) && (
-                <div className="bg-surface rounded-2xl p-6">
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-4">Requirements</h2>
+                <div className="bg-hp-surface p-6">
+                  <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-4">Requirements</h2>
                   <div className="space-y-4">
                     {application.interests.length > 0 && (
                       <Field label="Interested In" value={application.interests.map((id) => INTEREST_LABELS[id] ?? id).join(", ")} />
@@ -149,8 +149,8 @@ export function PartnershipDetailClient({ id }: { id: string }) {
                 </div>
               )}
 
-              <div className="bg-surface rounded-2xl p-6">
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-4">Contact</h2>
+              <div className="bg-hp-surface p-6">
+                <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-4">Contact</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Field label="Name" value={`${application.contactFirstName} ${application.contactLastName}`} />
                   <Field label="Job Title" value={application.jobTitle} />
@@ -159,24 +159,24 @@ export function PartnershipDetailClient({ id }: { id: string }) {
                   <Field label="Budget" value={application.budgetRange} />
                 </div>
                 {application.additionalNotes && (
-                  <div className="mt-4 pt-4 border-t border-zinc-800">
+                  <div className="mt-4 pt-4 border-t border-white/8">
                     <Field label="Additional Notes" value={application.additionalNotes} />
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="bg-surface rounded-2xl p-6 h-fit">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-4">Activity</h2>
+            <div className="bg-hp-surface p-6 h-fit">
+              <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-4">Activity</h2>
               {activity.length === 0 ? (
-                <p className="text-zinc-500 text-sm">No activity yet.</p>
+                <p className="text-hp-paper/45 text-sm">No activity yet.</p>
               ) : (
                 <ul className="space-y-4">
                   {activity.map((entry) => (
                     <li key={entry.id} className="text-sm">
-                      <p className="text-white font-semibold">{ACTIVITY_LABELS[entry.kind] ?? entry.kind}</p>
-                      {entry.body && <p className="text-zinc-400 mt-0.5">{entry.body}</p>}
-                      <p className="text-zinc-600 text-xs mt-0.5">{formatDate(entry.createdAt)}</p>
+                      <p className="text-hp-paper font-semibold">{ACTIVITY_LABELS[entry.kind] ?? entry.kind}</p>
+                      {entry.body && <p className="text-hp-paper/45 mt-0.5">{entry.body}</p>}
+                      <p className="text-hp-paper/35 text-xs mt-0.5">{formatDate(entry.createdAt)}</p>
                     </li>
                   ))}
                 </ul>

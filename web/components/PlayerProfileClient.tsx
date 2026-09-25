@@ -100,9 +100,9 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
 
   if (notFound) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-16 text-center text-zinc-400">
+      <div className="max-w-5xl mx-auto px-6 py-16 text-center text-hp-paper/50">
         Player not found.{" "}
-        <Link href="/players" className="text-pace-green hover:underline">
+        <Link href="/players" className="text-hp-cg hover:underline">
           Back to Players
         </Link>
       </div>
@@ -209,7 +209,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
       <div className="mb-6">
         <Link
           href="/players"
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-hp-paper/50 hover:text-hp-paper transition-colors"
         >
           ← Back to Players
         </Link>
@@ -219,14 +219,14 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           action button on the right) rather than the identity card sitting in its own band below
           a separate, unlabeled button row; wraps beneath the identity block on a narrow viewport
           rather than overflowing, same as every other button/nav row in this app. */}
-      <div className="bg-surface rounded-2xl p-6 mb-4 flex flex-wrap items-center justify-between gap-5">
+      <div className="bg-hp-surface border border-white/8 p-6 mb-4 flex flex-wrap items-center justify-between gap-5">
         <div className="flex items-start gap-5">
-          <div className="w-20 h-20 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-2xl flex-shrink-0">
+          <div className="w-20 h-20 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-2xl flex-shrink-0">
             {initials}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
-              <h1 className="text-2xl font-bold text-white">{player.name}</h1>
+              <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">{player.name}</h1>
               {player.loginDisabled && (
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">Removed</span>
               )}
@@ -248,14 +248,14 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
                 </span>
               )}
             </div>
-            <p className="text-zinc-400 text-sm mb-2">
+            <p className="text-hp-paper/60 text-sm mb-2">
               {player.bowlingStyle} · Added {formatDate(player.addedDate)}
             </p>
-            <span className="text-pace-green font-mono font-bold text-sm">
+            <span className="text-hp-cg font-mono font-bold text-sm">
               ⚡ {player.xp.toLocaleString()} XP
             </span>
             {player.loginDisabled && (
-              <p className="text-zinc-500 text-xs mt-1">
+              <p className="text-hp-paper/40 text-xs mt-1">
                 {player.disabledReason || "Removed by staff"}
                 {player.disabledAt && ` · ${formatDate(player.disabledAt)}`}
               </p>
@@ -263,43 +263,47 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           </div>
         </div>
 
-        {/* bg-ink (not bg-surface, unlike when this row lived directly on the page) — nested
-            inside this same-colored card, a bg-surface button would have no visible fill of its
+        {/* bg-hp-ink (not bg-hp-surface, unlike when this row lived directly on the page) — nested
+            inside this same-colored card, a bg-hp-surface button would have no visible fill of its
             own, same convention the search input inside the Players filter bar already follows. */}
         <div className="flex flex-wrap gap-3">
           <Link
             href={`/players/${playerId}/reports`}
-            className="px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border bg-ink text-white border-zinc-700 hover:bg-surface-hover"
+            className="px-5 py-2.5 text-sm font-medium transition-colors border bg-hp-ink text-hp-paper border-white/12 hover:bg-white/5"
           >
             View All Reports
           </Link>
           {!isAcademyPlayer && (
             <Link
               href={`/players/${playerId}/subscription`}
-              className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
+              className={`px-5 py-2.5 text-sm font-medium transition-colors border ${
                 status !== "Active"
                   ? "bg-fire/10 text-fire border-fire/30 hover:bg-fire/20"
-                  : "bg-ink text-white border-zinc-700 hover:bg-surface-hover"
+                  : "bg-hp-ink text-hp-paper border-white/12 hover:bg-white/5"
               }`}
             >
               Manage Subscription
             </Link>
           )}
+          {/* + Log Session is the one solid-filled (brand red) action in this row — the single
+              primary thing a coach does from a player's profile. Every other action here,
+              including Edit Player, is a neutral outline — a row of several red-outlined buttons
+              reads as "everything here is a warning" rather than "these are ordinary actions". */}
           <Link
             href={`/players/${playerId}/new-session`}
-            className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
+            className="px-5 py-2.5 text-sm font-semibold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors"
           >
             + Log Session
           </Link>
           <Link
             href={`/players/${playerId}/passport`}
-            className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
+            className="px-5 py-2.5 text-sm font-medium text-hp-paper/70 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors"
           >
             Cricket Passport
           </Link>
           <Link
             href={`/players/${playerId}/edit`}
-            className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
+            className="px-5 py-2.5 text-sm font-medium text-hp-paper/70 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors"
           >
             Edit Player
           </Link>
@@ -311,7 +315,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
         </div>
       </div>
       {formError && !confirmReassign && !confirmRemove && !confirmReinstate && (
-        <div className="mb-4 px-5 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
+        <div className="mb-4 px-5 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
           {formError}
         </div>
       )}
@@ -402,7 +406,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
               />
             </>
           ) : (
-            <InfoRow label="Status" value={<span className="text-zinc-500">No active membership</span>} />
+            <InfoRow label="Status" value={<span className="text-hp-paper/40">No active membership</span>} />
           )}
         </InfoCard>
 
@@ -455,17 +459,17 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           <InfoCard title="Squad Session Clips">
             <div className="space-y-3">
               {videoTags.map(({ tag, video, occurrenceDate, groupSessionName }) => (
-                <div key={tag.id} className="bg-ink rounded-xl border border-zinc-700 p-3">
+                <div key={tag.id} className="bg-hp-ink border border-white/12 p-3">
                   <video
                     src={`${video.videoUrl}#t=${tag.timestampSec}`}
                     controls
                     className="w-full rounded-lg bg-black mb-2"
                     style={{ maxHeight: 180 }}
                   />
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-hp-paper/50">
                     {groupSessionName} · {formatDate(occurrenceDate)} · tagged at {formatTimestamp(tag.timestampSec)}
                   </p>
-                  {tag.note && <p className="text-xs text-zinc-500 mt-1">{tag.note}</p>}
+                  {tag.note && <p className="text-xs text-hp-paper/40 mt-1">{tag.note}</p>}
                 </div>
               ))}
             </div>
@@ -483,11 +487,11 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             }
           />
           <div className="py-1">
-            <div className="flex justify-between text-xs text-zinc-400 mb-1.5">
+            <div className="flex justify-between text-xs text-hp-paper/50 mb-1.5">
               <span>Completion</span>
               <span>{player.academy.completionPercent}%</span>
             </div>
-            <div className="h-1.5 bg-ink rounded-full overflow-hidden">
+            <div className="h-1.5 bg-hp-ink rounded-full overflow-hidden">
               <div
                 className="h-full bg-pace-green rounded-full"
                 style={{ width: `${player.academy.completionPercent}%` }}
@@ -509,7 +513,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           />
           <Link
             href={`/players/${player.id}/academy`}
-            className="inline-block mt-1 text-xs font-semibold text-pace-green hover:opacity-80"
+            className="inline-block mt-1 text-xs font-semibold text-hp-cg hover:opacity-80"
           >
             View curriculum →
           </Link>
@@ -525,7 +529,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           <InfoRow
             label="Email"
             value={
-              <span className="text-zinc-300 text-sm break-all">
+              <span className="text-hp-paper/80 text-sm break-all">
                 {player.email}
               </span>
             }
@@ -533,8 +537,8 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           <InfoRow
             label="Mobile"
             value={
-              <span className="text-zinc-300 text-sm">
-                {player.phone || <span className="text-zinc-600">Not set</span>}
+              <span className="text-hp-paper/80 text-sm">
+                {player.phone || <span className="text-hp-paper/35">Not set</span>}
               </span>
             }
           />
@@ -552,7 +556,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
                   ]
                     .filter(Boolean)
                     .join(" · ")
-                : <span className="text-zinc-600">Not set</span>
+                : <span className="text-hp-paper/35">Not set</span>
             }
           />
           <InfoRow label="Coach" value={getCoachOrAcademyLabel(player, coaches, academies)} />
@@ -565,7 +569,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
                     ? "text-pace-green"
                     : player.guardianConsentStatus === "Pending"
                       ? "text-amber"
-                      : "text-zinc-400"
+                      : "text-hp-paper/50"
                 }
               >
                 {player.guardianConsentStatus}
@@ -577,15 +581,15 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
               label="Last payment date"
               value={
                 lastPayment === undefined
-                  ? <span className="text-zinc-600">Loading…</span>
+                  ? <span className="text-hp-paper/35">Loading…</span>
                   : lastPayment
                     ? <>
                         {formatDate(lastPayment.date)}{" "}
-                        <span className="text-zinc-600 text-xs">
+                        <span className="text-hp-paper/35 text-xs">
                           ({lastPayment.source === "stripe" ? "via Stripe" : lastPayment.source === "pack" ? "membership payment" : "manual"})
                         </span>
                       </>
-                    : <span className="text-zinc-600">Not recorded</span>
+                    : <span className="text-hp-paper/35">Not recorded</span>
               }
             />
           )}
@@ -599,16 +603,16 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
 
       {/* Performance trends */}
       {(riskTrend?.history.length || rpeSummary?.history.length || scLoadSummary?.history.length) ? (
-        <div className="bg-surface rounded-2xl p-5 mb-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-4">Performance Trends</p>
+        <div className="bg-hp-surface border border-white/8 p-5 mb-4">
+          <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-4">Performance Trends</p>
 
           {riskTrend?.alert && (
-            <div className="bg-red-500/5 border border-red-500/30 rounded-xl px-4 py-3 mb-4">
+            <div className="bg-red-500/5 border border-red-500/30 px-4 py-3 mb-4">
               <p className="text-red-400 text-sm font-semibold">⚠ {riskTrend.alertReason}</p>
             </div>
           )}
           {scLoadSummary?.alert && (
-            <div className="bg-red-500/5 border border-red-500/30 rounded-xl px-4 py-3 mb-4">
+            <div className="bg-red-500/5 border border-red-500/30 px-4 py-3 mb-4">
               <p className="text-red-400 text-sm font-semibold">⚠ {scLoadSummary.alertReason}</p>
             </div>
           )}
@@ -617,8 +621,8 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             {riskTrend && riskTrend.history.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-zinc-400">Injury Risk Trend</span>
-                  <span className={`text-xs font-semibold ${riskTrend.direction === "worsening" ? "text-red-400" : riskTrend.direction === "improving" ? "text-pace-green" : "text-zinc-400"}`}>
+                  <span className="text-xs text-hp-paper/50">Injury Risk Trend</span>
+                  <span className={`text-xs font-semibold ${riskTrend.direction === "worsening" ? "text-red-400" : riskTrend.direction === "improving" ? "text-pace-green" : "text-hp-paper/50"}`}>
                     {DIRECTION_LABEL[riskTrend.direction]}
                   </span>
                 </div>
@@ -632,8 +636,8 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             {rpeSummary && rpeSummary.history.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-zinc-400">RPE Trend</span>
-                  <span className="text-xs font-mono text-white">7-day load: {rpeSummary.weeklyLoad}</span>
+                  <span className="text-xs text-hp-paper/50">RPE Trend</span>
+                  <span className="text-xs font-mono text-hp-paper">7-day load: {rpeSummary.weeklyLoad}</span>
                 </div>
                 <Sparkline values={rpeSummary.history.map((h) => h.rpe)} min={1} max={10} color="#E8B93F" />
               </div>
@@ -641,8 +645,8 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
             {scLoadSummary && scLoadSummary.history.length > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-zinc-400">S&C Weekly Load</span>
-                  <span className="text-xs font-mono text-white">{scLoadSummary.currentWeekLoad.toLocaleString()} AU</span>
+                  <span className="text-xs text-hp-paper/50">S&C Weekly Load</span>
+                  <span className="text-xs font-mono text-hp-paper">{scLoadSummary.currentWeekLoad.toLocaleString()} AU</span>
                 </div>
                 <Sparkline
                   values={scLoadSummary.history.map((h) => h.totalLoad)}
@@ -688,7 +692,7 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           <select
             value={reassignToCoachId}
             onChange={(e) => setReassignToCoachId(e.target.value)}
-            className="w-full bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+            className="w-full bg-hp-ink text-hp-paper text-sm px-3 py-2.5 border border-white/12 focus:border-hp-cg focus:outline-none cursor-pointer"
             aria-label="New coach"
           >
             <option value="">— No Coach Assigned —</option>
@@ -743,7 +747,7 @@ function PlanBadge({ plan }: { plan: string }) {
   const styles: Record<string, string> = {
     "Coach Pro": "border-pace-green text-pace-green",
     "Player Pro": "border-blue-400 text-blue-400",
-    Free: "border-zinc-500 text-zinc-500",
+    Free: "border-white/25 text-hp-paper/45",
   };
   return (
     <span

@@ -73,9 +73,9 @@ function normalizeBowlingStyle(raw: string | undefined): { value: BowlingStyle; 
   const found = BOWLING_STYLES.find((s) => s.toLowerCase() === trimmed.toLowerCase());
   return found ? { value: found, matched: true } : { value: "Right Arm Fast", matched: false };
 }
-const inputCls = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const selectCls = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
-const labelCls = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const inputCls = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const selectCls = "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
+const labelCls = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";
 
 const statusStyles: Record<PlayerStatus, string> = {
   Active:   "bg-pace-green/15 text-pace-green",
@@ -86,7 +86,7 @@ const statusStyles: Record<PlayerStatus, string> = {
 const planStyles: Record<string, string> = {
   "Coach Pro":  "border-pace-green/50 text-pace-green",
   "Player Pro": "border-blue-400/50 text-blue-400",
-  Free:         "border-zinc-600/50 text-zinc-400",
+  Free:         "border-white/15 text-hp-paper/45",
 };
 
 export function PlayersClient() {
@@ -638,12 +638,12 @@ export function PlayersClient() {
     return (
       <tr
         key={player.id}
-        className={`border-b border-zinc-700/40 last:border-0 transition-colors ${
+        className={`border-b border-white/8 last:border-0 transition-colors ${
           isSelected
             ? "bg-blue-500/5"
             : status === "Expired"
-              ? "opacity-60 hover:bg-surface/80"
-              : "hover:bg-surface/80"
+              ? "opacity-60 hover:bg-white/5"
+              : "hover:bg-white/5"
         }`}
       >
         <td className="px-4 py-4 pl-6 text-center">
@@ -651,7 +651,7 @@ export function PlayersClient() {
             type="checkbox"
             checked={isSelected}
             onChange={() => toggleSelect(player.id)}
-            className="w-4 h-4 accent-pace-green cursor-pointer"
+            className="w-4 h-4 accent-hp-cg cursor-pointer"
             title="Select for bulk message"
           />
         </td>
@@ -665,14 +665,14 @@ export function PlayersClient() {
             onClick={() => router.push(`/players/${player.id}`)}
             className="flex items-center gap-3 text-left cursor-pointer group"
           >
-            <div className="w-9 h-9 rounded-full bg-pace-green/20 text-pace-green flex items-center justify-center text-sm font-bold flex-shrink-0">
+            <div className="w-9 h-9 rounded-full bg-hp-cg/20 text-hp-cg flex items-center justify-center text-sm font-bold flex-shrink-0">
               {getInitials(player.name)}
             </div>
             <div>
-              <p className="text-white text-sm font-medium whitespace-nowrap group-hover:text-pace-green transition-colors">{player.name}</p>
-              <p className="text-zinc-400 text-xs">{player.bowlingStyle}</p>
+              <p className="text-hp-paper text-sm font-medium whitespace-nowrap group-hover:text-hp-cg transition-colors">{player.name}</p>
+              <p className="text-hp-paper/50 text-xs">{player.bowlingStyle}</p>
               {player.loginDisabled && (
-                <p className="text-zinc-500 text-xs mt-0.5">
+                <p className="text-hp-paper/40 text-xs mt-0.5">
                   {player.disabledReason || "Removed by staff"}
                   {player.disabledAt && ` · ${new Date(player.disabledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
                 </p>
@@ -680,7 +680,7 @@ export function PlayersClient() {
             </div>
           </button>
         </td>
-        <td className="px-4 py-4 text-zinc-300 text-xs whitespace-nowrap">{getCoachOrAcademyLabel(player, coaches, academies)}</td>
+        <td className="px-4 py-4 text-hp-paper/70 text-xs whitespace-nowrap">{getCoachOrAcademyLabel(player, coaches, academies)}</td>
         <td className="px-4 py-4">
           <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${planStyles[player.subscription.plan] ?? planStyles["Free"]}`}>
             {player.subscription.plan}
@@ -696,11 +696,11 @@ export function PlayersClient() {
           )}
         </td>
         <td className="px-4 py-4 whitespace-nowrap">
-          <span className={`text-sm font-medium ${status === "Expiring" ? "text-amber-300" : status === "Expired" ? "text-red-300" : "text-zinc-300"}`}>
+          <span className={`text-sm font-medium ${status === "Expiring" ? "text-amber-300" : status === "Expired" ? "text-red-300" : "text-hp-paper/70"}`}>
             {formatDate(player.subscription.endDate)}
           </span>
         </td>
-        <td className="sticky right-0 z-10 bg-surface px-4 py-4 pr-6">
+        <td className="sticky right-0 z-10 bg-hp-surface px-4 py-4 pr-6">
           {/* Both View and Message live under one ⋮ now — a wide table with 10 columns already
               needed horizontal scroll to reach a separate View button out here, so folding it in
               keeps every row's actions in one place instead of splitting them across a visible
@@ -736,12 +736,12 @@ export function PlayersClient() {
     <>
     <div className="max-w-5xl mx-auto px-6 py-8">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <h1 className="text-2xl font-bold text-white">Players</h1>
+        <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">Players</h1>
         {canAddPlayers && (
           atRosterCap ? (
             <Link
               href="/coach/subscription"
-              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-amber border border-amber/40 rounded-xl hover:bg-amber/10 transition-colors text-center"
+              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-amber border border-amber/40 hover:bg-amber/10 transition-colors text-center"
             >
               Roster full ({rosterCap}) — Upgrade
             </Link>
@@ -749,7 +749,11 @@ export function PlayersClient() {
             <button
               type="button"
               onClick={() => { setShowAddPlayer((v) => !v); setAddPlayerError(""); }}
-              className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer"
+              className={`flex-shrink-0 px-4 py-2 text-sm font-semibold transition-colors cursor-pointer ${
+                showAddPlayer
+                  ? "text-hp-paper/70 border border-white/15 hover:text-hp-paper hover:border-white/30"
+                  : "bg-hp-cg text-hp-paper hover:bg-hp-cg/90"
+              }`}
             >
               {showAddPlayer ? "Cancel" : "+ Add Player"}
             </button>
@@ -758,11 +762,11 @@ export function PlayersClient() {
       </div>
 
       {canAddPlayers && showAddPlayer && !atRosterCap && (
-        <div className="bg-surface rounded-2xl p-5 mb-6 border border-pace-green/30">
+        <div className="bg-hp-surface p-5 mb-6 border border-hp-cg/30">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-pace-green">New Player</p>
+            <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">New Player</p>
             <button type="button" onClick={() => { setShowCsvImport((v) => !v); setCsvError(""); }}
-              className="text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer">
+              className="text-xs font-semibold text-hp-cg hover:opacity-80 cursor-pointer">
               {showCsvImport ? "Cancel CSV" : "Import CSV instead"}
             </button>
           </div>
@@ -815,14 +819,14 @@ export function PlayersClient() {
               </div>
               {addPlayerError && <p className="text-red-400 text-xs mb-3">{addPlayerError}</p>}
               <button type="button" onClick={handleAddPlayer} disabled={savingPlayer}
-                className="px-4 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+                className="px-4 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                 {savingPlayer ? "Adding…" : "Add Player"}
               </button>
             </>
           )}
 
           {showCsvImport && (
-            <div className="bg-ink rounded-xl p-4 border border-pace-green/30">
+            <div className="bg-hp-ink p-4 border border-hp-cg/30">
               {user?.role === "platform_admin" && (
                 <div className="mb-3">
                   <label className={labelCls}>Assign to Academy (optional)</label>
@@ -833,30 +837,30 @@ export function PlayersClient() {
                 </div>
               )}
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-pace-green">Import Players from CSV</p>
+                <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">Import Players from CSV</p>
                 <button type="button" onClick={downloadCsvTemplate}
-                  className="text-xs text-zinc-400 hover:text-white cursor-pointer underline">
+                  className="text-xs text-hp-paper/50 hover:text-hp-paper cursor-pointer underline">
                   Download template
                 </button>
               </div>
-              <p className="text-xs text-zinc-500 mb-3">
-                Columns: <span className="text-zinc-300">name*, email*, ageGroup, bowlingStyle, club, phone</span>. Name and email are required — other columns fall back to sensible defaults if missing or unrecognized.
+              <p className="text-xs text-hp-paper/45 mb-3">
+                Columns: <span className="text-hp-paper/70">name*, email*, ageGroup, bowlingStyle, club, phone</span>. Name and email are required — other columns fall back to sensible defaults if missing or unrecognized.
               </p>
               <input
                 type="file" accept=".csv,text/csv"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCsvFileSelected(f); }}
-                className="text-xs text-zinc-300 mb-3 cursor-pointer file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-pace-green file:text-black file:text-xs file:font-bold file:cursor-pointer"
+                className="text-xs text-hp-paper/70 mb-3 cursor-pointer file:mr-3 file:px-3 file:py-1.5 file:border-0 file:bg-hp-cg file:text-hp-paper file:text-xs file:font-bold file:cursor-pointer"
               />
               {csvError && <p className="text-red-400 text-xs mb-2">{csvError}</p>}
               {csvImportedCount !== null && (
-                <p className="text-pace-green text-xs mb-2">✓ Imported {csvImportedCount} player{csvImportedCount === 1 ? "" : "s"} from {csvFileName}.</p>
+                <p className="text-hp-cg text-xs mb-2">✓ Imported {csvImportedCount} player{csvImportedCount === 1 ? "" : "s"} from {csvFileName}.</p>
               )}
               {csvRows.length > 0 && (
                 <>
-                  <div className="max-h-64 overflow-y-auto rounded-lg border border-zinc-700 mb-3">
+                  <div className="max-h-64 overflow-y-auto border border-white/12 mb-3">
                     <table className="w-full text-xs">
-                      <thead className="bg-zinc-800 sticky top-0">
-                        <tr className="text-left text-zinc-400">
+                      <thead className="bg-hp-surface sticky top-0">
+                        <tr className="text-left text-hp-paper/50">
                           <th className="px-2 py-1.5">Row</th>
                           <th className="px-2 py-1.5">Name</th>
                           <th className="px-2 py-1.5">Email</th>
@@ -867,12 +871,12 @@ export function PlayersClient() {
                       </thead>
                       <tbody>
                         {csvRows.map((row) => (
-                          <tr key={row.rowNum} className="border-t border-zinc-800">
-                            <td className="px-2 py-1.5 text-zinc-500">{row.rowNum}</td>
-                            <td className="px-2 py-1.5 text-white">{row.name || "—"}</td>
-                            <td className="px-2 py-1.5 text-zinc-300">{row.email || "—"}</td>
-                            <td className="px-2 py-1.5 text-zinc-300">{row.ageGroup}</td>
-                            <td className="px-2 py-1.5 text-zinc-300">{row.bowlingStyle}</td>
+                          <tr key={row.rowNum} className="border-t border-white/8">
+                            <td className="px-2 py-1.5 text-hp-paper/45">{row.rowNum}</td>
+                            <td className="px-2 py-1.5 text-hp-paper">{row.name || "—"}</td>
+                            <td className="px-2 py-1.5 text-hp-paper/70">{row.email || "—"}</td>
+                            <td className="px-2 py-1.5 text-hp-paper/70">{row.ageGroup}</td>
+                            <td className="px-2 py-1.5 text-hp-paper/70">{row.bowlingStyle}</td>
                             <td className="px-2 py-1.5">
                               <span
                                 title={row.issues.join("; ")}
@@ -895,7 +899,7 @@ export function PlayersClient() {
                     </table>
                   </div>
                   <button type="button" onClick={handleCsvImport} disabled={csvImporting || csvRows.every((r) => r.status === "skipped")}
-                    className="px-4 py-2 bg-pace-green text-black text-xs font-bold rounded-lg hover:opacity-90 cursor-pointer disabled:opacity-60">
+                    className="px-4 py-2 bg-hp-cg text-hp-paper text-xs font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
                     {csvImporting ? "Importing…" : `Import ${csvRows.filter((r) => r.status !== "skipped").length} Player${csvRows.filter((r) => r.status !== "skipped").length === 1 ? "" : "s"}`}
                   </button>
                 </>
@@ -920,14 +924,14 @@ export function PlayersClient() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3">
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 px-4 py-3">
           <span className="text-blue-400 text-sm font-semibold">
             {selectedIds.size} player{selectedIds.size !== 1 ? "s" : ""} selected
           </span>
           <button
             type="button"
             onClick={() => setBulkMessaging(true)}
-            className="px-3 py-1.5 text-xs font-semibold text-black bg-pace-green rounded-lg hover:opacity-90 transition-opacity cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-hp-paper bg-hp-cg hover:bg-hp-cg/90 transition-colors cursor-pointer"
           >
             ✉ Message Selected
           </button>
@@ -935,7 +939,7 @@ export function PlayersClient() {
             <button
               type="button"
               onClick={() => { setBulkReassignOpen(true); setBulkReassignToCoachId(""); }}
-              className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+              className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors cursor-pointer"
             >
               Reassign Coach
             </button>
@@ -944,7 +948,7 @@ export function PlayersClient() {
             <button
               type="button"
               onClick={() => { setBulkAssignAcademyOpen(true); setBulkAssignAcademyId(""); }}
-              className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+              className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors cursor-pointer"
             >
               Assign Academy
             </button>
@@ -952,7 +956,7 @@ export function PlayersClient() {
           <button
             type="button"
             onClick={handleExportCsv}
-            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:bg-white/5 transition-colors cursor-pointer"
           >
             Export CSV
           </button>
@@ -960,7 +964,7 @@ export function PlayersClient() {
             <button
               type="button"
               onClick={() => setBulkRemoveOpen(true)}
-              className="px-3 py-1.5 text-xs font-semibold text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+              className="px-3 py-1.5 text-xs font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors cursor-pointer"
             >
               Remove Selected
             </button>
@@ -968,7 +972,7 @@ export function PlayersClient() {
           <button
             type="button"
             onClick={clearSelection}
-            className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer sm:ml-auto"
+            className="text-xs text-hp-paper/50 hover:text-hp-paper transition-colors cursor-pointer sm:ml-auto"
           >
             Clear
           </button>
@@ -976,10 +980,10 @@ export function PlayersClient() {
       )}
 
       {/* Table */}
-      <div className="bg-surface rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+      <div className="bg-hp-surface border border-white/8 overflow-hidden">
+        <div className="px-6 py-4 border-b border-white/12 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
           <div className="relative w-full sm:max-w-[300px]">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-hp-paper/40 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input
@@ -1011,7 +1015,7 @@ export function PlayersClient() {
             <button
               type="button"
               onClick={clearAllFilters}
-              className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer whitespace-nowrap"
+              className="text-xs text-hp-paper/50 hover:text-hp-paper underline transition-colors cursor-pointer whitespace-nowrap"
             >
               Reset filters
             </button>
@@ -1020,14 +1024,14 @@ export function PlayersClient() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-zinc-700/60">
+              <tr className="border-b border-white/12">
                 <th className="text-center px-4 py-3 pl-6 whitespace-nowrap">
                   <input
                     type="checkbox"
                     checked={allSelected}
                     ref={(el) => { if (el) el.indeterminate = someSelected; }}
                     onChange={toggleAll}
-                    className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+                    className="w-3.5 h-3.5 accent-hp-cg cursor-pointer"
                     title="Select all"
                   />
                 </th>
@@ -1036,7 +1040,7 @@ export function PlayersClient() {
                 <SortableHeader label="Plan" sortKey="plan" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                 <SortableHeader label="End / Renewal" sortKey="endDate" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                <th className="sticky right-0 z-10 bg-surface text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">
+                <th className="sticky right-0 z-10 bg-hp-surface text-left text-xs font-semibold text-hp-paper/70 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">
                   Actions
                 </th>
               </tr>
@@ -1046,7 +1050,7 @@ export function PlayersClient() {
             </tbody>
           </table>
           {filteredPlayers.length === 0 && (
-            <div className="px-6 py-16 text-center text-zinc-400 text-sm">
+            <div className="px-6 py-16 text-center text-hp-paper/50 text-sm">
               {searchTerm ? `No players match "${search.trim()}".` : "No players in your scope."}
             </div>
           )}
@@ -1056,7 +1060,7 @@ export function PlayersClient() {
             hidden below a single page — nothing to page through, so no controls for it. */}
         <PaginationFooter
           label={
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-hp-paper/50">
               Showing {filteredPlayers.length === 0 ? 0 : (currentPage - 1) * playersPerPage + 1}–{Math.min(currentPage * playersPerPage, filteredPlayers.length)} of {filteredPlayers.length}
             </p>
           }
@@ -1065,7 +1069,7 @@ export function PlayersClient() {
           onPageChange={setPage}
           itemsPerPage={playersPerPage}
           onItemsPerPageChange={(n) => { setPlayersPerPage(n); setPage(1); }}
-          className="px-6 py-3 border-t border-zinc-700/60"
+          className="px-6 py-3 border-t border-white/12"
         />
       </div>
     </div>

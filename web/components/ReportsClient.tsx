@@ -179,13 +179,13 @@ export function ReportsClient() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Reports</h1>
+          <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Reports</h1>
         </div>
       </div>
 
       {/* Stats strip */}
       <StatsGrid columns={4}>
-        <StatCard label="Total reports" value={String(reports.length)} color="text-white" />
+        <StatCard label="Total reports" value={String(reports.length)} color="text-hp-paper" />
         <StatCard label="This month" value={String(reportsThisMonth)} color="text-pace-green" />
         <StatCard label="Players covered" value={String(playersWithReports)} color="text-blue-400" />
         <StatCard label="Peak speed" value={`${maxSpeed} km/h`} color="text-amber" />
@@ -196,10 +196,10 @@ export function ReportsClient() {
         <button
           type="button"
           onClick={() => setPlayerFilter("all")}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+          className={`px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
             playerFilter === "all"
-              ? "bg-pace-green text-black"
-              : "bg-surface text-zinc-400 hover:text-white"
+              ? "bg-hp-cg text-hp-paper"
+              : "bg-hp-surface text-hp-paper/45 hover:text-hp-paper"
           }`}
         >
           All players
@@ -212,19 +212,19 @@ export function ReportsClient() {
               key={p.id}
               type="button"
               onClick={() => selectPlayerFilter(p)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
                 playerFilter === p.id
-                  ? "bg-pace-green text-black"
-                  : "bg-surface text-zinc-400 hover:text-white"
+                  ? "bg-hp-cg text-hp-paper"
+                  : "bg-hp-surface text-hp-paper/45 hover:text-hp-paper"
               }`}
             >
               <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 ${
-                playerFilter === p.id ? "bg-black/20 text-black" : "bg-zinc-700 text-zinc-300"
+                playerFilter === p.id ? "bg-hp-paper/20 text-hp-paper" : "bg-white/10 text-hp-paper/70"
               }`}>
                 {initials(p.name)}
               </span>
               {p.name.split(" ")[0]}
-              <span className={`text-[10px] ${playerFilter === p.id ? "text-black/60" : "text-zinc-600"}`}>
+              <span className={`text-[10px] ${playerFilter === p.id ? "text-hp-paper/70" : "text-hp-paper/35"}`}>
                 {count}
               </span>
             </button>
@@ -239,7 +239,7 @@ export function ReportsClient() {
           placeholder="Search reports…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-48 bg-surface rounded-xl px-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
+          className="flex-1 min-w-48 bg-hp-surface px-4 py-2.5 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none text-sm"
         />
         <div className="flex gap-2 flex-wrap">
           {(["All", ...REPORT_TYPES] as const).map((t) => (
@@ -247,12 +247,12 @@ export function ReportsClient() {
               key={t}
               type="button"
               onClick={() => setTypeFilter(t)}
-              className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-colors cursor-pointer ${
+              className={`px-3 py-2 text-xs font-semibold border transition-colors cursor-pointer ${
                 typeFilter === t
                   ? t === "All"
-                    ? "bg-pace-green text-black border-pace-green"
+                    ? "bg-hp-cg text-hp-paper border-hp-cg"
                     : `${TYPE_STYLES[t as ReportType]} border-current`
-                  : "bg-surface text-zinc-400 border-zinc-700 hover:text-white hover:border-zinc-500"
+                  : "bg-hp-surface text-hp-paper/45 border-white/12 hover:text-hp-paper hover:border-white/25"
               }`}
             >
               {t !== "All" && (
@@ -265,7 +265,7 @@ export function ReportsClient() {
       </div>
 
       {/* Results count */}
-      <p className="text-xs text-zinc-500 mb-5">
+      <p className="text-xs text-hp-paper/45 mb-5">
         {filtered.length} report{filtered.length !== 1 ? "s" : ""}
         {typeFilter !== "All" ? ` · ${typeFilter}` : ""}
         {playerFilter !== "all" ? ` · ${playerById(playerFilter)?.name}` : ""}
@@ -273,10 +273,10 @@ export function ReportsClient() {
 
       {/* Report list — collapsible by coach → player */}
       {filtered.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-16 text-center">
-          <p className="text-zinc-400 text-sm">No reports match your filters.</p>
+        <div className="bg-hp-surface p-16 text-center">
+          <p className="text-hp-paper/45 text-sm">No reports match your filters.</p>
           <button type="button" onClick={() => { setSearch(""); setTypeFilter("All"); setPlayerFilter("all"); }}
-            className="mt-4 px-4 py-2 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-xl hover:border-zinc-400 transition-colors cursor-pointer">
+            className="mt-4 px-4 py-2 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-white/25 transition-colors cursor-pointer">
             Clear filters
           </button>
         </div>
@@ -289,8 +289,8 @@ export function ReportsClient() {
             return (
               <div
                 key={group.coachName}
-                className={`bg-surface rounded-2xl border transition-colors ${
-                  isCoachOpen ? "border-zinc-600" : "border-transparent hover:border-zinc-800"
+                className={`bg-hp-surface border transition-colors ${
+                  isCoachOpen ? "border-white/15" : "border-transparent hover:border-white/8"
                 }`}
               >
                 {!isSingleCoachView && (
@@ -299,12 +299,12 @@ export function ReportsClient() {
                     onClick={() => setExpandedCoach(isCoachOpen ? null : group.coachName)}
                     className="w-full flex items-center gap-3 px-5 py-4 text-left cursor-pointer select-none"
                   >
-                    <svg className={`text-zinc-500 flex-shrink-0 transition-transform duration-200 ${isCoachOpen ? "rotate-90" : ""}`}
+                    <svg className={`text-hp-paper/45 flex-shrink-0 transition-transform duration-200 ${isCoachOpen ? "rotate-90" : ""}`}
                       width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                       <path d="m9 18 6-6-6-6" />
                     </svg>
-                    <span className="flex-1 text-white font-bold text-sm">👤 {group.coachName}</span>
-                    <span className="text-xs text-zinc-500">
+                    <span className="flex-1 text-hp-paper font-bold text-sm">👤 {group.coachName}</span>
+                    <span className="text-xs text-hp-paper/45">
                       {group.groups.length} player{group.groups.length !== 1 ? "s" : ""} · {totalReports} report{totalReports !== 1 ? "s" : ""}
                     </span>
                   </button>
@@ -325,8 +325,8 @@ export function ReportsClient() {
                       return (
                         <div
                           key={player.id}
-                          className={`bg-ink rounded-xl border transition-colors ${
-                            isPlayerOpen ? "border-zinc-600" : "border-transparent hover:border-zinc-700"
+                          className={`bg-hp-ink border transition-colors ${
+                            isPlayerOpen ? "border-white/15" : "border-transparent hover:border-white/12"
                           }`}
                         >
                           <button
@@ -334,15 +334,15 @@ export function ReportsClient() {
                             onClick={() => setExpandedPlayer(isPlayerOpen ? null : player.id)}
                             className="w-full flex items-center gap-3 px-4 py-3 text-left cursor-pointer select-none"
                           >
-                            <svg className={`text-zinc-500 flex-shrink-0 transition-transform duration-200 ${isPlayerOpen ? "rotate-90" : ""}`}
+                            <svg className={`text-hp-paper/45 flex-shrink-0 transition-transform duration-200 ${isPlayerOpen ? "rotate-90" : ""}`}
                               width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                               <path d="m9 18 6-6-6-6" />
                             </svg>
-                            <div className="w-7 h-7 rounded-full bg-pace-green/15 flex items-center justify-center text-pace-green text-[10px] font-bold flex-shrink-0">
+                            <div className="w-7 h-7 rounded-full bg-hp-cg/15 flex items-center justify-center text-hp-cg text-[10px] font-bold flex-shrink-0">
                               {initials(player.name)}
                             </div>
-                            <span className="flex-1 text-white font-semibold text-sm">{player.name}</span>
-                            <span className="text-xs text-zinc-500">
+                            <span className="flex-1 text-hp-paper font-semibold text-sm">{player.name}</span>
+                            <span className="text-xs text-hp-paper/45">
                               {pReports.length} report{pReports.length !== 1 ? "s" : ""}
                             </span>
                           </button>
@@ -367,13 +367,13 @@ export function ReportsClient() {
                     })}
                     {totalGroupPages > 1 && (
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-                        <p className="text-xs text-zinc-500">Page {currentGroupPage} of {totalGroupPages}</p>
+                        <p className="text-xs text-hp-paper/45">Page {currentGroupPage} of {totalGroupPages}</p>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
                             disabled={currentGroupPage === 1}
-                            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                            className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/12 hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                           >
                             ← Prev
                           </button>
@@ -381,7 +381,7 @@ export function ReportsClient() {
                             type="button"
                             onClick={() => setPage((p) => Math.min(totalGroupPages, p + 1))}
                             disabled={currentGroupPage === totalGroupPages}
-                            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                            className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/12 hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                           >
                             Next →
                           </button>
@@ -400,18 +400,18 @@ export function ReportsClient() {
       {/* Speed leaderboard */}
       <div className="mt-10">
         <div className="flex items-center gap-3 mb-4">
-          <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">Speed Leaderboard</span>
-          <div className="flex-1 h-px bg-zinc-800" />
+          <span className="text-xs font-bold uppercase tracking-wider text-hp-paper/45">Speed Leaderboard</span>
+          <div className="flex-1 h-px bg-white/5" />
         </div>
-        <div className="bg-surface rounded-2xl overflow-hidden">
+        <div className="bg-hp-surface overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-700/50">
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">#</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Player</th>
-                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">Age Group</th>
-                <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Peak Speed</th>
-                <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-zinc-500">Reports</th>
+              <tr className="border-b border-white/10">
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-hp-paper/45">#</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-hp-paper/45">Player</th>
+                <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-hp-paper/45">Age Group</th>
+                <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-hp-paper/45">Peak Speed</th>
+                <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-hp-paper/45">Reports</th>
               </tr>
             </thead>
             <tbody>
@@ -425,25 +425,25 @@ export function ReportsClient() {
                 .filter((row) => row.peak !== null)
                 .sort((a, b) => (b.peak ?? 0) - (a.peak ?? 0))
                 .map((row, i) => (
-                  <tr key={row.player.id} className="border-b border-zinc-700/30 hover:bg-ink transition-colors">
-                    <td className="px-5 py-3.5 text-zinc-500 text-sm font-mono">{i + 1}</td>
+                  <tr key={row.player.id} className="border-b border-white/8 hover:bg-hp-ink transition-colors">
+                    <td className="px-5 py-3.5 text-hp-paper/45 text-sm font-mono">{i + 1}</td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-pace-green/15 flex items-center justify-center text-pace-green text-[10px] font-bold flex-shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-hp-cg/15 flex items-center justify-center text-hp-cg text-[10px] font-bold flex-shrink-0">
                           {initials(row.player.name)}
                         </div>
-                        <Link href={`/players/${row.player.id}`} className="text-white font-medium hover:text-pace-green transition-colors text-sm">
+                        <Link href={`/players/${row.player.id}`} className="text-hp-paper font-medium hover:text-hp-cg transition-colors text-sm">
                           {row.player.name}
                         </Link>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-zinc-400 text-xs">{row.player.ageGroup}</td>
+                    <td className="px-5 py-3.5 text-hp-paper/45 text-xs">{row.player.ageGroup}</td>
                     <td className="px-5 py-3.5 text-right">
                       <span className={`font-mono font-bold text-sm ${i === 0 ? "text-amber" : "text-pace-green"}`}>
                         {row.peak} km/h
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-right text-zinc-400 text-sm">{row.totalReports}</td>
+                    <td className="px-5 py-3.5 text-right text-hp-paper/45 text-sm">{row.totalReports}</td>
                   </tr>
                 ))}
             </tbody>
@@ -471,8 +471,8 @@ function ReportCard({
 }) {
   return (
     <div
-      className={`bg-surface rounded-2xl border transition-colors ${
-        isOpen ? "border-zinc-600" : "border-transparent hover:border-zinc-800"
+      className={`bg-hp-surface border transition-colors ${
+        isOpen ? "border-white/15" : "border-transparent hover:border-white/8"
       }`}
     >
       <button
@@ -481,7 +481,7 @@ function ReportCard({
         className="w-full text-left p-5 cursor-pointer"
       >
         {r.sessionDate && (
-          <div className="mb-2 text-xs font-semibold text-white">
+          <div className="mb-2 text-xs font-semibold text-hp-paper">
             🏏 Session: {formatDateTime(r.sessionDate)}
           </div>
         )}
@@ -493,16 +493,16 @@ function ReportCard({
                 {r.type}
               </span>
               <ReportStatusBadge status={r.reviewStatus} />
-              <span className="text-zinc-500 text-xs">Report: {formatDate(r.date)}</span>
+              <span className="text-hp-paper/45 text-xs">Report: {formatDate(r.date)}</span>
             </div>
 
-            <p className="text-zinc-300 text-sm leading-relaxed line-clamp-2 mb-2">
+            <p className="text-hp-paper/70 text-sm leading-relaxed line-clamp-2 mb-2">
               {r.summary}
             </p>
 
             <div className="flex flex-wrap gap-1.5">
               {r.tags.map((t) => (
-                <span key={t} className="px-2 py-0.5 rounded-md text-xs bg-ink text-zinc-500 border border-zinc-700/50">
+                <span key={t} className="px-2 py-0.5 rounded-md text-xs bg-hp-ink text-hp-paper/45 border border-white/10">
                   {t}
                 </span>
               ))}
@@ -520,42 +520,42 @@ function ReportCard({
             {r.speedKmh !== null ? (
               <>
                 <div className="text-pace-green font-mono font-bold text-sm">{r.speedKmh}</div>
-                <div className="text-zinc-600 text-xs">km/h</div>
+                <div className="text-hp-paper/35 text-xs">km/h</div>
               </>
             ) : (
-              <div className="text-zinc-600 text-xs mt-1">—</div>
+              <div className="text-hp-paper/35 text-xs mt-1">—</div>
             )}
-            <span className={`text-zinc-400 text-sm transition-transform duration-200 inline-block mt-2 ${isOpen ? "rotate-180" : ""}`}>▾</span>
+            <span className={`text-hp-paper/45 text-sm transition-transform duration-200 inline-block mt-2 ${isOpen ? "rotate-180" : ""}`}>▾</span>
           </div>
         </div>
       </button>
 
       {isOpen && (
-        <div className="px-5 pb-5 border-t border-zinc-700/40 pt-4">
+        <div className="px-5 pb-5 border-t border-white/8 pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-            <div className="sm:col-span-2 bg-ink rounded-xl p-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Full Analysis</p>
+            <div className="sm:col-span-2 bg-hp-ink p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-2">Full Analysis</p>
               <ReportReview report={r} playerId={player.id} canReview onUpdated={onUpdated} />
             </div>
 
-            <div className="bg-ink rounded-xl p-4 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">Metrics</p>
+            <div className="bg-hp-ink p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-hp-paper/45">Metrics</p>
               <div>
-                <div className="text-xs text-zinc-500 mb-0.5">Ball Speed {r.ballTracking?.measured && <span className="text-pace-green">(measured)</span>}</div>
-                <div className={`text-lg font-bold font-mono ${r.speedKmh !== null ? "text-pace-green" : "text-zinc-600"}`}>
+                <div className="text-xs text-hp-paper/45 mb-0.5">Ball Speed {r.ballTracking?.measured && <span className="text-pace-green">(measured)</span>}</div>
+                <div className={`text-lg font-bold font-mono ${r.speedKmh !== null ? "text-pace-green" : "text-hp-paper/35"}`}>
                   {r.speedKmh !== null ? `${r.speedKmh} km/h` : "—"}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-zinc-500 mb-0.5">Front Knee Angle</div>
-                <div className={`text-lg font-bold font-mono ${r.frontKneeAngleDeg !== null ? "text-blue-400" : "text-zinc-600"}`}>
+                <div className="text-xs text-hp-paper/45 mb-0.5">Front Knee Angle</div>
+                <div className={`text-lg font-bold font-mono ${r.frontKneeAngleDeg !== null ? "text-blue-400" : "text-hp-paper/35"}`}>
                   {r.frontKneeAngleDeg !== null ? `${r.frontKneeAngleDeg}°` : "—"}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-zinc-500 mb-0.5">Player</div>
-                <div className="text-sm text-white font-medium">{player.name}</div>
-                <div className="text-xs text-zinc-500">{player.ageGroup} · {player.club}</div>
+                <div className="text-xs text-hp-paper/45 mb-0.5">Player</div>
+                <div className="text-sm text-hp-paper font-medium">{player.name}</div>
+                <div className="text-xs text-hp-paper/45">{player.ageGroup} · {player.club}</div>
               </div>
               {(r.actionType || r.injuryRisk) && (
                 <div className="flex flex-wrap gap-2 pt-1">
@@ -577,13 +577,13 @@ function ReportCard({
           </div>
 
           {r.metrics && (
-            <div className="bg-ink rounded-xl p-4 mb-4">
+            <div className="bg-hp-ink p-4 mb-4">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                  Biomechanics {r.angleUsed && <span className="normal-case text-zinc-600">· {r.angleUsed} camera</span>}
+                <p className="text-xs font-semibold uppercase tracking-wider text-hp-paper/45">
+                  Biomechanics {r.angleUsed && <span className="normal-case text-hp-paper/35">· {r.angleUsed} camera</span>}
                 </p>
                 {r.overallScore !== null && r.overallScore !== undefined && (
-                  <span className="text-sm font-bold font-mono text-white">{r.overallScore}<span className="text-zinc-600 text-xs">/100</span></span>
+                  <span className="text-sm font-bold font-mono text-hp-paper">{r.overallScore}<span className="text-hp-paper/35 text-xs">/100</span></span>
                 )}
               </div>
 
@@ -592,11 +592,11 @@ function ReportCard({
                 {(["approach", "deliveryStride", "release", "followThrough"] as const).map((zone) => {
                   const score = r.metrics?.zoneScores[zone] ?? null;
                   return (
-                    <div key={zone} className="bg-surface rounded-lg p-2.5 text-center">
-                      <div className={`text-lg font-bold font-mono ${score === null ? "text-zinc-600" : score >= 70 ? "text-pace-green" : score >= 40 ? "text-amber" : "text-red-400"}`}>
+                    <div key={zone} className="bg-hp-surface p-2.5 text-center">
+                      <div className={`text-lg font-bold font-mono ${score === null ? "text-hp-paper/35" : score >= 70 ? "text-pace-green" : score >= 40 ? "text-amber" : "text-red-400"}`}>
                         {score ?? "—"}
                       </div>
-                      <div className="text-[10px] text-zinc-500 uppercase tracking-wide">{ZONE_LABELS[zone]}</div>
+                      <div className="text-[10px] text-hp-paper/45 uppercase tracking-wide">{ZONE_LABELS[zone]}</div>
                     </div>
                   );
                 })}
@@ -606,8 +606,8 @@ function ReportCard({
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 mb-4">
                 {r.metrics.metrics.filter((m) => m.value !== null).map((m) => (
                   <div key={m.id} className="flex items-center justify-between gap-2 text-xs">
-                    <span className="text-zinc-500 truncate">{m.label}</span>
-                    <span className="text-white font-mono flex-shrink-0">{m.value}{m.unit.startsWith("°") ? "" : " "}{m.unit}</span>
+                    <span className="text-hp-paper/45 truncate">{m.label}</span>
+                    <span className="text-hp-paper font-mono flex-shrink-0">{m.value}{m.unit.startsWith("°") ? "" : " "}{m.unit}</span>
                   </div>
                 ))}
               </div>
@@ -616,7 +616,7 @@ function ReportCard({
               {r.metrics.flags.length > 0 && (
                 <div className="space-y-1.5 mb-4">
                   {r.metrics.flags.map((flag, i) => (
-                    <p key={i} className="text-xs text-zinc-400 leading-relaxed">{flag}</p>
+                    <p key={i} className="text-xs text-hp-paper/45 leading-relaxed">{flag}</p>
                   ))}
                 </div>
               )}
@@ -627,49 +627,49 @@ function ReportCard({
                   {r.skeletonImages.map((img) => (
                     <a key={img.phase} href={img.url} target="_blank" rel="noopener noreferrer" className="block">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={img.url} alt={`Skeleton overlay at ${img.phase}`} className="w-24 h-auto rounded-lg border border-zinc-700" />
-                      <p className="text-[10px] text-zinc-500 text-center mt-1">{SKELETON_PHASE_LABELS[img.phase]}</p>
+                      <img src={img.url} alt={`Skeleton overlay at ${img.phase}`} className="w-24 h-auto border border-white/12" />
+                      <p className="text-[10px] text-hp-paper/45 text-center mt-1">{SKELETON_PHASE_LABELS[img.phase]}</p>
                     </a>
                   ))}
                 </div>
               )}
 
-              <p className="text-[10px] text-zinc-600 leading-relaxed">{r.metrics.disclaimer}</p>
+              <p className="text-[10px] text-hp-paper/35 leading-relaxed">{r.metrics.disclaimer}</p>
             </div>
           )}
 
           {r.ballTracking && (r.ballTracking.pitchMapImageUrl || r.ballTracking.bounceLengthZone) && (
-            <div className="bg-ink rounded-xl p-4 mb-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Pitch Map</p>
+            <div className="bg-hp-ink p-4 mb-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-3">Pitch Map</p>
               <div className="flex flex-wrap items-start gap-4">
                 {r.ballTracking.pitchMapImageUrl && (
                   /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={r.ballTracking.pitchMapImageUrl} alt="Pitch map" className="w-40 h-auto rounded-lg border border-zinc-700" />
+                  <img src={r.ballTracking.pitchMapImageUrl} alt="Pitch map" className="w-40 h-auto border border-white/12" />
                 )}
                 <div>
                   {r.ballTracking.bounceLengthZone && (
-                    <p className="text-sm text-white font-semibold mb-1">
+                    <p className="text-sm text-hp-paper font-semibold mb-1">
                       {r.ballTracking.bounceLengthZone}{r.ballTracking.bounceLineApprox ? ` · ${r.ballTracking.bounceLineApprox}` : ""}
                     </p>
                   )}
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-hp-paper/45">
                     Confidence: {r.ballTracking.confidence}
                   </p>
-                  {r.ballTracking.note && <p className="text-xs text-zinc-500 mt-1 leading-relaxed max-w-sm">{r.ballTracking.note}</p>}
+                  {r.ballTracking.note && <p className="text-xs text-hp-paper/45 mt-1 leading-relaxed max-w-sm">{r.ballTracking.note}</p>}
                 </div>
               </div>
             </div>
           )}
 
           {r.drills && r.drills.length > 0 && (
-            <div className="bg-ink rounded-xl p-4 mb-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Recommended Drills</p>
+            <div className="bg-hp-ink p-4 mb-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-3">Recommended Drills</p>
               <div className="space-y-3">
                 {r.drills.map((drill) => (
                   <div key={drill.id}>
-                    <p className="text-sm text-white font-semibold">{drill.name}</p>
-                    <p className="text-xs text-zinc-500 mb-1">Focus: {drill.focus}</p>
-                    <p className="text-xs text-zinc-400 leading-relaxed">{drill.description}</p>
+                    <p className="text-sm text-hp-paper font-semibold">{drill.name}</p>
+                    <p className="text-xs text-hp-paper/45 mb-1">Focus: {drill.focus}</p>
+                    <p className="text-xs text-hp-paper/45 leading-relaxed">{drill.description}</p>
                   </div>
                 ))}
               </div>
@@ -678,19 +678,19 @@ function ReportCard({
 
           <div className="flex flex-wrap items-center gap-3">
             <Link href={`/players/${player.id}`}
-              className="px-4 py-2 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
+              className="px-4 py-2 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors">
               View Player
             </Link>
             <Link href={`/players/${player.id}/reports`}
-              className="px-4 py-2 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:border-pace-green hover:text-pace-green transition-colors">
+              className="px-4 py-2 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors">
               All Reports for {player.name.split(" ")[0]}
             </Link>
             <Link href={`/players/${player.id}/action-plans`}
-              className="px-4 py-2 text-xs font-semibold bg-pace-green/10 text-pace-green border border-pace-green/30 rounded-lg hover:bg-pace-green/20 transition-colors">
+              className="px-4 py-2 text-xs font-semibold bg-hp-cg/10 text-hp-cg border border-hp-cg/30 hover:bg-hp-cg/20 transition-colors">
               Action Plans
             </Link>
           </div>
-          <div className="mt-3 pt-3 border-t border-zinc-700/40">
+          <div className="mt-3 pt-3 border-t border-white/8">
             <ReportActions
               reportId={r.id}
               playerId={player.id}
