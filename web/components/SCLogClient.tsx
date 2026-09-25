@@ -15,7 +15,7 @@ const TYPE_STYLES: Record<SCWorkoutType, string> = {
   Conditioning: "bg-fire/20 text-fire",
   "Speed & Agility": "bg-amber/20 text-amber",
   Mobility: "bg-pace-green/20 text-pace-green",
-  Recovery: "bg-zinc-700 text-zinc-300",
+  Recovery: "bg-white/10 text-hp-paper/70",
 };
 
 export function SCLogClient({ player }: { player: Player }) {

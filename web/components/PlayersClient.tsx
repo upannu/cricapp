@@ -86,7 +86,7 @@ const statusStyles: Record<PlayerStatus, string> = {
 const planStyles: Record<string, string> = {
   "Coach Pro":  "border-pace-green/50 text-pace-green",
   "Player Pro": "border-blue-400/50 text-blue-400",
-  Free:         "border-zinc-600/50 text-zinc-400",
+  Free:         "border-white/15 text-hp-paper/45",
 };
 
 export function PlayersClient() {
