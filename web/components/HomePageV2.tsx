@@ -310,6 +310,7 @@ function ChooseRoute() {
         'Build a lifelong cricket record',
       ],
       cta: 'CLAIM YOUR CRICKET PASSPORT',
+      href: '#player-passport',
       accent: 'red',
       sub: null,
     },
@@ -323,6 +324,7 @@ function ChooseRoute() {
         'Connect observation → training → progress',
       ],
       cta: 'STREAMLINE YOUR SQUAD',
+      href: '/organisations/coaches',
       accent: 'navy',
       sub: null,
     },
@@ -336,6 +338,7 @@ function ChooseRoute() {
         'Build a connected cricket ecosystem',
       ],
       cta: 'DIGITISE YOUR ASSOCIATION',
+      href: '/organisations',
       accent: 'gold',
       sub: 'CLUBS · SCHOOLS · ACADEMIES · ASSOCIATIONS · CRICKET BOARDS',
     },
@@ -402,7 +405,7 @@ function ChooseRoute() {
               )}
               <div className="mt-8">
                 <a
-                  href="#"
+                  href={route.href}
                   className={`inline-flex items-center gap-2 font-display font-bold text-xs tracking-widest uppercase transition-colors ${
                     route.accent === 'gold'
                       ? 'text-hp-ca hover:text-hp-ca/70'
@@ -923,7 +926,7 @@ function PlayerPassport() {
   ]
 
   return (
-    <section className="bg-[#0A0C10] py-28">
+    <section id="player-passport" className="bg-[#0A0C10] py-28 scroll-mt-24">
       <div className="max-w-[1440px] mx-auto px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
           <div>
@@ -1851,9 +1854,9 @@ function InsightsSection() {
 
 function FinalCTA() {
   const routes = [
-    { role: 'PLAYER', cta: 'CLAIM YOUR CRICKET PASSPORT', accent: 'red' },
-    { role: 'COACH', cta: 'STREAMLINE YOUR SQUAD', accent: 'navy' },
-    { role: 'ORGANISATION', cta: 'DIGITISE YOUR ASSOCIATION', accent: 'gold' },
+    { role: 'PLAYER', cta: 'CLAIM YOUR CRICKET PASSPORT', href: '#player-passport', accent: 'red' },
+    { role: 'COACH', cta: 'STREAMLINE YOUR SQUAD', href: '/organisations/coaches', accent: 'navy' },
+    { role: 'ORGANISATION', cta: 'DIGITISE YOUR ASSOCIATION', href: '/organisations', accent: 'gold' },
   ]
 
   return (
@@ -1895,7 +1898,7 @@ function FinalCTA() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-white/5 max-w-3xl mx-auto">
-          {routes.map(({ role, cta, accent }, idx) => (
+          {routes.map(({ role, cta, href, accent }, idx) => (
             <div
               key={role}
               className="bg-hp-ink flex flex-col items-center gap-5 hover:bg-hp-surface transition-colors"
@@ -1903,7 +1906,7 @@ function FinalCTA() {
             >
               <div className="font-mono text-[9px] tracking-[0.3em] text-hp-paper/52 uppercase">{role}</div>
               <a
-                href="#"
+                href={href}
                 className={`w-full text-center font-display font-black text-sm py-3.5 tracking-widest uppercase transition-colors ${
                   accent === 'gold'
                     ? 'bg-hp-ca text-hp-ink hover:bg-hp-ca/90'
