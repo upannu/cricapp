@@ -40,7 +40,7 @@ const TYPE_STYLES: Record<BookingType, string> = {
   "Video Review": "bg-purple-500/20 text-purple-400",
   "Fitness Assessment": "bg-fire/20 text-fire",
   "Match Practice": "bg-amber/20 text-amber",
-  "Warm-up / Conditioning": "bg-zinc-700 text-zinc-300",
+  "Warm-up / Conditioning": "bg-white/10 text-hp-paper/70",
 };
 
 let _sessPlayers: Player[] = [];
@@ -392,13 +392,13 @@ export function SessionsClient() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Coaching Sessions</h1>
+          <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Coaching Sessions</h1>
         </div>
       </div>
 
       {/* Stats strip */}
       <StatsGrid columns={4}>
-        <StatCard label="Total sessions" value={sessions.length} color="text-white" />
+        <StatCard label="Total sessions" value={sessions.length} color="text-hp-paper" />
         <StatCard label="This week" value={thisWeekCount(sessions)} color="text-pace-green" />
         <StatCard label="Videos uploaded" value={totalVideos(sessions)} color="text-amber" />
         <StatCard label="Avg ball speed" value={avgSpeed(sessions)} color="text-fire" />
@@ -411,7 +411,7 @@ export function SessionsClient() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Search player, notes or type…"
-          className="flex-1 min-w-48 bg-surface rounded-xl px-4 py-2.5 text-white placeholder-zinc-500 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm"
+          className="flex-1 min-w-48 bg-hp-ink px-4 py-2.5 text-hp-paper placeholder-hp-paper/35 border border-white/12 focus:border-hp-cg focus:outline-none text-sm"
         />
         <select
           value={coachFilter}
@@ -447,7 +447,7 @@ export function SessionsClient() {
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3">
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 px-4 py-3">
           <span className="text-blue-400 text-sm font-semibold">
             {selectedIds.size} session{selectedIds.size !== 1 ? "s" : ""} selected
           </span>
@@ -456,7 +456,7 @@ export function SessionsClient() {
               type="button"
               onClick={() => setBulkGenerateOpen(true)}
               disabled={bulkGenerating}
-              className="px-3 py-1.5 text-xs font-semibold text-black bg-pace-green rounded-lg hover:opacity-90 transition-opacity disabled:opacity-60 cursor-pointer"
+              className="px-3 py-1.5 text-xs font-semibold text-black bg-pace-green hover:opacity-90 transition-opacity disabled:opacity-60 cursor-pointer"
             >
               {bulkGenerating ? (bulkGenerateProgress || "Generating…") : `Generate AI Reports (${selectedReportEligible.length})`}
             </button>
@@ -464,21 +464,21 @@ export function SessionsClient() {
           <button
             type="button"
             onClick={handleExportCsv}
-            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:bg-white/5 transition-colors cursor-pointer"
           >
             Export CSV
           </button>
           <button
             type="button"
             onClick={() => setBulkDeleteOpen(true)}
-            className="px-3 py-1.5 text-xs font-semibold text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-red-400 border border-red-500/30 hover:bg-red-500/10 transition-colors cursor-pointer"
           >
             Delete ({selectedIds.size})
           </button>
           <button
             type="button"
             onClick={clearSelection}
-            className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer sm:ml-auto"
+            className="text-xs text-hp-paper/50 hover:text-hp-paper transition-colors cursor-pointer sm:ml-auto"
           >
             Clear
           </button>
@@ -487,22 +487,22 @@ export function SessionsClient() {
 
       {/* Session table */}
       {filtered.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-16 text-center">
-          <p className="text-zinc-400 text-sm">No sessions match your filters.</p>
+        <div className="bg-hp-surface border border-white/8 p-16 text-center">
+          <p className="text-hp-paper/60 text-sm">No sessions match your filters.</p>
         </div>
       ) : (
-        <div className="bg-surface rounded-2xl overflow-hidden">
+        <div className="bg-hp-surface border border-white/8 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-700/60">
+                <tr className="border-b border-white/12">
                   <th className="px-4 py-3 pl-6 text-center whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={allSelected}
                       ref={(el) => { if (el) el.indeterminate = someSelected; }}
                       onChange={toggleAll}
-                      className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+                      className="w-3.5 h-3.5 accent-hp-cg cursor-pointer"
                       title="Select all"
                     />
                   </th>
@@ -511,8 +511,8 @@ export function SessionsClient() {
                   <SortableHeader label="Coach" sortKey="coach" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                   <SortableHeader label="Date" sortKey="date" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                   <SortableHeader label="Ball Speed" sortKey="speed" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                  <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Report</th>
-                  <th className="sticky right-0 z-10 bg-surface text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
+                  <th className="text-left text-xs font-semibold text-hp-paper/70 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Report</th>
+                  <th className="sticky right-0 z-10 bg-hp-surface text-left text-xs font-semibold text-hp-paper/70 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -525,29 +525,29 @@ export function SessionsClient() {
 
                   return (
                     <Fragment key={session.id}>
-                      <tr className={`border-b border-zinc-700/40 last:border-0 transition-colors ${isSelected ? "bg-blue-500/5" : "hover:bg-white/[0.02]"}`}>
+                      <tr className={`border-b border-white/8 last:border-0 transition-colors ${isSelected ? "bg-blue-500/5" : "hover:bg-white/[0.03]"}`}>
                         <td className="px-4 py-3 pl-6 text-center" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleSelect(session.id)}
-                            className="w-4 h-4 accent-pace-green cursor-pointer"
+                            className="w-4 h-4 accent-hp-cg cursor-pointer"
                             title="Select for bulk actions"
                           />
                         </td>
                         <td className="px-4 py-3">
                           <button type="button" onClick={() => setExpandedId(isExpanded ? null : session.id)}
                             className="flex items-center gap-3 text-left cursor-pointer group">
-                            <div className="w-9 h-9 rounded-full bg-pace-green/20 flex items-center justify-center text-pace-green text-sm font-bold flex-shrink-0">
+                            <div className="w-9 h-9 rounded-full bg-hp-cg/20 flex items-center justify-center text-hp-cg text-sm font-bold flex-shrink-0">
                               {initials}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-white text-sm font-medium whitespace-nowrap group-hover:text-pace-green transition-colors">
+                              <p className="text-hp-paper text-sm font-medium whitespace-nowrap group-hover:text-hp-cg transition-colors">
                                 {player?.name ?? "Unknown Player"}
                               </p>
-                              <p className="text-zinc-500 text-xs truncate max-w-[14rem]">{session.notes || "No notes"}</p>
+                              <p className="text-hp-paper/45 text-xs truncate max-w-[14rem]">{session.notes || "No notes"}</p>
                             </div>
-                            <span className={`text-zinc-500 text-xs transition-transform duration-200 flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`}>▾</span>
+                            <span className={`text-hp-paper/45 text-xs transition-transform duration-200 flex-shrink-0 ${isExpanded ? "rotate-180" : ""}`}>▾</span>
                           </button>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -555,10 +555,10 @@ export function SessionsClient() {
                             {session.type}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-zinc-300 text-xs whitespace-nowrap">
+                        <td className="px-4 py-3 text-hp-paper/70 text-xs whitespace-nowrap">
                           {sessionCoach ? sessionCoach.name : player ? getCoachOrAcademyLabel(player, _sessCoaches, _sessAcademies) : "—"}
                         </td>
-                        <td className="px-4 py-3 text-zinc-300 text-xs whitespace-nowrap">{formatDate(session.date)}</td>
+                        <td className="px-4 py-3 text-hp-paper/70 text-xs whitespace-nowrap">{formatDate(session.date)}</td>
                         <td className="px-4 py-3 text-xs whitespace-nowrap">
                           {session.ballSpeedKmh !== null ? (
                             <span className="text-pace-green font-mono font-semibold">{session.ballSpeedKmh} km/h</span>
@@ -566,9 +566,9 @@ export function SessionsClient() {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           {session.videos.length === 0 ? (
-                            <span className="text-xs text-zinc-600">—</span>
+                            <span className="text-xs text-hp-paper/35">—</span>
                           ) : generatingId === session.id ? (
-                            <span className="text-xs text-zinc-400">{generatingStage || "Analyzing…"}</span>
+                            <span className="text-xs text-hp-paper/50">{generatingStage || "Analyzing…"}</span>
                           ) : reportStatus[session.id] === "success" && player ? (
                             <div className="flex items-center gap-2">
                               <Link href={`/players/${player.id}/reports`} className="text-xs font-semibold text-pace-green hover:underline">
@@ -576,7 +576,7 @@ export function SessionsClient() {
                               </Link>
                               <button type="button" onClick={() => handleGenerateReport(session)}
                                 title="Generates a fresh report from this session's video — the old one stays too."
-                                className="text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer">
+                                className="text-xs text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer">
                                 🔄
                               </button>
                             </div>
@@ -587,7 +587,7 @@ export function SessionsClient() {
                               🎫 Use Credit ({player.assessmentCredits})
                             </button>
                           ) : player && !aiReportsIncludedForPlayer(player, _sessPlans, _sessAcademies, _sessCoaches) ? (
-                            <Link href={`/players/${player.id}/subscription`} className="text-xs font-semibold text-zinc-500 hover:text-white transition-colors"
+                            <Link href={`/players/${player.id}/subscription`} className="text-xs font-semibold text-hp-paper/45 hover:text-hp-paper transition-colors"
                               title="AI reports require Player Pro or higher">
                               🔒 Upgrade
                             </Link>
@@ -598,28 +598,28 @@ export function SessionsClient() {
                             </button>
                           )}
                         </td>
-                        <td className="sticky right-0 z-10 bg-surface px-4 py-3 pr-6" onClick={(e) => e.stopPropagation()}>
+                        <td className="sticky right-0 z-10 bg-hp-surface px-4 py-3 pr-6" onClick={(e) => e.stopPropagation()}>
                           <RowActionsMenu items={buildRowActions(session, player)} />
                         </td>
                       </tr>
 
                       {isExpanded && (
-                        <tr key={`${session.id}-detail`} className="border-b border-zinc-700/40 last:border-0">
-                          <td colSpan={8} className="px-5 pb-5 pt-4 bg-ink/40">
+                        <tr key={`${session.id}-detail`} className="border-b border-white/8 last:border-0">
+                          <td colSpan={8} className="px-5 pb-5 pt-4 bg-hp-ink/40">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                               {/* Coach notes */}
-                              <div className="bg-ink rounded-xl p-4">
-                                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                              <div className="bg-hp-ink p-4">
+                                <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-2">
                                   Coach Notes
                                 </p>
-                                <p className="text-sm text-zinc-300 leading-relaxed">
+                                <p className="text-sm text-hp-paper/70 leading-relaxed">
                                   {session.notes || "No notes recorded."}
                                 </p>
                               </div>
 
                               {/* Metrics */}
-                              <div className="bg-ink rounded-xl p-4">
-                                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
+                              <div className="bg-hp-ink p-4">
+                                <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-3">
                                   Metrics
                                 </p>
                                 <div className="space-y-2">
@@ -643,7 +643,7 @@ export function SessionsClient() {
                                     value={session.time ? `${session.time}${session.durationMins ? ` · ${session.durationMins} min` : ""}` : "—"}
                                   />
                                   <div className="flex items-center justify-between gap-4">
-                                    <span className="text-xs text-zinc-400">RPE</span>
+                                    <span className="text-xs text-hp-paper/45">RPE</span>
                                     {editingRpeId === session.id ? (
                                       <div className="flex flex-wrap gap-1 justify-end">
                                         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
@@ -651,8 +651,8 @@ export function SessionsClient() {
                                             key={n}
                                             type="button"
                                             onClick={() => handleSetRpe(session, n)}
-                                            className={`w-6 h-6 rounded text-[10px] font-bold border cursor-pointer ${
-                                              session.rpe === n ? "bg-pace-green border-pace-green text-black" : "bg-surface border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                                            className={`w-6 h-6 text-[10px] font-bold border cursor-pointer ${
+                                              session.rpe === n ? "bg-hp-cg border-hp-cg text-hp-paper" : "bg-hp-surface border-white/12 text-hp-paper/45 hover:border-white/30"
                                             }`}
                                           >
                                             {n}
@@ -663,7 +663,7 @@ export function SessionsClient() {
                                       <button
                                         type="button"
                                         onClick={() => setEditingRpeId(session.id)}
-                                        className="text-xs font-semibold font-mono text-white hover:text-pace-green transition-colors cursor-pointer"
+                                        className="text-xs font-semibold font-mono text-hp-paper hover:text-hp-cg transition-colors cursor-pointer"
                                       >
                                         {session.rpe != null ? `${session.rpe}/10 ✎` : "Log RPE"}
                                       </button>
@@ -674,8 +674,8 @@ export function SessionsClient() {
 
                               {/* Videos */}
                               {session.videos.length > 0 && (
-                                <div className="sm:col-span-2 bg-ink rounded-xl p-4">
-                                  <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">
+                                <div className="sm:col-span-2 bg-hp-ink p-4">
+                                  <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-3">
                                     Uploaded Videos
                                   </p>
                                   <div className="flex flex-wrap gap-3">
@@ -685,26 +685,26 @@ export function SessionsClient() {
                                       return (
                                         <div
                                           key={angle}
-                                          className={`flex items-center gap-3 px-4 py-3 rounded-xl border flex-1 min-w-40 ${
+                                          className={`flex items-center gap-3 px-4 py-3 border flex-1 min-w-40 ${
                                             vid
                                               ? "border-pace-green/40 bg-pace-green/5"
-                                              : "border-zinc-700 opacity-40"
+                                              : "border-white/12 opacity-40"
                                           }`}
                                         >
-                                          <span className={`text-sm font-bold ${vid ? "text-pace-green" : "text-zinc-500"}`}>
+                                          <span className={`text-sm font-bold ${vid ? "text-pace-green" : "text-hp-paper/45"}`}>
                                             {vid ? "✓" : "○"}
                                           </span>
                                           <div className="flex-1 min-w-0">
-                                            <div className={`text-xs font-semibold ${vid ? "text-white" : "text-zinc-500"}`}>
+                                            <div className={`text-xs font-semibold ${vid ? "text-hp-paper" : "text-hp-paper/45"}`}>
                                               {ANGLE_LABELS[angle]}
                                             </div>
                                             {vid && (
-                                              <div className="text-xs text-zinc-400 truncate max-w-36">
+                                              <div className="text-xs text-hp-paper/50 truncate max-w-36">
                                                 {vid.label}
                                               </div>
                                             )}
                                             {vid && (vid.width || vid.fps != null || vid.transcoded !== undefined) && (
-                                              <div className="text-[10px] text-zinc-500 truncate max-w-36 mt-0.5">
+                                              <div className="text-[10px] text-hp-paper/45 truncate max-w-36 mt-0.5">
                                                 {[
                                                   vid.width && vid.height ? `${vid.width}×${vid.height}` : null,
                                                   vid.fps != null ? `${vid.fps}fps` : null,
@@ -729,7 +729,7 @@ export function SessionsClient() {
                                               <button
                                                 type="button"
                                                 onClick={() => setAnnotatingVideo({ session, angle, url: vid.url! })}
-                                                className="text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                                                className="text-xs font-semibold text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer"
                                               >
                                                 ✏ Markup
                                               </button>
@@ -752,22 +752,22 @@ export function SessionsClient() {
                               return (
                                 <div className="mt-4 space-y-4">
                                   {extras.annotations.length > 0 && (
-                                    <div className="bg-ink rounded-xl p-4">
-                                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Video Markups</p>
+                                    <div className="bg-hp-ink p-4">
+                                      <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-3">Video Markups</p>
                                       <div className="flex flex-wrap gap-3">
                                         {extras.annotations.map((a) => (
                                           <a key={a.id} href={a.imageUrl} target="_blank" rel="noopener noreferrer" className="block w-32">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={a.imageUrl} alt={`Markup at ${a.timestampSec.toFixed(1)}s`} className="w-32 h-auto rounded-lg border border-zinc-700" />
-                                            {a.note && <p className="text-[10px] text-zinc-500 mt-1 truncate">{a.note}</p>}
+                                            <img src={a.imageUrl} alt={`Markup at ${a.timestampSec.toFixed(1)}s`} className="w-32 h-auto rounded-lg border border-white/12" />
+                                            {a.note && <p className="text-[10px] text-hp-paper/45 mt-1 truncate">{a.note}</p>}
                                           </a>
                                         ))}
                                       </div>
                                     </div>
                                   )}
                                   {extras.voiceNotes.length > 0 && (
-                                    <div className="bg-ink rounded-xl p-4">
-                                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Voice Notes</p>
+                                    <div className="bg-hp-ink p-4">
+                                      <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-3">Voice Notes</p>
                                       <div className="space-y-3">
                                         {extras.voiceNotes.map((n) => (
                                           <div key={n.id}>
@@ -779,7 +779,7 @@ export function SessionsClient() {
                                                     type="button"
                                                     onClick={() => handleDeleteVoiceNote(session.id, n.id)}
                                                     disabled={deletingVoiceNoteId === n.id}
-                                                    className="shrink-0 px-2 py-1 text-[10px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-md hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer"
+                                                    className="shrink-0 px-2 py-1 text-[10px] font-semibold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer"
                                                   >
                                                     {deletingVoiceNoteId === n.id ? "Deleting…" : "Confirm"}
                                                   </button>
@@ -787,7 +787,7 @@ export function SessionsClient() {
                                                     type="button"
                                                     onClick={() => setConfirmDeleteVoiceNoteId(null)}
                                                     disabled={deletingVoiceNoteId === n.id}
-                                                    className="shrink-0 px-2 py-1 text-[10px] font-semibold text-zinc-400 border border-zinc-700 rounded-md hover:text-white transition-colors cursor-pointer"
+                                                    className="shrink-0 px-2 py-1 text-[10px] font-semibold text-hp-paper/45 border border-white/12 hover:text-hp-paper transition-colors cursor-pointer"
                                                   >
                                                     Cancel
                                                   </button>
@@ -797,32 +797,32 @@ export function SessionsClient() {
                                                   type="button"
                                                   onClick={() => setConfirmDeleteVoiceNoteId(n.id)}
                                                   title="Delete this voice note"
-                                                  className="shrink-0 px-2 py-1 text-[10px] font-semibold text-zinc-500 border border-zinc-700 rounded-md hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
+                                                  className="shrink-0 px-2 py-1 text-[10px] font-semibold text-hp-paper/45 border border-white/12 hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
                                                 >
                                                   Delete
                                                 </button>
                                               )}
                                             </div>
-                                            {n.transcript && <p className="text-xs text-zinc-400 leading-relaxed">{n.transcript}</p>}
+                                            {n.transcript && <p className="text-xs text-hp-paper/50 leading-relaxed">{n.transcript}</p>}
                                           </div>
                                         ))}
                                       </div>
                                     </div>
                                   )}
                                   {extras.assessments.length > 0 && (
-                                    <div className="bg-ink rounded-xl p-4">
-                                      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Formal Assessments</p>
+                                    <div className="bg-hp-ink p-4">
+                                      <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-3">Formal Assessments</p>
                                       <div className="space-y-3">
                                         {extras.assessments.map((a) => (
                                           <div key={a.id}>
                                             <div className="flex flex-wrap gap-2 mb-1.5">
                                               {Object.entries(a.ratings).map(([cat, score]) => (
-                                                <span key={cat} className="px-2 py-0.5 rounded-md text-xs bg-surface text-zinc-300 border border-zinc-700">
+                                                <span key={cat} className="px-2 py-0.5 text-xs bg-hp-surface text-hp-paper/70 border border-white/12">
                                                   {cat}: {score}/5
                                                 </span>
                                               ))}
                                             </div>
-                                            {a.overallRecommendation && <p className="text-xs text-zinc-400 leading-relaxed">{a.overallRecommendation}</p>}
+                                            {a.overallRecommendation && <p className="text-xs text-hp-paper/50 leading-relaxed">{a.overallRecommendation}</p>}
                                           </div>
                                         ))}
                                       </div>
@@ -851,7 +851,7 @@ export function SessionsClient() {
       <PaginationFooter
         show={filtered.length > 0}
         label={
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-hp-paper/45">
             Showing {(currentPage - 1) * sessionsPerPage + 1}–{Math.min(currentPage * sessionsPerPage, filtered.length)} of {filtered.length} sessions
           </p>
         }
@@ -991,8 +991,8 @@ function MetricRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="text-xs text-zinc-400">{label}</span>
-      <span className={`text-xs font-semibold font-mono ${highlight ? "text-pace-green" : "text-white"}`}>
+      <span className="text-xs text-hp-paper/45">{label}</span>
+      <span className={`text-xs font-semibold font-mono ${highlight ? "text-pace-green" : "text-hp-paper"}`}>
         {value}
       </span>
     </div>
@@ -1000,4 +1000,4 @@ function MetricRow({
 }
 
 const selectCls =
-  "bg-surface rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm cursor-pointer";
+  "bg-hp-ink px-4 py-2.5 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none text-sm cursor-pointer";

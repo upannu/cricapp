@@ -23,9 +23,9 @@ type Draft = {
   groupSessionIds: string[];
 };
 
-const inp = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const sel = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
-const lbl = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const inp = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const sel = "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
+const lbl = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";
 
 /** Step 3 of the Memberships redesign — the New/Edit Membership form's fields (the player and
  * session type stay fixed; you wouldn't reassign an existing membership to a different player),
@@ -141,7 +141,7 @@ export function MembershipEditClient({ packId }: { packId: string }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+        <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -149,7 +149,7 @@ export function MembershipEditClient({ packId }: { packId: string }) {
   if (notFoundState || !pack || !player || !draft) {
     return (
       <div className="max-w-2xl mx-auto px-6 py-16 text-center">
-        <p className="text-white font-semibold mb-2">Membership not found</p>
+        <p className="text-hp-paper font-semibold mb-2">Membership not found</p>
         <Link href="/session-packs" className="text-pace-green text-sm font-semibold hover:underline">← Back to Memberships</Link>
       </div>
     );
@@ -161,13 +161,13 @@ export function MembershipEditClient({ packId }: { packId: string }) {
 
   return (
     <div className="max-w-3xl mx-auto px-6 py-8">
-      <Link href={`/session-packs/${pack.id}`} className="text-xs text-zinc-400 hover:text-white transition-colors mb-4 inline-block">
+      <Link href={`/session-packs/${pack.id}`} className="text-xs text-hp-paper/45 hover:text-hp-paper transition-colors mb-4 inline-block">
         ← Back to Membership
       </Link>
 
-      <div className="bg-surface rounded-2xl p-6 border border-pace-green/30">
-        <h1 className="text-white font-bold text-lg mb-1">Edit Membership</h1>
-        <p className="text-zinc-400 text-xs mb-6">{player.name} · {player.ageGroup}</p>
+      <div className="bg-hp-surface p-6 border border-hp-cg/30">
+        <h1 className="font-display font-black uppercase text-hp-paper text-lg tracking-wide mb-1">Edit Membership</h1>
+        <p className="text-hp-paper/45 text-xs mb-6">{player.name} · {player.ageGroup}</p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
           <div>
@@ -208,10 +208,10 @@ export function MembershipEditClient({ packId }: { packId: string }) {
           <div className="sm:col-span-2">
             <label className={lbl}>Squad Training Session(s) *</label>
             {!draft.academyId ? (
-              <p className="text-xs text-zinc-500">Select an academy first.</p>
+              <p className="text-xs text-hp-paper/45">Select an academy first.</p>
             ) : sessions.length === 0 ? (
-              <div className="bg-ink rounded-xl p-4">
-                <p className="text-xs text-zinc-400 mb-1">This academy has no active squad training sessions yet.</p>
+              <div className="bg-hp-ink p-4">
+                <p className="text-xs text-hp-paper/45 mb-1">This academy has no active squad training sessions yet.</p>
                 <Link href="/attendance" className="text-xs text-pace-green font-semibold hover:underline">Create one in Attendance →</Link>
               </div>
             ) : (
@@ -219,13 +219,13 @@ export function MembershipEditClient({ packId }: { packId: string }) {
                 {sessions.map((g) => {
                   const checked = draft.groupSessionIds.includes(g.id);
                   return (
-                    <label key={g.id} className={`flex items-center gap-3 rounded-xl border px-4 py-2.5 cursor-pointer transition-colors ${
-                      checked ? "border-pace-green bg-pace-green/5" : "border-zinc-700 hover:border-zinc-500"
+                    <label key={g.id} className={`flex items-center gap-3 border px-4 py-2.5 cursor-pointer transition-colors ${
+                      checked ? "border-hp-cg bg-hp-cg/5" : "border-white/12 hover:border-white/30"
                     }`}>
-                      <input type="checkbox" checked={checked} onChange={() => toggleGroupSession(g.id)} className="accent-pace-green" />
+                      <input type="checkbox" checked={checked} onChange={() => toggleGroupSession(g.id)} className="accent-hp-cg" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-white truncate">{g.name}</p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-sm font-semibold text-hp-paper truncate">{g.name}</p>
+                        <p className="text-xs text-hp-paper/45">
                           {DAY_TOKENS[g.dayOfWeek]} · {g.time} · {coaches.find((c) => c.id === g.coachId)?.name ?? "Unassigned"}
                           {g.location ? ` · ${g.location}` : ""}
                         </p>
@@ -240,7 +240,7 @@ export function MembershipEditClient({ packId }: { packId: string }) {
           <div>
             <label className={lbl}>Fee per Session ({packCurrency.toUpperCase()})</label>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-sm font-semibold">$</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-hp-paper/45 text-sm font-semibold">$</span>
               <input
                 type="number" min={0} step={5}
                 value={draft.feePerSession === 0 ? "" : draft.feePerSession}
@@ -256,18 +256,18 @@ export function MembershipEditClient({ packId }: { packId: string }) {
         </div>
 
         {draft.feePerSession > 0 && draft.totalSessions > 0 && (
-          <div className="mb-5 bg-ink rounded-xl p-4 grid grid-cols-3 gap-4 text-center">
+          <div className="mb-5 bg-hp-ink p-4 grid grid-cols-3 gap-4 text-center">
             <div>
-              <div className="text-lg font-bold text-white">{formatMoney(draft.feePerSession * draft.totalSessions, packCurrency)}</div>
-              <div className="text-xs text-zinc-500 mt-0.5">Total collected</div>
+              <div className="text-lg font-bold text-hp-paper">{formatMoney(draft.feePerSession * draft.totalSessions, packCurrency)}</div>
+              <div className="text-xs text-hp-paper/45 mt-0.5">Total collected</div>
             </div>
             <div>
               <div className="text-lg font-bold text-amber">{formatMoney(draft.feePerSession * draft.totalSessions * (feePct / 100), packCurrency)}</div>
-              <div className="text-xs text-zinc-500 mt-0.5">Platform fee ({feePct}%)</div>
+              <div className="text-xs text-hp-paper/45 mt-0.5">Platform fee ({feePct}%)</div>
             </div>
             <div>
               <div className="text-lg font-bold text-pace-green">{formatMoney(draft.feePerSession * draft.totalSessions * (1 - feePct / 100), packCurrency)}</div>
-              <div className="text-xs text-zinc-500 mt-0.5">Academy receives ({100 - feePct}%)</div>
+              <div className="text-xs text-hp-paper/45 mt-0.5">Academy receives ({100 - feePct}%)</div>
             </div>
           </div>
         )}
@@ -276,11 +276,11 @@ export function MembershipEditClient({ packId }: { packId: string }) {
 
         <div className="flex items-center gap-3">
           <button type="button" onClick={handleSave} disabled={saving}
-            className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer disabled:opacity-60">
+            className="px-6 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
             {saving ? "Saving…" : "Save Changes"}
           </button>
           <Link href={`/session-packs/${pack.id}`}
-            className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+            className="px-6 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/30 transition-colors cursor-pointer">
             Cancel
           </Link>
         </div>

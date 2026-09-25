@@ -90,32 +90,32 @@ export function CoachSubscriptionPage({ coach }: { coach: Coach }) {
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between mb-6">
-        <Link href="/coaches" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors">
+        <Link href="/coaches" className="inline-flex items-center gap-1.5 text-sm text-hp-paper/45 hover:text-hp-paper transition-colors">
           ← Back to Coaches
         </Link>
       </div>
 
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-14 h-14 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-xl flex-shrink-0">
+        <div className="w-14 h-14 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-xl flex-shrink-0">
           {initials}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white">Manage Subscription</h1>
-          <p className="text-zinc-400 text-sm">{coach.name}</p>
+          <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">Manage Subscription</h1>
+          <p className="text-hp-paper/45 text-sm">{coach.name}</p>
         </div>
       </div>
 
-      <div className="rounded-2xl p-6 mb-6 border bg-pace-green/10 border-pace-green/30">
+      <div className="p-6 mb-6 border bg-pace-green/10 border-pace-green/30">
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-pace-green/20 text-pace-green">
             {hasActiveSub ? "Active" : "Free"}
           </span>
-          <span className="text-white font-semibold">{coach.subPlan === "Coach Pro" ? "Coach Pro" : "Free"}</span>
+          <span className="text-hp-paper font-semibold">{coach.subPlan === "Coach Pro" ? "Coach Pro" : "Free"}</span>
         </div>
       </div>
 
-      <div className="bg-surface rounded-2xl p-6 mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">Choose Plan</h2>
+      <div className="bg-hp-surface p-6 mb-6">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-5">Choose Plan</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {PLANS.map((p) => {
             const isActive = selectedPlan === p.tier;
@@ -124,18 +124,18 @@ export function CoachSubscriptionPage({ coach }: { coach: Coach }) {
                 key={p.tier}
                 type="button"
                 onClick={() => setSelectedPlan(p.tier)}
-                className={`text-left p-5 rounded-xl border-2 transition-all cursor-pointer ${
-                  isActive ? "border-pace-green bg-pace-green/10" : "border-zinc-700 hover:border-zinc-500 bg-ink"
+                className={`text-left p-5 border-2 transition-all cursor-pointer ${
+                  isActive ? "border-pace-green bg-pace-green/10" : "border-white/12 hover:border-white/25 bg-hp-ink"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className={`text-sm font-bold ${isActive ? "text-pace-green" : "text-white"}`}>{p.tier}</span>
+                  <span className={`text-sm font-bold ${isActive ? "text-pace-green" : "text-hp-paper"}`}>{p.tier}</span>
                   {isActive && <span className="text-pace-green text-sm font-bold flex-shrink-0">✓</span>}
                 </div>
-                <div className="text-lg font-bold text-white mb-3">{p.price}</div>
+                <div className="text-lg font-bold text-hp-paper mb-3">{p.price}</div>
                 <ul className="space-y-1.5">
                   {p.features.map((f) => (
-                    <li key={f} className="flex items-start gap-1.5 text-xs text-zinc-400">
+                    <li key={f} className="flex items-start gap-1.5 text-xs text-hp-paper/45">
                       <span className="text-pace-green mt-0.5 flex-shrink-0">✓</span>
                       {f}
                     </li>
@@ -148,7 +148,7 @@ export function CoachSubscriptionPage({ coach }: { coach: Coach }) {
       </div>
 
       {error && (
-        <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
           {error}
         </div>
       )}
@@ -156,28 +156,28 @@ export function CoachSubscriptionPage({ coach }: { coach: Coach }) {
       <div className="flex flex-wrap items-center gap-3 mb-8">
         {hasActiveSub ? (
           <button type="button" onClick={handleManageBilling} disabled={redirecting}
-            className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+            className="px-6 py-3 text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
             {redirecting ? "Redirecting…" : "Manage Billing"}
           </button>
         ) : (
           <button type="button" onClick={handleCheckout} disabled={redirecting || !isPaidPlan(selectedPlan as PlanTier) || !planChanged}
-            className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+            className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
             {redirecting ? "Redirecting…" : `Subscribe to ${selectedPlan}`}
           </button>
         )}
         {hasBillingAccount && !hasActiveSub && (
           <button type="button" onClick={handleManageBilling} disabled={redirecting}
-            className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+            className="px-6 py-3 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
             View billing history
           </button>
         )}
-        <Link href="/coaches" className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors">
+        <Link href="/coaches" className="px-6 py-3 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors">
           Cancel
         </Link>
       </div>
 
       {hasActiveSub && (
-        <p className="text-zinc-500 text-xs -mt-4 mb-8">
+        <p className="text-hp-paper/45 text-xs -mt-4 mb-8">
           To switch plans, update your payment method, or cancel, use Manage Billing above — it opens Stripe&apos;s secure billing portal.
         </p>
       )}

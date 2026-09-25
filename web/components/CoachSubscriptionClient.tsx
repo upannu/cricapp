@@ -18,7 +18,7 @@ export function CoachSubscriptionClient() {
   if (coach === undefined) return null;
   if (!coach) {
     return (
-      <div className="max-w-3xl mx-auto px-6 py-16 text-center text-zinc-400">
+      <div className="max-w-3xl mx-auto px-6 py-16 text-center text-hp-paper/45">
         No coach profile found for this account.
       </div>
     );

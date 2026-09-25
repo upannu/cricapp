@@ -132,12 +132,12 @@ export function VoiceNoteRecorder({ sessionId, playerId, onClose, onSaved }: Pro
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface rounded-2xl p-6 max-w-md w-full">
+      <div className="bg-hp-surface p-6 max-w-md w-full">
         <div className="flex items-center justify-between mb-1">
-          <h2 className="text-lg font-bold text-white">Voice Note</h2>
-          <button type="button" onClick={onClose} className="text-zinc-500 hover:text-white text-xl leading-none cursor-pointer">×</button>
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">Voice Note</h2>
+          <button type="button" onClick={onClose} className="text-hp-paper/45 hover:text-hp-paper text-xl leading-none cursor-pointer">×</button>
         </div>
-        <p className="text-zinc-400 text-sm mb-4">
+        <p className="text-hp-paper/45 text-sm mb-4">
           {speechCtor ? "Recorded and transcribed live — edit the text after if needed." : "Recorded as audio — type up a summary below (live transcription isn't supported in this browser)."}
         </p>
 
@@ -147,24 +147,24 @@ export function VoiceNoteRecorder({ sessionId, playerId, onClose, onSaved }: Pro
             onClick={recording ? stopRecording : startRecording}
             disabled={saving}
             className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
-              recording ? "bg-red-500 animate-pulse" : "bg-pace-green"
+              recording ? "bg-red-500 animate-pulse" : "bg-hp-cg"
             }`}
           >
-            <span className="text-black font-bold text-xs">{recording ? "STOP" : "REC"}</span>
+            <span className="text-hp-paper font-bold text-xs">{recording ? "STOP" : "REC"}</span>
           </button>
-          <p className="text-xs text-zinc-500">{recording ? "Recording…" : audioBlob ? `Recorded — ${durationSec}s` : "Tap to record"}</p>
+          <p className="text-xs text-hp-paper/45">{recording ? "Recording…" : audioBlob ? `Recorded — ${durationSec}s` : "Tap to record"}</p>
         </div>
 
         {audioUrl && (
           <audio src={audioUrl} controls className="w-full mb-4" />
         )}
 
-        <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Transcript</label>
+        <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Transcript</label>
         <textarea
           value={transcript}
           onChange={(e) => setTranscript(e.target.value)}
           placeholder={speechCtor ? "Transcript will appear here as you speak…" : "Type up what you said…"}
-          className="w-full bg-ink rounded-xl px-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none text-sm resize-none h-24 mb-4"
+          className="w-full bg-hp-ink px-4 py-2.5 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none text-sm resize-none h-24 mb-4"
         />
 
         {error && <p className="text-red-400 text-xs mb-3">{error}</p>}
@@ -174,11 +174,11 @@ export function VoiceNoteRecorder({ sessionId, playerId, onClose, onSaved }: Pro
             type="button"
             onClick={handleSave}
             disabled={!audioBlob || saving || recording}
-            className="px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2.5 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors disabled:opacity-50 cursor-pointer"
           >
             {saving ? "Saving…" : "Save Voice Note"}
           </button>
-          <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white transition-colors cursor-pointer">
+          <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper transition-colors cursor-pointer">
             Cancel
           </button>
         </div>
