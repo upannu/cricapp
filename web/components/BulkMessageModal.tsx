@@ -98,22 +98,22 @@ export function BulkMessageModal({ players, onClose }: Props) {
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-surface rounded-2xl w-full max-w-lg shadow-2xl border border-zinc-700/60">
+      <div className="bg-hp-surface w-full max-w-lg shadow-2xl border border-white/12">
         {/* Header */}
-        <div className="flex items-start justify-between p-6 pb-4 border-b border-zinc-700/60">
+        <div className="flex items-start justify-between p-6 pb-4 border-b border-white/12">
           <div>
-            <h2 className="text-base font-bold text-white">Bulk Message</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
+            <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">Bulk Message</h2>
+            <p className="text-xs text-hp-paper/45 mt-0.5">
               {previewNames.join(", ")}
               {overflowCount > 0 && (
-                <span className="text-zinc-500"> +{overflowCount} more</span>
+                <span className="text-hp-paper/45"> +{overflowCount} more</span>
               )}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-zinc-400 hover:text-white transition-colors text-xl leading-none cursor-pointer mt-0.5"
+            className="text-hp-paper/45 hover:text-hp-paper transition-colors text-xl leading-none cursor-pointer mt-0.5"
           >
             ×
           </button>
@@ -124,10 +124,10 @@ export function BulkMessageModal({ players, onClose }: Props) {
             <div className="w-12 h-12 rounded-full bg-pace-green/20 text-pace-green flex items-center justify-center text-2xl mx-auto mb-3">
               ✓
             </div>
-            <p className="text-white font-semibold text-sm mb-1">
+            <p className="text-hp-paper font-semibold text-sm mb-1">
               Sent to {deliveredCount} player{deliveredCount !== 1 ? "s" : ""}
             </p>
-            <p className="text-zinc-400 text-xs">
+            <p className="text-hp-paper/45 text-xs">
               via {channel === "email" ? "Email" : "SMS"}
             </p>
             {failedCount > 0 && (
@@ -138,7 +138,7 @@ export function BulkMessageModal({ players, onClose }: Props) {
             <button
               type="button"
               onClick={onClose}
-              className="mt-5 px-5 py-2 rounded-xl text-sm font-semibold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer"
+              className="mt-5 px-5 py-2 text-sm font-semibold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer"
             >
               Done
             </button>
@@ -150,10 +150,10 @@ export function BulkMessageModal({ players, onClose }: Props) {
               <button
                 type="button"
                 onClick={() => setChannel("email")}
-                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
+                className={`flex-1 py-2 text-sm font-semibold transition-colors cursor-pointer border ${
                   channel === "email"
                     ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
-                    : "text-zinc-400 border-zinc-700 hover:border-zinc-500"
+                    : "text-hp-paper/45 border-white/12 hover:border-white/25"
                 }`}
               >
                 ✉ Email
@@ -161,10 +161,10 @@ export function BulkMessageModal({ players, onClose }: Props) {
               <button
                 type="button"
                 onClick={() => setChannel("sms")}
-                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer border ${
+                className={`flex-1 py-2 text-sm font-semibold transition-colors cursor-pointer border ${
                   channel === "sms"
-                    ? "bg-pace-green/20 text-pace-green border-pace-green/40"
-                    : "text-zinc-400 border-zinc-700 hover:border-zinc-500"
+                    ? "bg-hp-cg/20 text-hp-cg border-hp-cg/40"
+                    : "text-hp-paper/45 border-white/12 hover:border-white/25"
                 }`}
               >
                 💬 SMS
@@ -172,20 +172,20 @@ export function BulkMessageModal({ players, onClose }: Props) {
             </div>
 
             {/* Recipients summary */}
-            <div className="bg-ink rounded-xl px-4 py-3 text-xs">
+            <div className="bg-hp-ink px-4 py-3 text-xs">
               {blocked.length > 0 ? (
                 <span className="text-amber">
                   ⚠ {eligible.length} of {players.length} players have{" "}
                   {channel === "email" ? "an email address" : "a mobile number"}.{" "}
-                  <span className="text-zinc-400">
+                  <span className="text-hp-paper/45">
                     {blocked.map((p) => p.name.split(" ")[0]).join(", ")}{" "}
                     will be skipped.
                   </span>
                 </span>
               ) : (
-                <span className="text-zinc-300">
+                <span className="text-hp-paper/70">
                   Sending to{" "}
-                  <span className="text-white font-semibold">
+                  <span className="text-hp-paper font-semibold">
                     {players.length} player{players.length !== 1 ? "s" : ""}
                   </span>
                   {channel === "sms" && " via SMS"}
@@ -196,7 +196,7 @@ export function BulkMessageModal({ players, onClose }: Props) {
             {/* Subject (email only) */}
             {channel === "email" && (
               <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-1.5">
                   Subject
                 </label>
                 <input
@@ -205,14 +205,14 @@ export function BulkMessageModal({ players, onClose }: Props) {
                   onChange={(e) => setSubject(e.target.value)}
                   required
                   placeholder="e.g. Training update this week"
-                  className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-blue-500 focus:outline-none transition-colors text-sm"
+                  className="w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-blue-500 focus:outline-none transition-colors text-sm"
                 />
               </div>
             )}
 
             {/* Body */}
             <div>
-              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-semibold text-hp-paper/45 uppercase tracking-wider mb-1.5">
                 Message
               </label>
               <textarea
@@ -226,16 +226,16 @@ export function BulkMessageModal({ players, onClose }: Props) {
                     ? "Keep it under 160 characters"
                     : "Write your message..."
                 }
-                className={`w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border focus:outline-none transition-colors text-sm resize-none ${
+                className={`w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border focus:outline-none transition-colors text-sm resize-none ${
                   channel === "email"
-                    ? "border-zinc-700 focus:border-blue-500"
-                    : "border-zinc-700 focus:border-pace-green"
+                    ? "border-white/12 focus:border-blue-500"
+                    : "border-white/12 focus:border-hp-cg"
                 }`}
               />
               {channel === "sms" && (
                 <p
                   className={`text-xs mt-1 text-right ${
-                    body.length > 140 ? "text-amber" : "text-zinc-500"
+                    body.length > 140 ? "text-amber" : "text-hp-paper/45"
                   }`}
                 >
                   {body.length}/160
@@ -250,14 +250,14 @@ export function BulkMessageModal({ players, onClose }: Props) {
               <button
                 type="submit"
                 disabled={eligible.length === 0}
-                className="flex-1 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-pace-green text-black hover:opacity-90"
+                className="flex-1 py-3 text-sm font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed bg-hp-cg text-hp-paper hover:bg-hp-cg/90"
               >
                 Send to {recipientCount} player{recipientCount !== 1 ? "s" : ""}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-5 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer"
+                className="px-5 py-3 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer"
               >
                 Cancel
               </button>

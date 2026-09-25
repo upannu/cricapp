@@ -75,7 +75,7 @@ export function ReportActions({
           href={getReportPdfUrl(playerId, reportId)}
           target="_blank"
           rel="noopener noreferrer"
-          className="px-3 py-1.5 text-xs font-semibold text-pace-green border border-pace-green/30 rounded-lg hover:bg-pace-green/10 transition-colors"
+          className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors"
         >
           Download PDF
         </a>
@@ -88,19 +88,19 @@ export function ReportActions({
           onClick={handleEmail}
           disabled={emailing || reviewStatus !== "completed"}
           title={reviewStatus !== "completed" ? "Complete the coach review before emailing this report" : undefined}
-          className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           {emailing ? "Sending…" : "Email Report"}
         </button>
       )}
       {confirming ? (
         <>
-          <span className="text-xs text-zinc-400">Delete this report?</span>
+          <span className="text-xs text-hp-paper/45">Delete this report?</span>
           <button
             type="button"
             onClick={handleDelete}
             disabled={deleting}
-            className="px-3 py-1.5 text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors disabled:opacity-60 cursor-pointer"
           >
             {deleting ? "Deleting…" : "Confirm delete"}
           </button>
@@ -108,7 +108,7 @@ export function ReportActions({
             type="button"
             onClick={() => setConfirming(false)}
             disabled={deleting}
-            className="px-3 py-1.5 text-xs font-semibold text-zinc-400 border border-zinc-700 rounded-lg hover:text-white transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-hp-paper/45 border border-white/12 hover:text-hp-paper transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -117,7 +117,7 @@ export function ReportActions({
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="px-3 py-1.5 text-xs font-semibold text-zinc-500 border border-zinc-700 rounded-lg hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
+          className="px-3 py-1.5 text-xs font-semibold text-hp-paper/45 border border-white/12 hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
         >
           Delete Report
         </button>

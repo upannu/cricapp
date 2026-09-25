@@ -208,7 +208,7 @@ export function NewSessionForm({
       <div className="flex items-center justify-between mb-6">
         <Link
           href={`/players/${player.id}`}
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-hp-paper/50 hover:text-hp-paper transition-colors"
         >
           ← Back to Profile
         </Link>
@@ -216,12 +216,12 @@ export function NewSessionForm({
 
       {/* Player identity */}
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-14 h-14 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-xl flex-shrink-0">
+        <div className="w-14 h-14 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-xl flex-shrink-0">
           {initials}
         </div>
         <div>
-          <h1 className="text-xl font-bold text-white">Log Session</h1>
-          <p className="text-zinc-400 text-sm">{player.name} · {player.bowlingStyle}</p>
+          <h1 className="font-display font-black uppercase text-xl text-hp-paper tracking-wide">Log Session</h1>
+          <p className="text-hp-paper/60 text-sm">{player.name} · {player.bowlingStyle}</p>
         </div>
       </div>
 
@@ -232,19 +232,19 @@ export function NewSessionForm({
       )}
 
       {limitReached ? (
-        <div className="bg-surface rounded-2xl p-8 text-center">
-          <p className="text-white font-semibold mb-2">Monthly session limit reached</p>
-          <p className="text-zinc-400 text-sm mb-6">
+        <div className="bg-hp-surface border border-white/8 p-8 text-center">
+          <p className="text-hp-paper font-semibold mb-2">Monthly session limit reached</p>
+          <p className="text-hp-paper/60 text-sm mb-6">
             {player.name} has used {player.subscription.sessionsUsed}/{sessionsLimit} sessions on the Free plan this month. Upgrade to Player Pro for unlimited session logging.
           </p>
           {bookingId && (
-            <p className="text-zinc-400 text-sm mb-6">
+            <p className="text-hp-paper/60 text-sm mb-6">
               This session is linked to a booking that is not confirmed yet — confirming it will let this go through without upgrading.
             </p>
           )}
           <Link
             href={`/players/${player.id}/subscription`}
-            className="inline-block px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity"
+            className="inline-block px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors"
           >
             View Upgrade Options
           </Link>
@@ -252,8 +252,8 @@ export function NewSessionForm({
       ) : (
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Session details */}
-        <div className="bg-surface rounded-2xl p-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">
+        <div className="bg-hp-surface border border-white/8 p-6">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-5">
             Session Details
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -323,8 +323,8 @@ export function NewSessionForm({
               </Field>
             </div>
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
-                RPE — Rate of Perceived Exertion <span className="normal-case text-zinc-600">(optional, 1 easy – 10 maximal)</span>
+              <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">
+                RPE — Rate of Perceived Exertion <span className="normal-case text-hp-paper/35">(optional, 1 easy – 10 maximal)</span>
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
@@ -332,8 +332,8 @@ export function NewSessionForm({
                     key={n}
                     type="button"
                     onClick={() => setRpe(rpe === n ? null : n)}
-                    className={`w-9 h-9 rounded-lg text-sm font-bold border transition-colors cursor-pointer ${
-                      rpe === n ? "bg-pace-green border-pace-green text-black" : "bg-ink border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                    className={`w-9 h-9 text-sm font-bold border transition-colors cursor-pointer ${
+                      rpe === n ? "bg-hp-cg border-hp-cg text-hp-paper" : "bg-hp-ink border-white/12 text-hp-paper/60 hover:border-white/30"
                     }`}
                   >
                     {n}
@@ -345,14 +345,14 @@ export function NewSessionForm({
         </div>
 
         {/* Video upload */}
-        <div className="bg-surface rounded-2xl p-6">
+        <div className="bg-hp-surface border border-white/8 p-6">
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+            <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45">
               Video Upload — 3 Angles
             </h2>
-            <span className="text-xs text-zinc-500">{selectedCount}/3 selected</span>
+            <span className="text-xs text-hp-paper/45">{selectedCount}/3 selected</span>
           </div>
-          <p className="text-xs text-zinc-500 mb-5">
+          <p className="text-xs text-hp-paper/45 mb-5">
             Target: {MIN_FPS}+ fps · {MIN_LONG_EDGE_PX}×{MIN_SHORT_EDGE_PX} (1080p) · MP4 · all 3 angles recommended for AI analysis.
             Lower-quality clips (e.g. shared via WhatsApp) still upload — you&apos;ll just see a quality warning.
             Every clip is normalized to H.264 MP4 in your browser before upload.
@@ -368,31 +368,31 @@ export function NewSessionForm({
               return (
                 <div
                   key={cam.id}
-                  className={`rounded-xl border transition-colors ${
+                  className={`border transition-colors ${
                     status === "done"    ? "border-pace-green/40 bg-pace-green/5" :
                     status === "error"   ? "border-red-500/40 bg-red-500/5" :
                     status === "invalid" ? "border-red-500/40 bg-red-500/5" :
-                    hasFile              ? "border-zinc-500 bg-zinc-800/40" :
-                                           "border-zinc-700"
+                    hasFile              ? "border-white/25 bg-white/5" :
+                                           "border-white/12"
                   }`}
                 >
                   <div className="flex items-center gap-4 p-4">
                     {/* Status icon */}
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                    <div className={`w-10 h-10 flex items-center justify-center flex-shrink-0 ${
                       status === "done"                              ? "bg-pace-green/20" :
                       status === "error" || status === "invalid"     ? "bg-red-500/20" :
-                      busy                                           ? "bg-zinc-700" :
-                      hasFile                                        ? "bg-zinc-700" :
-                                                                       "bg-ink"
+                      busy                                           ? "bg-white/10" :
+                      hasFile                                        ? "bg-white/10" :
+                                                                       "bg-hp-ink"
                     }`}>
                       {busy ? (
-                        <div className="w-4 h-4 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+                        <div className="w-4 h-4 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
                       ) : status === "done" ? (
                         <span className="text-pace-green text-sm font-bold">✓</span>
                       ) : status === "error" || status === "invalid" ? (
                         <span className="text-red-400 text-sm font-bold">✗</span>
                       ) : (
-                        <span className="text-zinc-500">{cam.icon}</span>
+                        <span className="text-hp-paper/45">{cam.icon}</span>
                       )}
                     </div>
 
@@ -401,14 +401,14 @@ export function NewSessionForm({
                       <p className={`text-sm font-semibold ${
                         status === "done"                          ? "text-pace-green" :
                         status === "error" || status === "invalid" ? "text-red-400" :
-                        hasFile                                    ? "text-white" :
-                                                                     "text-zinc-400"
+                        hasFile                                    ? "text-hp-paper" :
+                                                                     "text-hp-paper/60"
                       }`}>
                         {cam.label}
                       </p>
                       {file ? (
                         <>
-                          <p className="text-xs text-zinc-500 truncate">
+                          <p className="text-xs text-hp-paper/45 truncate">
                             {file.name} · {(file.size / (1024 * 1024)).toFixed(1)} MB
                             {status === "checking"    && " · Checking quality…"}
                             {status === "transcoding" && ` · Converting… ${Math.round((progress ?? 0) * 100)}%`}
@@ -422,7 +422,7 @@ export function NewSessionForm({
                             <p className="text-xs text-amber mt-0.5">{qualityWarning(quality)}</p>
                           )}
                           {status === "transcoding" && (
-                            <div className="h-1 bg-zinc-700 rounded-full mt-1.5 overflow-hidden">
+                            <div className="h-1 bg-white/10 rounded-full mt-1.5 overflow-hidden">
                               <div
                                 className="h-full bg-pace-green transition-all"
                                 style={{ width: `${Math.round((progress ?? 0) * 100)}%` }}
@@ -431,17 +431,17 @@ export function NewSessionForm({
                           )}
                         </>
                       ) : (
-                        <p className="text-xs text-zinc-600">{cam.description}</p>
+                        <p className="text-xs text-hp-paper/35">{cam.description}</p>
                       )}
                     </div>
 
                     {/* Buttons — hidden while busy or done */}
                     {!busy && status !== "done" && (
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <label className={`text-xs font-semibold px-3 py-1.5 rounded-lg border cursor-pointer transition-colors ${
+                        <label className={`text-xs font-semibold px-3 py-1.5 border cursor-pointer transition-colors ${
                           hasFile
-                            ? "text-zinc-400 border-zinc-600 hover:border-zinc-400"
-                            : "text-pace-green border-pace-green/40 hover:bg-pace-green/10"
+                            ? "text-hp-paper/60 border-white/25 hover:border-white/40"
+                            : "text-hp-cg border-hp-cg/40 hover:bg-hp-cg/10"
                         }`}>
                           {hasFile ? "Change" : "Select video"}
                           <input
@@ -455,7 +455,7 @@ export function NewSessionForm({
                           <button
                             type="button"
                             onClick={() => handleFileChange(cam.id, null)}
-                            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
+                            className="text-xs font-semibold px-3 py-1.5 border border-white/12 text-hp-paper/60 hover:text-red-400 hover:border-red-500/40 transition-colors cursor-pointer"
                           >
                             Remove
                           </button>
@@ -482,7 +482,7 @@ export function NewSessionForm({
 
         {/* Error */}
         {submitError && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
+          <div className="bg-red-500/10 border border-red-500/30 px-4 py-3 text-red-400 text-sm">
             {submitError}
           </div>
         )}
@@ -492,12 +492,12 @@ export function NewSessionForm({
           <button
             type="submit"
             disabled={submitting || submitted || isBusy || hasInvalid}
-            className={`px-6 py-3 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+            className={`px-6 py-3 text-sm font-bold transition-all cursor-pointer ${
               submitted
-                ? "bg-pace-green/60 text-black"
+                ? "bg-hp-cg/60 text-hp-paper"
                 : submitting
-                  ? "bg-pace-green/80 text-black"
-                  : "bg-pace-green text-black hover:opacity-90 disabled:opacity-60"
+                  ? "bg-hp-cg/80 text-hp-paper"
+                  : "bg-hp-cg text-hp-paper hover:bg-hp-cg/90 disabled:opacity-60"
             }`}
           >
             {submitted ? "✓ Session Saved" : submitting ? (
@@ -506,7 +506,7 @@ export function NewSessionForm({
           </button>
           <Link
             href={`/players/${player.id}`}
-            className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors"
+            className="px-6 py-3 text-sm font-medium text-hp-paper/60 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors"
           >
             Cancel
           </Link>
@@ -522,7 +522,7 @@ export function NewSessionForm({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+      <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">
         {label}
       </label>
       {children}
@@ -531,7 +531,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 const inputCls =
-  "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
+  "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
 
 const selectCls =
-  "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
+  "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
