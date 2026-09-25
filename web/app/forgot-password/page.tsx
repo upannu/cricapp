@@ -25,7 +25,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-ink flex items-center justify-center p-4">
+    <div className="min-h-screen bg-hp-ink flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-3 mb-3">
@@ -33,40 +33,40 @@ export default function ForgotPasswordPage() {
             <img src="/hp-logo.svg" alt="CRIC HQ" width={48} height={36}
               style={{ height: 48, width: "auto", objectFit: "contain", mixBlendMode: "screen" }}
               className="flex-shrink-0" />
-            <span className="text-3xl font-bold tracking-widest text-white font-mono">CRIC HQ</span>
+            <span className="font-display font-black text-3xl tracking-wide text-hp-paper uppercase">CRIC HQ</span>
           </div>
-          <p className="text-zinc-400 text-sm tracking-wide">Fast Bowling Performance Platform</p>
+          <p className="font-mono text-hp-paper/52 text-xs uppercase tracking-[0.2em]">Fast Bowling Performance Platform</p>
         </div>
 
-        <div className="bg-surface rounded-2xl p-8 shadow-2xl">
+        <div className="border border-white/12 bg-hp-surface p-8">
           {done ? (
             <div className="text-center">
-              <div className="w-14 h-14 rounded-full bg-pace-green/10 border border-pace-green/30 flex items-center justify-center mx-auto mb-5">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00D4AA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <div className="w-14 h-14 rounded-full bg-hp-cg/10 border border-hp-cg/30 flex items-center justify-center mx-auto mb-5">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#E8362A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 6L9 17l-5-5" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold text-white mb-2">Check your email</h2>
-              <p className="text-zinc-400 text-sm leading-relaxed mb-6">
-                We sent a password reset link to <span className="text-white font-medium">{email}</span>.
+              <h2 className="font-display font-black uppercase text-xl text-hp-paper mb-2 tracking-wide">Check your email</h2>
+              <p className="text-hp-paper/60 text-sm leading-relaxed mb-6">
+                We sent a password reset link to <span className="text-hp-paper font-medium">{email}</span>.
               </p>
-              <Link href="/login" className="inline-block w-full bg-pace-green text-black font-bold py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm uppercase tracking-wider text-center">
+              <Link href="/login" className="inline-block w-full bg-hp-cg text-hp-paper font-display font-black py-3.5 hover:bg-hp-cg/90 transition-colors text-sm uppercase tracking-[0.12em] text-center">
                 Back to Sign In
               </Link>
             </div>
           ) : (
             <>
-              <h2 className="text-xl font-semibold text-white mb-2 text-center">Reset your password</h2>
-              <p className="text-zinc-400 text-sm text-center mb-6">Enter your email and we&apos;ll send you a reset link.</p>
+              <h2 className="font-display font-black uppercase text-2xl text-hp-paper mb-2 text-center tracking-wide">Reset your password</h2>
+              <p className="text-hp-paper/60 text-sm text-center mb-6">Enter your email and we&apos;ll send you a reset link.</p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">Email</label>
+                  <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">Email</label>
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); setError(""); }}
-                    className="w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm"
+                    className="w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm"
                     placeholder="your@email.com"
                     required
                   />
@@ -75,14 +75,14 @@ export default function ForgotPasswordPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-pace-green text-black font-bold py-3.5 rounded-xl hover:opacity-90 transition-opacity text-sm uppercase tracking-wider cursor-pointer disabled:opacity-60"
+                  className="w-full bg-hp-cg text-hp-paper font-display font-black py-3.5 hover:bg-hp-cg/90 transition-colors text-sm uppercase tracking-[0.12em] cursor-pointer disabled:opacity-60"
                 >
                   {loading ? "Sending…" : "Send Reset Link"}
                 </button>
               </form>
 
-              <p className="text-center text-zinc-400 text-sm mt-6">
-                <Link href="/login" className="text-pace-green hover:underline font-medium">← Back to Sign In</Link>
+              <p className="text-center text-hp-paper/50 text-sm mt-6">
+                <Link href="/login" className="text-hp-cg hover:underline font-medium">← Back to Sign In</Link>
               </p>
             </>
           )}
