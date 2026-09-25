@@ -21,11 +21,11 @@ export function ArticleBody({ bodyMd, articles, linkBase = "/portal/learn" }: { 
     const items = listItems.map((item, i) => <li key={i}>{renderInline(item, titleToId, linkBase)}</li>);
     blocks.push(
       listOrdered ? (
-        <ol key={`ol-${blocks.length}`} className="list-decimal pl-5 space-y-1.5 mb-4 text-zinc-300 text-sm leading-relaxed">
+        <ol key={`ol-${blocks.length}`} className="list-decimal pl-5 space-y-1.5 mb-4 text-hp-paper/70 text-sm leading-relaxed">
           {items}
         </ol>
       ) : (
-        <ul key={`ul-${blocks.length}`} className="list-disc pl-5 space-y-1.5 mb-4 text-zinc-300 text-sm leading-relaxed">
+        <ul key={`ul-${blocks.length}`} className="list-disc pl-5 space-y-1.5 mb-4 text-hp-paper/70 text-sm leading-relaxed">
           {items}
         </ul>
       )
@@ -38,7 +38,7 @@ export function ArticleBody({ bodyMd, articles, linkBase = "/portal/learn" }: { 
     const text = paragraphLines.join(" ").trim();
     if (text) {
       blocks.push(
-        <p key={`p-${blocks.length}`} className="mb-4 text-zinc-300 text-sm leading-relaxed">
+        <p key={`p-${blocks.length}`} className="mb-4 text-hp-paper/70 text-sm leading-relaxed">
           {renderInline(text, titleToId, linkBase)}
         </p>
       );
@@ -52,7 +52,7 @@ export function ArticleBody({ bodyMd, articles, linkBase = "/portal/learn" }: { 
       flushList();
       flushParagraph();
       blocks.push(
-        <h2 key={`h-${blocks.length}`} className="text-white font-bold text-base mt-6 mb-2 first:mt-0">
+        <h2 key={`h-${blocks.length}`} className="text-hp-paper font-bold text-base mt-6 mb-2 first:mt-0">
           {line.slice(3)}
         </h2>
       );
@@ -87,7 +87,7 @@ function renderInline(text: string, titleToId: Map<string, string>, linkBase: st
   while ((match = pattern.exec(text)) !== null) {
     if (match.index > lastIndex) nodes.push(text.slice(lastIndex, match.index));
     if (match[2]) {
-      nodes.push(<strong key={key++} className="text-white font-semibold">{match[2]}</strong>);
+      nodes.push(<strong key={key++} className="text-hp-paper font-semibold">{match[2]}</strong>);
     } else if (match[4]) {
       const id = titleToId.get(match[4].toLowerCase());
       nodes.push(
@@ -96,7 +96,7 @@ function renderInline(text: string, titleToId: Map<string, string>, linkBase: st
             {match[4]}
           </Link>
         ) : (
-          <strong key={key++} className="text-white font-semibold">{match[4]}</strong>
+          <strong key={key++} className="text-hp-paper font-semibold">{match[4]}</strong>
         )
       );
     }

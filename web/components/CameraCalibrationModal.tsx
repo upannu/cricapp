@@ -100,7 +100,7 @@ export function CameraCalibrationModal({ videoUrl, academyId, angle, onDone, onC
     ctx.drawImage(frame, 0, 0);
 
     if (points.length === 2) {
-      ctx.strokeStyle = "#00D4AA";
+      ctx.strokeStyle = "#E8362A";
       ctx.lineWidth = Math.max(2, frame.width / 300);
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
@@ -108,7 +108,7 @@ export function CameraCalibrationModal({ videoUrl, academyId, angle, onDone, onC
       ctx.stroke();
     }
     points.forEach((p, i) => {
-      ctx.fillStyle = i === 0 ? "#00D4AA" : "#FF6B2B";
+      ctx.fillStyle = i === 0 ? "#E8362A" : "#FF6B2B";
       ctx.beginPath();
       ctx.arc(p.x, p.y, Math.max(5, frame.width / 120), 0, Math.PI * 2);
       ctx.fill();
@@ -159,31 +159,31 @@ export function CameraCalibrationModal({ videoUrl, academyId, angle, onDone, onC
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-surface rounded-2xl p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto">
-        <h2 className="text-lg font-bold text-white mb-1">Calibrate Camera — One-Time Setup</h2>
-        <p className="text-zinc-400 text-sm mb-4">
+      <div className="bg-hp-surface p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto">
+        <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-1">Calibrate Camera — One-Time Setup</h2>
+        <p className="text-hp-paper/45 text-sm mb-4">
           This lets ball speed and the pitch map be measured in real units instead of estimated. It only needs doing once per fixed camera position — future reports from this academy&apos;s front camera reuse it automatically.
         </p>
 
         {loadError ? (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm mb-4">{loadError}</div>
+          <div className="bg-red-500/10 border border-red-500/30 px-4 py-3 text-red-400 text-sm mb-4">{loadError}</div>
         ) : !frameSize ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-zinc-400 text-sm mb-4">
-            <div className="w-4 h-4 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+          <div className="flex items-center justify-center gap-2 py-16 text-hp-paper/45 text-sm mb-4">
+            <div className="w-4 h-4 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
             Loading a frame from the video…
           </div>
         ) : (
           <>
-            <p className="text-xs font-semibold text-zinc-300 mb-1">
-              Click the <span className="text-pace-green">bowler&apos;s end</span> reference point first, then the <span className="text-fire">batsman&apos;s end</span> reference point.
+            <p className="text-xs font-semibold text-hp-paper/70 mb-1">
+              Click the <span className="text-hp-cg">bowler&apos;s end</span> reference point first, then the <span className="text-fire">batsman&apos;s end</span> reference point.
             </p>
-            <p className="text-xs text-zinc-500 mb-2">
+            <p className="text-xs text-hp-paper/45 mb-2">
               Ideally the base of the stumps at each end. If the batsman&apos;s end isn&apos;t visible in this frame, drag the slider below to find a moment where it is. If it&apos;s never visible in this clip (common with a tight/zoomed shot), mark any two points you <em>can</em> see clearly instead — e.g. two pitch/crease markings — and enter the actual real-world distance between them below (measure it on-site) rather than the full pitch length.
             </p>
             <canvas
               ref={canvasRef}
               onClick={handleCanvasClick}
-              className={`w-full rounded-lg border border-zinc-700 ${points.length < 2 ? "cursor-crosshair" : "cursor-default"}`}
+              className={`w-full border border-white/12 ${points.length < 2 ? "cursor-crosshair" : "cursor-default"}`}
             />
 
             {duration > 0 && (
@@ -195,22 +195,22 @@ export function CameraCalibrationModal({ videoUrl, academyId, angle, onDone, onC
                   step={0.05}
                   value={scrubTime}
                   onChange={handleScrub}
-                  className="w-full cursor-pointer accent-pace-green"
+                  className="w-full cursor-pointer accent-hp-cg"
                 />
-                <p className="text-[10px] text-zinc-600 mt-0.5">Drag to look for a frame where both reference points are clearly visible</p>
+                <p className="text-[10px] text-hp-paper/35 mt-0.5">Drag to look for a frame where both reference points are clearly visible</p>
               </div>
             )}
 
             <div className="flex items-center justify-between mt-2 mb-4">
-              <span className="text-xs text-zinc-500">{points.length}/2 points marked</span>
+              <span className="text-xs text-hp-paper/45">{points.length}/2 points marked</span>
               {points.length > 0 && (
-                <button type="button" onClick={() => setPoints([])} className="text-xs text-zinc-400 hover:text-white underline cursor-pointer">
+                <button type="button" onClick={() => setPoints([])} className="text-xs text-hp-paper/45 hover:text-hp-paper underline cursor-pointer">
                   Reset points
                 </button>
               )}
             </div>
 
-            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5">
               Real-world distance between the two points (meters)
             </label>
             <input
@@ -218,9 +218,9 @@ export function CameraCalibrationModal({ videoUrl, academyId, angle, onDone, onC
               step="0.01"
               value={distanceM}
               onChange={(e) => setDistanceM(e.target.value)}
-              className="w-full bg-ink rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none text-sm mb-1"
+              className="w-full bg-hp-ink px-4 py-2.5 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none text-sm mb-1"
             />
-            <p className="text-xs text-zinc-600 mb-4">Defaults to the standard crease-to-crease pitch length (20.12m) — edit this if you marked different reference points.</p>
+            <p className="text-xs text-hp-paper/35 mb-4">Defaults to the standard crease-to-crease pitch length (20.12m) — edit this if you marked different reference points.</p>
           </>
         )}
 
@@ -231,14 +231,14 @@ export function CameraCalibrationModal({ videoUrl, academyId, angle, onDone, onC
             type="button"
             onClick={handleSave}
             disabled={points.length !== 2 || saving || !!loadError}
-            className="px-4 py-2.5 text-sm font-bold bg-pace-green text-black rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="px-4 py-2.5 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {saving ? "Saving…" : points.length !== 2 ? `Mark ${2 - points.length} more point${2 - points.length > 1 ? "s" : ""}` : "Save Calibration"}
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white transition-colors cursor-pointer"
+            className="px-4 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper transition-colors cursor-pointer"
           >
             Skip for now
           </button>
