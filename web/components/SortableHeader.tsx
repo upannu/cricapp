@@ -46,7 +46,7 @@ export function SortableHeader<K extends string>({
           // Actions) correctly inherited `uppercase` — the two looked inconsistent side by side on
           // any page using this component (Players/Sessions/Bookings/Coaches all do).
           className={`group inline-flex items-center gap-1 cursor-pointer transition-colors uppercase tracking-wider ${
-            isActive ? "text-white" : "text-zinc-300 hover:text-white"
+            isActive ? "text-hp-paper" : "text-hp-paper/60 hover:text-hp-paper"
           } ${align === "right" ? "flex-row-reverse" : ""}`}
         >
           {label}

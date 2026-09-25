@@ -64,19 +64,19 @@ export function SelectPill<T extends string>({
         title={iconOnly ? ariaLabel : undefined}
         className={
           iconOnly
-            ? `flex items-center justify-center w-7 h-7 rounded-lg border transition-colors cursor-pointer ${
+            ? `flex items-center justify-center w-7 h-7 border transition-colors cursor-pointer ${
                 open
-                  ? "border-pace-green text-pace-green bg-ink"
+                  ? "border-hp-cg text-hp-cg bg-hp-ink"
                   : active
-                    ? "border-pace-green/50 bg-pace-green/10 text-pace-green"
-                    : "border-transparent text-zinc-500 hover:text-white hover:border-zinc-500"
+                    ? "border-hp-cg/50 bg-hp-cg/10 text-hp-cg"
+                    : "border-transparent text-hp-paper/45 hover:text-hp-paper hover:border-white/30"
               }`
-            : `flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border transition-colors cursor-pointer whitespace-nowrap ${
+            : `flex items-center gap-2 px-4 py-3 text-sm font-medium border transition-colors cursor-pointer whitespace-nowrap ${
                 open
-                  ? "border-pace-green text-white bg-ink"
+                  ? "border-hp-cg text-hp-paper bg-hp-ink"
                   : active
-                    ? "border-pace-green/50 bg-pace-green/10 text-pace-green"
-                    : "border-zinc-700 text-zinc-300 bg-ink hover:border-zinc-500"
+                    ? "border-hp-cg/50 bg-hp-cg/10 text-hp-cg"
+                    : "border-white/12 text-hp-paper/70 bg-hp-ink hover:border-white/30"
               }`
         }
       >
@@ -96,7 +96,7 @@ export function SelectPill<T extends string>({
         <div
           role="listbox"
           aria-label={ariaLabel}
-          className={`absolute ${align === "right" ? "right-0" : "left-0"} top-full mt-2 z-30 w-48 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden`}
+          className={`absolute ${align === "right" ? "right-0" : "left-0"} top-full mt-2 z-30 w-48 bg-hp-surface border border-white/12 shadow-xl py-1 overflow-hidden`}
         >
           {options.map((o) => (
             <button
@@ -106,7 +106,7 @@ export function SelectPill<T extends string>({
               aria-selected={o.value === value}
               onClick={() => { setOpen(false); onChange(o.value); }}
               className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors cursor-pointer ${
-                o.value === value ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                o.value === value ? "text-hp-cg bg-hp-cg/10" : "text-hp-paper/85 hover:bg-white/5 hover:text-hp-paper"
               }`}
             >
               {o.label}

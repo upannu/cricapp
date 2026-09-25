@@ -267,11 +267,11 @@ export function NavBar() {
   const adminIsActive = ADMIN_ITEMS_FLAT.some((t) => pathname.startsWith(t.href));
 
   return (
-    <header className="bg-surface border-b border-zinc-700/60 sticky top-0 z-50">
+    <header className="bg-hp-surface border-b border-white/12 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center h-16 gap-4 xl:gap-5">
         {/* Logo — same vectorized mark as the public site (public/hp-logo.svg), swapped in for
             brand continuity between the marketing site and the dashboard. Screen blend mode
-            reads the same way against this header's dark bg-surface as it does against the
+            reads the same way against this header's dark bg-hp-surface as it does against the
             public site's hp-ink; the wordmark stays a plain text span rather than switching to
             Barlow Condensed, since the dashboard keeps its own (Geist) type system. */}
         <Link href={isPlayerOrParent ? "/portal" : "/players"} className="flex items-center gap-2 flex-shrink-0">
@@ -279,7 +279,7 @@ export function NavBar() {
           <img src="/hp-logo.svg" alt="CRIC HQ" width={36} height={27}
             style={{ height: 36, width: "auto", objectFit: "contain", mixBlendMode: "screen" }}
             className="flex-shrink-0" />
-          <span className="text-lg font-bold tracking-widest text-white font-mono hidden sm:inline">
+          <span className="text-lg font-bold tracking-widest text-hp-paper font-mono hidden sm:inline">
             CRIC HQ
           </span>
         </Link>
@@ -299,7 +299,7 @@ export function NavBar() {
                   key={entry.href}
                   href={entry.href}
                   className={`px-2 flex items-center flex-shrink-0 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                    isActive ? "text-pace-green border-pace-green" : "text-zinc-400 border-transparent hover:text-white"
+                    isActive ? "text-hp-cg border-hp-cg" : "text-hp-paper/45 border-transparent hover:text-hp-paper"
                   }`}
                 >
                   {entry.label}
@@ -324,10 +324,10 @@ export function NavBar() {
                     // active Memberships link does. The arrow's own rotation already signals open
                     // state independent of color.
                     active
-                      ? "text-pace-green border-pace-green"
+                      ? "text-hp-cg border-hp-cg"
                       : open
-                      ? "text-white border-transparent bg-white/5"
-                      : "text-zinc-400 border-transparent hover:text-white"
+                      ? "text-hp-paper border-transparent bg-white/5"
+                      : "text-hp-paper/45 border-transparent hover:text-hp-paper"
                   }`}
                 >
                   {entry.label}
@@ -337,13 +337,13 @@ export function NavBar() {
                   </svg>
                 </button>
                 {open && (
-                  <div className="absolute left-0 top-full z-30 w-52 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
+                  <div className="absolute left-0 top-full z-30 w-52 bg-white/8 border border-white/12 shadow-xl py-1 overflow-hidden">
                     {entry.children.map((child) => (
                       <Link
                         key={child.href}
                         href={child.href}
                         className={`block px-4 py-2.5 text-sm transition-colors ${
-                          pathname.startsWith(child.href) ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                          pathname.startsWith(child.href) ? "text-hp-cg bg-hp-cg/10" : "text-hp-paper/80 hover:bg-white/8 hover:text-hp-paper"
                         }`}
                       >
                         {child.label}
@@ -370,10 +370,10 @@ export function NavBar() {
                   aria-label="Admin Center"
                   aria-haspopup="true"
                   aria-expanded={openGroup === "admin"}
-                  className={`relative p-2 rounded-lg transition-colors flex-shrink-0 cursor-pointer ${
+                  className={`relative p-2 transition-colors flex-shrink-0 cursor-pointer ${
                     openGroup === "admin" || adminIsActive
-                      ? "text-pace-green bg-pace-green/10"
-                      : "text-zinc-400 hover:text-white hover:bg-zinc-700/50"
+                      ? "text-hp-cg bg-hp-cg/10"
+                      : "text-hp-paper/45 hover:text-hp-paper hover:bg-white/8"
                   }`}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -381,35 +381,35 @@ export function NavBar() {
                     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
                   </svg>
                   {totalPendingCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold px-1 py-0.5 rounded-full min-w-[16px] text-center leading-none">
+                    <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-hp-paper text-[9px] font-bold px-1 py-0.5 rounded-full min-w-[16px] text-center leading-none">
                       {totalPendingCount}
                     </span>
                   )}
                 </button>
 
                 {openGroup === "admin" && (
-                  <div role="menu" aria-label="Admin Center" className="absolute right-0 top-10 z-30 w-80 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-2 overflow-hidden">
-                    <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500 border-b border-zinc-700">Admin Center</p>
+                  <div role="menu" aria-label="Admin Center" className="absolute right-0 top-10 z-30 w-80 bg-white/8 border border-white/12 shadow-xl py-2 overflow-hidden">
+                    <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-hp-paper/45 border-b border-white/12">Admin Center</p>
                     {ADMIN_STRUCTURE.map((group, i) => (
                       <div key={group.section} className={i > 0 ? "mt-2" : "mt-1"}>
-                        <p className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{group.section}</p>
+                        <p className="px-4 py-1 text-[10px] font-semibold uppercase tracking-wider text-hp-paper/45">{group.section}</p>
                         {group.items.map((tool) => (
                           <Link
                             key={tool.href}
                             href={tool.href}
                             role="menuitem"
                             className={`flex items-center justify-between px-4 py-2 text-sm transition-colors ${
-                              pathname.startsWith(tool.href) ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                              pathname.startsWith(tool.href) ? "text-hp-cg bg-hp-cg/10" : "text-hp-paper/80 hover:bg-white/8 hover:text-hp-paper"
                             }`}
                           >
                             {tool.label}
                             {tool.href === "/admin/approvals" && pendingCount > 0 && (
-                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                              <span className="bg-red-500 text-hp-paper text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                                 {pendingCount}
                               </span>
                             )}
                             {tool.href === "/admin/partnerships" && partnershipPendingCount > 0 && (
-                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                              <span className="bg-red-500 text-hp-paper text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                                 {partnershipPendingCount}
                               </span>
                             )}
@@ -433,22 +433,22 @@ export function NavBar() {
                 className="flex items-center cursor-pointer rounded-full hover:opacity-90 transition-opacity"
                 title="Account menu"
               >
-                <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
+                <div className="w-9 h-9 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-sm flex-shrink-0">
                   {initials}
                 </div>
               </button>
               {userMenuOpen && (
-                <div className="absolute right-0 top-12 z-30 w-64 bg-zinc-800 border border-zinc-700 rounded-xl shadow-xl py-1 overflow-hidden">
-                  <div className="px-4 pt-3 pb-2.5 border-b border-zinc-700">
-                    <p className="text-sm font-medium text-white leading-tight truncate">{user.name}</p>
-                    <p className="text-xs text-zinc-400 leading-tight truncate mt-0.5">{user.email}</p>
+                <div className="absolute right-0 top-12 z-30 w-64 bg-white/8 border border-white/12 shadow-xl py-1 overflow-hidden">
+                  <div className="px-4 pt-3 pb-2.5 border-b border-white/12">
+                    <p className="text-sm font-medium text-hp-paper leading-tight truncate">{user.name}</p>
+                    <p className="text-xs text-hp-paper/45 leading-tight truncate mt-0.5">{user.email}</p>
                     <span className={`inline-block mt-2 text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${ROLE_STYLES[user.role]}`}>
                       {ROLE_LABELS[user.role]}
                     </span>
                   </div>
                   {user.linkedIdentities && user.linkedIdentities.length > 1 && (
                     <>
-                      <p className="px-4 pt-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Switch role</p>
+                      <p className="px-4 pt-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-hp-paper/45">Switch role</p>
                       {user.linkedIdentities.map((identity, i) => {
                         const isActive = identity.role === user.role
                           && (identity.academyId ?? undefined) === user.academyId
@@ -461,7 +461,7 @@ export function NavBar() {
                             disabled={isActive || switching}
                             onClick={() => handleSwitchRole(identity)}
                             className={`w-full flex items-center justify-between px-4 py-2.5 text-sm text-left transition-colors cursor-pointer disabled:cursor-default ${
-                              isActive ? "text-pace-green bg-pace-green/10" : "text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                              isActive ? "text-hp-cg bg-hp-cg/10" : "text-hp-paper/80 hover:bg-white/8 hover:text-hp-paper"
                             }`}
                           >
                             {identityLabel(identity)}
@@ -469,13 +469,13 @@ export function NavBar() {
                           </button>
                         );
                       })}
-                      <div className="h-px bg-zinc-700 mx-3 my-1" />
+                      <div className="h-px bg-white/12 mx-3 my-1" />
                     </>
                   )}
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-left text-hp-paper/70 hover:bg-white/8 hover:text-hp-paper transition-colors cursor-pointer"
                   >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -493,7 +493,7 @@ export function NavBar() {
         {/* Mobile: avatar + hamburger */}
         {user && (
           <div className="flex xl:hidden items-center gap-2 flex-shrink-0">
-            <div className="w-8 h-8 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-xs flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-xs flex-shrink-0">
               {initials}
             </div>
             <button
@@ -501,7 +501,7 @@ export function NavBar() {
               onClick={() => setMobileOpen((v) => !v)}
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileOpen}
-              className="p-2 -mr-2 text-zinc-300 hover:text-white transition-colors cursor-pointer"
+              className="p-2 -mr-2 text-hp-paper/70 hover:text-hp-paper transition-colors cursor-pointer"
             >
               {mobileOpen ? (
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -522,7 +522,7 @@ export function NavBar() {
 
       {/* Mobile dropdown panel */}
       {user && mobileOpen && (
-        <div className="xl:hidden border-t border-zinc-700/60 bg-surface max-h-[calc(100vh-4rem)] overflow-y-auto">
+        <div className="xl:hidden border-t border-white/12 bg-hp-surface max-h-[calc(100vh-4rem)] overflow-y-auto">
           <nav className="flex flex-col px-2 py-2">
             {(isPlayerOrParent ? playerPortalLinks : NAV_STRUCTURE).map((entry) => {
               if (!isNavGroup(entry)) {
@@ -530,8 +530,8 @@ export function NavBar() {
                   <Link
                     key={entry.href}
                     href={entry.href}
-                    className={`px-3 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between ${
-                      pathname.startsWith(entry.href) ? "text-pace-green bg-ink" : "text-zinc-300 hover:bg-zinc-800/60"
+                    className={`px-3 py-2.5 text-sm font-medium flex items-center justify-between ${
+                      pathname.startsWith(entry.href) ? "text-hp-cg bg-hp-ink" : "text-hp-paper/70 hover:bg-white/8"
                     }`}
                   >
                     {entry.label}
@@ -546,8 +546,8 @@ export function NavBar() {
                     type="button"
                     onClick={() => toggleMobileSection(entry.label)}
                     aria-expanded={expanded}
-                    className={`w-full px-3 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between cursor-pointer ${
-                      active ? "text-pace-green bg-ink" : "text-zinc-300 hover:bg-zinc-800/60"
+                    className={`w-full px-3 py-2.5 text-sm font-medium flex items-center justify-between cursor-pointer ${
+                      active ? "text-hp-cg bg-hp-ink" : "text-hp-paper/70 hover:bg-white/8"
                     }`}
                   >
                     {entry.label}
@@ -562,8 +562,8 @@ export function NavBar() {
                         <Link
                           key={child.href}
                           href={child.href}
-                          className={`px-3 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between ${
-                            pathname.startsWith(child.href) ? "text-pace-green bg-ink" : "text-zinc-400 hover:bg-zinc-800/60"
+                          className={`px-3 py-2.5 text-sm font-medium flex items-center justify-between ${
+                            pathname.startsWith(child.href) ? "text-hp-cg bg-hp-ink" : "text-hp-paper/45 hover:bg-white/8"
                           }`}
                         >
                           {child.label}
@@ -582,14 +582,14 @@ export function NavBar() {
                   onClick={() => toggleMobileSection("Admin Center")}
                   aria-expanded={!!mobileExpanded["Admin Center"]}
                   aria-label="Admin Center"
-                  className={`w-full px-3 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between cursor-pointer ${
-                    adminIsActive ? "text-pace-green bg-ink" : "text-zinc-300 hover:bg-zinc-800/60"
+                  className={`w-full px-3 py-2.5 text-sm font-medium flex items-center justify-between cursor-pointer ${
+                    adminIsActive ? "text-hp-cg bg-hp-ink" : "text-hp-paper/70 hover:bg-white/8"
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     Admin Center
                     {totalPendingCount > 0 && (
-                      <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                      <span className="bg-red-500 text-hp-paper text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                         {totalPendingCount}
                       </span>
                     )}
@@ -603,23 +603,23 @@ export function NavBar() {
                   <div className="pl-4">
                     {ADMIN_STRUCTURE.map((group) => (
                       <div key={group.section} className="mt-1.5 first:mt-0">
-                        <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">{group.section}</p>
+                        <p className="px-3 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-hp-paper/45">{group.section}</p>
                         {group.items.map((tool) => (
                           <Link
                             key={tool.href}
                             href={tool.href}
-                            className={`px-3 py-2.5 rounded-lg text-sm font-medium flex items-center justify-between ${
-                              pathname.startsWith(tool.href) ? "text-pace-green bg-ink" : "text-zinc-400 hover:bg-zinc-800/60"
+                            className={`px-3 py-2.5 text-sm font-medium flex items-center justify-between ${
+                              pathname.startsWith(tool.href) ? "text-hp-cg bg-hp-ink" : "text-hp-paper/45 hover:bg-white/8"
                             }`}
                           >
                             {tool.label}
                             {tool.href === "/admin/approvals" && pendingCount > 0 && (
-                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                              <span className="bg-red-500 text-hp-paper text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                                 {pendingCount}
                               </span>
                             )}
                             {tool.href === "/admin/partnerships" && partnershipPendingCount > 0 && (
-                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                              <span className="bg-red-500 text-hp-paper text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
                                 {partnershipPendingCount}
                               </span>
                             )}
@@ -632,9 +632,9 @@ export function NavBar() {
               </div>
             )}
           </nav>
-          <div className="border-t border-zinc-700/60 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="border-t border-white/12 px-4 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-white leading-tight truncate">{user.name}</p>
+              <p className="text-sm font-medium text-hp-paper leading-tight truncate">{user.name}</p>
               <span className={`inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${ROLE_STYLES[user.role]}`}>
                 {ROLE_LABELS[user.role]}
               </span>
@@ -642,7 +642,7 @@ export function NavBar() {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-zinc-400 hover:text-white transition-colors cursor-pointer px-3 py-2 rounded-lg hover:bg-zinc-700/50 text-sm font-medium flex-shrink-0"
+              className="flex items-center gap-1.5 text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer px-3 py-2 hover:bg-white/8 text-sm font-medium flex-shrink-0"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -653,8 +653,8 @@ export function NavBar() {
             </button>
           </div>
           {user.linkedIdentities && user.linkedIdentities.length > 1 && (
-            <div className="border-t border-zinc-700/60 px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-2">Switch role</p>
+            <div className="border-t border-white/12 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-hp-paper/45 mb-2">Switch role</p>
               <div className="flex flex-wrap gap-2">
                 {user.linkedIdentities.map((identity, i) => {
                   const isActive = identity.role === user.role
@@ -667,8 +667,8 @@ export function NavBar() {
                       type="button"
                       disabled={isActive || switching}
                       onClick={() => handleSwitchRole(identity)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer disabled:cursor-default ${
-                        isActive ? "border-pace-green bg-pace-green/10 text-pace-green" : "border-zinc-700 text-zinc-300"
+                      className={`px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer disabled:cursor-default ${
+                        isActive ? "border-hp-cg bg-hp-cg/10 text-hp-cg" : "border-white/12 text-hp-paper/70"
                       }`}
                     >
                       {identityLabel(identity)}{isActive ? " ✓" : ""}

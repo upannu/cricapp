@@ -10,10 +10,10 @@ export function BadgeStrip({ player, reportCount }: { player: Player; reportCoun
 
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Badges ({earned.length})</p>
+      <p className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-2">Badges ({earned.length})</p>
       <div className="flex flex-wrap gap-2 mb-2">
         {earned.length === 0 ? (
-          <span className="text-xs text-zinc-600">No badges earned yet</span>
+          <span className="text-xs text-hp-paper/35">No badges earned yet</span>
         ) : (
           earned.map((b) => (
             <div
@@ -27,7 +27,7 @@ export function BadgeStrip({ player, reportCount }: { player: Player; reportCoun
         )}
       </div>
       {nextUp && (
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-hp-paper/45">
           Next: {nextUp.icon} {nextUp.name} ({nextUp.progress!.current}/{nextUp.progress!.target})
         </p>
       )}

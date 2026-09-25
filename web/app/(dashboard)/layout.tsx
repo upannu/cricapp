@@ -10,7 +10,7 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-ink flex flex-col">
+      <div className="min-h-screen bg-hp-ink flex flex-col">
         <NavBar />
         <main className="flex-1">{children}</main>
         <Footer />

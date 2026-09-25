@@ -9,8 +9,8 @@ export function InfoCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-surface rounded-2xl p-5">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-4">
+    <div className="bg-hp-surface border border-white/8 p-5">
+      <h3 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-paper/45 mb-4">
         {title}
       </h3>
       <div className="space-y-3">{children}</div>
@@ -27,8 +27,8 @@ export function InfoRow({
 }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <span className="text-zinc-400 text-sm flex-shrink-0">{label}</span>
-      <span className="text-white text-sm text-right">{value}</span>
+      <span className="text-hp-paper/50 text-sm flex-shrink-0">{label}</span>
+      <span className="text-hp-paper text-sm text-right">{value}</span>
     </div>
   );
 }

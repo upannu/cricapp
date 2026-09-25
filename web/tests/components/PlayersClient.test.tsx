@@ -574,7 +574,7 @@ describe("PlayersClient", () => {
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
 
     await user.click(expiringCard);
-    expect(expiringCard).not.toHaveClass("ring-pace-green");
+    expect(expiringCard).not.toHaveClass("ring-hp-cg");
     expect(screen.getByText("Alice Bowler")).toBeInTheDocument();
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
   });
@@ -598,7 +598,7 @@ describe("PlayersClient", () => {
 
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
-    expect(expiringCard).toHaveClass("ring-pace-green");
+    expect(expiringCard).toHaveClass("ring-hp-cg");
   });
 
   test("clicking the 'Expired Players' stat card jumps straight to that status filter", async () => {
@@ -620,7 +620,7 @@ describe("PlayersClient", () => {
 
     expect(screen.getByText("Bob Seamer")).toBeInTheDocument();
     expect(screen.queryByText("Alice Bowler")).not.toBeInTheDocument();
-    expect(expiredCard).toHaveClass("ring-pace-green");
+    expect(expiredCard).toHaveClass("ring-hp-cg");
   });
 
   test("View lives under the row's ⋮ menu and navigates to that player's profile", async () => {

@@ -161,7 +161,7 @@ describe("NavBar", () => {
     useAuth.mockReturnValue({ user: makeAuthUser({ role: "coach" }), logout: vi.fn(), refreshUser: vi.fn() });
 
     render(<NavBar />);
-    expect(screen.getByRole("button", { name: "Training" })).toHaveClass("text-pace-green");
+    expect(screen.getByRole("button", { name: "Training" })).toHaveClass("text-hp-cg");
     pathname.mockReturnValue("/portal");
   });
 
@@ -174,17 +174,17 @@ describe("NavBar", () => {
     render(<NavBar />);
     const memberships = screen.getByRole("link", { name: "Memberships" });
     const training = screen.getByRole("button", { name: "Training" });
-    expect(memberships).toHaveClass("text-pace-green", "border-pace-green");
-    expect(training).not.toHaveClass("text-pace-green");
-    expect(training).not.toHaveClass("border-pace-green");
+    expect(memberships).toHaveClass("text-hp-cg", "border-hp-cg");
+    expect(training).not.toHaveClass("text-hp-cg");
+    expect(training).not.toHaveClass("border-hp-cg");
 
     await user.click(training);
     // Open-but-not-active: distinct subtle treatment, never the same underline Memberships has.
-    expect(training).not.toHaveClass("text-pace-green");
-    expect(training).not.toHaveClass("border-pace-green");
-    expect(training).toHaveClass("text-white");
+    expect(training).not.toHaveClass("text-hp-cg");
+    expect(training).not.toHaveClass("border-hp-cg");
+    expect(training).toHaveClass("text-hp-paper");
     // The current page's own indicator must be unaffected by an unrelated dropdown opening.
-    expect(memberships).toHaveClass("text-pace-green", "border-pace-green");
+    expect(memberships).toHaveClass("text-hp-cg", "border-hp-cg");
 
     pathname.mockReturnValue("/portal");
   });
@@ -196,11 +196,11 @@ describe("NavBar", () => {
 
     render(<NavBar />);
     const training = screen.getByRole("button", { name: "Training" });
-    expect(training).toHaveClass("text-pace-green", "border-pace-green");
+    expect(training).toHaveClass("text-hp-cg", "border-hp-cg");
 
     await user.click(training);
     // Active takes precedence over the subtle open styling — it must not downgrade.
-    expect(training).toHaveClass("text-pace-green", "border-pace-green");
+    expect(training).toHaveClass("text-hp-cg", "border-hp-cg");
 
     pathname.mockReturnValue("/portal");
   });

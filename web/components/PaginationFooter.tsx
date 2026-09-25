@@ -3,8 +3,8 @@ import { getPaginationRange } from "@/lib/pagination";
 // Shared here rather than duplicated on every button — keyboard focus needs to stay visible
 // (WCAG 2.1 AA) without adding a visible ring on every mouse click, which is exactly what
 // `:focus-visible` (vs. plain `:focus`) is for.
-const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pace-green focus-visible:ring-offset-2 focus-visible:ring-offset-ink";
-const NAV_BUTTON = `min-h-11 px-4 flex items-center gap-1.5 text-xs font-semibold text-zinc-300 border border-zinc-700 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${FOCUS_RING}`;
+const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-hp-cg focus-visible:ring-offset-2 focus-visible:ring-offset-hp-ink";
+const NAV_BUTTON = `min-h-11 px-4 flex items-center gap-1.5 text-xs font-semibold text-hp-paper/70 border border-white/12 hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${FOCUS_RING}`;
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 // The count + Prev/Next row at the foot of a paginated table/list — copy-pasted with small drifts
@@ -48,12 +48,12 @@ export function PaginationFooter({
       <div className="flex flex-wrap items-center gap-3">
         {label}
         {onItemsPerPageChange && itemsPerPage !== undefined && (
-          <label className="flex items-center gap-2 text-xs text-zinc-400">
+          <label className="flex items-center gap-2 text-xs text-hp-paper/60">
             Rows per page
             <select
               value={itemsPerPage}
               onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-              className={`h-11 bg-ink border border-zinc-700 rounded-lg px-2 text-xs text-zinc-200 cursor-pointer hover:border-zinc-500 transition-colors ${FOCUS_RING}`}
+              className={`h-11 bg-hp-ink border border-white/12 px-2 text-xs text-hp-paper/85 cursor-pointer hover:border-white/30 transition-colors ${FOCUS_RING}`}
             >
               {itemsPerPageOptions.map((n) => (
                 <option key={n} value={n}>{n}</option>
@@ -76,7 +76,7 @@ export function PaginationFooter({
           </button>
           {pageItems.map((item, i) =>
             item === "ellipsis" ? (
-              <span key={`ellipsis-${i}`} aria-hidden="true" className="w-11 h-11 flex items-center justify-center text-zinc-500 text-xs">
+              <span key={`ellipsis-${i}`} aria-hidden="true" className="w-11 h-11 flex items-center justify-center text-hp-paper/40 text-xs">
                 …
               </span>
             ) : (
@@ -85,10 +85,10 @@ export function PaginationFooter({
                 type="button"
                 onClick={() => onPageChange(item)}
                 aria-current={item === page ? "page" : undefined}
-                className={`w-11 h-11 flex items-center justify-center rounded-lg text-xs font-semibold transition-colors cursor-pointer ${FOCUS_RING} ${
+                className={`w-11 h-11 flex items-center justify-center text-xs font-semibold transition-colors cursor-pointer ${FOCUS_RING} ${
                   item === page
-                    ? "bg-pace-green text-black"
-                    : "text-zinc-300 border border-zinc-700 hover:bg-white/5"
+                    ? "bg-hp-cg text-hp-paper"
+                    : "text-hp-paper/70 border border-white/12 hover:bg-white/5"
                 }`}
               >
                 {item}

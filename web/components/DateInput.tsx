@@ -55,9 +55,9 @@ export function DateInput({
       />
       <span className="absolute inset-0 flex items-center px-4 pr-9 text-sm pointer-events-none">
         {normalized ? (
-          <span className="text-white">{toDDMMYYYY(normalized)}</span>
+          <span className="text-hp-paper">{toDDMMYYYY(normalized)}</span>
         ) : (
-          <span className="text-zinc-600">dd/mm/yyyy</span>
+          <span className="text-hp-paper/35">dd/mm/yyyy</span>
         )}
       </span>
     </div>
