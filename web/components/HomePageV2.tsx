@@ -769,7 +769,7 @@ function LiveScoring() {
             </div>
 
             <a
-              href="#"
+              href="/contact"
               className="inline-flex items-center gap-2 bg-hp-cg text-hp-paper font-display font-black text-sm px-8 py-3.5 tracking-widest uppercase hover:bg-hp-cg/90 transition-colors"
             >
               EXPLORE LIVE SCORING
@@ -989,7 +989,7 @@ function PlayerPassport() {
 
             <div className="mt-12">
               <a
-                href="#"
+                href="/signup"
                 className="inline-flex items-center gap-2 bg-hp-cg text-hp-paper font-display font-black text-sm px-8 py-3.5 tracking-widest uppercase hover:bg-hp-cg/90 transition-colors"
               >
                 BUILD YOUR CRICKET PROFILE
@@ -1441,7 +1441,7 @@ function CoachesSection() {
               Turn match evidence into structured development — without adding another layer of administration.
             </p>
             <a
-              href="#"
+              href="/organisations/coaches"
               className="inline-flex items-center gap-2 bg-hp-ca text-hp-ink font-bold font-display font-black text-sm px-8 py-3.5 tracking-widest uppercase hover:bg-hp-ca/90 transition-colors"
             >
               EXPLORE COACHING
@@ -1569,7 +1569,7 @@ function OrganisationsSection() {
 
         <div className="text-center">
           <a
-            href="#"
+            href="/organisations"
             className="inline-flex items-center gap-2 bg-hp-cg text-hp-paper font-display font-black text-sm px-10 py-4 tracking-widest uppercase hover:bg-hp-cg/90 transition-colors"
           >
             PARTNER WITH CRIC HQ
