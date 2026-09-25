@@ -1,9 +1,44 @@
 import Link from "next/link";
+import Image from "next/image";
 
 /** Shared visual primitives for the public marketing site's editorial style (the "Cricket.
  * Connected." homepage look — Barlow Condensed headlines, hp-* color tokens, pill buttons, dash
  * eyebrows). Used by every page wrapped in PartnershipPageShell/LegalPageShell so the whole public
  * site reads as one system instead of each page hand-rolling its own button/heading markup. */
+
+/** A hero section with a cricket action photo behind it — same technique as HomePageV2's Hero()
+ * (a `fill` background Image + dark gradient wash for legibility), scaled down for these shorter,
+ * centered-text org/partnership heroes instead of the homepage's full-bleed split layout. Renders
+ * full-bleed (outside the page's max-w-5xl content wrapper) so the photo reaches the viewport
+ * edges, with its own inner max-w-5xl to keep the text column aligned with the sections below it. */
+export function PageHero({
+  image, children, opacity = 45,
+}: {
+  image: string;
+  children: React.ReactNode;
+  /** Override for images darker than the outdoor/stadium default (e.g. the indoor pose-tracking
+   * photos), which otherwise read as an under-lit smudge rather than a visible photo. */
+  opacity?: number;
+}) {
+  return (
+    <section className="relative overflow-hidden bg-hp-ink">
+      <Image
+        src={image}
+        alt=""
+        aria-hidden="true"
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover object-center"
+        style={{ opacity: opacity / 100 }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-hp-ink/85 via-hp-ink/55 to-hp-ink" />
+      <div className="relative max-w-5xl mx-auto px-6 sm:px-10 pt-14 pb-16 text-center">
+        {children}
+      </div>
+    </section>
+  );
+}
 
 export function Eyebrow({ children }: { children: React.ReactNode }) {
   return (

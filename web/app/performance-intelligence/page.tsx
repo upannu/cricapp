@@ -1,5 +1,5 @@
 import { PartnershipPageShell } from "@/components/PartnershipPageShell";
-import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid } from "@/components/editorial/EditorialUI";
+import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid, PageHero } from "@/components/editorial/EditorialUI";
 
 // All real — the biomechanics report pipeline, development plans, coach notes/assessments, and
 // academy progress tracking already exist and are already in daily use. No match-level stats
@@ -22,17 +22,16 @@ export const metadata = {
 export default function PerformanceIntelligencePage() {
   return (
     <PartnershipPageShell>
-      <div className="max-w-5xl mx-auto px-6 sm:px-10">
-        {/* Hero */}
-        <div className="pt-14 pb-16 text-center">
-          <div className="flex justify-center mb-6"><Eyebrow>Performance Intelligence</Eyebrow></div>
-          <EditorialHeading size="lg" level="h1">Every Degree of the Action, Measured.</EditorialHeading>
-          <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
-            No lab. No lasers. AI-assisted biomechanics from any phone video, reviewed by a coach before it reaches the athlete.
-          </p>
-          <EditorialButton href="/contact" size="lg">Talk to Us</EditorialButton>
-        </div>
+      <PageHero image="/login-photo-2.jpg" opacity={65}>
+        <div className="flex justify-center mb-6"><Eyebrow>Performance Intelligence</Eyebrow></div>
+        <EditorialHeading size="lg" level="h1">Every Degree of the Action, Measured.</EditorialHeading>
+        <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
+          No lab. No lasers. AI-assisted biomechanics from any phone video, reviewed by a coach before it reaches the athlete.
+        </p>
+        <EditorialButton href="/contact" size="lg">Talk to Us</EditorialButton>
+      </PageHero>
 
+      <div className="max-w-5xl mx-auto px-6 sm:px-10">
         {/* Capabilities */}
         <div className="mb-16">
           <div className="text-center mb-10"><EditorialHeading size="sm">What&apos;s Real Today</EditorialHeading></div>

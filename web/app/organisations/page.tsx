@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PartnershipPageShell } from "@/components/PartnershipPageShell";
-import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid } from "@/components/editorial/EditorialUI";
+import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid, PageHero } from "@/components/editorial/EditorialUI";
 
 // Each card's `href` is a route that exists today; a future org type (Clubs, Schools,
 // Universities, Professional Teams) can be appended here without touching the layout.
@@ -28,20 +28,19 @@ export const metadata = {
 export default function OrganisationsPage() {
   return (
     <PartnershipPageShell>
-      <div className="max-w-5xl mx-auto px-6 sm:px-10">
-        {/* Hero */}
-        <div className="pt-14 pb-16 text-center">
-          <div className="flex justify-center mb-6"><Eyebrow>Built For Every Level Of Cricket</Eyebrow></div>
-          <EditorialHeading size="lg" level="h1">CRIC HQ for Organisations</EditorialHeading>
-          <p className="text-lg text-hp-paper/65 max-w-2xl mx-auto mt-6 mb-8">
-            One platform built to support cricket organisations of every size.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <EditorialButton href="#solutions" size="lg">Explore Solutions</EditorialButton>
-            <EditorialButton href="/contact" variant="secondary" size="lg">Contact Us</EditorialButton>
-          </div>
+      <PageHero image="/hp/live-scoring.jpg">
+        <div className="flex justify-center mb-6"><Eyebrow>Built For Every Level Of Cricket</Eyebrow></div>
+        <EditorialHeading size="lg" level="h1">CRIC HQ for Organisations</EditorialHeading>
+        <p className="text-lg text-hp-paper/65 max-w-2xl mx-auto mt-6 mb-8">
+          One platform built to support cricket organisations of every size.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <EditorialButton href="#solutions" size="lg">Explore Solutions</EditorialButton>
+          <EditorialButton href="/contact" variant="secondary" size="lg">Contact Us</EditorialButton>
         </div>
+      </PageHero>
 
+      <div className="max-w-5xl mx-auto px-6 sm:px-10">
         {/* Organisation types */}
         <div id="solutions" className="mb-20 scroll-mt-20">
           <div className="text-center mb-10"><EditorialHeading size="sm">Connected Solutions for Every Level of Cricket</EditorialHeading></div>

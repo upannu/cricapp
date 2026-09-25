@@ -1,5 +1,5 @@
 import { PartnershipPageShell } from "@/components/PartnershipPageShell";
-import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid } from "@/components/editorial/EditorialUI";
+import { Eyebrow, EditorialButton, EditorialHeading, CapabilityGrid, PageHero } from "@/components/editorial/EditorialUI";
 import Link from "next/link";
 
 // Every item here maps to a capability that already exists in the CRIC HQ academy-admin
@@ -24,20 +24,19 @@ export const metadata = {
 export default function AcademiesPage() {
   return (
     <PartnershipPageShell>
-      <div className="max-w-5xl mx-auto px-6 sm:px-10">
-        {/* Hero */}
-        <div className="pt-14 pb-16 text-center">
-          <div className="flex justify-center mb-6"><Eyebrow>For Academies</Eyebrow></div>
-          <EditorialHeading size="lg" level="h1">CRIC HQ for Academies</EditorialHeading>
-          <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
-            Everything you need to run and grow your cricket academy.
-          </p>
-          <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
-            Manage players, coaches, programs and development in one connected platform.
-          </p>
-          <EditorialButton href="/organisations/academies/apply" size="lg">Register Your Interest</EditorialButton>
-        </div>
+      <PageHero image="/hp/hero.jpg">
+        <div className="flex justify-center mb-6"><Eyebrow>For Academies</Eyebrow></div>
+        <EditorialHeading size="lg" level="h1">CRIC HQ for Academies</EditorialHeading>
+        <p className="text-lg text-hp-paper/70 max-w-2xl mx-auto mt-6 mb-3">
+          Everything you need to run and grow your cricket academy.
+        </p>
+        <p className="text-sm text-hp-paper/50 max-w-xl mx-auto mb-8">
+          Manage players, coaches, programs and development in one connected platform.
+        </p>
+        <EditorialButton href="/organisations/academies/apply" size="lg">Register Your Interest</EditorialButton>
+      </PageHero>
 
+      <div className="max-w-5xl mx-auto px-6 sm:px-10">
         {/* Capabilities */}
         <div className="mb-16">
           <div className="text-center mb-10"><EditorialHeading size="sm">Everything Your Academy Needs</EditorialHeading></div>

@@ -7,7 +7,7 @@ export const metadata = { title: "Register Coaching Interest — CRIC HQ" };
 
 export default function CoachApplyPage() {
   return (
-    <PartnershipPageShell minimal>
+    <PartnershipPageShell minimal backgroundImage="/hp/what-is.jpg">
       <QuickPartnershipForm
         orgType="Coach"
         heading="Register Coaching Interest"
