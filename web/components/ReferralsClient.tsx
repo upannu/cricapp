@@ -161,20 +161,20 @@ export function ReferralsClient() {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
-      <Link href="/players" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors mb-6">
+      <Link href="/players" className="inline-flex items-center gap-1.5 text-sm text-hp-paper/45 hover:text-hp-paper transition-colors mb-6">
         ← Back
       </Link>
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-xl font-bold text-white mb-1">Referrals</h1>
-          <p className="text-zinc-400 text-sm">
+          <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Referrals</h1>
+          <p className="text-hp-paper/45 text-sm">
             One-off bonuses or ongoing commissions for whoever brings new academies, coaches, or
             players onto the platform. Payouts happen off-platform — mark each one paid once sent.
           </p>
         </div>
         <button type="button" onClick={openAdd}
-          className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 transition-opacity cursor-pointer flex-shrink-0">
+          className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer flex-shrink-0">
           + New Referral
         </button>
       </div>
@@ -190,13 +190,13 @@ export function ReferralsClient() {
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 rounded-full border-2 border-pace-green border-t-transparent animate-spin" />
+          <div className="w-6 h-6 rounded-full border-2 border-hp-cg border-t-transparent animate-spin" />
         </div>
       ) : loadError ? (
         <p className="text-red-400 text-sm">{loadError}</p>
       ) : referrals.length === 0 ? (
-        <div className="bg-surface rounded-2xl p-16 text-center">
-          <p className="text-zinc-400 text-sm">No referrals recorded yet.</p>
+        <div className="bg-hp-surface p-16 text-center">
+          <p className="text-hp-paper/45 text-sm">No referrals recorded yet.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -221,8 +221,8 @@ function ReferralForm({
   formError: string; saving: boolean; onSubmit: () => void; onCancel: () => void;
 }) {
   return (
-    <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6 space-y-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green">New Referral</h2>
+    <div className="bg-hp-surface p-6 border border-hp-cg/30 mb-6 space-y-4">
+      <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">New Referral</h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
@@ -273,18 +273,18 @@ function ReferralForm({
         <label className={lbl}>Commission Type</label>
         <div className="flex gap-2">
           <button type="button" onClick={() => setDraft({ ...draft, commissionType: "one_off" })}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer ${draft.commissionType === "one_off" ? "bg-pace-green text-black" : "bg-ink text-zinc-400 border border-zinc-700"}`}>
+            className={`px-4 py-2 text-xs font-bold transition-colors cursor-pointer ${draft.commissionType === "one_off" ? "bg-hp-cg text-hp-paper" : "bg-hp-ink text-hp-paper/45 border border-white/12"}`}>
             One-off
           </button>
           <button type="button" disabled={draft.referredType === "other"}
             onClick={() => setDraft({ ...draft, commissionType: "ongoing" })}
             title={draft.referredType === "other" ? "Ongoing commissions need a real academy, coach, or player linked" : undefined}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${draft.commissionType === "ongoing" ? "bg-pace-green text-black" : "bg-ink text-zinc-400 border border-zinc-700"}`}>
+            className={`px-4 py-2 text-xs font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${draft.commissionType === "ongoing" ? "bg-hp-cg text-hp-paper" : "bg-hp-ink text-hp-paper/45 border border-white/12"}`}>
             Ongoing
           </button>
         </div>
         {draft.referredType === "other" && (
-          <p className="text-xs text-zinc-500 mt-1.5">Ongoing needs a linked academy/coach/player to calculate revenue from — pick one of those types above to unlock it.</p>
+          <p className="text-xs text-hp-paper/45 mt-1.5">Ongoing needs a linked academy/coach/player to calculate revenue from — pick one of those types above to unlock it.</p>
         )}
       </div>
 
@@ -325,11 +325,11 @@ function ReferralForm({
 
       <div className="flex items-center gap-3">
         <button type="button" onClick={onSubmit} disabled={saving}
-          className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60">
+          className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
           {saving ? "Saving…" : "Create Referral"}
         </button>
         <button type="button" onClick={onCancel}
-          className="px-6 py-3 rounded-xl text-sm font-medium text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+          className="px-6 py-3 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
           Cancel
         </button>
       </div>
@@ -347,15 +347,15 @@ function ReferralRow({
   const totalPending = payoutList.filter((p) => p.status === "pending").reduce((s, p) => s + p.amountAud, 0);
 
   return (
-    <div className={`bg-surface rounded-2xl border transition-colors ${isOpen ? "border-zinc-600" : "border-transparent hover:border-zinc-800"}`}>
+    <div className={`bg-hp-surface border transition-colors ${isOpen ? "border-white/15" : "border-transparent hover:border-white/8"}`}>
       <button type="button" onClick={onToggle} className="w-full text-left p-5 cursor-pointer">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-1">
-              <span className="text-white font-semibold text-sm">{r.referrerName}</span>
-              <span className="text-zinc-500 text-xs">→</span>
-              <span className="text-zinc-300 text-sm">{r.referredName}</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-zinc-700 text-zinc-300">
+              <span className="text-hp-paper font-semibold text-sm">{r.referrerName}</span>
+              <span className="text-hp-paper/45 text-xs">→</span>
+              <span className="text-hp-paper/70 text-sm">{r.referredName}</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/10 text-hp-paper/70">
                 {REFERRED_TYPE_LABELS[r.referredType]}
               </span>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${r.commissionType === "ongoing" ? "bg-blue-500/15 text-blue-400" : "bg-amber/15 text-amber"}`}>
@@ -363,7 +363,7 @@ function ReferralRow({
               </span>
               {r.status === "ended" && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-500/15 text-red-400">Ended</span>}
             </div>
-            <div className="text-xs text-zinc-500">
+            <div className="text-xs text-hp-paper/45">
               {[r.referrerEmail, r.referrerPhone].filter(Boolean).join(" · ") || "No contact details"}
             </div>
           </div>
@@ -378,23 +378,23 @@ function ReferralRow({
       </button>
 
       {isOpen && (
-        <div className="px-5 pb-5 border-t border-zinc-700/40 pt-4 space-y-3">
-          {r.notes && <p className="text-xs text-zinc-400">{r.notes}</p>}
+        <div className="px-5 pb-5 border-t border-white/8 pt-4 space-y-3">
+          {r.notes && <p className="text-xs text-hp-paper/45">{r.notes}</p>}
           {r.referrerPaymentDetails && (
-            <p className="text-xs text-zinc-400">
-              <span className="text-zinc-500 uppercase tracking-wider font-semibold">Payment details: </span>
+            <p className="text-xs text-hp-paper/45">
+              <span className="text-hp-paper/45 uppercase tracking-wider font-semibold">Payment details: </span>
               {r.referrerPaymentDetails}
             </p>
           )}
           {payoutList.length === 0 ? (
-            <p className="text-xs text-zinc-500">No payouts yet.</p>
+            <p className="text-xs text-hp-paper/45">No payouts yet.</p>
           ) : (
             <div className="space-y-2">
               {payoutList.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-3 bg-ink rounded-xl px-4 py-2.5">
-                  <div className="text-sm text-white">
+                <div key={p.id} className="flex items-center justify-between gap-3 bg-hp-ink px-4 py-2.5">
+                  <div className="text-sm text-hp-paper">
                     {p.periodLabel ? `${p.periodLabel} · ` : ""}{formatMoney(p.amountAud, "aud")}
-                    {p.status === "paid" && p.paidDate && <span className="text-zinc-500 text-xs ml-2">paid {formatDate(p.paidDate)}</span>}
+                    {p.status === "paid" && p.paidDate && <span className="text-hp-paper/45 text-xs ml-2">paid {formatDate(p.paidDate)}</span>}
                   </div>
                   {p.status === "paid" ? (
                     <span className="text-xs font-semibold text-pace-green">✓ Paid</span>
@@ -407,7 +407,7 @@ function ReferralRow({
           )}
           {r.commissionType === "ongoing" && r.status === "active" && (
             <button type="button" onClick={onEnd}
-              className="text-xs font-semibold text-zinc-500 hover:text-red-400 transition-colors cursor-pointer">
+              className="text-xs font-semibold text-hp-paper/45 hover:text-red-400 transition-colors cursor-pointer">
               End this referral (stops future ongoing accrual)
             </button>
           )}
@@ -438,12 +438,12 @@ function PayoutMarkPaidButton({ payoutId, onPaid }: { payoutId: string; onPaid: 
   if (showConfirm) {
     return (
       <div className="flex items-center gap-2 flex-shrink-0">
-        <DateInput value={paidDate} onChange={setPaidDate} className="w-32 bg-surface rounded-lg px-3 py-1.5 text-xs border border-zinc-700 focus:border-pace-green focus:outline-none" />
+        <DateInput value={paidDate} onChange={setPaidDate} className="w-32 bg-hp-surface px-3 py-1.5 text-xs border border-white/12 focus:border-hp-cg focus:outline-none" />
         <button type="button" onClick={handleConfirm} disabled={saving}
-          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black rounded-lg hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-60">
+          className="px-3 py-1.5 text-xs font-bold bg-pace-green text-black hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-60">
           {saving ? "…" : "Confirm"}
         </button>
-        <button type="button" onClick={() => setShowConfirm(false)} className="text-xs text-zinc-500 hover:text-white cursor-pointer">
+        <button type="button" onClick={() => setShowConfirm(false)} className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer">
           Cancel
         </button>
       </div>
@@ -452,12 +452,12 @@ function PayoutMarkPaidButton({ payoutId, onPaid }: { payoutId: string; onPaid: 
 
   return (
     <button type="button" onClick={() => setShowConfirm(true)}
-      className="px-3 py-1.5 text-xs font-bold text-amber border border-amber/30 rounded-lg hover:bg-amber/10 cursor-pointer transition-colors flex-shrink-0">
+      className="px-3 py-1.5 text-xs font-bold text-amber border border-amber/30 hover:bg-amber/10 cursor-pointer transition-colors flex-shrink-0">
       Mark Paid
     </button>
   );
 }
 
-const inp = "w-full bg-ink rounded-xl px-4 py-2.5 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const sel = "w-full bg-ink rounded-xl px-4 py-2.5 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
-const lbl = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const inp = "w-full bg-hp-ink px-4 py-2.5 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const sel = "w-full bg-hp-ink px-4 py-2.5 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
+const lbl = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";
