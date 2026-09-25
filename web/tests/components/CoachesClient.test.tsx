@@ -305,7 +305,7 @@ describe("CoachesClient", () => {
     await user.click(screen.getByRole("button", { name: "Yes, Deactivate" }));
     expect(updateCoachFields).toHaveBeenCalledWith("c1", { status: "Inactive" });
     // "Inactive" also names one of the stat cards — scope to the table's own card, not the page.
-    const card = screen.getByText("Coach Dan").closest(".bg-surface") as HTMLElement;
+    const card = screen.getByText("Coach Dan").closest(".bg-hp-surface") as HTMLElement;
     expect(await within(card).findByText("Inactive")).toBeInTheDocument();
   });
 
@@ -327,7 +327,7 @@ describe("CoachesClient", () => {
     expect(await screen.findByText("Row-level security denied this update.")).toBeInTheDocument();
     expect(screen.getByText("Deactivate Coach?")).toBeInTheDocument();
     // Never applied — the coach's own status badge is untouched.
-    const card = screen.getByText("Coach Dan").closest(".bg-surface") as HTMLElement;
+    const card = screen.getByText("Coach Dan").closest(".bg-hp-surface") as HTMLElement;
     expect(within(card).getByText("Active")).toBeInTheDocument();
   });
 

@@ -10,7 +10,7 @@ import { PowerIcon, PowerOffIcon, EyeIcon, EyeOffIcon, MailIcon, RepeatIcon, Tra
 import type { Academy, Coach, CertificationLevel, Player } from "@/lib/types";
 
 const CERT_STYLES: Record<CertificationLevel, string> = {
-  "Level 1": "bg-zinc-700 text-zinc-300",
+  "Level 1": "bg-white/10 text-hp-paper/70",
   "Level 2": "bg-blue-500/20 text-blue-400",
   "Level 3": "bg-amber/20 text-amber",
   "Elite":   "bg-pace-green/20 text-pace-green",
@@ -66,7 +66,7 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
 
   if (notFound) {
     return (
-      <div className="max-w-5xl mx-auto px-6 py-16 text-center text-zinc-400">
+      <div className="max-w-5xl mx-auto px-6 py-16 text-center text-hp-paper/45">
         Coach not found.{" "}
         <Link href="/coaches" className="text-pace-green hover:underline">
           Back to Coaches
@@ -303,21 +303,21 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
       <div className="mb-6">
         <Link
           href="/coaches"
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-hp-paper/45 hover:text-hp-paper transition-colors"
         >
           ← Back to Coaches
         </Link>
       </div>
 
       {/* Header card + actions */}
-      <div className="bg-surface rounded-2xl p-6 mb-1 flex flex-wrap items-center justify-between gap-5">
+      <div className="bg-hp-surface border border-white/8 p-6 mb-1 flex flex-wrap items-center justify-between gap-5">
         <div className="flex items-start gap-5">
-          <div className="w-20 h-20 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-2xl flex-shrink-0">
+          <div className="w-20 h-20 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-2xl flex-shrink-0">
             {initials}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
-              <h1 className="text-2xl font-bold text-white">{coach.name}</h1>
+              <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">{coach.name}</h1>
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${CERT_STYLES[coach.certificationLevel]}`}>
                 {coach.certificationLevel}
               </span>
@@ -326,19 +326,19 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
               ) : (
                 <span
                   className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                    coach.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
+                    coach.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-white/10 text-hp-paper/45"
                   }`}
                 >
                   {coach.status}
                 </span>
               )}
             </div>
-            <p className="text-zinc-400 text-sm">
+            <p className="text-hp-paper/45 text-sm">
               {academy ? academy.name : "Independent"} · Joined{" "}
               {new Date(coach.joinedDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
             </p>
             {coach.loginDisabled && (
-              <p className="text-zinc-500 text-xs mt-1">
+              <p className="text-hp-paper/45 text-xs mt-1">
                 {coach.disabledReason || "Removed by staff"}
                 {coach.disabledAt && ` · ${new Date(coach.disabledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
               </p>
@@ -349,7 +349,7 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
         <div className="flex items-center gap-2.5">
           <Link
             href={`/coaches/${coach.id}/edit`}
-            className="px-5 py-2.5 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors"
+            className="px-5 py-2.5 text-sm font-medium text-hp-paper/70 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors"
           >
             Edit Coach
           </Link>
@@ -358,7 +358,7 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
               type="button"
               disabled={payoutLoading}
               onClick={coach.stripeConnectOnboarded ? handleViewPayouts : handleSetupPayouts}
-              className="px-5 py-2.5 bg-pace-green text-black rounded-xl text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60 cursor-pointer"
+              className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors disabled:opacity-60 cursor-pointer"
             >
               {payoutLoading ? "Loading…" : coach.stripeConnectOnboarded ? "View Payouts" : "Set Up Payouts"}
             </button>
@@ -373,12 +373,12 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
           below, which shows it via that modal's own `error` slot instead. */}
       {formError && !confirmStatusToggle && !confirmMarketplaceToggle && !confirmResendInvite &&
         !confirmReinstate && !reassignAllTarget && !confirmRemoveCoach && !reassignTarget && (
-        <div className="mt-3 mb-3 px-5 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
+        <div className="mt-3 mb-3 px-5 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
           {formError}
         </div>
       )}
       {resendInviteSent && (
-        <div className="mt-3 mb-3 px-5 py-3 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
+        <div className="mt-3 mb-3 px-5 py-3 bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
           ✓ Invite resent to {coach.email}
         </div>
       )}
@@ -389,7 +389,7 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
           <InfoRow
             label="Status"
             value={
-              <span className={coach.stripeConnectOnboarded ? "text-pace-green font-semibold" : "text-zinc-400"}>
+              <span className={coach.stripeConnectOnboarded ? "text-pace-green font-semibold" : "text-hp-paper/45"}>
                 {coach.stripeConnectOnboarded ? "✓ Connected" : coach.stripeConnectAccountId ? "Onboarding incomplete" : "Not set up"}
               </span>
             }
@@ -400,7 +400,7 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
         </InfoCard>
 
         <InfoCard title="Academy & Marketplace">
-          <InfoRow label="Academy" value={academy ? academy.name : <span className="text-zinc-500">Independent</span>} />
+          <InfoRow label="Academy" value={academy ? academy.name : <span className="text-hp-paper/45">Independent</span>} />
           <InfoRow label="Marketplace visible" value={coach.marketplaceVisible ? "Yes" : "No"} />
           <InfoRow label="Available for new players" value={coach.available ? "Yes" : "No"} />
         </InfoCard>
@@ -413,28 +413,28 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
                 <Link
                   key={p.id}
                   href={`/players/${p.id}`}
-                  className="block text-sm text-zinc-300 hover:text-pace-green transition-colors"
+                  className="block text-sm text-hp-paper/70 hover:text-pace-green transition-colors"
                 >
                   {p.name}
                 </Link>
               ))}
-              {players.length > 8 && <p className="text-xs text-zinc-500">+{players.length - 8} more</p>}
+              {players.length > 8 && <p className="text-xs text-hp-paper/45">+{players.length - 8} more</p>}
             </div>
           ) : (
-            <p className="text-sm text-zinc-500">No players assigned yet.</p>
+            <p className="text-sm text-hp-paper/45">No players assigned yet.</p>
           )}
         </InfoCard>
 
         <InfoCard title="Contact & Profile">
-          <InfoRow label="Email" value={<span className="text-zinc-300 text-sm break-all">{coach.email}</span>} />
-          <InfoRow label="Phone" value={coach.phone || <span className="text-zinc-600">Not set</span>} />
-          <InfoRow label="Specialization" value={coach.specialization || <span className="text-zinc-600">Not set</span>} />
+          <InfoRow label="Email" value={<span className="text-hp-paper/70 text-sm break-all">{coach.email}</span>} />
+          <InfoRow label="Phone" value={coach.phone || <span className="text-hp-paper/35">Not set</span>} />
+          <InfoRow label="Specialization" value={coach.specialization || <span className="text-hp-paper/35">Not set</span>} />
           <InfoRow
             label="Age groups"
-            value={coach.ageGroupsFocus.length > 0 ? coach.ageGroupsFocus.join(", ") : <span className="text-zinc-600">Not set</span>}
+            value={coach.ageGroupsFocus.length > 0 ? coach.ageGroupsFocus.join(", ") : <span className="text-hp-paper/35">Not set</span>}
           />
-          <InfoRow label="Location" value={coach.location || <span className="text-zinc-600">Not set</span>} />
-          {coach.bio && <InfoRow label="Bio" value={<span className="text-zinc-300 text-sm">{coach.bio}</span>} />}
+          <InfoRow label="Location" value={coach.location || <span className="text-hp-paper/35">Not set</span>} />
+          {coach.bio && <InfoRow label="Bio" value={<span className="text-hp-paper/70 text-sm">{coach.bio}</span>} />}
         </InfoCard>
       </div>
 
@@ -539,7 +539,7 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
           <select
             value={reassignAllToCoachId}
             onChange={(e) => setReassignAllToCoachId(e.target.value)}
-            className="w-full bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+            className="w-full bg-hp-ink text-hp-paper text-sm px-3 py-2.5 border border-white/12 focus:border-hp-cg focus:outline-none cursor-pointer"
           >
             <option value="">— Leave unassigned —</option>
             {otherCoaches.map((c) => (
@@ -586,11 +586,11 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
           <div className="space-y-4">
             {reassignTarget.headCoachAcademy && (
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">New head coach</label>
+                <label className="block text-xs text-hp-paper/45 mb-1.5">New head coach</label>
                 <select
                   value={newHeadCoachId}
                   onChange={(e) => setNewHeadCoachId(e.target.value)}
-                  className="w-full bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+                  className="w-full bg-hp-ink text-hp-paper text-sm px-3 py-2.5 border border-white/12 focus:border-hp-cg focus:outline-none cursor-pointer"
                 >
                   <option value="">— Select new head coach —</option>
                   {reassignTarget.headCoachAcademy.otherCoachIds.map((cid) => {
@@ -602,11 +602,11 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
             )}
             {reassignTarget.playerCount > 0 && (
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Move their players to</label>
+                <label className="block text-xs text-hp-paper/45 mb-1.5">Move their players to</label>
                 <select
                   value={reassignToCoachId}
                   onChange={(e) => setReassignToCoachId(e.target.value)}
-                  className="w-full bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+                  className="w-full bg-hp-ink text-hp-paper text-sm px-3 py-2.5 border border-white/12 focus:border-hp-cg focus:outline-none cursor-pointer"
                 >
                   <option value="">— Leave unassigned —</option>
                   {otherCoaches.map((c) => (

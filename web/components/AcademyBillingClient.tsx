@@ -71,8 +71,8 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
   if (!canManage) {
     return (
       <div className="max-w-2xl mx-auto px-6 py-16 text-center">
-        <p className="text-white font-semibold mb-2">Not available</p>
-        <p className="text-zinc-400 text-sm">You don&apos;t have access to this academy&apos;s billing.</p>
+        <p className="text-hp-paper font-semibold mb-2">Not available</p>
+        <p className="text-hp-paper/45 text-sm">You don&apos;t have access to this academy&apos;s billing.</p>
       </div>
     );
   }
@@ -80,25 +80,25 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       <div className="mb-6">
-        <Link href="/academy" className="inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white transition-colors">
+        <Link href="/academy" className="inline-flex items-center gap-1.5 text-sm text-hp-paper/45 hover:text-hp-paper transition-colors">
           ← Back to Academy
         </Link>
       </div>
 
-      <h1 className="text-xl font-bold text-white mb-1">Academy Billing</h1>
-      <p className="text-zinc-400 text-sm mb-6">{academy.name}</p>
+      <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Academy Billing</h1>
+      <p className="text-hp-paper/45 text-sm mb-6">{academy.name}</p>
 
       {/* Current plan status */}
-      <div className={`rounded-2xl p-6 mb-6 border ${hasActiveSub ? "bg-pace-green/10 border-pace-green/30" : "bg-surface border-zinc-700"}`}>
+      <div className={`p-6 mb-6 border ${hasActiveSub ? "bg-pace-green/10 border-pace-green/30" : "bg-hp-surface border-white/12"}`}>
         {currentPlan ? (
           <>
             <div className="flex items-center gap-2 mb-2">
-              <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${hasActiveSub ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-300"}`}>
+              <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${hasActiveSub ? "bg-pace-green/20 text-pace-green" : "bg-white/10 text-hp-paper/70"}`}>
                 {academy.subscriptionStatus ?? "inactive"}
               </span>
-              <span className="text-white font-semibold">{currentPlan.name}</span>
+              <span className="text-hp-paper font-semibold">{currentPlan.name}</span>
             </div>
-            <div className="text-sm text-zinc-400">
+            <div className="text-sm text-hp-paper/45">
               {seatCount} / {currentPlan.seatCap ?? "∞"} bowlers assigned
             </div>
             {currentPlan.accessDurationMonths != null && (
@@ -112,19 +112,19 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
                 ) : null}
               </div>
             )}
-            {currentPlan.includedNotes && <p className="text-xs text-zinc-500 mt-2">{currentPlan.includedNotes}</p>}
+            {currentPlan.includedNotes && <p className="text-xs text-hp-paper/45 mt-2">{currentPlan.includedNotes}</p>}
             <div className="mt-3">
               <EmailPlanDetailsButton academyId={academy.id} />
             </div>
           </>
         ) : (
-          <p className="text-zinc-400 text-sm">No active license — choose a plan below.</p>
+          <p className="text-hp-paper/45 text-sm">No active license — choose a plan below.</p>
         )}
       </div>
 
       {/* Plan selection */}
-      <div className="bg-surface rounded-2xl p-6 mb-6">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-5">Available Licenses</h2>
+      <div className="bg-hp-surface p-6 mb-6">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-5">Available Licenses</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {selectablePlans.map((p) => {
             const isActive = selectedPlanId === p.id;
@@ -133,36 +133,36 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
                 key={p.id}
                 type="button"
                 onClick={() => setSelectedPlanId(p.id)}
-                className={`text-left p-5 rounded-xl border-2 transition-all cursor-pointer ${
-                  isActive ? "border-pace-green bg-pace-green/10" : "border-zinc-700 hover:border-zinc-500 bg-ink"
+                className={`text-left p-5 border-2 transition-all cursor-pointer ${
+                  isActive ? "border-pace-green bg-pace-green/10" : "border-white/12 hover:border-white/25 bg-hp-ink"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className={`text-sm font-bold ${isActive ? "text-pace-green" : "text-white"}`}>{p.name}</span>
+                  <span className={`text-sm font-bold ${isActive ? "text-pace-green" : "text-hp-paper"}`}>{p.name}</span>
                   {isActive && <span className="text-pace-green text-sm font-bold flex-shrink-0">✓</span>}
                 </div>
-                <div className="text-lg font-bold text-white mb-2">
+                <div className="text-lg font-bold text-hp-paper mb-2">
                   {(() => {
                     const { amount, currency } = resolvePlanPrice(p.priceAud, p.pricesByCurrency, academy.currency);
                     return `${formatMoney(amount, currency)} / ${p.billingInterval}`;
                   })()}
                 </div>
-                <div className="text-xs text-zinc-400 mb-2">Up to {p.seatCap} bowlers</div>
+                <div className="text-xs text-hp-paper/45 mb-2">Up to {p.seatCap} bowlers</div>
                 {p.accessDurationMonths != null && (
                   <div className="text-xs text-amber mb-2">{p.accessDurationMonths}-month monitoring window per cycle</div>
                 )}
-                {p.includedNotes && <div className="text-xs text-zinc-500">{p.includedNotes}</div>}
+                {p.includedNotes && <div className="text-xs text-hp-paper/45">{p.includedNotes}</div>}
               </button>
             );
           })}
         </div>
-        {selectablePlans.length === 0 && <p className="text-zinc-500 text-sm">No organization plans configured yet.</p>}
+        {selectablePlans.length === 0 && <p className="text-hp-paper/45 text-sm">No organization plans configured yet.</p>}
       </div>
 
       <InvoiceHistoryList scope="academy" id={academy.id} />
 
       {error && (
-        <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="mb-4 px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
           {error}
         </div>
       )}
@@ -173,7 +173,7 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
             type="button"
             onClick={handleManageBilling}
             disabled={redirecting}
-            className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+            className="px-6 py-3 text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
           >
             {redirecting ? "Redirecting…" : "Manage Billing"}
           </button>
@@ -182,7 +182,7 @@ export function AcademyBillingClient({ academy }: { academy: Academy }) {
             type="button"
             onClick={handleCheckout}
             disabled={redirecting || !selectedPlanId}
-            className="px-6 py-3 rounded-xl text-sm font-bold bg-pace-green text-black hover:opacity-90 transition-opacity cursor-pointer disabled:opacity-60"
+            className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60"
           >
             {redirecting ? "Redirecting…" : "Subscribe"}
           </button>
@@ -229,7 +229,7 @@ function EmailPlanDetailsButton({ academyId }: { academyId: string }) {
         type="button"
         onClick={handleClick}
         disabled={sending}
-        className="px-3 py-1.5 text-xs font-semibold text-pace-green border border-pace-green/30 rounded-lg hover:bg-pace-green/10 transition-colors cursor-pointer disabled:opacity-60"
+        className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors cursor-pointer disabled:opacity-60"
         title="Send an email summarising this plan's inclusions — useful if someone asks again after signup"
       >
         {sending ? "Sending…" : "📧 Email Plan Details"}

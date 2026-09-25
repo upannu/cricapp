@@ -145,7 +145,7 @@ describe("CoachProfileClient", () => {
     await user.click(screen.getByRole("button", { name: "Yes, Deactivate" }));
 
     expect(updateCoachFields).toHaveBeenCalledWith("c1", { status: "Inactive" });
-    const header = screen.getByText("Coach Dan").closest(".bg-surface") as HTMLElement;
+    const header = screen.getByText("Coach Dan").closest(".bg-hp-surface") as HTMLElement;
     expect(await within(header).findByText("Inactive")).toBeInTheDocument();
   });
 

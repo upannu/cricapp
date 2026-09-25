@@ -35,7 +35,7 @@ const AGE_GROUPS: AgeGroup[] = ["U10", "U11", "U12", "U13", "U14", "U16", "U19",
 const CERT_LEVELS: CertificationLevel[] = ["Level 1", "Level 2", "Level 3", "Elite"];
 
 const CERT_STYLES: Record<CertificationLevel, string> = {
-  "Level 1": "bg-zinc-700 text-zinc-300",
+  "Level 1": "bg-white/10 text-hp-paper/70",
   "Level 2": "bg-blue-500/20 text-blue-400",
   "Level 3": "bg-amber/20 text-amber",
   "Elite":   "bg-pace-green/20 text-pace-green",
@@ -697,11 +697,11 @@ export function CoachesClient() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-white mb-1">Coaches</h1>
+          <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">Coaches</h1>
         </div>
         {user?.role !== "coach" && (
           <button type="button" onClick={openAdd}
-            className="flex-shrink-0 px-4 py-2 text-sm font-semibold text-pace-green border border-pace-green/40 rounded-xl hover:bg-pace-green/10 transition-colors cursor-pointer">
+            className="flex-shrink-0 px-4 py-2 text-sm font-semibold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer">
             + Add Coach
           </button>
         )}
@@ -711,7 +711,7 @@ export function CoachesClient() {
           status (see the effect above), not just an optimistic guess, so it gets its own
           success styling rather than sharing the amber "still waiting" treatment. */}
       {payoutNotice && (
-        <div className={`flex items-start justify-between gap-3 border rounded-xl px-4 py-3 mb-6 ${
+        <div className={`flex items-start justify-between gap-3 border px-4 py-3 mb-6 ${
           payoutNotice === "confirmed" ? "bg-pace-green/10 border-pace-green/30" : "bg-amber/10 border-amber/30"
         }`}>
           <p className={`text-sm ${payoutNotice === "confirmed" ? "text-pace-green" : "text-amber"}`}>
@@ -746,8 +746,8 @@ export function CoachesClient() {
           their own profile. Neither applies anymore — a coach role never reaches "+ Add Coach"
           at all (see the header button's own gate above). */}
       {showForm && (
-        <div className="bg-surface rounded-2xl p-6 border border-pace-green/30 mb-6">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-pace-green mb-6">New Coach</h2>
+        <div className="bg-hp-surface p-6 border border-hp-cg/30 mb-6">
+          <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg mb-6">New Coach</h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
             <div>
@@ -821,11 +821,11 @@ export function CoachesClient() {
                   type="checkbox"
                   checked={draft.marketplaceVisible}
                   onChange={(e) => setDraft({ ...draft, marketplaceVisible: e.target.checked })}
-                  className="w-4 h-4 rounded accent-pace-green cursor-pointer"
+                  className="w-4 h-4 rounded accent-hp-cg cursor-pointer"
                 />
-                <span className="text-sm text-white font-medium">Visible in the coach marketplace</span>
+                <span className="text-sm text-hp-paper font-medium">Visible in the coach marketplace</span>
               </label>
-              <p className="text-xs text-zinc-500 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
+              <p className="text-xs text-hp-paper/45 mt-1 ml-6">Players in this academy can find and request a booking with this coach from the marketplace.</p>
             </div>
             <div className="sm:col-span-2">
               <label className="flex items-center gap-2.5 cursor-pointer select-none">
@@ -833,11 +833,11 @@ export function CoachesClient() {
                   type="checkbox"
                   checked={draft.available}
                   onChange={(e) => setDraft({ ...draft, available: e.target.checked })}
-                  className="w-4 h-4 rounded accent-pace-green cursor-pointer"
+                  className="w-4 h-4 rounded accent-hp-cg cursor-pointer"
                 />
-                <span className="text-sm text-white font-medium">Actively taking new players</span>
+                <span className="text-sm text-hp-paper font-medium">Actively taking new players</span>
               </label>
-              <p className="text-xs text-zinc-500 mt-1 ml-6">Turn off to stay listed in the marketplace but show as unavailable for new bookings.</p>
+              <p className="text-xs text-hp-paper/45 mt-1 ml-6">Turn off to stay listed in the marketplace but show as unavailable for new bookings.</p>
             </div>
           </div>
 
@@ -849,10 +849,10 @@ export function CoachesClient() {
                 const isSel = draft.ageGroupsFocus.includes(g);
                 return (
                   <button key={g} type="button" onClick={() => toggleAgeGroup(g)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+                    className={`px-3 py-1.5 text-xs font-semibold border transition-colors cursor-pointer ${
                       isSel
-                        ? "bg-pace-green/20 border-pace-green text-pace-green"
-                        : "bg-ink border-zinc-700 text-zinc-400 hover:border-zinc-500"
+                        ? "bg-hp-cg/20 border-hp-cg text-hp-cg"
+                        : "bg-hp-ink border-white/12 text-hp-paper/45 hover:border-white/25"
                     }`}>
                     {g}
                   </button>
@@ -861,35 +861,35 @@ export function CoachesClient() {
             </div>
           </div>
 
-          <div className="mb-5 p-4 rounded-xl bg-ink border border-zinc-700">
+          <div className="mb-5 p-4 bg-hp-ink border border-white/12">
             <label className="flex items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={sendInvite}
                 onChange={(e) => setSendInvite(e.target.checked)}
-                className="w-4 h-4 accent-pace-green cursor-pointer"
+                className="w-4 h-4 accent-hp-cg cursor-pointer"
               />
               <div>
-                <span className="text-sm font-semibold text-white">Send login invite email</span>
-                <p className="text-xs text-zinc-500 mt-0.5">Coach receives an email with a link to set their password and access CRIC HQ</p>
+                <span className="text-sm font-semibold text-hp-paper">Send login invite email</span>
+                <p className="text-xs text-hp-paper/45 mt-0.5">Coach receives an email with a link to set their password and access CRIC HQ</p>
               </div>
             </label>
             {inviteStatus === "sending" && (
-              <p className="text-xs text-zinc-400 mt-3 flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full border border-zinc-400 border-t-transparent animate-spin inline-block" />
+              <p className="text-xs text-hp-paper/45 mt-3 flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full border border-hp-cg border-t-transparent animate-spin inline-block" />
                 Sending invite…
               </p>
             )}
             {inviteStatus === "sent" && (
               <div className="flex items-center justify-between mt-3">
                 <p className="text-xs text-pace-green font-semibold">✓ Invite sent to {draft.email}</p>
-                <button type="button" onClick={closeForm} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Close</button>
+                <button type="button" onClick={closeForm} className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer">Close</button>
               </div>
             )}
             {inviteStatus === "error" && (
               <div className="flex items-center justify-between mt-3">
                 <p className="text-xs text-red-400">{inviteError}</p>
-                <button type="button" onClick={closeForm} className="text-xs text-zinc-400 hover:text-white cursor-pointer">Close</button>
+                <button type="button" onClick={closeForm} className="text-xs text-hp-paper/45 hover:text-hp-paper cursor-pointer">Close</button>
               </div>
             )}
           </div>
@@ -899,11 +899,11 @@ export function CoachesClient() {
           <div className="flex items-center gap-3">
             <button type="button" onClick={handleSave}
               disabled={saving || inviteStatus === "sending"}
-              className="px-6 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer disabled:opacity-60">
+              className="px-6 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
               {saving ? "Saving…" : "Create Coach"}
             </button>
             <button type="button" onClick={closeForm}
-              className="px-6 py-2.5 text-sm font-medium text-zinc-400 border border-zinc-700 rounded-xl hover:text-white hover:border-zinc-500 transition-colors cursor-pointer">
+              className="px-6 py-2.5 text-sm font-medium text-hp-paper/45 border border-white/12 hover:text-hp-paper hover:border-white/25 transition-colors cursor-pointer">
               Cancel
             </button>
           </div>
@@ -912,7 +912,7 @@ export function CoachesClient() {
 
       {/* Success banner */}
       {saved && !showForm && (
-        <div className="mb-5 px-5 py-3 rounded-xl bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
+        <div className="mb-5 px-5 py-3 bg-pace-green/10 border border-pace-green/30 text-pace-green text-sm font-semibold">
           ✓ Coach saved successfully
         </div>
       )}
@@ -925,7 +925,7 @@ export function CoachesClient() {
           show it — this only needs to catch the leftover case. */}
       {formError && !showForm && !reassignTarget && !confirmRemoveCoach && !confirmStatusToggle &&
         !confirmMarketplaceToggle && !confirmResendInvite && !confirmReinstate && !reassignAllTarget && (
-        <div className="mb-5 px-5 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
+        <div className="mb-5 px-5 py-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-semibold">
           {formError}
         </div>
       )}
@@ -942,7 +942,7 @@ export function CoachesClient() {
           onClick={() => { setFilter((prev) => (prev === "Active" ? "All" : "Active")); setPage(1); }} active={filter === "Active"} />
         <StatCard label="Inactive" value={inactiveCount} color="text-amber"
           onClick={() => { setFilter((prev) => (prev === "Inactive" ? "All" : "Inactive")); setPage(1); }} active={filter === "Inactive"} />
-        <StatCard label="Removed" value={removedCount} color="text-zinc-400"
+        <StatCard label="Removed" value={removedCount} color="text-hp-paper/45"
           onClick={() => { setFilter((prev) => (prev === "Removed" ? "All" : "Removed")); setPage(1); }} active={filter === "Removed"} />
         <StatCard label="Total coaches" value={coaches.length - removedCount} />
       </StatsGrid>
@@ -950,42 +950,42 @@ export function CoachesClient() {
       {/* Bulk action bar — staff-only, same gate as the row-level Deactivate/Marketplace/Remove
           actions below (a coach viewing their own team never gets bulk powers over colleagues). */}
       {user?.role !== "coach" && selectedIds.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-3">
+        <div className="mb-4 flex flex-wrap items-center gap-3 bg-blue-500/10 border border-blue-500/30 px-4 py-3">
           <span className="text-blue-400 text-sm font-semibold">
             {selectedIds.size} coach{selectedIds.size !== 1 ? "es" : ""} selected
           </span>
           <button
             type="button"
             onClick={() => { setBulkAssignAcademyOpen(true); setBulkAssignAcademyId(""); }}
-            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors cursor-pointer"
           >
             Assign Academy
           </button>
           <button
             type="button"
             onClick={() => setBulkMarketplaceTarget(true)}
-            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors cursor-pointer"
           >
             Show in Marketplace
           </button>
           <button
             type="button"
             onClick={() => setBulkMarketplaceTarget(false)}
-            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 transition-colors cursor-pointer"
           >
             Hide from Marketplace
           </button>
           <button
             type="button"
             onClick={handleExportCsv}
-            className="px-3 py-1.5 text-xs font-semibold text-zinc-300 border border-zinc-600 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            className="px-3 py-1.5 text-xs font-semibold text-hp-paper/70 border border-white/15 hover:bg-white/5 transition-colors cursor-pointer"
           >
             Export CSV
           </button>
           <button
             type="button"
             onClick={clearSelection}
-            className="text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer sm:ml-auto"
+            className="text-xs text-hp-paper/45 hover:text-hp-paper transition-colors cursor-pointer sm:ml-auto"
           >
             Clear
           </button>
@@ -997,11 +997,11 @@ export function CoachesClient() {
           footer's "Showing X–Y of Z" label instead of a standalone heading here, matching Players
           exactly (see PR #75, which gave Players/Sessions/Bookings numbered pagination + a
           rows-per-page selector — Coaches picks up the same footer here). */}
-      <div className="bg-surface rounded-2xl overflow-hidden">
-        <div className="px-6 py-4 border-b border-zinc-700/60 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
+      <div className="bg-hp-surface overflow-hidden">
+        <div className="px-6 py-4 border-b border-white/12 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 flex-1">
             <div className="relative w-full sm:max-w-[300px]">
-              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 text-hp-paper/45 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
               <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
@@ -1019,7 +1019,7 @@ export function CoachesClient() {
               <button
                 type="button"
                 onClick={clearAllFilters}
-                className="text-xs text-zinc-400 hover:text-white underline transition-colors cursor-pointer whitespace-nowrap"
+                className="text-xs text-hp-paper/45 hover:text-hp-paper underline transition-colors cursor-pointer whitespace-nowrap"
               >
                 Reset filters
               </button>
@@ -1030,7 +1030,7 @@ export function CoachesClient() {
           <div ref={tableScrollRef} className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-zinc-700/60">
+                <tr className="border-b border-white/12">
                   {user?.role !== "coach" && (
                     <th className="text-center px-4 py-3 pl-6 whitespace-nowrap">
                       <input
@@ -1038,7 +1038,7 @@ export function CoachesClient() {
                         checked={allSelected}
                         ref={(el) => { if (el) el.indeterminate = someSelected; }}
                         onChange={toggleAll}
-                        className="w-3.5 h-3.5 accent-pace-green cursor-pointer"
+                        className="w-3.5 h-3.5 accent-hp-cg cursor-pointer"
                         title="Select all"
                       />
                     </th>
@@ -1047,13 +1047,13 @@ export function CoachesClient() {
                   <SortableHeader label="Academy" sortKey="academy" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                   <SortableHeader label="Status" sortKey="status" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
                   <SortableHeader label="Players" sortKey="players" activeKey={sortKey} direction={sortDir} onSort={handleSort} />
-                  <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Payouts</th>
-                  <th className="text-left text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Marketplace</th>
+                  <th className="text-left text-xs font-semibold text-hp-paper/70 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Payouts</th>
+                  <th className="text-left text-xs font-semibold text-hp-paper/70 uppercase tracking-wider px-4 py-3 whitespace-nowrap">Marketplace</th>
                   {/* Sticky, not just narrower — pinned to the card's right edge regardless of how
                       far the rest of the table scrolls, so the ⋮ menu never needs to be scrolled
                       to at all. A width trim (like dropping Joined below) only ever buys headroom
                       up to whatever the widest row happens to need next; this holds regardless. */}
-                  <th className="sticky right-0 bg-surface text-right text-xs font-semibold text-zinc-300 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap shadow-[-8px_0_8px_-4px_rgba(0,0,0,0.3)]">Actions</th>
+                  <th className="sticky right-0 bg-hp-surface text-right text-xs font-semibold text-hp-paper/70 uppercase tracking-wider px-4 py-3 pr-6 whitespace-nowrap shadow-[-8px_0_8px_-4px_rgba(0,0,0,0.3)]">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1122,16 +1122,16 @@ export function CoachesClient() {
                         ] : []),
                       ];
   
-                  // Shared with the sticky Actions cell below — a plain "bg-surface" there would
+                  // Shared with the sticky Actions cell below — a plain "bg-hp-surface" there would
                   // visibly seam against a selected/saved row's own tint as content scrolls under it.
                   const rowBg = selectedIds.has(coach.id)
                     ? "bg-blue-500/5"
-                    : saved === coach.id ? "bg-pace-green/5" : "bg-surface";
+                    : saved === coach.id ? "bg-pace-green/5" : "bg-hp-surface";
 
                   return (
                     <tr key={coach.id}
-                      className={`border-b border-zinc-700/40 last:border-0 transition-colors ${rowBg} ${
-                        selectedIds.has(coach.id) || saved === coach.id ? "" : "hover:bg-surface/80"
+                      className={`border-b border-white/8 last:border-0 transition-colors ${rowBg} ${
+                        selectedIds.has(coach.id) || saved === coach.id ? "" : "hover:bg-hp-surface/80"
                       }`}>
                       {isStaff && (
                         <td className="px-4 py-4 pl-6 text-center">
@@ -1139,7 +1139,7 @@ export function CoachesClient() {
                             type="checkbox"
                             checked={selectedIds.has(coach.id)}
                             onChange={() => toggleSelect(coach.id)}
-                            className="w-4 h-4 accent-pace-green cursor-pointer"
+                            className="w-4 h-4 accent-hp-cg cursor-pointer"
                             title="Select for bulk actions"
                           />
                         </td>
@@ -1156,12 +1156,12 @@ export function CoachesClient() {
                         {(() => {
                           const identity = (
                             <>
-                              <div className="w-9 h-9 rounded-full bg-pace-green flex items-center justify-center text-black font-bold text-sm flex-shrink-0">
+                              <div className="w-9 h-9 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-sm flex-shrink-0">
                                 {initials}
                               </div>
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <p className={`text-white text-sm font-medium whitespace-nowrap ${canEditRow ? "group-hover:text-pace-green transition-colors" : ""}`}>{coach.name}</p>
+                                  <p className={`text-hp-paper text-sm font-medium whitespace-nowrap ${canEditRow ? "group-hover:text-hp-cg transition-colors" : ""}`}>{coach.name}</p>
                                   {saved === coach.id && <span className="text-pace-green text-xs font-semibold">✓ Saved</span>}
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
@@ -1171,7 +1171,7 @@ export function CoachesClient() {
                                   {resendInviteSent === coach.id && <span className="text-pace-green text-xs">✓ Invite sent</span>}
                                 </div>
                                 {coach.loginDisabled && (
-                                  <p className="text-zinc-500 text-xs mt-0.5">
+                                  <p className="text-hp-paper/45 text-xs mt-0.5">
                                     {coach.disabledReason || "Removed by staff"}
                                     {coach.disabledAt && ` · ${new Date(coach.disabledAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`}
                                   </p>
@@ -1194,11 +1194,11 @@ export function CoachesClient() {
                       </td>
                       <td className="px-4 py-4 text-xs whitespace-nowrap">
                         {academy ? (
-                          <span className="px-2 py-0.5 rounded-md text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                          <span className="px-2 py-0.5 text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20">
                             🏫 {academy.name}
                           </span>
                         ) : (
-                          <span className="text-zinc-500">Independent</span>
+                          <span className="text-hp-paper/45">Independent</span>
                         )}
                       </td>
                       <td className="px-4 py-4">
@@ -1206,7 +1206,7 @@ export function CoachesClient() {
                           <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400">Removed</span>
                         ) : (
                           <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            coach.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-zinc-700 text-zinc-400"
+                            coach.status === "Active" ? "bg-pace-green/20 text-pace-green" : "bg-white/10 text-hp-paper/45"
                           }`}>
                             {coach.status}
                           </span>
@@ -1216,7 +1216,7 @@ export function CoachesClient() {
                       <td className="px-4 py-4 text-xs whitespace-nowrap">
                         {canEditRow ? (
                           <>
-                            <span className={coach.stripeConnectOnboarded ? "text-pace-green font-semibold" : "text-zinc-400"}>
+                            <span className={coach.stripeConnectOnboarded ? "text-pace-green font-semibold" : "text-hp-paper/45"}>
                               {coach.stripeConnectOnboarded ? "✓ Connected" : coach.stripeConnectAccountId ? "Onboarding incomplete" : "Not set up"}
                             </span>
                             {payoutError?.coachId === coach.id && (
@@ -1224,14 +1224,14 @@ export function CoachesClient() {
                             )}
                           </>
                         ) : (
-                          <span className="text-zinc-600">—</span>
+                          <span className="text-hp-paper/35">—</span>
                         )}
                       </td>
                       <td className="px-4 py-4 text-xs whitespace-nowrap">
                         {coach.marketplaceVisible ? (
                           <span className="text-blue-400 font-semibold">✓ Listed</span>
                         ) : (
-                          <span className="text-zinc-500">Not listed</span>
+                          <span className="text-hp-paper/45">Not listed</span>
                         )}
                       </td>
                       <td className={`sticky right-0 px-4 py-4 pr-6 text-right transition-colors shadow-[-8px_0_8px_-4px_rgba(0,0,0,0.3)] ${rowBg}`}>
@@ -1246,9 +1246,9 @@ export function CoachesClient() {
             </table>
             {filtered.length === 0 && (
               <div className="px-6 py-16 text-center">
-                <p className="text-zinc-400 text-sm mb-4">No coaches found.</p>
+                <p className="text-hp-paper/45 text-sm mb-4">No coaches found.</p>
                 <button type="button" onClick={openAdd}
-                  className="px-5 py-2.5 bg-pace-green text-black text-sm font-bold rounded-xl hover:opacity-90 cursor-pointer">
+                  className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
                   + Add First Coach
                 </button>
               </div>
@@ -1259,7 +1259,7 @@ export function CoachesClient() {
               Actions off with no hint they exist. Tracks real scrollability (via the ResizeObserver
               above), not just viewport width, so it disappears once actually scrolled to the end. */}
           {tableCanScrollRight && (
-            <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-10 bg-gradient-to-l from-surface to-transparent" aria-hidden="true" />
+            <div className="pointer-events-none absolute top-0 right-0 bottom-0 w-10 bg-gradient-to-l from-hp-surface to-transparent" aria-hidden="true" />
           )}
         </div>
         {/* Always visible, same as Players — a fixed spot for the count rather than one that
@@ -1268,7 +1268,7 @@ export function CoachesClient() {
             control still shows so it's there before that changes. */}
         <PaginationFooter
           label={
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-hp-paper/45">
               Showing {sorted.length === 0 ? 0 : (currentPage - 1) * coachesPerPage + 1}–{Math.min(currentPage * coachesPerPage, sorted.length)} of {sorted.length}
             </p>
           }
@@ -1277,7 +1277,7 @@ export function CoachesClient() {
           onPageChange={setPage}
           itemsPerPage={coachesPerPage}
           onItemsPerPageChange={(n) => { setCoachesPerPage(n); setPage(1); }}
-          className="px-6 py-3 border-t border-zinc-700/60"
+          className="px-6 py-3 border-t border-white/12"
         />
       </div>
 
@@ -1348,7 +1348,7 @@ export function CoachesClient() {
           <select
             value={reassignAllToCoachId}
             onChange={(e) => setReassignAllToCoachId(e.target.value)}
-            className="w-full bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+            className="w-full bg-hp-ink text-hp-paper text-sm px-3 py-2.5 border border-white/12 focus:border-hp-cg focus:outline-none cursor-pointer"
           >
             <option value="">— Leave unassigned —</option>
             {coaches.filter((c) => c.id !== reassignAllTarget.coachId).map((c) => (
@@ -1395,11 +1395,11 @@ export function CoachesClient() {
           <div className="space-y-4">
             {reassignTarget.headCoachAcademy && (
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">New head coach</label>
+                <label className="block text-xs text-hp-paper/45 mb-1.5">New head coach</label>
                 <select
                   value={newHeadCoachId}
                   onChange={(e) => setNewHeadCoachId(e.target.value)}
-                  className="w-full bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+                  className="w-full bg-hp-ink text-hp-paper text-sm px-3 py-2.5 border border-white/12 focus:border-hp-cg focus:outline-none cursor-pointer"
                 >
                   <option value="">— Select new head coach —</option>
                   {reassignTarget.headCoachAcademy.otherCoachIds.map((cid) => {
@@ -1411,11 +1411,11 @@ export function CoachesClient() {
             )}
             {reassignTarget.playerCount > 0 && (
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">Move their players to</label>
+                <label className="block text-xs text-hp-paper/45 mb-1.5">Move their players to</label>
                 <select
                   value={reassignToCoachId}
                   onChange={(e) => setReassignToCoachId(e.target.value)}
-                  className="w-full bg-ink text-white text-sm rounded-xl px-3 py-2.5 border border-zinc-700 focus:border-pace-green focus:outline-none cursor-pointer"
+                  className="w-full bg-hp-ink text-hp-paper text-sm px-3 py-2.5 border border-white/12 focus:border-hp-cg focus:outline-none cursor-pointer"
                 >
                   <option value="">— Leave unassigned —</option>
                   {coaches.filter((c) => c.id !== reassignTarget.coachId).map((c) => (
@@ -1521,6 +1521,6 @@ export function CoachesClient() {
   );
 }
 
-const inp = "w-full bg-ink rounded-xl px-4 py-3 text-white placeholder-zinc-600 border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm";
-const sel = "w-full bg-ink rounded-xl px-4 py-3 text-white border border-zinc-700 focus:border-pace-green focus:outline-none transition-colors text-sm cursor-pointer";
-const lbl = "block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5";
+const inp = "w-full bg-hp-ink px-4 py-3 text-hp-paper placeholder-hp-paper/30 border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm";
+const sel = "w-full bg-hp-ink px-4 py-3 text-hp-paper border border-white/12 focus:border-hp-cg focus:outline-none transition-colors text-sm cursor-pointer";
+const lbl = "block text-xs font-mono font-semibold text-hp-paper/52 uppercase tracking-widest mb-1.5";
