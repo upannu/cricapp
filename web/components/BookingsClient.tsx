@@ -596,7 +596,7 @@ export function BookingsClient() {
 
           {formError && <p className="text-red-400 text-sm mb-3">{formError}</p>}
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={handleSave}
               className="px-6 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
               {editingId ? "Save Changes" : "Create Booking"}

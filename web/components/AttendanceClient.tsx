@@ -717,11 +717,11 @@ export function AttendanceClient() {
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Squad Training</h1>
         </div>
-        <div className="flex gap-3 flex-shrink-0">
+        <div className="flex flex-wrap gap-3">
           <button type="button" onClick={openBulkGroupImport}
             className="px-4 py-2 text-sm font-bold text-hp-paper/70 border border-white/15 hover:border-hp-cg hover:text-hp-cg transition-colors cursor-pointer">
             Bulk Import Groups

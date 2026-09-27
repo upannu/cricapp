@@ -793,7 +793,7 @@ export function SessionPacksClient() {
           <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide mb-1">Memberships</h1>
         </div>
         {canAddPack && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Link href="/session-packs/plans"
               className="px-5 py-2.5 text-hp-paper/70 text-sm font-bold border border-white/12 hover:bg-white/5 transition-colors">
               Plan Templates
@@ -946,7 +946,7 @@ export function SessionPacksClient() {
             )}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={handlePackCsvImport}
               disabled={packCsvImporting || packCsvRows.filter((r) => r.csvStatus === "ready").length === 0}
               className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
@@ -1120,7 +1120,7 @@ export function SessionPacksClient() {
 
           {formError && <p className="text-red-400 text-sm mb-3">{formError}</p>}
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={handleSave}
               className="px-6 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors cursor-pointer">
               Create Membership

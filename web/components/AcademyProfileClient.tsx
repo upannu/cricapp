@@ -777,7 +777,7 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
                   </div>
                 </div>
                 {netError && <p className="text-red-400 text-xs">{netError}</p>}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <button type="button" onClick={handleSaveNet}
                     className="px-4 py-2 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer">
                     {editingNetId ? "Save Changes" : "Add Net"}
