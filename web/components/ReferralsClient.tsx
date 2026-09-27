@@ -323,7 +323,7 @@ function ReferralForm({
 
       {formError && <p className="text-red-400 text-sm">{formError}</p>}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={onSubmit} disabled={saving}
           className="px-6 py-3 text-sm font-bold bg-hp-cg text-hp-paper hover:bg-hp-cg/90 transition-colors cursor-pointer disabled:opacity-60">
           {saving ? "Saving…" : "Create Referral"}

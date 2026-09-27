@@ -1170,7 +1170,7 @@ export function AcademyClient() {
           <div className="relative bg-hp-surface w-full max-w-2xl shadow-2xl border border-white/12 my-4"
             onClick={(e) => e.stopPropagation()}>
 
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/10">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-6 pt-5 pb-4 border-b border-white/10">
               <h2 className="text-xs font-mono font-semibold uppercase tracking-widest text-hp-cg">{editingId ? "Edit Academy" : "New Academy"}</h2>
               <div className="flex items-center gap-3">
                 {editingId && (user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === editingId)) && (
@@ -1533,7 +1533,7 @@ export function AcademyClient() {
                       <span className="text-hp-cg normal-case font-normal">({draft.playerIds.length} assigned)</span>
                     )}
                   </p>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     {editingId && (
                       <button type="button" onClick={() => { setShowCsvImport((v) => !v); setCsvError(""); setCsvRows([]); setCsvFileName(""); setCsvImportedCount(null); }}
                         className="text-xs font-semibold text-pace-green hover:opacity-80 cursor-pointer">

@@ -404,7 +404,7 @@ function CreditButton({ remaining, expired, onCredit }: { remaining: number; exp
 
   if (showConfirm) {
     return (
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <span className="text-hp-paper/70 text-xs">Credit 1 session back to this player&apos;s membership?</span>
         <button type="button" onClick={confirm}
           className="px-3 py-1.5 text-xs font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30 cursor-pointer transition-colors">
