@@ -337,7 +337,7 @@ export function NavBar() {
                   </svg>
                 </button>
                 {open && (
-                  <div className="absolute left-0 top-full z-30 w-52 bg-white/8 border border-white/12 shadow-xl py-1 overflow-hidden">
+                  <div className="absolute left-0 top-full z-30 w-52 bg-hp-surface border border-white/12 shadow-xl py-1 overflow-hidden">
                     {entry.children.map((child) => (
                       <Link
                         key={child.href}
@@ -388,7 +388,7 @@ export function NavBar() {
                 </button>
 
                 {openGroup === "admin" && (
-                  <div role="menu" aria-label="Admin Center" className="absolute right-0 top-10 z-30 w-80 bg-white/8 border border-white/12 shadow-xl py-2 overflow-hidden">
+                  <div role="menu" aria-label="Admin Center" className="absolute right-0 top-10 z-30 w-80 bg-hp-surface border border-white/12 shadow-xl py-2 overflow-hidden">
                     <p className="px-4 pb-2 text-xs font-semibold uppercase tracking-wider text-hp-paper/45 border-b border-white/12">Admin Center</p>
                     {ADMIN_STRUCTURE.map((group, i) => (
                       <div key={group.section} className={i > 0 ? "mt-2" : "mt-1"}>
@@ -438,7 +438,7 @@ export function NavBar() {
                 </div>
               </button>
               {userMenuOpen && (
-                <div className="absolute right-0 top-12 z-30 w-64 bg-white/8 border border-white/12 shadow-xl py-1 overflow-hidden">
+                <div className="absolute right-0 top-12 z-30 w-64 bg-hp-surface border border-white/12 shadow-xl py-1 overflow-hidden">
                   <div className="px-4 pt-3 pb-2.5 border-b border-white/12">
                     <p className="text-sm font-medium text-hp-paper leading-tight truncate">{user.name}</p>
                     <p className="text-xs text-hp-paper/45 leading-tight truncate mt-0.5">{user.email}</p>
