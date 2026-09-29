@@ -98,6 +98,48 @@ describe("POST /api/stripe/webhook", () => {
     expect(client.tables.booking_fee_dues.eq).toHaveBeenCalledWith("status", "pending");
   });
 
+  // The finance ledger — see recordRevenueEvent in app/api/stripe/webhook/route.ts. Reads the
+  // amount/fee/academy/currency straight out of the metadata create-*-checkout-session already
+  // sets, rather than re-deriving them or making an extra Stripe API call.
+  test("checkout.session.completed / pack_payment records a platform_revenue_events row", async () => {
+    const res = await POST(signedRequest(event("checkout.session.completed", {
+      id: "cs_pack1",
+      metadata: { type: "pack_payment", pack_id: "pack1", academy_id: "ac1", amount_aud: "500", platform_fee_cents: "5000", currency: "aud" },
+    })));
+    expect(res.status).toBe(200);
+    const client = routeMockState.lastServiceClient!;
+    expect(client.tables.platform_revenue_events.upsert).toHaveBeenCalledWith(
+      { type: "pack_payment", academy_id: "ac1", amount_aud: 500, platform_fee_aud: 50, currency: "aud", stripe_session_id: "cs_pack1" },
+      { onConflict: "stripe_session_id" },
+    );
+  });
+
+  test("checkout.session.completed / booking_payment records a platform_revenue_events row", async () => {
+    const res = await POST(signedRequest(event("checkout.session.completed", {
+      id: "cs_book1",
+      metadata: { type: "booking_payment", booking_id: "b1", academy_id: "ac2", amount_aud: "80", platform_fee_cents: "800", currency: "aud" },
+    })));
+    expect(res.status).toBe(200);
+    const client = routeMockState.lastServiceClient!;
+    expect(client.tables.platform_revenue_events.upsert).toHaveBeenCalledWith(
+      { type: "booking_payment", academy_id: "ac2", amount_aud: 80, platform_fee_aud: 8, currency: "aud", stripe_session_id: "cs_book1" },
+      { onConflict: "stripe_session_id" },
+    );
+  });
+
+  // Defends against a mid-rollout gap: an in-flight Checkout session created before this
+  // metadata existed can still complete after deploy — the ledger write must skip quietly
+  // rather than upsert a garbage (NaN/undefined) row.
+  test("checkout.session.completed / booking_payment with pre-rollout metadata still marks Paid but skips the ledger write", async () => {
+    const res = await POST(signedRequest(event("checkout.session.completed", { metadata: { type: "booking_payment", booking_id: "b1" } })));
+    expect(res.status).toBe(200);
+    const client = routeMockState.lastServiceClient!;
+    expect(client.tables.bookings.update).toHaveBeenCalledWith({ payment_status: "Paid" });
+    // The mock only registers a table entry once .from(table) is actually called — undefined
+    // here proves recordRevenueEvent returned early and never touched the table at all.
+    expect(client.tables.platform_revenue_events).toBeUndefined();
+  });
+
   test("checkout.session.completed / assessment_payment increments assessment_credits", async () => {
     routeMockState.tableResponses = { players: { data: { assessment_credits: 2 }, error: null } };
     const res = await POST(signedRequest(event("checkout.session.completed", { metadata: { type: "assessment_payment", player_id: "p1" } })));

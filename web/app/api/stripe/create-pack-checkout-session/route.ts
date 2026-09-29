@@ -159,7 +159,10 @@ export async function POST(request: Request) {
         application_fee_amount: platformFeeCents,
         transfer_data: { destination: resolvedDestination },
       },
-      metadata: { type: "pack_payment", pack_id: packId },
+      metadata: {
+        type: "pack_payment", pack_id: packId, academy_id: pack.academy_id,
+        amount_aud: String(totalAud), platform_fee_cents: String(platformFeeCents), currency,
+      },
       success_url: `${origin}/session-packs?checkout=success`,
       cancel_url: `${origin}/session-packs?checkout=cancelled`,
     });

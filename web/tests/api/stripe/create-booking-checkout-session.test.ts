@@ -1,5 +1,7 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+import Stripe from "stripe";
 import { POST } from "@/app/api/stripe/create-booking-checkout-session/route";
+import { stripe } from "@/lib/stripe";
 import { routeMockState } from "../../setup/api";
 import { rawUser, jsonRequest } from "../../mocks/caller";
 
@@ -68,4 +70,29 @@ describe("POST /api/stripe/create-booking-checkout-session", () => {
     expect(res.status).toBe(502);
     expect(body.error).toMatch(/acct_test123|destination|account/i);
   }, 15_000);
+
+  // Mocks the actual Stripe call (unlike the 502 test above) so the metadata passed to it can be
+  // inspected — this is what the webhook's recordRevenueEvent reads back to build the finance
+  // ledger row, so a wrong/missing field here would silently break revenue tracking rather than
+  // fail loudly. See app/api/stripe/webhook/route.ts's recordRevenueEvent.
+  test("passes amount/platform-fee/academy/currency through checkout session metadata for the finance ledger", async () => {
+    routeMockState.cookieUser = rawUser({ role: "platform_admin" });
+    routeMockState.tableResponses = {
+      bookings: { data: BOOKING, error: null },
+      players: { data: PLAYER, error: null },
+      coaches: { data: { ...COACH, ...ONBOARDED_COACH_FULL }, error: null },
+      academies: { data: { id: "ac1", name: "Test Academy", head_coach_id: "coach1", payout_model: "head_coach", plan_id: null, currency: "aud" }, error: null },
+    };
+    const createSpy = vi.spyOn(stripe.checkout.sessions, "create")
+      .mockResolvedValue({ url: "https://checkout.stripe.com/test" } as unknown as Stripe.Response<Stripe.Checkout.Session>);
+
+    const res = await POST(jsonRequest(URL, { bookingId: "b1" }));
+    expect(res.status).toBe(200);
+    expect(createSpy).toHaveBeenCalledWith(expect.objectContaining({
+      metadata: {
+        type: "booking_payment", booking_id: "b1", academy_id: "ac1",
+        amount_aud: "40", platform_fee_cents: "400", currency: "aud",
+      },
+    }));
+  });
 });
