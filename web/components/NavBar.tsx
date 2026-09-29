@@ -60,6 +60,9 @@ const ADMIN_STRUCTURE: AdminSection[] = [
     { label: "Plans & Pricing", href: "/admin/plans" },
     { label: "Partnerships", href: "/admin/partnerships" },
   ] },
+  { section: "Finance", items: [
+    { label: "Revenue & Fees", href: "/admin/finance" },
+  ] },
   { section: "Growth", items: [
     { label: "Referrals", href: "/admin/referrals" },
   ] },
