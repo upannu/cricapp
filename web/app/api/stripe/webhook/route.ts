@@ -13,6 +13,39 @@ function serviceClient() {
   );
 }
 
+/** Logs one row to the platform_revenue_events ledger for a completed marketplace payment
+ * (pack_payment/booking_payment — the two types that carry a real platform-fee cut). Upserts on
+ * stripe_session_id rather than inserting, since Stripe's documented at-least-once webhook
+ * delivery means this same event can arrive more than once — a plain insert would double-count
+ * revenue on a retry. Best-effort and always awaited by its caller (a serverless function can be
+ * torn down the instant the response is sent, so an un-awaited write would race being killed) —
+ * but its own errors are swallowed rather than thrown, so a ledger-write failure never blocks or
+ * rolls back the payment_status update it accompanies. */
+async function recordRevenueEvent(
+  supabase: ReturnType<typeof serviceClient>,
+  session: Stripe.Checkout.Session,
+  type: "pack_payment" | "booking_payment",
+) {
+  const amountAud = Number(session.metadata?.amount_aud);
+  const platformFeeCents = Number(session.metadata?.platform_fee_cents);
+  const academyId = session.metadata?.academy_id;
+  const currency = session.metadata?.currency;
+  if (!Number.isFinite(amountAud) || !Number.isFinite(platformFeeCents) || !academyId || !currency || !session.id) return;
+
+  try {
+    await supabase.from("platform_revenue_events").upsert({
+      type,
+      academy_id: academyId,
+      amount_aud: amountAud,
+      platform_fee_aud: platformFeeCents / 100,
+      currency,
+      stripe_session_id: session.id,
+    }, { onConflict: "stripe_session_id" });
+  } catch {
+    // best-effort — see doc comment above
+  }
+}
+
 export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get("stripe-signature");
@@ -58,6 +91,8 @@ export async function POST(request: Request) {
           // was collected, just not by the manual ledger, so the stray "still pending, needs a
           // platform admin to Mark Collected" row it created is simply wrong and gets removed.
           await supabase.from("pack_fee_dues").delete().eq("pack_id", packId).eq("status", "pending");
+
+          await recordRevenueEvent(supabase, session, "pack_payment");
         }
         break;
       }
@@ -70,6 +105,8 @@ export async function POST(request: Request) {
           // booking_fee_dues row for it (created by a "Mark Paid (Cash)" click racing this same
           // payment) is stale the moment Stripe confirms the charge.
           await supabase.from("booking_fee_dues").delete().eq("booking_id", bookingId).eq("status", "pending");
+
+          await recordRevenueEvent(supabase, session, "booking_payment");
         }
         break;
       }

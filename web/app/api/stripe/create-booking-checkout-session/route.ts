@@ -161,7 +161,10 @@ export async function POST(request: Request) {
         application_fee_amount: platformFeeCents,
         transfer_data: { destination: destinationAccountId },
       },
-      metadata: { type: "booking_payment", booking_id: bookingId },
+      metadata: {
+        type: "booking_payment", booking_id: bookingId, academy_id: coach.academy_id,
+        amount_aud: String(booking.fee_aud), platform_fee_cents: String(platformFeeCents), currency,
+      },
       success_url: `${origin}/bookings?checkout=success`,
       cancel_url: `${origin}/bookings?checkout=cancelled`,
     });
