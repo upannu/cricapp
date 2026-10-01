@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { callerCanAccessPlayer, findAuthUserByEmail, listAllAuthUsers, mergeLinkedIdentities, type Caller } from "@/lib/server-auth";
+import { callerCanAccessPlayer, callerCanScoreMatch, findAuthUserByEmail, listAllAuthUsers, mergeLinkedIdentities, type Caller } from "@/lib/server-auth";
 import { createSupabaseMock } from "../../mocks/supabase";
 
 const TARGET_PLAYER = "player-123";
+const TARGET_MATCH = "match-123";
 
 describe("callerCanAccessPlayer", () => {
   test("platform_admin can always access any player", async () => {
@@ -77,6 +78,81 @@ describe("callerCanAccessPlayer", () => {
     const caller: Caller = { userId: "u1" };
 
     await expect(callerCanAccessPlayer(supabase as never, caller, TARGET_PLAYER)).resolves.toBe(false);
+  });
+});
+
+describe("callerCanScoreMatch", () => {
+  test("platform_admin can always score, without querying matches", async () => {
+    const supabase = createSupabaseMock();
+    const caller: Caller = { userId: "u1", role: "platform_admin" };
+
+    await expect(callerCanScoreMatch(supabase as never, caller, TARGET_MATCH)).resolves.toBe(true);
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  test("a match that doesn't exist is denied", async () => {
+    const supabase = createSupabaseMock({ matches: { data: null, error: null } });
+    const caller: Caller = { userId: "u1", role: "coach", coachId: "coach-1" };
+
+    await expect(callerCanScoreMatch(supabase as never, caller, TARGET_MATCH)).resolves.toBe(false);
+  });
+
+  test("the match's assigned coach can score it", async () => {
+    const supabase = createSupabaseMock({
+      matches: { data: { home_academy_id: "academy-1", scored_by_coach_id: "coach-1" }, error: null },
+    });
+    const caller: Caller = { userId: "u1", role: "coach", coachId: "coach-1" };
+
+    await expect(callerCanScoreMatch(supabase as never, caller, TARGET_MATCH)).resolves.toBe(true);
+  });
+
+  test("a different coach is denied unless delegated via match_scorers", async () => {
+    const supabase = createSupabaseMock({
+      matches: { data: { home_academy_id: "academy-1", scored_by_coach_id: "coach-1" }, error: null },
+      match_scorers: { data: null, error: null },
+    });
+    const caller: Caller = { userId: "u1", role: "coach", coachId: "coach-2" };
+
+    await expect(callerCanScoreMatch(supabase as never, caller, TARGET_MATCH)).resolves.toBe(false);
+  });
+
+  test("the home academy_admin can score it", async () => {
+    const supabase = createSupabaseMock({
+      matches: { data: { home_academy_id: "academy-1", scored_by_coach_id: "coach-1" }, error: null },
+    });
+    const caller: Caller = { userId: "u1", role: "academy_admin", academyId: "academy-1" };
+
+    await expect(callerCanScoreMatch(supabase as never, caller, TARGET_MATCH)).resolves.toBe(true);
+  });
+
+  test("a different academy_admin is denied", async () => {
+    const supabase = createSupabaseMock({
+      matches: { data: { home_academy_id: "academy-1", scored_by_coach_id: "coach-1" }, error: null },
+      match_scorers: { data: null, error: null },
+    });
+    const caller: Caller = { userId: "u1", role: "academy_admin", academyId: "academy-2" };
+
+    await expect(callerCanScoreMatch(supabase as never, caller, TARGET_MATCH)).resolves.toBe(false);
+  });
+
+  test("a delegated volunteer scorer (e.g. a parent) can score via match_scorers, even with no coach/academy role", async () => {
+    const supabase = createSupabaseMock({
+      matches: { data: { home_academy_id: "academy-1", scored_by_coach_id: "coach-1" }, error: null },
+      match_scorers: { data: { id: "ms1" }, error: null },
+    });
+    const caller: Caller = { userId: "volunteer-1", role: "parent", playerId: "p1" };
+
+    await expect(callerCanScoreMatch(supabase as never, caller, TARGET_MATCH)).resolves.toBe(true);
+  });
+
+  test("an unrelated caller with no delegation is denied", async () => {
+    const supabase = createSupabaseMock({
+      matches: { data: { home_academy_id: "academy-1", scored_by_coach_id: "coach-1" }, error: null },
+      match_scorers: { data: null, error: null },
+    });
+    const caller: Caller = { userId: "u1", role: "parent", playerId: "p1" };
+
+    await expect(callerCanScoreMatch(supabase as never, caller, TARGET_MATCH)).resolves.toBe(false);
   });
 });
 

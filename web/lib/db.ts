@@ -15,6 +15,9 @@ import type {
   PackFeeDue, PackFeeDueStatus, BookingFeeDue,
   MembershipPlanTemplate,
   PartnershipApplication, PartnershipActivityEntry, PartnershipStatus, PartnershipPriority, PartnershipActivityKind,
+  Match, MatchFormat, MatchStatus, MatchSource, MatchSide, TossDecision,
+  MatchParticipant, MatchScorer, Innings, InningsStatus, Delivery, ExtraType, WicketType,
+  PlayerCareerStats, ImportedMatchStats, Competition, CompetitionStatus, Fixture, FixtureStatus,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 import { DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -1931,4 +1934,307 @@ export async function fetchBookingFeeDues(): Promise<BookingFeeDue[]> {
   const { data, error } = await sb.from("booking_fee_dues").select("*").order("created_at", { ascending: false });
   if (error) throw error;
   return (data as DbBookingFeeDue[]).map(dbToBookingFeeDue);
+}
+
+// ─── Matches / Live Scoring / Competitions ─────────────────────────────────
+// See lib/types.ts's "Match / Live Scoring / Competitions" section for the design rationale
+// (MatchParticipant's optional playerId, PlayerCareerStats as a materialized rollup, etc.) and
+// lib/matches.ts for the business-logic layer built on these fetchers. PlayerCareerStats and
+// ImportedMatchStats are written only via a service-role client (see lib/matches.ts), matching
+// platform_revenue_events — this file only ever reads them.
+
+export interface DbMatch {
+  id: string; home_label: string; away_label: string; home_academy_id: string | null;
+  format: string; overs_per_side: number | null; status: string; source: string;
+  toss_won_by: string | null; toss_decision: string | null; venue: string;
+  scheduled_date: string; competition_id: string | null; fixture_id: string | null;
+  scored_by_coach_id: string | null; created_by_user_id: string;
+  result: string | null; created_at: string;
+}
+
+export function dbToMatch(r: DbMatch): Match {
+  return {
+    id: r.id, homeLabel: r.home_label, awayLabel: r.away_label, homeAcademyId: r.home_academy_id,
+    format: r.format as MatchFormat, oversPerSide: r.overs_per_side,
+    status: r.status as MatchStatus, source: r.source as MatchSource,
+    tossWonBy: r.toss_won_by as MatchSide | null, tossDecision: r.toss_decision as TossDecision | null,
+    venue: r.venue, scheduledDate: r.scheduled_date,
+    competitionId: r.competition_id, fixtureId: r.fixture_id,
+    scoredByCoachId: r.scored_by_coach_id, createdByUserId: r.created_by_user_id,
+    result: r.result, createdAt: r.created_at,
+  };
+}
+
+export async function fetchMatches(filters?: { academyId?: string; competitionId?: string; status?: MatchStatus }): Promise<Match[]> {
+  const sb = createClient();
+  let q = sb.from("matches").select("*").order("scheduled_date", { ascending: false });
+  if (filters?.academyId) q = q.eq("home_academy_id", filters.academyId);
+  if (filters?.competitionId) q = q.eq("competition_id", filters.competitionId);
+  if (filters?.status) q = q.eq("status", filters.status);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as DbMatch[]).map(dbToMatch);
+}
+
+export async function fetchMatch(id: string): Promise<Match | null> {
+  const sb = createClient();
+  const { data, error } = await sb.from("matches").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? dbToMatch(data as DbMatch) : null;
+}
+
+export async function insertMatch(m: DbMatch): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("matches").insert(m);
+  if (error) throw error;
+}
+
+export async function updateMatch(id: string, edits: Partial<DbMatch>): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("matches").update(edits).eq("id", id);
+  if (error) throw error;
+}
+
+export interface DbMatchParticipant {
+  id: string; match_id: string; side: string; display_name: string; player_id: string | null;
+  batting_order: number | null; is_captain: boolean; is_wicketkeeper: boolean;
+}
+
+export function dbToMatchParticipant(r: DbMatchParticipant): MatchParticipant {
+  return {
+    id: r.id, matchId: r.match_id, side: r.side as MatchSide, displayName: r.display_name,
+    playerId: r.player_id, battingOrder: r.batting_order,
+    isCaptain: r.is_captain, isWicketkeeper: r.is_wicketkeeper,
+  };
+}
+
+export async function fetchMatchParticipants(matchId: string): Promise<MatchParticipant[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("match_participants").select("*").eq("match_id", matchId).order("batting_order");
+  if (error) throw error;
+  return (data as DbMatchParticipant[]).map(dbToMatchParticipant);
+}
+
+export async function insertMatchParticipants(rows: DbMatchParticipant[]): Promise<void> {
+  if (rows.length === 0) return;
+  const sb = createClient();
+  const { error } = await sb.from("match_participants").insert(rows);
+  if (error) throw error;
+}
+
+export async function updateMatchParticipant(id: string, edits: Partial<DbMatchParticipant>): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("match_participants").update(edits).eq("id", id);
+  if (error) throw error;
+}
+
+export interface DbMatchScorer {
+  id: string; match_id: string; user_id: string; added_by_user_id: string; added_at: string;
+}
+
+export function dbToMatchScorer(r: DbMatchScorer): MatchScorer {
+  return { id: r.id, matchId: r.match_id, userId: r.user_id, addedByUserId: r.added_by_user_id, addedAt: r.added_at };
+}
+
+export async function fetchMatchScorers(matchId: string): Promise<MatchScorer[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("match_scorers").select("*").eq("match_id", matchId);
+  if (error) throw error;
+  return (data as DbMatchScorer[]).map(dbToMatchScorer);
+}
+
+export async function addMatchScorer(row: DbMatchScorer): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("match_scorers").insert(row);
+  if (error) throw error;
+}
+
+export async function removeMatchScorer(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("match_scorers").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export interface DbInnings {
+  id: string; match_id: string; innings_number: number; batting_side: string; bowling_side: string;
+  status: string; total_runs: number; total_wickets: number; total_overs: number; target_runs: number | null;
+}
+
+export function dbToInnings(r: DbInnings): Innings {
+  return {
+    id: r.id, matchId: r.match_id, inningsNumber: r.innings_number,
+    battingSide: r.batting_side as MatchSide, bowlingSide: r.bowling_side as MatchSide,
+    status: r.status as InningsStatus, totalRuns: r.total_runs, totalWickets: r.total_wickets,
+    totalOvers: r.total_overs, targetRuns: r.target_runs,
+  };
+}
+
+export async function fetchInningsForMatch(matchId: string): Promise<Innings[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("innings").select("*").eq("match_id", matchId).order("innings_number");
+  if (error) throw error;
+  return (data as DbInnings[]).map(dbToInnings);
+}
+
+export async function insertInnings(row: DbInnings): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("innings").insert(row);
+  if (error) throw error;
+}
+
+export async function updateInnings(id: string, edits: Partial<DbInnings>): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("innings").update(edits).eq("id", id);
+  if (error) throw error;
+}
+
+export interface DbDelivery {
+  id: string; innings_id: string; over_number: number; ball_in_over: number;
+  striker_participant_id: string; non_striker_participant_id: string; bowler_participant_id: string;
+  runs_bat: number; runs_extra: number; extra_type: string | null; wicket_type: string | null;
+  dismissed_participant_id: string | null; fielder_participant_id: string | null;
+  is_four: boolean; is_six: boolean; commentary: string | null; recorded_at: string;
+}
+
+export function dbToDelivery(r: DbDelivery): Delivery {
+  return {
+    id: r.id, inningsId: r.innings_id, overNumber: r.over_number, ballInOver: r.ball_in_over,
+    strikerParticipantId: r.striker_participant_id, nonStrikerParticipantId: r.non_striker_participant_id,
+    bowlerParticipantId: r.bowler_participant_id, runsBat: r.runs_bat, runsExtra: r.runs_extra,
+    extraType: r.extra_type as ExtraType | null, wicketType: r.wicket_type as WicketType | null,
+    dismissedParticipantId: r.dismissed_participant_id, fielderParticipantId: r.fielder_participant_id,
+    isFour: r.is_four, isSix: r.is_six, commentary: r.commentary, recordedAt: r.recorded_at,
+  };
+}
+
+export async function fetchDeliveries(inningsId: string): Promise<Delivery[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("deliveries").select("*").eq("innings_id", inningsId)
+    .order("over_number").order("ball_in_over");
+  if (error) throw error;
+  return (data as DbDelivery[]).map(dbToDelivery);
+}
+
+/** Batched insert — see lib/matches.ts's LiveScoringClient-facing flush function, which calls
+ * this alongside updateInnings for the same innings' running totals in one logical save. */
+export async function insertDeliveries(rows: DbDelivery[]): Promise<void> {
+  if (rows.length === 0) return;
+  const sb = createClient();
+  const { error } = await sb.from("deliveries").insert(rows);
+  if (error) throw error;
+}
+
+/** Used by the live-scoring "undo last ball" affordance once a delivery is already flushed. */
+export async function deleteDelivery(id: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("deliveries").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export interface DbPlayerCareerStats {
+  player_id: string; matches_played: number; innings_batted: number; runs_scored: number;
+  balls_faced: number; not_outs: number; fours: number; sixes: number; highest_score: number;
+  batting_average: number | null; strike_rate: number | null;
+  innings_bowled: number; balls_bowled: number; runs_conceded: number; wickets: number;
+  best_bowling: string | null; bowling_average: number | null; economy_rate: number | null;
+  catches: number; run_outs: number; stumpings: number; updated_at: string;
+}
+
+export function dbToPlayerCareerStats(r: DbPlayerCareerStats): PlayerCareerStats {
+  return {
+    playerId: r.player_id, matchesPlayed: r.matches_played, inningsBatted: r.innings_batted,
+    runsScored: r.runs_scored, ballsFaced: r.balls_faced, notOuts: r.not_outs,
+    fours: r.fours, sixes: r.sixes, highestScore: r.highest_score,
+    battingAverage: r.batting_average, strikeRate: r.strike_rate,
+    inningsBowled: r.innings_bowled, ballsBowled: r.balls_bowled, runsConceded: r.runs_conceded,
+    wickets: r.wickets, bestBowling: r.best_bowling, bowlingAverage: r.bowling_average,
+    economyRate: r.economy_rate, catches: r.catches, runOuts: r.run_outs, stumpings: r.stumpings,
+    updatedAt: r.updated_at,
+  };
+}
+
+/** Read-only — this table is written only by recomputePlayerCareerStats in lib/matches.ts via a
+ * service-role client, same treatment as platform_revenue_events. */
+export async function fetchPlayerCareerStats(playerId: string): Promise<PlayerCareerStats | null> {
+  const sb = createClient();
+  const { data, error } = await sb.from("player_career_stats").select("*").eq("player_id", playerId).maybeSingle();
+  if (error) throw error;
+  return data ? dbToPlayerCareerStats(data as DbPlayerCareerStats) : null;
+}
+
+export interface DbImportedMatchStats {
+  id: string; match_id: string; player_id: string; runs_scored: number; balls_faced: number;
+  not_out: boolean; wickets: number; balls_bowled: number; runs_conceded: number;
+  catches: number; run_outs: number; stumpings: number;
+}
+
+export function dbToImportedMatchStats(r: DbImportedMatchStats): ImportedMatchStats {
+  return {
+    id: r.id, matchId: r.match_id, playerId: r.player_id, runsScored: r.runs_scored,
+    ballsFaced: r.balls_faced, notOut: r.not_out, wickets: r.wickets, ballsBowled: r.balls_bowled,
+    runsConceded: r.runs_conceded, catches: r.catches, runOuts: r.run_outs, stumpings: r.stumpings,
+  };
+}
+
+/** Read-only here — written only by the PlayHQ importer (service-role) in lib/matches.ts. */
+export async function fetchImportedMatchStatsForPlayer(playerId: string): Promise<ImportedMatchStats[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("imported_match_stats").select("*").eq("player_id", playerId);
+  if (error) throw error;
+  return (data as DbImportedMatchStats[]).map(dbToImportedMatchStats);
+}
+
+export interface DbCompetition {
+  id: string; name: string; academy_id: string | null; format: string; season: string;
+  points_for_win: number; points_for_tie: number; points_for_loss: number; points_for_no_result: number;
+  status: string; created_at: string;
+}
+
+export function dbToCompetition(r: DbCompetition): Competition {
+  return {
+    id: r.id, name: r.name, academyId: r.academy_id, format: r.format as MatchFormat, season: r.season,
+    pointsForWin: r.points_for_win, pointsForTie: r.points_for_tie,
+    pointsForLoss: r.points_for_loss, pointsForNoResult: r.points_for_no_result,
+    status: r.status as CompetitionStatus, createdAt: r.created_at,
+  };
+}
+
+export async function fetchCompetitions(academyId?: string): Promise<Competition[]> {
+  const sb = createClient();
+  let q = sb.from("competitions").select("*").order("created_at", { ascending: false });
+  if (academyId) q = q.eq("academy_id", academyId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data as DbCompetition[]).map(dbToCompetition);
+}
+
+export async function upsertCompetition(c: Partial<DbCompetition> & { id: string }): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("competitions").upsert(c);
+  if (error) throw error;
+}
+
+export interface DbFixture {
+  id: string; competition_id: string; home_label: string; away_label: string;
+  scheduled_date: string; venue: string; status: string; match_id: string | null;
+}
+
+export function dbToFixture(r: DbFixture): Fixture {
+  return {
+    id: r.id, competitionId: r.competition_id, homeLabel: r.home_label, awayLabel: r.away_label,
+    scheduledDate: r.scheduled_date, venue: r.venue, status: r.status as FixtureStatus, matchId: r.match_id,
+  };
+}
+
+export async function fetchFixtures(competitionId: string): Promise<Fixture[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("fixtures").select("*").eq("competition_id", competitionId).order("scheduled_date");
+  if (error) throw error;
+  return (data as DbFixture[]).map(dbToFixture);
+}
+
+export async function upsertFixture(f: Partial<DbFixture> & { id: string }): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("fixtures").upsert(f);
+  if (error) throw error;
 }
