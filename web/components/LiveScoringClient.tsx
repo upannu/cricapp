@@ -271,6 +271,12 @@ export function LiveScoringClient({ matchId }: { matchId: string }) {
       setBaseline(null);
       setPendingBalls([]);
       setOpenerStriker(""); setOpenerNonStriker(""); setOpenerBowler("");
+      // If innings 1's very last ball also completed an over (a whole-overs match ends exactly
+      // on an over boundary), awaitingBowlerChange would otherwise carry over into the fresh
+      // innings and block ball entry on a spurious "select the next bowler" prompt before a
+      // single ball of innings 2 has even been bowled.
+      setAwaitingBowlerChange(false);
+      setNextBowlerChoice("");
       seqCounter.current = 0;
     } else {
       const res = await fetch(`/api/matches/${matchId}/complete`, { method: "POST" });

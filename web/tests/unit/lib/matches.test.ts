@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 import {
-  applyBall, initialScoringState, oversDecimal, computeMatchResult,
+  applyBall, initialScoringState, oversDecimal, computeMatchResult, determineWinner,
   extractInningsContribution, aggregateCareerStats, combineWithImported, deriveRateStats,
-  newDeliveryId, matchStatusLabel,
+  newDeliveryId, matchStatusLabel, trueOversFromNotation, computeStandings,
   type ScoringState, type BallInput,
 } from "@/lib/matches";
-import type { Delivery, Innings } from "@/lib/types";
+import type { Delivery, Innings, Match } from "@/lib/types";
 import type { DbImportedMatchStats } from "@/lib/db";
 
 const S = "striker-1";
@@ -404,5 +404,142 @@ describe("combineWithImported", () => {
     expect(combined.bestBowlingWickets).toBe(3);
     expect(combined.bestBowlingRuns).toBe(22);
     expect(combined.catches).toBe(1);
+  });
+});
+
+describe("determineWinner", () => {
+  test("null with no innings at all", () => {
+    expect(determineWinner([])).toBeNull();
+  });
+
+  test("tie on equal runs", () => {
+    expect(determineWinner([innings({ battingSide: "home", totalRuns: 100 }), innings({ battingSide: "away", totalRuns: 100 })])).toBe("tie");
+  });
+
+  test("the higher-scoring side wins regardless of batting order", () => {
+    expect(determineWinner([innings({ battingSide: "home", totalRuns: 120 }), innings({ battingSide: "away", totalRuns: 90 })])).toBe("home");
+  });
+});
+
+describe("trueOversFromNotation", () => {
+  test("converts cricket notation (balls, not decimal) to true decimal overs", () => {
+    expect(trueOversFromNotation(14.3)).toBeCloseTo(14.5, 10); // 14 overs + 3 balls = 14.5 true overs
+    expect(trueOversFromNotation(0)).toBe(0);
+    expect(trueOversFromNotation(20.0)).toBe(20);
+    expect(trueOversFromNotation(5.5)).toBeCloseTo(5 + 5 / 6, 10);
+  });
+});
+
+function match(overrides: Partial<Match>): Match {
+  return {
+    id: "m1", homeLabel: "Home", awayLabel: "Away", homeAcademyId: null, format: "T20",
+    oversPerSide: 20, status: "Completed", source: "live", tossWonBy: "home", tossDecision: "Bat",
+    venue: "Oval", scheduledDate: "2026-01-01", competitionId: "comp1", fixtureId: null,
+    scoredByCoachId: null, createdByUserId: "u1", result: null, createdAt: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+const STANDARD_POINTS = { pointsForWin: 4, pointsForTie: 2, pointsForLoss: 0, pointsForNoResult: 2 };
+
+describe("computeStandings", () => {
+  test("awards win/loss points and tallies played/won/lost", () => {
+    const rows = computeStandings(
+      [{
+        match: match({ homeLabel: "Tigers", awayLabel: "Lions" }),
+        innings: [
+          innings({ battingSide: "home", totalRuns: 180, totalWickets: 6, totalOvers: 20 }),
+          innings({ battingSide: "away", totalRuns: 150, totalWickets: 10, totalOvers: 18.4 }),
+        ],
+      }],
+      STANDARD_POINTS,
+    );
+    const tigers = rows.find((r) => r.sideLabel === "Tigers")!;
+    const lions = rows.find((r) => r.sideLabel === "Lions")!;
+    expect(tigers.played).toBe(1);
+    expect(tigers.won).toBe(1);
+    expect(tigers.points).toBe(4);
+    expect(lions.lost).toBe(1);
+    expect(lions.points).toBe(0);
+  });
+
+  test("a tie awards tie points to both sides", () => {
+    const rows = computeStandings(
+      [{
+        match: match({ homeLabel: "Tigers", awayLabel: "Lions" }),
+        innings: [innings({ battingSide: "home", totalRuns: 150 }), innings({ battingSide: "away", totalRuns: 150 })],
+      }],
+      STANDARD_POINTS,
+    );
+    expect(rows.every((r) => r.tied === 1 && r.points === 2)).toBe(true);
+  });
+
+  test("an abandoned match counts as a no-result for both sides, even if innings data exists", () => {
+    const rows = computeStandings(
+      [{
+        match: match({ homeLabel: "Tigers", awayLabel: "Lions", status: "Abandoned" }),
+        innings: [innings({ battingSide: "home", totalRuns: 40, totalOvers: 8 })],
+      }],
+      STANDARD_POINTS,
+    );
+    expect(rows.every((r) => r.noResult === 1 && r.won === 0 && r.lost === 0 && r.points === 2)).toBe(true);
+  });
+
+  test("ranks by points first, Net Run Rate as the tie-break", () => {
+    const rows = computeStandings(
+      [
+        { // Tigers beat Lions big — high NRR
+          match: match({ homeLabel: "Tigers", awayLabel: "Lions" }),
+          innings: [innings({ battingSide: "home", totalRuns: 200, totalWickets: 3, totalOvers: 20 }), innings({ battingSide: "away", totalRuns: 100, totalWickets: 10, totalOvers: 15 })],
+        },
+        { // Eagles beat Hawks narrowly — low NRR, same points
+          match: match({ homeLabel: "Eagles", awayLabel: "Hawks" }),
+          innings: [innings({ battingSide: "home", totalRuns: 151, totalWickets: 9, totalOvers: 20 }), innings({ battingSide: "away", totalRuns: 150, totalWickets: 10, totalOvers: 20 })],
+        },
+      ],
+      STANDARD_POINTS,
+    );
+    const tigers = rows.find((r) => r.sideLabel === "Tigers")!;
+    const eagles = rows.find((r) => r.sideLabel === "Eagles")!;
+    expect(tigers.points).toBe(eagles.points); // both have exactly 1 win
+    const tigersRank = rows.indexOf(tigers);
+    const eaglesRank = rows.indexOf(eagles);
+    expect(tigersRank).toBeLessThan(eaglesRank); // Tigers' bigger win ranks them higher on NRR
+  });
+
+  test("a team bowled out early is credited the FULL allotted overs for its own NRR 'for' rate, not the fewer overs it actually used", () => {
+    const rows = computeStandings(
+      [{
+        match: match({ homeLabel: "AllOutEarly", awayLabel: "Opponent", oversPerSide: 20 }),
+        innings: [
+          innings({ battingSide: "home", totalRuns: 100, totalWickets: 10, totalOvers: 10 }), // all out at only 10 of 20 overs
+          innings({ battingSide: "away", totalRuns: 50, totalWickets: 3, totalOvers: 10 }), // not all out, 10 overs actually faced
+        ],
+      }],
+      STANDARD_POINTS,
+    );
+    const earlyRow = rows.find((r) => r.sideLabel === "AllOutEarly")!;
+    // Correct (all-out credited the full 20): 100/20 - 50/10 = 5 - 5 = 0.
+    // A naive implementation using actual overs faced (10) would wrongly give 100/10 - 50/10 = 5.
+    expect(earlyRow.netRunRate).toBeCloseTo(0, 10);
+  });
+
+  test("players-per-side threshold controls the all-out determination for non-11-a-side formats", () => {
+    // 8-a-side: all out at 7 wickets, not 10.
+    const rows = computeStandings(
+      [{
+        match: match({ homeLabel: "Team", awayLabel: "Opponent", oversPerSide: 10 }),
+        innings: [
+          innings({ battingSide: "home", totalRuns: 60, totalWickets: 7, totalOvers: 6 }),
+          innings({ battingSide: "away", totalRuns: 40, totalWickets: 4, totalOvers: 8 }),
+        ],
+      }],
+      STANDARD_POINTS,
+      8,
+    );
+    const team = rows.find((r) => r.sideLabel === "Team")!;
+    // All out (7 of 8) at 6 overs should use the full 10-over allotment for its own rate: 60/10=6,
+    // not 60/6=10 — confirmed indirectly via a sane (not inflated) NRR.
+    expect(team.netRunRate).toBeCloseTo(6 - 40 / 8, 5);
   });
 });

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { fetchPlayers } from "@/lib/db";
-import { createMatch, recordTossAndStartMatch, type NewParticipantInput } from "@/lib/matches";
-import type { Player, MatchFormat, MatchSide } from "@/lib/types";
+import { fetchPlayers, fetchFixture } from "@/lib/db";
+import { createMatch, recordTossAndStartMatch, linkFixtureToMatch, type NewParticipantInput } from "@/lib/matches";
+import type { Player, MatchFormat, MatchSide, Fixture } from "@/lib/types";
 
 const STEP_LABELS = ["Match Basics", "Home Roster", "Away Roster", "Toss", "Confirm & Start"] as const;
 
@@ -148,6 +148,9 @@ export function MatchSetupWizard() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [players, setPlayers] = useState<Player[]>([]);
+  const searchParams = useSearchParams();
+  const fixtureId = searchParams.get("fixtureId");
+  const [fixture, setFixture] = useState<Fixture | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -155,6 +158,18 @@ export function MatchSetupWizard() {
       .then(setPlayers)
       .catch(() => setPlayers([]));
   }, [user]);
+
+  // Pre-fill from the fixture this match fulfils, if launched via a competition's "Score This
+  // Match" button — fixtureId/competitionId are threaded through to createMatch on submit, and
+  // the fixture gets linked back to the created match (see handleStart).
+  useEffect(() => {
+    if (!fixtureId) return;
+    fetchFixture(fixtureId).then((fx) => {
+      if (!fx) return;
+      setFixture(fx);
+      setDraft((prev) => ({ ...prev, homeLabel: fx.homeLabel, awayLabel: fx.awayLabel, venue: fx.venue, scheduledDate: fx.scheduledDate || prev.scheduledDate }));
+    }).catch(() => setFixture(null));
+  }, [fixtureId]);
 
   function update<K extends keyof Draft>(key: K, value: Draft[K]) {
     setDraft((prev) => ({ ...prev, [key]: value }));
@@ -203,11 +218,12 @@ export function MatchSetupWizard() {
         homeAcademyId: user.role === "academy_admin" || user.role === "coach" ? (user.academyId ?? null) : null,
         format: draft.format, oversPerSide: draft.oversPerSide.trim() ? Number(draft.oversPerSide) : DEFAULT_OVERS[draft.format],
         venue: draft.venue.trim(), scheduledDate: draft.scheduledDate,
-        competitionId: null, fixtureId: null,
+        competitionId: fixture?.competitionId ?? null, fixtureId: fixture?.id ?? null,
         scoredByCoachId: user.role === "coach" ? (user.coachId ?? null) : null,
         createdByUserId: user.id,
         participants,
       });
+      if (fixture) await linkFixtureToMatch(fixture.id, match.id);
       await recordTossAndStartMatch(match.id, draft.tossWonBy as MatchSide, draft.tossDecision as "Bat" | "Bowl");
       router.push(`/matches/${match.id}/score`);
     } catch (err) {

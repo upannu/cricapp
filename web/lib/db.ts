@@ -2208,6 +2208,13 @@ export async function fetchCompetitions(academyId?: string): Promise<Competition
   return (data as DbCompetition[]).map(dbToCompetition);
 }
 
+export async function fetchCompetition(id: string): Promise<Competition | null> {
+  const sb = createClient();
+  const { data, error } = await sb.from("competitions").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? dbToCompetition(data as DbCompetition) : null;
+}
+
 export async function upsertCompetition(c: Partial<DbCompetition> & { id: string }): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("competitions").upsert(c);
@@ -2233,8 +2240,26 @@ export async function fetchFixtures(competitionId: string): Promise<Fixture[]> {
   return (data as DbFixture[]).map(dbToFixture);
 }
 
+export async function fetchFixture(id: string): Promise<Fixture | null> {
+  const sb = createClient();
+  const { data, error } = await sb.from("fixtures").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? dbToFixture(data as DbFixture) : null;
+}
+
 export async function upsertFixture(f: Partial<DbFixture> & { id: string }): Promise<void> {
   const sb = createClient();
   const { error } = await sb.from("fixtures").upsert(f);
+  if (error) throw error;
+}
+
+/** A plain UPDATE, not upsert — upsert's INSERT path requires every NOT NULL column to be present
+ * even when the row already exists and only a couple of fields are actually changing (e.g.
+ * linking a fixture to the match that fulfils it touches only match_id/status). Supplying a
+ * partial row to upsert() fails RLS/NOT NULL on that INSERT path; use this for editing an
+ * existing fixture instead, matching updateMatch/updateInnings' own convention. */
+export async function updateFixture(id: string, edits: Partial<DbFixture>): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("fixtures").update(edits).eq("id", id);
   if (error) throw error;
 }
