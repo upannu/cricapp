@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchPlayerServer, fetchPlayerAffiliationsServer, canAccessPlayerPassportServer } from "@/lib/supabase-server";
-import { fetchAcademies, fetchCoaches } from "@/lib/db";
+import { fetchAcademies, fetchCoaches, fetchPlayerCareerStats } from "@/lib/db";
 import { InfoCard, InfoRow } from "@/components/InfoCard";
 import type { PlayerAffiliation } from "@/lib/types";
 
@@ -15,12 +15,13 @@ export default async function PlayerPassportPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [player, affiliations, academies, coaches, allowed] = await Promise.all([
+  const [player, affiliations, academies, coaches, allowed, careerStats] = await Promise.all([
     fetchPlayerServer(id),
     fetchPlayerAffiliationsServer(id),
     fetchAcademies(),
     fetchCoaches(),
     canAccessPlayerPassportServer(id),
+    fetchPlayerCareerStats(id),
   ]);
   if (!player || !allowed) notFound();
 
@@ -129,12 +130,38 @@ export default async function PlayerPassportPage({
         </InfoCard>
       </div>
 
-      {/* Honest about what isn't here yet — no fabricated batting/bowling/fielding career stats.
-          Those depend on ball-by-ball match scoring, which doesn't exist in the product yet. */}
-      <div className="border border-dashed border-white/15 p-5 text-center">
-        <p className="text-hp-paper/45 text-sm">
-          Batting, bowling and fielding career stats will appear here once match scoring is live.
-        </p>
+      {/* Real now — recomputed server-side (lib/matches.ts's recomputePlayerCareerStats) each
+          time this player's match completes, never derived on this page's own render. A player
+          with no row yet (never featured in a scored match) gets an honest empty state instead
+          of a blank/broken card. */}
+      <div className="mb-4">
+        <InfoCard title="Career Statistics">
+          {!careerStats || careerStats.matchesPlayed === 0 ? (
+            <p className="text-hp-paper/45 text-sm">No match statistics yet — will appear here once this player has featured in a scored match.</p>
+          ) : (
+            <>
+              <InfoRow label="Matches played" value={careerStats.matchesPlayed} />
+              {careerStats.inningsBatted > 0 && (
+                <>
+                  <InfoRow label="Runs" value={`${careerStats.runsScored} (${careerStats.inningsBatted} inn, HS ${careerStats.highestScore})`} />
+                  <InfoRow label="Batting average" value={careerStats.battingAverage !== null ? careerStats.battingAverage.toFixed(2) : "—"} />
+                  <InfoRow label="Strike rate" value={careerStats.strikeRate !== null ? careerStats.strikeRate.toFixed(1) : "—"} />
+                  <InfoRow label="4s / 6s" value={`${careerStats.fours} / ${careerStats.sixes}`} />
+                </>
+              )}
+              {careerStats.inningsBowled > 0 && (
+                <>
+                  <InfoRow label="Wickets" value={`${careerStats.wickets} (best ${careerStats.bestBowling ?? "—"})`} />
+                  <InfoRow label="Bowling average" value={careerStats.bowlingAverage !== null ? careerStats.bowlingAverage.toFixed(2) : "—"} />
+                  <InfoRow label="Economy" value={careerStats.economyRate !== null ? careerStats.economyRate.toFixed(2) : "—"} />
+                </>
+              )}
+              {(careerStats.catches > 0 || careerStats.runOuts > 0 || careerStats.stumpings > 0) && (
+                <InfoRow label="Fielding" value={`${careerStats.catches} ct, ${careerStats.runOuts} ro, ${careerStats.stumpings} st`} />
+              )}
+            </>
+          )}
+        </InfoCard>
       </div>
     </div>
   );
