@@ -108,7 +108,7 @@ function Hero() {
 
             {/* Card 02 — Player performance */}
             <div className="border border-white/8 bg-hp-surface p-4">
-              <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-3 uppercase">Player Performance · Kingshuk</div>
+              <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-3 uppercase">Player Performance · K. Patel</div>
               <div className="grid grid-cols-4 gap-3">
                 {[
                   { l: 'OVERS', v: '3.2' },
@@ -363,7 +363,7 @@ function AhaMoment() {
       content: (
         <div>
           <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-5 uppercase">
-            Kingshuk — Season 2024/25
+            K. Patel — Season 2024/25
           </div>
           <div className="grid grid-cols-4 gap-3">
             {[
@@ -539,6 +539,72 @@ function AhaMoment() {
           <div className="inline-flex items-center gap-2 border border-hp-cg/25 px-4 py-2">
             <div className="w-1.5 h-1.5 rounded-full bg-hp-cg" />
             <span className="font-mono text-[8px] tracking-[0.25em] text-hp-cg uppercase">One match. Six connected data points.</span>
+          </div>
+        </div>
+
+        {/* The full transformation, at a glance */}
+        <div className="max-w-md mx-auto mb-16 flex flex-col gap-2.5">
+          <div className="border border-white/8 bg-hp-surface p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-mono text-[8px] tracking-widest text-hp-cg uppercase">Match Imported</span>
+              <span className="font-mono text-[8px] tracking-widest text-hp-paper/72">T20 · Grade 1</span>
+            </div>
+            <div className="font-display font-bold text-base text-hp-paper leading-tight">Northside CC v Southside CC</div>
+          </div>
+
+          <div className="flex items-center gap-3 px-2">
+            <div className="flex-1 h-px bg-white/5" />
+            <span className="font-mono text-[7px] tracking-widest text-hp-paper/85 uppercase">performance</span>
+            <div className="flex-1 h-px bg-white/5" />
+          </div>
+
+          <div className="border border-white/8 bg-hp-surface p-4">
+            <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-3 uppercase">Player Performance</div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { l: 'WKTS', v: '2' },
+                { l: 'RUNS', v: '21' },
+                { l: 'ECO', v: '6.4' },
+              ].map(({ l, v }) => (
+                <div key={l}>
+                  <div className="font-mono font-bold text-xl text-hp-paper leading-none mb-1">{v}</div>
+                  <div className="font-mono text-[7px] tracking-widest text-hp-paper/52">{l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 px-2">
+            <div className="flex-1 h-px bg-white/5" />
+            <span className="font-mono text-[7px] tracking-widest text-hp-paper/85 uppercase">insight</span>
+            <div className="flex-1 h-px bg-white/5" />
+          </div>
+
+          <div className="border border-hp-cg/20 bg-hp-cg/5 p-4">
+            <div className="font-mono text-[8px] tracking-widest text-hp-cg mb-1 uppercase">AI Insight</div>
+            <p className="text-[11px] text-hp-paper/82 leading-relaxed">
+              Economy improving across recent matches. Powerplay consistency strong.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 px-2">
+            <div className="flex-1 h-px bg-white/5" />
+            <span className="font-mono text-[7px] tracking-widest text-hp-paper/85 uppercase">development</span>
+            <div className="flex-1 h-px bg-white/5" />
+          </div>
+
+          <div className="border border-white/8 bg-hp-surface p-4">
+            <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-1.5 uppercase">Development Focus</div>
+            <div className="font-mono text-[12px] text-hp-paper/78">Middle-over control</div>
+          </div>
+
+          <div className="flex items-center gap-2 justify-center flex-wrap pt-3">
+            {['MATCH', 'RECORD', 'INSIGHT', 'DEVELOPMENT', 'PROGRESS'].map((step, i, arr) => (
+              <Fragment key={step}>
+                <span className="font-mono text-[7px] tracking-widest text-hp-paper/72 uppercase">{step}</span>
+                {i < arr.length - 1 && <span className="text-hp-paper/52 text-[8px]">→</span>}
+              </Fragment>
+            ))}
           </div>
         </div>
 
@@ -807,7 +873,7 @@ function MatchHistory() {
               href="/contact"
               className="inline-flex items-center gap-2 bg-hp-cg text-hp-paper font-display font-black text-sm px-8 py-3.5 tracking-widest uppercase hover:bg-hp-cg/90 transition-colors"
             >
-              IMPORT MATCH DATA
+              ADD MATCH DATA
             </a>
           </div>
 
@@ -946,7 +1012,7 @@ function PlayerPassport() {
                 </div>
                 <div className="flex-1">
                   <div className="font-display font-black text-xl text-hp-paper uppercase tracking-wide">
-                    Kingshuk Patel
+                    K. Patel
                   </div>
                   <div className="font-mono text-[8px] tracking-widest text-hp-paper/78 mt-0.5">
                     RIGHT ARM MED-FAST · BAT ORDER 8
