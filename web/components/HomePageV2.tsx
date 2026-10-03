@@ -58,7 +58,7 @@ function Hero() {
             </h1>
 
             <p className="text-hp-paper/78 text-[17px] leading-relaxed max-w-[490px] mb-4">
-              CRIC HQ connects every ball, player, match and pathway - Turning cricket data into insight, development and opportunity.
+              CRIC HQ connects your cricket data, performance and development in one continuous player journey.
             </p>
             <p className="font-mono text-[9px] tracking-[0.28em] text-hp-paper/52 uppercase mb-12">
               Players · Coaches · Clubs · Schools · Academies · Organisations
@@ -82,60 +82,43 @@ function Hero() {
 
           {/* Data visualization */}
           <div className="hidden lg:flex flex-col gap-2.5">
-            {/* Live match */}
+            {/* Match imported */}
             <div className="border border-white/8 bg-hp-surface p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="font-mono text-[8px] tracking-widest text-red-400">LIVE MATCH</span>
+                  <span className="w-2 h-2 rounded-full bg-hp-cg" />
+                  <span className="font-mono text-[8px] tracking-widest text-hp-cg">MATCH IMPORTED</span>
                 </div>
                 <span className="font-mono text-[8px] tracking-widest text-hp-paper/72">T20 · GRADE 1</span>
               </div>
-              <div className="flex items-baseline gap-3 mb-4">
-                <span className="font-display font-black text-5xl text-hp-paper">42</span>
-                <span className="font-display font-black text-3xl text-hp-paper/72">/2</span>
-                <div className="ml-auto text-right">
-                  <div className="font-mono text-[9px] text-hp-paper/82">8.2 OVERS</div>
-                  <div className="font-mono text-sm text-hp-paper/82 font-medium">CRR 5.12</div>
-                </div>
+              <div className="mb-1">
+                <div className="font-display font-bold text-lg text-hp-paper leading-tight">Northside CC</div>
+                <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 my-1">vs</div>
+                <div className="font-display font-bold text-lg text-hp-paper leading-tight">Southside CC</div>
               </div>
-              <div className="flex gap-1.5">
-                {['1', 'W', '4', '·', '·', '6', '·', '·'].map((b, i) => (
-                  <span
-                    key={i}
-                    className={`w-7 h-7 flex items-center justify-center font-mono text-[11px] font-bold border ${
-                      b === 'W'
-                        ? 'border-red-500/45 text-red-400 bg-red-500/8'
-                        : b === '4' || b === '6'
-                        ? 'border-hp-cg/40 text-hp-cg bg-hp-cg/8'
-                        : 'border-white/8 text-hp-paper/78'
-                    }`}
-                  >
-                    {b}
-                  </span>
-                ))}
-              </div>
+              <div className="font-mono text-[9px] text-hp-paper/72 mt-3">21 Sep 2026</div>
             </div>
 
             {/* Separator */}
             <div className="flex items-center gap-3 px-2">
               <div className="flex-1 h-px bg-white/5" />
-              <span className="font-mono text-[7px] tracking-widest text-hp-paper/85 uppercase">captured</span>
+              <span className="font-mono text-[7px] tracking-widest text-hp-paper/85 uppercase">imported</span>
               <div className="flex-1 h-px bg-white/5" />
             </div>
 
-            {/* Card 02 — Ball captured */}
+            {/* Card 02 — Player performance */}
             <div className="border border-white/8 bg-hp-surface p-4">
-              <div className="font-mono text-[8px] tracking-widest text-hp-cg/55 mb-3 uppercase">Ball 8.2 · Player Performance</div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-3 uppercase">Player Performance · Kingshuk</div>
+              <div className="grid grid-cols-4 gap-3">
                 {[
-                  { l: 'SPEED', v: '104 km/h' },
-                  { l: 'LENGTH', v: 'Good length' },
-                  { l: 'RESULT', v: 'Dot ball' },
+                  { l: 'OVERS', v: '3.2' },
+                  { l: 'WKTS', v: '2' },
+                  { l: 'RUNS', v: '21' },
+                  { l: 'ECO', v: '6.4' },
                 ].map(({ l, v }) => (
                   <div key={l}>
-                    <div className="font-mono text-[7px] tracking-widest text-hp-paper/72 mb-0.5">{l}</div>
-                    <div className="font-mono text-[11px] text-hp-paper/75">{v}</div>
+                    <div className="font-mono font-bold text-[22px] text-hp-paper leading-none mb-1">{v}</div>
+                    <div className="font-mono text-[7px] tracking-widest text-hp-paper/52">{l}</div>
                   </div>
                 ))}
               </div>
@@ -148,19 +131,13 @@ function Hero() {
               <div className="flex-1 h-px bg-white/5" />
             </div>
 
-            {/* Card 03 — Player performance */}
+            {/* Card 03 — Confirmation checklist */}
             <div className="border border-white/8 bg-hp-surface p-4">
-              <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-3 uppercase">Player Performance · #1042</div>
-              <div className="grid grid-cols-4 gap-3">
-                {[
-                  { l: 'WKTS', v: '12' },
-                  { l: 'AVG', v: '22.4' },
-                  { l: 'ECO', v: '6.2' },
-                  { l: 'SR', v: '21.8' },
-                ].map(({ l, v }) => (
-                  <div key={l}>
-                    <div className="font-mono font-bold text-[22px] text-hp-paper leading-none mb-1">{v}</div>
-                    <div className="font-mono text-[7px] tracking-widest text-hp-paper/52">{l}</div>
+              <div className="space-y-2">
+                {['Match imported', 'Player record updated', 'Performance analysed'].map((item) => (
+                  <div key={item} className="flex items-center gap-2.5">
+                    <span className="text-hp-cg text-[11px]">✓</span>
+                    <span className="font-mono text-[9px] tracking-wider text-hp-paper/78 uppercase">{item}</span>
                   </div>
                 ))}
               </div>
@@ -190,7 +167,7 @@ function Hero() {
             {/* Product label */}
             <div className="flex items-center gap-3 px-1 pt-1">
               <div className="flex-1 h-px bg-white/5" />
-              <span className="font-mono text-[7px] tracking-[0.28em] text-hp-paper/72 uppercase">One ball. Connected through the cricket journey.</span>
+              <span className="font-mono text-[7px] tracking-[0.28em] text-hp-paper/72 uppercase">One match. Connected through the cricket journey.</span>
               <div className="flex-1 h-px bg-white/5" />
             </div>
           </div>
@@ -200,7 +177,7 @@ function Hero() {
       {/* Journey strip */}
       <div className="absolute bottom-0 left-0 right-0 border-t border-white/5">
         <div className="max-w-[1440px] mx-auto px-8 py-5 flex items-center gap-4">
-          {['BALL', 'DATA', 'INSIGHT', 'DEVELOPMENT', 'PROGRESS'].map((step, i) => (
+          {['MATCH DATA', 'PLAYER RECORD', 'INSIGHT', 'DEVELOPMENT', 'PROGRESS'].map((step, i) => (
             <Fragment key={step}>
               <span className="font-mono text-[9px] tracking-[0.3em] text-hp-paper/72 uppercase">{step}</span>
               {i < 4 && <span className="text-hp-paper/78 text-[10px]">→</span>}
@@ -218,8 +195,8 @@ function WhatIsCricHQ() {
   const stages = [
     {
       num: '01',
-      label: 'CAPTURE',
-      desc: 'Match and performance data captured ball-by-ball with precision.',
+      label: 'IMPORT',
+      desc: 'Bring existing match and performance data into CRIC HQ.',
     },
     {
       num: '02',
@@ -229,17 +206,17 @@ function WhatIsCricHQ() {
     {
       num: '03',
       label: 'UNDERSTAND',
-      desc: 'Statistics, trends and performance insight revealed across every level.',
+      desc: 'Statistics, trends and performance patterns revealed across matches.',
     },
     {
       num: '04',
       label: 'DEVELOP',
-      desc: 'Coaching, training and development pathways built on structured data.',
+      desc: 'Coaching, training and development pathways built around evidence.',
     },
     {
       num: '05',
       label: 'PROGRESS',
-      desc: 'Track improvement over time — from the first ball to the next stage.',
+      desc: 'Track improvement over time — from match to match and season to season.',
     },
   ]
 
@@ -266,10 +243,10 @@ function WhatIsCricHQ() {
             className="font-display font-black uppercase text-hp-paper leading-[0.9] mb-6"
             style={{ fontSize: 'clamp(44px, 5.5vw, 80px)' }}
           >
-            ONE BALL.<br />ONE CONNECTED JOURNEY.
+            ONE MATCH.<br />ONE CONNECTED JOURNEY.
           </h2>
           <p className="text-hp-paper/72 text-[16px] leading-relaxed max-w-xl mx-auto">
-            From match capture to player development, CRIC HQ connects the data, people and decisions that move cricket forward.
+            Bring your existing cricket data into CRIC HQ and turn it into a continuous player journey.
           </p>
         </div>
 
@@ -294,142 +271,61 @@ function WhatIsCricHQ() {
   )
 }
 
-// ─── CHOOSE ROUTE ─────────────────────────────────────────────────────────────
+// ─── BRING YOUR CRICKET HISTORY ─────────────────────────────────────────────
 
-function ChooseRoute() {
-  const [active, setActive] = useState<number | null>(null)
-
-  const routes = [
-    {
-      label: 'PLAYER / PARENT',
-      eyebrow: 'For the player and family',
-      points: [
-        'Build your cricket identity',
-        'Track every match and performance',
-        'Follow your development journey',
-        'Build a lifelong cricket record',
-      ],
-      cta: 'CLAIM YOUR CRICKET PASSPORT',
-      href: '#player-passport',
-      accent: 'red',
-      sub: null,
-    },
-    {
-      label: 'COACH',
-      eyebrow: 'For the development professional',
-      points: [
-        'Manage players and squads',
-        'Turn match data into coaching insight',
-        'Set goals and track development',
-        'Connect observation → training → progress',
-      ],
-      cta: 'STREAMLINE YOUR SQUAD',
-      href: '/organisations/coaches',
-      accent: 'navy',
-      sub: null,
-    },
-    {
-      label: 'ORGANISATION',
-      eyebrow: 'For administrators and leaders',
-      points: [
-        'Manage players, teams and competitions',
-        'Score and capture match data',
-        'Connect competition → statistics → development',
-        'Build a connected cricket ecosystem',
-      ],
-      cta: 'DIGITISE YOUR ASSOCIATION',
-      href: '/organisations',
-      accent: 'gold',
-      sub: 'CLUBS · SCHOOLS · ACADEMIES · ASSOCIATIONS · CRICKET BOARDS',
-    },
+function BringYourCricketHistory() {
+  const cards = [
+    { label: 'UPLOAD', eyebrow: 'Scorecards & files', desc: 'Upload your existing match records.' },
+    { label: 'IMPORT', eyebrow: 'Structured match data', desc: 'Bring in CSV, spreadsheet or supported data formats.' },
+    { label: 'CONNECT', eyebrow: 'External platforms', desc: 'Connect supported cricket systems where API access is available.' },
+    { label: 'BUILD', eyebrow: 'Your CRIC HQ record', desc: "Turn your match history into a connected player record." },
   ]
 
   return (
-    <section className="bg-hp-ink py-28">
+    <section className="bg-hp-ink py-28 border-t border-white/5">
       <div className="max-w-[1440px] mx-auto px-8">
-        <div className="mb-16">
-          <div className="flex items-center gap-3 mb-6">
+        <div className="mb-16 text-center">
+          <div className="flex items-center justify-center gap-3 mb-6">
             <span className="block w-6 h-px bg-hp-cg/50" />
-            <span className="font-mono text-[9px] tracking-[0.3em] text-hp-paper/52 uppercase">Choose your route</span>
+            <span className="font-mono text-[9px] tracking-[0.3em] text-hp-paper/52 uppercase">Get started with what you already have</span>
+            <span className="block w-6 h-px bg-hp-cg/50" />
           </div>
           <h2
-            className="font-display font-black uppercase text-hp-paper leading-[0.9]"
-            style={{ fontSize: 'clamp(44px, 5vw, 72px)' }}
+            className="font-display font-black uppercase text-hp-paper leading-[0.9] mb-3"
+            style={{ fontSize: 'clamp(36px, 4.5vw, 60px)' }}
           >
-            HOW WILL YOU<br />USE CRIC HQ?
+            YOUR CRICKET HISTORY<br />IS ALREADY OUT THERE.
           </h2>
+          <p
+            className="font-display font-bold text-hp-cg uppercase tracking-wider mb-6"
+            style={{ fontSize: 'clamp(18px, 2vw, 26px)' }}
+          >
+            BRING IT INTO CRIC HQ.
+          </p>
+          <p className="text-hp-paper/72 text-[15px] leading-relaxed max-w-xl mx-auto">
+            Your matches may already exist across scorecards, spreadsheets, competition platforms and club systems. CRIC HQ brings that data together to create one connected cricket record.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-px bg-white/5">
-          {routes.map((route, i) => (
-            <div
-              key={i}
-              className={`relative bg-hp-ink p-10 flex flex-col hover:bg-hp-surface cursor-pointer transition-all duration-300 ${
-                active === i ? 'bg-hp-surface' : ''
-              }`}
-              onMouseEnter={() => setActive(i)}
-              onMouseLeave={() => setActive(null)}
-            >
-              <div className="font-mono text-[9px] tracking-[0.28em] text-hp-paper/52 mb-5 uppercase">
-                {route.eyebrow}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-white/5 mb-12">
+          {cards.map(({ label, eyebrow, desc }) => (
+            <div key={label} className="bg-hp-ink p-7 hover:bg-hp-surface transition-colors group cursor-default">
+              <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-3 uppercase">{eyebrow}</div>
+              <div className="font-display font-black text-lg text-hp-paper uppercase mb-3 group-hover:text-hp-cg transition-colors">
+                {label}
               </div>
-              <h3
-                className={`font-display font-black text-[28px] uppercase mb-8 transition-colors leading-tight ${
-                  active === i
-                    ? route.accent === 'gold'
-                      ? 'text-hp-ca'
-                      : route.accent === 'navy'
-                      ? 'text-hp-cn'
-                      : 'text-hp-cg'
-                    : 'text-hp-paper'
-                }`}
-              >
-                {route.label}
-              </h3>
-              <ul className="space-y-3 flex-1">
-                {route.points.map((pt) => (
-                  <li key={pt} className="flex items-start gap-3 text-[13px] text-hp-paper/74">
-                    <span
-                      className={`mt-2 w-1 h-1 rounded-full flex-shrink-0 ${
-                        route.accent === 'gold' ? 'bg-hp-ca/50' : route.accent === 'navy' ? 'bg-hp-cn/50' : 'bg-hp-cg/50'
-                      }`}
-                    />
-                    {pt}
-                  </li>
-                ))}
-              </ul>
-              {route.sub && (
-                <div className="mt-5 font-mono text-[7px] tracking-[0.18em] text-hp-paper/85 uppercase leading-relaxed">
-                  {route.sub}
-                </div>
-              )}
-              <div className="mt-8">
-                <a
-                  href={route.href}
-                  className={`inline-flex items-center gap-2 font-display font-bold text-xs tracking-widest uppercase transition-colors ${
-                    route.accent === 'gold'
-                      ? 'text-hp-ca hover:text-hp-ca/70'
-                      : route.accent === 'navy'
-                      ? 'text-hp-cn hover:text-hp-cn/70'
-                      : 'text-hp-cg hover:text-hp-cg/70'
-                  }`}
-                >
-                  {route.cta} <span className="text-sm">→</span>
-                </a>
-              </div>
-              <div
-                className={`absolute bottom-0 left-0 right-0 h-px transition-all duration-300 ${
-                  active === i
-                    ? route.accent === 'gold'
-                      ? 'bg-hp-ca/50'
-                      : route.accent === 'navy'
-                      ? 'bg-hp-cn/50'
-                      : 'bg-hp-cg/50'
-                    : 'bg-transparent'
-                }`}
-              />
+              <p className="text-[12px] text-hp-paper/65 leading-relaxed">{desc}</p>
             </div>
           ))}
+        </div>
+
+        <div className="text-center">
+          <a
+            href="/contact"
+            className="inline-flex items-center gap-2 bg-hp-cg text-hp-paper font-display font-black text-sm px-10 py-4 tracking-widest uppercase hover:bg-hp-cg/90 transition-colors"
+          >
+            IMPORT YOUR FIRST MATCH
+          </a>
         </div>
       </div>
     </section>
@@ -443,15 +339,15 @@ function AhaMoment() {
 
   const steps = [
     {
-      label: 'MATCH',
-      title: 'The ball is bowled.',
+      label: 'MATCH DATA',
+      title: 'A match gets imported.',
       content: (
         <div className="grid grid-cols-2 gap-3">
           {[
-            { l: 'Bowler', v: 'Kingshuk' },
-            { l: 'Speed', v: '104 km/h' },
-            { l: 'Length', v: 'Good length' },
-            { l: 'Result', v: 'Dot ball' },
+            { l: 'Match', v: 'Northside CC v Southside CC' },
+            { l: 'Format', v: 'T20 · Grade 1' },
+            { l: 'Date', v: '21 Sep 2026' },
+            { l: 'Source', v: 'Imported scorecard' },
           ].map(({ l, v }) => (
             <div key={l} className="bg-hp-surface p-4 border border-white/6">
               <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-1.5 uppercase">{l}</div>
@@ -462,42 +358,8 @@ function AhaMoment() {
       ),
     },
     {
-      label: 'LIVE SCORE',
-      title: 'Instantly in the scorecard.',
-      content: (
-        <div className="bg-hp-surface border border-white/6 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="font-mono text-[8px] tracking-widest text-red-400">LIVE</span>
-            </div>
-            <span className="font-mono text-[8px] text-hp-paper/52">8.2 OVERS</span>
-          </div>
-          <div className="font-display font-black text-5xl text-hp-paper mb-1">
-            42<span className="text-hp-paper/72">/2</span>
-          </div>
-          <div className="flex gap-1.5 mt-4">
-            {['1', 'W', '4', '·', '·', '6', '·', '·'].map((b, i) => (
-              <span
-                key={i}
-                className={`w-7 h-7 flex items-center justify-center font-mono text-[11px] font-bold border ${
-                  b === 'W'
-                    ? 'border-red-500/40 text-red-400'
-                    : b === '4' || b === '6'
-                    ? 'border-hp-cg/40 text-hp-cg'
-                    : 'border-white/8 text-hp-paper/78'
-                }`}
-              >
-                {b}
-              </span>
-            ))}
-          </div>
-        </div>
-      ),
-    },
-    {
       label: 'PLAYER RECORD',
-      title: 'Every ball updates the record.',
+      title: 'Every match updates the record.',
       content: (
         <div>
           <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-5 uppercase">
@@ -605,6 +467,33 @@ function AhaMoment() {
         </div>
       ),
     },
+    {
+      label: 'PROGRESS',
+      title: 'The record grows season to season.',
+      content: (
+        <div className="space-y-5">
+          {[
+            { l: '2023/24', bars: [55, 60, 68] },
+            { l: '2024/25', bars: [62, 72, 80] },
+            { l: '2025/26', bars: [70, 78, 88] },
+          ].map(({ l, bars }) => (
+            <div key={l}>
+              <div className="flex justify-between mb-2">
+                <span className="font-mono text-[9px] tracking-widest text-hp-paper/65 uppercase">Season {l}</span>
+                <span className="font-mono text-[9px] text-hp-paper/75">{bars[2]}%</span>
+              </div>
+              <div className="flex gap-1">
+                {bars.map((b, i) => (
+                  <div key={i} className="flex-1 h-2 bg-[#141820] relative">
+                    <div className="absolute inset-y-0 left-0 bg-hp-cg/55" style={{ width: `${b}%` }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ),
+    },
   ]
 
   return (
@@ -630,14 +519,14 @@ function AhaMoment() {
             className="font-display font-black uppercase text-hp-paper leading-[0.9] mb-6"
             style={{ fontSize: 'clamp(36px, 4.5vw, 60px)' }}
           >
-            FROM ONE BALL TO A<br />PLAYER&apos;S CRICKET JOURNEY.
+            FROM ONE MATCH TO A<br />PLAYER&apos;S CRICKET JOURNEY.
           </h2>
           <p className="text-hp-paper/65 text-[15px] max-w-lg mx-auto mb-4">
-            A single delivery triggers a chain of intelligence that builds a complete cricket profile.
+            A match already played doesn&apos;t have to disappear into an old scorebook. Bring it into CRIC HQ and turn it into part of the player&apos;s connected journey.
           </p>
           <div className="inline-flex items-center gap-2 border border-hp-cg/25 px-4 py-2">
             <div className="w-1.5 h-1.5 rounded-full bg-hp-cg" />
-            <span className="font-mono text-[8px] tracking-[0.25em] text-hp-cg uppercase">One delivery. Six connected data points.</span>
+            <span className="font-mono text-[8px] tracking-[0.25em] text-hp-cg uppercase">One match. Six connected data points.</span>
           </div>
         </div>
 
@@ -684,7 +573,7 @@ function AhaMoment() {
             </button>
           </div>
           <p className="mt-8 text-hp-paper/52 text-[13px] leading-relaxed border-t border-white/5 pt-6">
-            The ball doesn&apos;t end with the score. It becomes part of the player&apos;s journey.
+            The match doesn&apos;t end with the score. It becomes part of the player&apos;s journey.
           </p>
         </div>
       </div>
@@ -692,20 +581,164 @@ function AhaMoment() {
   )
 }
 
-// ─── LIVE SCORING ─────────────────────────────────────────────────────────────
+// ─── CHOOSE ROUTE ─────────────────────────────────────────────────────────────
 
-function LiveScoring() {
-  const [tab, setTab] = useState<'scorecard' | 'stats'>('scorecard')
+function ChooseRoute() {
+  const [active, setActive] = useState<number | null>(null)
 
-  const batsmen = [
-    { name: 'R. Thompson', runs: 28, balls: 31, fours: 3, sr: '90.3', batting: true },
-    { name: 'J. Patel', runs: 14, balls: 18, fours: 1, sr: '77.8', batting: true },
-    { name: 'M. Richards', runs: 0, balls: 0, fours: 0, sr: '—', batting: false, out: 'b Kingshuk' },
+  const routes = [
+    {
+      label: 'PLAYER / PARENT',
+      eyebrow: 'For the player and family',
+      points: [
+        'Build your cricket identity',
+        'Track every match and performance',
+        'Follow your development journey',
+        'Build a lifelong cricket record',
+      ],
+      cta: 'CLAIM YOUR CRICKET PASSPORT',
+      href: '#player-passport',
+      accent: 'red',
+      sub: null,
+    },
+    {
+      label: 'COACH',
+      eyebrow: 'For the development professional',
+      points: [
+        'Manage players and squads',
+        'Turn match data into coaching insight',
+        'Set goals and track development',
+        'Connect observation → training → progress',
+      ],
+      cta: 'STREAMLINE YOUR SQUAD',
+      href: '/organisations/coaches',
+      accent: 'navy',
+      sub: null,
+    },
+    {
+      label: 'ORGANISATION',
+      eyebrow: 'For administrators and leaders',
+      points: [
+        'Manage players, teams and competitions',
+        'Connect match data, statistics and development information',
+        'Connect competition → statistics → development',
+        'Build a connected cricket ecosystem',
+      ],
+      cta: 'DIGITISE YOUR ASSOCIATION',
+      href: '/organisations',
+      accent: 'gold',
+      sub: 'CLUBS · SCHOOLS · ACADEMIES · ASSOCIATIONS · CRICKET BOARDS',
+    },
   ]
-  const bowlers = [
-    { name: 'Kingshuk', overs: '3.2', wkts: 2, runs: 21, econ: '6.4', current: true },
-    { name: 'M. Clarke', overs: '3', wkts: 0, runs: 18, econ: '6.0', current: false },
-    { name: 'D. Singh', overs: '2', wkts: 0, runs: 11, econ: '5.5', current: false },
+
+  return (
+    <section className="bg-hp-ink py-28">
+      <div className="max-w-[1440px] mx-auto px-8">
+        <div className="mb-16">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="block w-6 h-px bg-hp-cg/50" />
+            <span className="font-mono text-[9px] tracking-[0.3em] text-hp-paper/52 uppercase">Choose your route</span>
+          </div>
+          <h2
+            className="font-display font-black uppercase text-hp-paper leading-[0.9]"
+            style={{ fontSize: 'clamp(44px, 5vw, 72px)' }}
+          >
+            HOW WILL YOU<br />USE CRIC HQ?
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-px bg-white/5">
+          {routes.map((route, i) => (
+            <div
+              key={i}
+              className={`relative bg-hp-ink p-10 flex flex-col hover:bg-hp-surface cursor-pointer transition-all duration-300 ${
+                active === i ? 'bg-hp-surface' : ''
+              }`}
+              onMouseEnter={() => setActive(i)}
+              onMouseLeave={() => setActive(null)}
+            >
+              <div className="font-mono text-[9px] tracking-[0.28em] text-hp-paper/52 mb-5 uppercase">
+                {route.eyebrow}
+              </div>
+              <h3
+                className={`font-display font-black text-[28px] uppercase mb-8 transition-colors leading-tight ${
+                  active === i
+                    ? route.accent === 'gold'
+                      ? 'text-hp-ca'
+                      : route.accent === 'navy'
+                      ? 'text-hp-cn'
+                      : 'text-hp-cg'
+                    : 'text-hp-paper'
+                }`}
+              >
+                {route.label}
+              </h3>
+              <ul className="space-y-3 flex-1">
+                {route.points.map((pt) => (
+                  <li key={pt} className="flex items-start gap-3 text-[13px] text-hp-paper/74">
+                    <span
+                      className={`mt-2 w-1 h-1 rounded-full flex-shrink-0 ${
+                        route.accent === 'gold' ? 'bg-hp-ca/50' : route.accent === 'navy' ? 'bg-hp-cn/50' : 'bg-hp-cg/50'
+                      }`}
+                    />
+                    {pt}
+                  </li>
+                ))}
+              </ul>
+              {route.sub && (
+                <div className="mt-5 font-mono text-[7px] tracking-[0.18em] text-hp-paper/85 uppercase leading-relaxed">
+                  {route.sub}
+                </div>
+              )}
+              <div className="mt-8">
+                <a
+                  href={route.href}
+                  className={`inline-flex items-center gap-2 font-display font-bold text-xs tracking-widest uppercase transition-colors ${
+                    route.accent === 'gold'
+                      ? 'text-hp-ca hover:text-hp-ca/70'
+                      : route.accent === 'navy'
+                      ? 'text-hp-cn hover:text-hp-cn/70'
+                      : 'text-hp-cg hover:text-hp-cg/70'
+                  }`}
+                >
+                  {route.cta} <span className="text-sm">→</span>
+                </a>
+              </div>
+              <div
+                className={`absolute bottom-0 left-0 right-0 h-px transition-all duration-300 ${
+                  active === i
+                    ? route.accent === 'gold'
+                      ? 'bg-hp-ca/50'
+                      : route.accent === 'navy'
+                      ? 'bg-hp-cn/50'
+                      : 'bg-hp-cg/50'
+                    : 'bg-transparent'
+                }`}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+// ─── MATCH HISTORY ───────────────────────────────────────────────────────────
+
+function MatchHistory() {
+  const history = [
+    { opponent: 'v Northside CC', wkts: 2, eco: '6.4' },
+    { opponent: 'v Riverside', wkts: 1, eco: '7.2' },
+    { opponent: 'v Bayside', wkts: 3, eco: '5.1' },
+    { opponent: 'v Central', wkts: 2, eco: '6.4' },
+    { opponent: 'v Hills CC', wkts: 4, eco: '4.8' },
+  ]
+
+  const stages = [
+    { l: 'IMPORT', d: 'Previous scorecards and match data.' },
+    { l: 'CONNECT', d: 'Players, teams, competitions and seasons.' },
+    { l: 'ANALYSE', d: 'Performance trends across matches.' },
+    { l: 'DEVELOP', d: 'Turn evidence into coaching and training goals.' },
   ]
 
   return (
@@ -727,43 +760,33 @@ function LiveScoring() {
           <div>
             <div className="flex items-center gap-3 mb-8">
               <span className="block w-6 h-px bg-hp-cg/50" />
-              <span className="font-mono text-[9px] tracking-[0.3em] text-hp-paper/52 uppercase">Live scoring</span>
+              <span className="font-mono text-[9px] tracking-[0.3em] text-hp-paper/52 uppercase">Match History</span>
             </div>
             <h2
               className="font-display font-black uppercase text-hp-paper leading-[0.9] mb-8"
               style={{ fontSize: 'clamp(44px, 5vw, 72px)' }}
             >
-              EVERY BALL<br />MATTERS.
+              EVERY MATCH<br />TELLS A STORY.
             </h2>
             <p className="text-hp-paper/74 text-[16px] leading-relaxed max-w-md mb-3">
-              Live scoring captures the moment. CRIC HQ turns those moments into a connected performance history.
+              Your cricket history shouldn&apos;t disappear after the final ball.
             </p>
             <p className="font-mono text-[9px] tracking-[0.22em] text-hp-cg/65 uppercase mb-8">
-              Score once. Build the record automatically.
+              Bring previous match data into CRIC HQ and turn individual scorecards into a connected performance history.
             </p>
 
             <div className="flex flex-col gap-0 mb-10 max-w-xs">
-              {[
-                'LIVE SCORE',
-                'MATCH DATA',
-                'PLAYER STATISTICS',
-                'SEASON HISTORY',
-                'CAREER HISTORY',
-                'INSIGHTS',
-              ].map((item, i) => (
-                <div key={item} className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0">
+              {stages.map(({ l, d }, i) => (
+                <div key={l} className="flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0">
                   <div
                     className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                      i === 0 ? 'bg-hp-cg' : i < 3 ? 'bg-hp-cg/40' : 'bg-white/15'
+                      i === 0 ? 'bg-hp-cg' : 'bg-hp-cg/40'
                     }`}
                   />
-                  <span
-                    className={`font-mono text-[9px] tracking-widest uppercase ${
-                      i === 0 ? 'text-hp-cg' : i < 3 ? 'text-hp-paper/78' : 'text-hp-paper/52'
-                    }`}
-                  >
-                    {item}
-                  </span>
+                  <div>
+                    <span className="font-mono text-[9px] tracking-widest uppercase text-hp-paper/78">{l}</span>
+                    <div className="font-mono text-[8px] text-hp-paper/45 mt-0.5">{d}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -772,136 +795,38 @@ function LiveScoring() {
               href="/contact"
               className="inline-flex items-center gap-2 bg-hp-cg text-hp-paper font-display font-black text-sm px-8 py-3.5 tracking-widest uppercase hover:bg-hp-cg/90 transition-colors"
             >
-              EXPLORE LIVE SCORING
+              IMPORT MATCH DATA
             </a>
           </div>
 
-          {/* Scorecard */}
+          {/* Match history panel */}
           <div className="border border-white/8 bg-hp-surface">
             <div className="border-b border-white/5 p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                <span className="font-mono text-[8px] tracking-widest text-red-400">LIVE</span>
-              </div>
-              <span className="font-mono text-[8px] text-hp-paper/72 text-right">NORTHSIDE v SOUTHSIDE · T20</span>
-            </div>
-
-            <div className="p-5 border-b border-white/5">
-              <div className="flex items-baseline gap-4">
-                <span className="font-display font-black text-5xl text-hp-paper">42</span>
-                <span className="font-display font-black text-3xl text-hp-paper/72">/2</span>
-                <div className="ml-auto text-right">
-                  <div className="font-mono text-[9px] text-hp-paper/78">8.2 OVERS</div>
-                  <div className="font-mono text-sm text-hp-paper/80 font-medium">CRR 5.12</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex border-b border-white/5">
-              {(['scorecard', 'stats'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`flex-1 py-3 font-mono text-[8px] tracking-widest uppercase transition-colors border-b-2 ${
-                    tab === t ? 'text-hp-cg border-hp-cg' : 'text-hp-paper/52 hover:text-hp-paper border-transparent'
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+              <span className="font-mono text-[8px] tracking-widest text-hp-cg uppercase">Your Match History</span>
+              <span className="font-mono text-[8px] text-hp-paper/72 text-right">2026 SEASON</span>
             </div>
 
             <div className="p-4">
-              {tab === 'scorecard' ? (
-                <div className="space-y-5">
-                  <div>
-                    <div className="font-mono text-[7px] tracking-widest text-hp-paper/72 mb-2 uppercase">Batting</div>
-                    <table className="w-full">
-                      <thead>
-                        <tr className="text-hp-paper/72 font-mono text-[7px] tracking-widest">
-                          <th className="text-left pb-2 font-normal">BATTER</th>
-                          <th className="text-right pb-2 font-normal">R</th>
-                          <th className="text-right pb-2 font-normal">B</th>
-                          <th className="text-right pb-2 font-normal">4s</th>
-                          <th className="text-right pb-2 font-normal">SR</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {batsmen.map((b) => (
-                          <tr key={b.name} className="border-t border-white/4">
-                            <td className="py-2">
-                              <span className={`text-[11px] ${b.batting ? 'text-hp-paper/88' : 'text-hp-paper/82'}`}>
-                                {b.name}
-                                {b.batting && <span className="ml-1 text-hp-cg text-[8px]">*</span>}
-                              </span>
-                              {'out' in b && b.out && (
-                                <div className="font-mono text-[7px] text-hp-paper/74">{b.out as string}</div>
-                              )}
-                            </td>
-                            <td className="text-right py-2 text-hp-paper font-mono font-bold text-[11px]">{b.runs}</td>
-                            <td className="text-right py-2 text-hp-paper/65 font-mono text-[11px]">{b.balls}</td>
-                            <td className="text-right py-2 text-hp-paper/65 font-mono text-[11px]">{b.fours}</td>
-                            <td className="text-right py-2 text-hp-paper/78 font-mono text-[11px]">{b.sr}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div>
-                    <div className="font-mono text-[7px] tracking-widest text-hp-paper/72 mb-2 uppercase">Bowling</div>
-                    <table className="w-full">
-                      <thead>
-                        <tr className="text-hp-paper/72 font-mono text-[7px] tracking-widest">
-                          <th className="text-left pb-2 font-normal">BOWLER</th>
-                          <th className="text-right pb-2 font-normal">OV</th>
-                          <th className="text-right pb-2 font-normal">W</th>
-                          <th className="text-right pb-2 font-normal">R</th>
-                          <th className="text-right pb-2 font-normal">ECO</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bowlers.map((b) => (
-                          <tr key={b.name} className="border-t border-white/4">
-                            <td className="py-2">
-                              <span className={`text-[11px] ${b.current ? 'text-hp-paper/75' : 'text-hp-paper/72'}`}>
-                                {b.name}
-                                {b.current && <span className="ml-1 text-hp-cg text-[8px]">▸</span>}
-                              </span>
-                            </td>
-                            <td className="text-right py-2 text-hp-paper/65 font-mono text-[11px]">{b.overs}</td>
-                            <td className="text-right py-2 text-hp-paper font-mono font-bold text-[11px]">{b.wkts}</td>
-                            <td className="text-right py-2 text-hp-paper/65 font-mono text-[11px]">{b.runs}</td>
-                            <td className="text-right py-2 text-hp-paper/78 font-mono text-[11px]">{b.econ}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {[
-                    { l: 'Dot ball %', v: 42, accent: 'cg' },
-                    { l: 'Boundary %', v: 28, accent: 'ca' },
-                    { l: 'Singles %', v: 30, accent: '' },
-                  ].map(({ l, v, accent }) => (
-                    <div key={l}>
-                      <div className="flex justify-between font-mono text-[9px] tracking-widest mb-2">
-                        <span className="text-hp-paper/65 uppercase">{l}</span>
-                        <span className="text-hp-paper/82">{v}%</span>
-                      </div>
-                      <div className="h-1.5 bg-[#141820]">
-                        <div
-                          className={`h-full ${
-                            accent === 'cg' ? 'bg-hp-cg/60' : accent === 'ca' ? 'bg-hp-ca/60' : 'bg-white/25'
-                          }`}
-                          style={{ width: `${v}%` }}
-                        />
-                      </div>
-                    </div>
+              <table className="w-full">
+                <tbody>
+                  {history.map((h) => (
+                    <tr key={h.opponent} className="border-t border-white/4 first:border-0">
+                      <td className="py-3 text-[12px] text-hp-paper/82">{h.opponent}</td>
+                      <td className="text-right py-3 font-mono text-[10px] text-hp-paper/78">{h.wkts} wkts</td>
+                      <td className="text-right py-3 font-mono text-[10px] text-hp-paper/85">Eco {h.eco}</td>
+                    </tr>
                   ))}
-                </div>
-              )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="border-t border-white/5 px-4 py-4 flex flex-wrap items-center gap-0">
+              {['PERFORMANCE TREND', 'AI INSIGHT', 'DEVELOPMENT PLAN'].map((step, i, arr) => (
+                <Fragment key={step}>
+                  <span className="font-mono text-[7px] tracking-wider text-hp-paper/78 border border-white/8 px-2.5 py-1.5 uppercase">{step}</span>
+                  {i < arr.length - 1 && <span className="text-hp-paper/78 text-[9px] px-1.5">↓</span>}
+                </Fragment>
+              ))}
             </div>
           </div>
         </div>
@@ -942,6 +867,9 @@ function PlayerPassport() {
             </h2>
             <p className="text-hp-paper/74 text-[15px] leading-relaxed mb-4">
               Your cricket history shouldn&apos;t disappear when you change teams, clubs, schools or competitions. CRIC HQ creates a connected player record that grows with you.
+            </p>
+            <p className="text-hp-paper/52 text-[13px] leading-relaxed mb-4">
+              Start with the cricket data you already have.
             </p>
             <p className="font-mono text-[9px] tracking-[0.22em] text-hp-paper/78 uppercase mb-6">
               One player · One record · One journey
@@ -1509,7 +1437,7 @@ function OrganisationsSection() {
 
   const caps = [
     'Players', 'Teams', 'Coaches', 'Fixtures',
-    'Live scoring', 'Competitions', 'Statistics', 'Reports', 'Communication',
+    'Match Data', 'Competitions', 'Statistics', 'Reports', 'Communication',
   ]
 
   return (
@@ -1529,10 +1457,10 @@ function OrganisationsSection() {
             </h2>
             <div>
               <p className="text-hp-paper/88 text-[15px] leading-relaxed mb-4">
-                Connect your players, teams, competitions, matches, statistics and development data in one ecosystem.
+                Connect your players, teams, competitions, match data and development information in one ecosystem.
               </p>
               <div className="flex flex-wrap items-center gap-0 mb-6">
-                {['MANAGE', 'CAPTURE', 'CONNECT', 'ANALYSE', 'DEVELOP', 'REPORT'].map((step, i, arr) => (
+                {['MANAGE', 'IMPORT', 'CONNECT', 'ANALYSE', 'DEVELOP', 'REPORT'].map((step, i, arr) => (
                   <Fragment key={step}>
                     <span className="font-mono text-[8px] tracking-wider text-hp-paper/82 border border-white/8 px-3 py-1.5 uppercase">{step}</span>
                     {i < arr.length - 1 && <span className="text-hp-paper/78 text-[9px] px-1">→</span>}
@@ -1583,7 +1511,7 @@ function OrganisationsSection() {
 // ─── COMPETITIONS ─────────────────────────────────────────────────────────────
 
 function CompetitionsSection() {
-  const lifecycle = ['FIXTURE', 'MATCH', 'SCORE', 'RESULT', 'STATISTICS', 'PLAYER RECORD', 'HISTORY']
+  const lifecycle = ['FIXTURE', 'MATCH', 'MATCH DATA', 'RESULT', 'STATISTICS', 'PLAYER RECORD', 'HISTORY']
 
   return (
     <section className="bg-hp-ink py-28">
@@ -1626,7 +1554,7 @@ function CompetitionsSection() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5">
           {[
             { l: 'Fixtures', d: 'Scheduling and management' },
-            { l: 'Live Scores', d: 'Real-time match data' },
+            { l: 'Match Data', d: 'Connected scorecards and match records' },
             { l: 'Ladders', d: 'Competition standings' },
             { l: 'Rankings', d: 'Player and team rankings' },
             { l: 'Results', d: 'Full match history' },
@@ -1650,11 +1578,11 @@ function CompetitionsSection() {
 function DataFlywheel() {
   const nodes = [
     'MORE MATCHES',
-    'MORE DATA',
+    'MORE MATCH DATA',
     'RICHER PLAYER RECORDS',
-    'BETTER INSIGHTS',
+    'BETTER PERFORMANCE INSIGHT',
     'BETTER DEVELOPMENT',
-    'MORE VALUE',
+    'MEASURABLE PROGRESS',
     'MORE MATCHES',
   ]
 
@@ -1686,7 +1614,7 @@ function DataFlywheel() {
             className="font-display font-black uppercase text-hp-paper leading-[0.9] mb-6"
             style={{ fontSize: 'clamp(34px, 4vw, 54px)', paddingTop: '0px', paddingBottom: '0px' }}
           >
-            THE MORE CRICKET YOU PLAY, THE RICHER YOUR CRIC HQ JOURNEY BECOMES.
+            EVERY MATCH MAKES THE RECORD RICHER.
           </h2>
         </div>
 
@@ -1886,7 +1814,7 @@ function FinalCTA() {
           THE CRICKET<br />JOURNEY,<br />CONNECTED.
         </h2>
         <p className="text-hp-paper/65 text-[16px] mb-8 max-w-md mx-auto">
-          From the first ball captured to the next stage of development, CRIC HQ connects the journey.
+          From imported match data to the next stage of development, CRIC HQ connects the journey.
         </p>
         <div className="flex flex-wrap gap-4 items-center justify-center mb-16">
           <a href="/signup" className="bg-hp-cg text-hp-paper font-display font-black text-sm px-10 py-4 tracking-[0.15em] uppercase hover:bg-hp-cg/90 transition-colors">
@@ -1935,9 +1863,10 @@ export default function HomePageV2() {
       <SiteNav />
       <Hero />
       <WhatIsCricHQ />
-      <ChooseRoute />
+      <BringYourCricketHistory />
       <AhaMoment />
-      <LiveScoring />
+      <ChooseRoute />
+      <MatchHistory />
       <PlayerPassport />
       <WhyCricHQ />
       <Performance />
