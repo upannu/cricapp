@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth /*, DEMO_ACCOUNTS */ } from "@/lib/auth";
 // import type { UserRole } from "@/lib/types";
 
@@ -77,8 +78,18 @@ export default function LoginPage() {
   // }
 
   return (
-    <div className="min-h-screen bg-hp-ink flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen bg-hp-ink flex items-center justify-center p-4 overflow-hidden">
+      <Image
+        src="/hp/hero.jpg"
+        alt=""
+        aria-hidden="true"
+        fill
+        priority={false}
+        sizes="100vw"
+        className="object-cover object-center opacity-35"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-hp-ink via-hp-ink/85 to-hp-ink/60" />
+      <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-3 mb-3">
             {/* eslint-disable-next-line @next/next/no-img-element -- small static badge, next/image is overkill */}
