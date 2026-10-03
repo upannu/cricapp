@@ -8,6 +8,8 @@ import { SiteFooter } from './SiteFooter'
 // ─── HERO ────────────────────────────────────────────────────────────────────
 
 function Hero() {
+  const deliveryPhases = ['Run-up', 'BFC', 'FFC', 'Release']
+
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden bg-hp-ink">
       {/* Background cricket action photo */}
@@ -153,6 +155,58 @@ function Hero() {
               <p className="text-[11px] text-hp-paper/82 leading-relaxed">
                 Economy improving across recent matches. Powerplay consistency strong. Development focus: middle overs.
               </p>
+            </div>
+
+            {/* Card — Real AI video analysis (skeleton-tracked, from an actual uploaded session clip) */}
+            <div className="border border-white/8 bg-hp-surface overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-white/8">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[8px] tracking-widest text-hp-paper/85">CRIC HQ</span>
+                  <span className="px-1.5 py-0.5 font-mono text-[7px] tracking-widest text-hp-cg bg-hp-cg/10 border border-hp-cg/30 uppercase">
+                    Video Analysis
+                  </span>
+                </div>
+                <span className="font-mono text-[7px] text-hp-paper/52 uppercase tracking-wider">U16 · Right-Arm Fast</span>
+              </div>
+              <div className="relative">
+                <video
+                  src="/hero-demo.webm"
+                  poster="/login-photo-2.jpg"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  aria-label="Skeleton-tracked bowling delivery from a real CRIC HQ AI biomechanics report"
+                  className="w-full h-[200px] object-cover"
+                  style={{ objectPosition: '50% 40%' }}
+                />
+                <div className="absolute top-3 right-3 bg-hp-ink/90 border border-hp-cg/40 px-3 py-2">
+                  <div className="font-mono text-[7px] tracking-widest text-hp-paper/52 uppercase mb-1">Front Knee Angle</div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-base text-hp-paper">165°</span>
+                    <span className="px-1.5 py-0.5 font-mono text-[7px] font-bold tracking-wider bg-hp-cg/20 text-hp-cg uppercase">Low Risk</span>
+                  </div>
+                </div>
+              </div>
+              <div className="px-3 py-3">
+                <div className="relative h-1 bg-white/10">
+                  <div className="absolute inset-y-0 left-0 w-2/3 bg-hp-cg/60" />
+                  {deliveryPhases.map((label, i) => (
+                    <div
+                      key={label}
+                      className="absolute top-1/2 -translate-y-1/2"
+                      style={{ left: `${(i / (deliveryPhases.length - 1)) * 100}%` }}
+                    >
+                      <div className="w-2 h-2 rounded-full bg-hp-cg border-2 border-hp-surface -translate-x-1/2" />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between mt-2 font-mono text-[7px] text-hp-paper/52 uppercase tracking-widest">
+                  {deliveryPhases.map((label) => (
+                    <span key={label}>{label}</span>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Card 05 — Development Focus */}
