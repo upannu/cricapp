@@ -229,9 +229,9 @@ function WhatIsCricHQ() {
         fill
         priority={false}
         sizes="100vw"
-        className="object-cover object-center opacity-25"
+        className="object-cover object-center opacity-45"
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0A0C10]/80 via-[#0A0C10]/50 to-[#0A0C10]/80" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0A0C10]/65 via-[#0A0C10]/35 to-[#0A0C10]/65" />
       <div className="relative max-w-[1440px] mx-auto px-8">
         <div className="mb-16 text-center">
           <div className="flex items-center justify-center gap-3 mb-8">
@@ -517,9 +517,9 @@ function AhaMoment() {
         fill
         priority={false}
         sizes="100vw"
-        className="object-cover object-center opacity-22"
+        className="object-cover object-center opacity-42"
       />
-      <div className="absolute inset-0 bg-gradient-to-l from-[#0A0C10]/85 via-[#0A0C10]/55 to-[#0A0C10]/85" />
+      <div className="absolute inset-0 bg-gradient-to-l from-[#0A0C10]/68 via-[#0A0C10]/42 to-[#0A0C10]/68" />
       <div className="relative max-w-[1440px] mx-auto px-8">
         <div className="mb-16 text-center">
           <div className="flex items-center justify-center gap-3 mb-6">
@@ -1233,10 +1233,10 @@ function Performance() {
         fill
         priority={false}
         sizes="100vw"
-        className="object-cover object-center opacity-20"
+        className="object-cover object-center opacity-38"
         style={{ objectPosition: '70% center' }}
       />
-      <div className="absolute inset-0 bg-gradient-to-r from-hp-ink via-hp-ink/75 to-hp-ink/30" />
+      <div className="absolute inset-0 bg-gradient-to-r from-hp-ink via-hp-ink/70 to-hp-ink/18" />
       <div className="relative max-w-[1440px] mx-auto px-8">
         <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-20 items-start">
           <div>
@@ -1674,7 +1674,7 @@ function DataFlywheel() {
         fill
         priority={false}
         sizes="100vw"
-        className="object-cover object-center opacity-30"
+        className="object-cover object-center opacity-48"
       />
       {/* Vignette — heavier at edges, opens up center */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_70%_at_50%_50%,transparent_30%,#0A0C10_80%)]" />
