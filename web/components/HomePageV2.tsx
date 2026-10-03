@@ -89,7 +89,7 @@ function Hero() {
                 band; cropping this window to just that band (object-position 50% 62%) is what makes the
                 player actually visible, since a full-column background would hide that band behind the
                 opaque cards below. */}
-            <div className="relative h-[260px] overflow-hidden">
+            <div className="relative h-[190px] overflow-hidden">
               <video
                 src="/hero-demo.webm"
                 poster="/hp/hero.jpg"
