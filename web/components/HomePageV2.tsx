@@ -195,8 +195,8 @@ function WhatIsCricHQ() {
   const stages = [
     {
       num: '01',
-      label: 'IMPORT',
-      desc: 'Bring existing match and performance data into CRIC HQ.',
+      label: 'BRING',
+      desc: 'Bring your existing cricket history into CRIC HQ.',
     },
     {
       num: '02',
@@ -275,10 +275,10 @@ function WhatIsCricHQ() {
 
 function BringYourCricketHistory() {
   const cards = [
-    { label: 'UPLOAD', eyebrow: 'Scorecards & files', desc: 'Upload your existing match records.' },
-    { label: 'IMPORT', eyebrow: 'Structured match data', desc: 'Bring in CSV, spreadsheet or supported data formats.' },
-    { label: 'CONNECT', eyebrow: 'External platforms', desc: 'Connect supported cricket systems where API access is available.' },
-    { label: 'BUILD', eyebrow: 'Your CRIC HQ record', desc: "Turn your match history into a connected player record." },
+    { label: 'BRING', eyebrow: 'Scorecards & files', desc: 'Upload scorecards, files and existing cricket records.' },
+    { label: 'IMPORT', eyebrow: 'Structured match data', desc: 'Bring structured CSV, Excel and supported data formats into CRIC HQ.' },
+    { label: 'CONNECT', eyebrow: 'External platforms', desc: 'Connect supported cricket platforms where integration access is available.' },
+    { label: 'BUILD', eyebrow: 'Your CRIC HQ record', desc: 'Turn fragmented cricket history into one connected CRIC HQ record.' },
   ]
 
   return (
@@ -287,7 +287,7 @@ function BringYourCricketHistory() {
         <div className="mb-16 text-center">
           <div className="flex items-center justify-center gap-3 mb-6">
             <span className="block w-6 h-px bg-hp-cg/50" />
-            <span className="font-mono text-[9px] tracking-[0.3em] text-hp-paper/52 uppercase">Get started with what you already have</span>
+            <span className="font-mono text-[9px] tracking-[0.3em] text-hp-paper/52 uppercase">Start with the cricket data you already have</span>
             <span className="block w-6 h-px bg-hp-cg/50" />
           </div>
           <h2
@@ -303,7 +303,7 @@ function BringYourCricketHistory() {
             BRING IT INTO CRIC HQ.
           </p>
           <p className="text-hp-paper/72 text-[15px] leading-relaxed max-w-xl mx-auto">
-            Your matches may already exist across scorecards, spreadsheets, competition platforms and club systems. CRIC HQ brings that data together to create one connected cricket record.
+            Your matches may already exist across scorecards, spreadsheets, competition platforms and club systems. CRIC HQ brings available cricket data together to create one connected cricket record.
           </p>
         </div>
 
@@ -324,7 +324,7 @@ function BringYourCricketHistory() {
             href="/contact"
             className="inline-flex items-center gap-2 bg-hp-cg text-hp-paper font-display font-black text-sm px-10 py-4 tracking-widest uppercase hover:bg-hp-cg/90 transition-colors"
           >
-            IMPORT YOUR FIRST MATCH
+            BRING YOUR FIRST MATCH INTO CRIC HQ
           </a>
         </div>
       </div>
@@ -472,25 +472,37 @@ function AhaMoment() {
       title: 'The record grows season to season.',
       content: (
         <div className="space-y-5">
-          {[
-            { l: '2023/24', bars: [55, 60, 68] },
-            { l: '2024/25', bars: [62, 72, 80] },
-            { l: '2025/26', bars: [70, 78, 88] },
-          ].map(({ l, bars }) => (
-            <div key={l}>
-              <div className="flex justify-between mb-2">
-                <span className="font-mono text-[9px] tracking-widest text-hp-paper/65 uppercase">Season {l}</span>
-                <span className="font-mono text-[9px] text-hp-paper/75">{bars[2]}%</span>
-              </div>
-              <div className="flex gap-1">
-                {bars.map((b, i) => (
-                  <div key={i} className="flex-1 h-2 bg-[#141820] relative">
-                    <div className="absolute inset-y-0 left-0 bg-hp-cg/55" style={{ width: `${b}%` }} />
-                  </div>
-                ))}
-              </div>
+          <div>
+            <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-3 uppercase">Recent Matches</div>
+            <div className="divide-y divide-white/5">
+              {[
+                { m: 'Match 1', fig: '1/32' },
+                { m: 'Match 2', fig: '2/27' },
+                { m: 'Match 3', fig: '1/21' },
+                { m: 'Match 4', fig: '3/24' },
+                { m: 'Match 5', fig: '2/21' },
+              ].map(({ m, fig }) => (
+                <div key={m} className="flex items-center justify-between py-2">
+                  <span className="text-[12px] text-hp-paper/78">{m}</span>
+                  <span className="font-mono text-[12px] text-hp-paper">{fig}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+          <div className="bg-hp-surface p-4 border border-white/6">
+            <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-2 uppercase">Economy Trend</div>
+            <div className="font-mono text-sm text-hp-paper">7.8 → 6.9 → 6.4 → 5.8</div>
+          </div>
+          <div className="border border-hp-cg/20 bg-hp-cg/5 p-4">
+            <div className="font-mono text-[8px] tracking-widest text-hp-cg mb-2 uppercase">AI Performance Insight</div>
+            <p className="text-[12px] text-hp-paper/82 leading-relaxed">
+              Economy improving across recent matches. Powerplay consistency remains strong.
+            </p>
+          </div>
+          <div className="bg-hp-surface p-4 border border-white/6">
+            <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-2 uppercase">Development Focus</div>
+            <div className="font-mono text-[13px] text-hp-paper/75">Middle-over control</div>
+          </div>
         </div>
       ),
     },
@@ -735,7 +747,7 @@ function MatchHistory() {
   ]
 
   const stages = [
-    { l: 'IMPORT', d: 'Previous scorecards and match data.' },
+    { l: 'BRING', d: 'Previous scorecards and match data.' },
     { l: 'CONNECT', d: 'Players, teams, competitions and seasons.' },
     { l: 'ANALYSE', d: 'Performance trends across matches.' },
     { l: 'DEVELOP', d: 'Turn evidence into coaching and training goals.' },
@@ -745,7 +757,7 @@ function MatchHistory() {
     <section className="relative bg-hp-ink py-28 overflow-hidden">
       {/* Night stadium background */}
       <Image
-        src="/hp/live-scoring.jpg"
+        src="/hp/match-history.jpg"
         alt=""
         aria-hidden="true"
         fill
@@ -812,7 +824,7 @@ function MatchHistory() {
                   {history.map((h) => (
                     <tr key={h.opponent} className="border-t border-white/4 first:border-0">
                       <td className="py-3 text-[12px] text-hp-paper/82">{h.opponent}</td>
-                      <td className="text-right py-3 font-mono text-[10px] text-hp-paper/78">{h.wkts} wkts</td>
+                      <td className="text-right py-3 font-mono text-[10px] text-hp-paper/78">{h.wkts} wkt{h.wkts === 1 ? '' : 's'}</td>
                       <td className="text-right py-3 font-mono text-[10px] text-hp-paper/85">Eco {h.eco}</td>
                     </tr>
                   ))}
@@ -1030,7 +1042,7 @@ function PlayerPassport() {
                           <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mt-0.5">{s.season}</div>
                         </div>
                         <div className="text-right">
-                          <div className="font-mono font-bold text-hp-paper text-sm">{s.wkts} wkts</div>
+                          <div className="font-mono font-bold text-hp-paper text-sm">{s.wkts} wkt{s.wkts === 1 ? '' : 's'}</div>
                           <div className="font-mono text-[8px] text-hp-paper/52 mt-0.5">{s.matches} matches</div>
                         </div>
                       </div>
@@ -1056,7 +1068,7 @@ function WhyCricHQ() {
     },
     {
       label: 'ONE DATA LAYER',
-      desc: 'Match data becomes reusable across statistics, performance, coaching and reporting. Existing scorebooks and records can be migrated where supported.',
+      desc: 'Match data becomes reusable across statistics, performance, coaching and reporting. Existing scorebooks and records can be brought into CRIC HQ through supported import and connection methods.',
     },
     {
       label: 'ONE JOURNEY',
@@ -1234,7 +1246,7 @@ function Performance() {
                   {form.map((f) => (
                     <tr key={f.match} className="border-t border-white/4 first:border-0">
                       <td className="px-4 py-3 text-[11px] text-hp-paper/78">{f.match}</td>
-                      <td className="px-4 py-3 font-mono text-[10px] text-hp-paper/78">{f.wkts} wkts</td>
+                      <td className="px-4 py-3 font-mono text-[10px] text-hp-paper/78">{f.wkts} wkt{f.wkts === 1 ? '' : 's'}</td>
                       <td className="px-4 py-3 font-mono text-[10px] text-hp-paper/85">Eco {f.eco}</td>
                       <td className="px-4 py-3 text-right">
                         <span
@@ -1267,7 +1279,7 @@ function AISection() {
       outcome: 'UNDERSTAND',
       cards: [
         { label: 'AI PLAYER ANALYSIS', desc: 'Surfaces patterns in individual player data across matches, seasons and phases — making performance trends visible.' },
-        { label: 'AI MATCH ANALYSIS', desc: 'Analyses ball-by-ball data to surface key moments, phase breakdowns and match-level patterns.' },
+        { label: 'AI MATCH ANALYSIS', desc: 'Analyses available match data to surface key moments, phase breakdowns and match-level patterns.' },
       ],
     },
     {
@@ -1428,7 +1440,7 @@ function CoachesSection() {
 
 function OrganisationsSection() {
   const orgs = [
-    { label: 'CLUBS', desc: 'Manage players, teams, fixtures, scoring and competition data for your club.' },
+    { label: 'CLUBS', desc: 'Manage players, teams, fixtures, match data and competition data for your club.' },
     { label: 'SCHOOLS', desc: 'Connect school cricket to a structured development pathway for every student player.' },
     { label: 'ACADEMIES', desc: 'Performance tracking, coaching tools and development pathways for your programme.' },
     { label: 'ASSOCIATIONS', desc: 'Manage competitions, rankings, statistics and club data across your association.' },
@@ -1460,7 +1472,7 @@ function OrganisationsSection() {
                 Connect your players, teams, competitions, match data and development information in one ecosystem.
               </p>
               <div className="flex flex-wrap items-center gap-0 mb-6">
-                {['MANAGE', 'IMPORT', 'CONNECT', 'ANALYSE', 'DEVELOP', 'REPORT'].map((step, i, arr) => (
+                {['MANAGE', 'BRING', 'CONNECT', 'ANALYSE', 'DEVELOP', 'REPORT'].map((step, i, arr) => (
                   <Fragment key={step}>
                     <span className="font-mono text-[8px] tracking-wider text-hp-paper/82 border border-white/8 px-3 py-1.5 uppercase">{step}</span>
                     {i < arr.length - 1 && <span className="text-hp-paper/78 text-[9px] px-1">→</span>}
@@ -1713,7 +1725,7 @@ function InsightsSection() {
   const articles = [
     {
       cat: 'CRICKET TECHNOLOGY',
-      title: 'How ball-by-ball data is changing player development in community cricket.',
+      title: 'How connected match data is changing player development in community cricket.',
       date: 'Sep 2026',
     },
     {
@@ -1814,7 +1826,7 @@ function FinalCTA() {
           THE CRICKET<br />JOURNEY,<br />CONNECTED.
         </h2>
         <p className="text-hp-paper/65 text-[16px] mb-8 max-w-md mx-auto">
-          From imported match data to the next stage of development, CRIC HQ connects the journey.
+          From your cricket history to your next stage of development, CRIC HQ connects the journey.
         </p>
         <div className="flex flex-wrap gap-4 items-center justify-center mb-16">
           <a href="/signup" className="bg-hp-cg text-hp-paper font-display font-black text-sm px-10 py-4 tracking-[0.15em] uppercase hover:bg-hp-cg/90 transition-colors">
