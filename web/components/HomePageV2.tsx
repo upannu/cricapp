@@ -108,92 +108,34 @@ function Hero() {
               </div>
             </div>
 
-            {/* Match imported */}
-            <div className="border border-white/8 bg-hp-surface p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-hp-cg" />
-                  <span className="font-mono text-[8px] tracking-widest text-hp-cg">MATCH IMPORTED</span>
-                </div>
-                <span className="font-mono text-[8px] tracking-widest text-hp-paper/72">T20 · GRADE 1</span>
-              </div>
-              <div className="mb-1">
-                <div className="font-display font-bold text-lg text-hp-paper leading-tight">Northside CC</div>
-                <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 my-1">vs</div>
-                <div className="font-display font-bold text-lg text-hp-paper leading-tight">Southside CC</div>
-              </div>
-              <div className="font-mono text-[9px] text-hp-paper/72 mt-3">21 Sep 2026</div>
-            </div>
-
-            {/* Separator */}
-            <div className="flex items-center gap-3 px-2">
-              <div className="flex-1 h-px bg-white/5" />
-              <span className="font-mono text-[7px] tracking-widest text-hp-paper/85 uppercase">imported</span>
-              <div className="flex-1 h-px bg-white/5" />
-            </div>
-
-            {/* Card 02 — Player performance */}
-            <div className="border border-white/8 bg-hp-surface p-4">
-              <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-3 uppercase">Player Performance · K. Patel</div>
-              <div className="grid grid-cols-4 gap-3">
-                {[
-                  { l: 'OVERS', v: '3.2' },
-                  { l: 'WKTS', v: '2' },
-                  { l: 'RUNS', v: '21' },
-                  { l: 'ECO', v: '6.4' },
-                ].map(({ l, v }) => (
-                  <div key={l}>
-                    <div className="font-mono font-bold text-[22px] text-hp-paper leading-none mb-1">{v}</div>
-                    <div className="font-mono text-[7px] tracking-widest text-hp-paper/52">{l}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Separator */}
-            <div className="flex items-center gap-3 px-2">
-              <div className="flex-1 h-px bg-white/5" />
-              <span className="font-mono text-[7px] tracking-widest text-hp-paper/85 uppercase">analysed</span>
-              <div className="flex-1 h-px bg-white/5" />
-            </div>
-
-            {/* Card 03 — Confirmation checklist */}
-            <div className="border border-white/8 bg-hp-surface p-4">
-              <div className="space-y-2">
-                {['Match imported', 'Player record updated', 'Performance analysed'].map((item) => (
-                  <div key={item} className="flex items-center gap-2.5">
-                    <span className="text-hp-cg text-[11px]">✓</span>
-                    <span className="font-mono text-[9px] tracking-wider text-hp-paper/78 uppercase">{item}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Card 04 — AI Performance Insight */}
+            {/* AI Insight — copy reflects what the real ai-report pipeline produces: a Claude-
+                generated narrative grounded in geometrically-computed biomechanics metrics from
+                pose-tracking (joint angles, release point, guideline flags), not match-stat trends. */}
             <div className="border border-hp-cg/20 bg-hp-cg/5 p-4">
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-hp-cg" />
-                <span className="font-mono text-[8px] tracking-widest text-hp-cg">AI PERFORMANCE INSIGHT</span>
+                <span className="font-mono text-[8px] tracking-widest text-hp-cg">AI DELIVERY INSIGHT</span>
               </div>
-              <div className="font-mono text-[7px] text-hp-paper/52 mb-2 tracking-wider">Based on recent performance</div>
+              <div className="font-mono text-[7px] text-hp-paper/52 mb-2 tracking-wider">Based on this delivery&apos;s pose-tracking</div>
               <p className="text-[11px] text-hp-paper/82 leading-relaxed">
-                Economy improving across recent matches. Powerplay consistency strong. Development focus: middle overs.
+                Release point and front-arm angle tracked frame-by-frame from the action. Elbow extension flagged for review this session.
               </p>
             </div>
 
-            {/* Card 05 — Development Focus */}
+            {/* Development Focus — mirrors the real generate-action-plan output: a short, specific
+                technical focus grounded in the flagged biomechanics metrics, paired with matched drills. */}
             <div className="border border-white/8 bg-hp-surface p-4">
               <div className="font-mono text-[8px] tracking-widest text-hp-paper/52 mb-2 uppercase">Development Focus</div>
-              <div className="font-mono text-[13px] text-hp-paper/75 mb-1.5">Middle overs</div>
+              <div className="font-mono text-[13px] text-hp-paper/75 mb-1.5">Front arm & release timing</div>
               <div className="font-mono text-[9px] text-hp-cg/70 tracking-wider">
-                Training focus → Control + variation + consistency
+                Training focus → Release drills + repeatable follow-through
               </div>
             </div>
 
             {/* Product label */}
             <div className="flex items-center gap-3 px-1 pt-1">
               <div className="flex-1 h-px bg-white/5" />
-              <span className="font-mono text-[7px] tracking-[0.28em] text-hp-paper/72 uppercase">One match. Connected through the cricket journey.</span>
+              <span className="font-mono text-[7px] tracking-[0.28em] text-hp-paper/72 uppercase">One delivery. Connected through the player&apos;s cricket journey.</span>
               <div className="flex-1 h-px bg-white/5" />
             </div>
           </div>
