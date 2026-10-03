@@ -30,7 +30,7 @@ test.describe("Homepage CTA links", () => {
     await page.goto("/");
 
     await expect(page.getByRole("link", { name: "BUILD YOUR CRICKET PROFILE" })).toHaveAttribute("href", "/signup");
-    await expect(page.getByRole("link", { name: "EXPLORE LIVE SCORING" })).toHaveAttribute("href", "/contact");
+    await expect(page.getByRole("link", { name: "ADD MATCH DATA" })).toHaveAttribute("href", "/contact");
     await expect(page.getByRole("link", { name: "EXPLORE COACHING" })).toHaveAttribute("href", "/organisations/coaches");
     await expect(page.getByRole("link", { name: "PARTNER WITH CRIC HQ" })).toHaveAttribute("href", "/organisations");
   });
@@ -68,9 +68,9 @@ test.describe("Homepage CTA links", () => {
     await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
   });
 
-  test("Explore Live Scoring navigates to Contact", async ({ page }) => {
+  test("Add Match Data navigates to Contact", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: "EXPLORE LIVE SCORING" }).click();
+    await page.getByRole("link", { name: "ADD MATCH DATA" }).click();
 
     await expect(page).toHaveURL(/\/contact$/);
     await expect(page.getByRole("heading", { name: "Contact Us" })).toBeVisible();
