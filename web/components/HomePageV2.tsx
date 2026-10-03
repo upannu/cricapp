@@ -92,10 +92,10 @@ function Hero() {
               muted
               playsInline
               aria-hidden="true"
-              className="absolute inset-0 w-full h-full object-cover opacity-55 -z-10"
+              className="absolute inset-0 w-full h-full object-cover opacity-90 -z-10"
               style={{ objectPosition: '50% 30%' }}
             />
-            <div className="absolute inset-0 bg-hp-ink/35 -z-10" />
+            <div className="absolute inset-0 bg-hp-ink/10 -z-10" />
 
             {/* Match imported */}
             <div className="border border-white/8 bg-hp-surface p-5">
