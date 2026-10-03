@@ -181,8 +181,11 @@ export function MatchSetupWizard() {
       if (!draft.awayLabel.trim()) return "Away side name is required.";
       if (!draft.venue.trim()) return "Venue is required.";
     }
-    if (step === 2 && draft.homeRoster.length === 0) return "Add at least one home player.";
-    if (step === 3 && draft.awayRoster.length === 0) return "Add at least one away player.";
+    // At least 2 — the live-scoring opener screen needs a striker AND a non-striker from the
+    // batting side's roster; a single-player roster leaves the non-striker dropdown with nothing
+    // to show once the striker is excluded from it.
+    if (step === 2 && draft.homeRoster.length < 2) return "Add at least 2 home players — a striker and a non-striker need to be available.";
+    if (step === 3 && draft.awayRoster.length < 2) return "Add at least 2 away players — a striker and a non-striker need to be available.";
     if (step === 4) {
       if (!draft.tossWonBy) return "Select who won the toss.";
       if (!draft.tossDecision) return "Select the toss decision.";

@@ -302,6 +302,14 @@ export function LiveScoringClient({ matchId }: { matchId: string }) {
             {match.homeLabel} v {match.awayLabel} — Innings {innings.inningsNumber}
           </h1>
           <p className="text-xs font-mono uppercase tracking-widest text-hp-paper/52 mb-4">Select opening batters and bowler</p>
+          {battingRoster.length < 2 || bowlingRoster.length < 1 ? (
+            <p className="text-red-400 text-sm">
+              {battingRoster.length < 2
+                ? "The batting side needs at least 2 players (a striker and a non-striker) before this innings can start."
+                : "The bowling side needs at least 1 player before this innings can start."}
+              {" "}Add more players to the match roster first.
+            </p>
+          ) : (
           <div className="space-y-4">
             <PlayerSelect label="Striker" roster={battingRoster} value={openerStriker} exclude={openerNonStriker} onChange={setOpenerStriker} />
             <PlayerSelect label="Non-Striker" roster={battingRoster} value={openerNonStriker} exclude={openerStriker} onChange={setOpenerNonStriker} />
@@ -311,6 +319,7 @@ export function LiveScoringClient({ matchId }: { matchId: string }) {
               Start Innings
             </button>
           </div>
+          )}
         </div>
       </div>
     );
