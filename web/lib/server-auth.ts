@@ -76,27 +76,6 @@ export async function callerCanManageGroupSession(
 }
 
 /**
- * Ownership check for privileged routes acting on a match's scoring — mirrors
- * callerCanManageGroupSession's shape: platform_admin always; the match's own academy_admin or
- * assigned coach; or any user explicitly delegated via match_scorers (e.g. a parent volunteer —
- * scoring is very often not done by a registered coach). A coach/admin adds a delegate from the
- * match setup flow; delegation is per-match, not time-limited beyond the match's own lifecycle.
- */
-export async function callerCanScoreMatch(
-  supabase: SupabaseClient,
-  caller: Caller,
-  matchId: string,
-): Promise<boolean> {
-  if (caller.role === "platform_admin") return true;
-  const { data } = await supabase.from("matches").select("home_academy_id, scored_by_coach_id").eq("id", matchId).maybeSingle();
-  if (!data) return false;
-  if (caller.role === "coach" && !!caller.coachId && data.scored_by_coach_id === caller.coachId) return true;
-  if (caller.role === "academy_admin" && !!caller.academyId && data.home_academy_id === caller.academyId) return true;
-  const { data: delegate } = await supabase.from("match_scorers").select("id").eq("match_id", matchId).eq("user_id", caller.userId).maybeSingle();
-  return !!delegate;
-}
-
-/**
  * Finds a Supabase Auth user by email — the Admin API has no server-side "search by email"
  * endpoint, so paging through listUsers() is the standard way to do this. Every call site that
  * needed this used to fetch a single page (perPage: 1000) and stop there, meaning any account
