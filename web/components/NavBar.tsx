@@ -21,8 +21,6 @@ function isNavGroup(entry: NavEntry): entry is NavGroup { return "children" in e
 
 const NAV_STRUCTURE: NavEntry[] = [
   { label: "Players", href: "/players" },
-  { label: "Matches", href: "/matches" },
-  { label: "Competitions", href: "/competitions" },
   { label: "Training", children: [
     { label: "Coaching Sessions", href: "/sessions" },
     { label: "Squad Training", href: "/attendance" },
