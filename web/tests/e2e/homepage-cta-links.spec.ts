@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 // Regression guard for a real bug: the homepage's role CTAs (Player/Coach/Organisation, in both
-// the "Choose Your Route" cards and the final "Get Started" strip) and four other homepage CTAs
+// the "Choose Your Route" cards and the final "Get Started" strip) and five other homepage CTAs
 // all originally pointed at a bare href="#" placeholder left over from the Figma Make import —
 // they looked real but did nothing. Two links are deliberately left unfixed (the "CRIC HQ
 // Insights" section's fabricated blog posts have no real page to send visitors to) and are not
@@ -26,11 +26,12 @@ test.describe("Homepage CTA links", () => {
     await expect(orgLinks.nth(1)).toHaveAttribute("href", "/organisations");
   });
 
-  test("the four other homepage CTAs are wired correctly", async ({ page }) => {
+  test("the five other homepage CTAs are wired correctly", async ({ page }) => {
     await page.goto("/");
 
     await expect(page.getByRole("link", { name: "BUILD YOUR CRICKET PROFILE" })).toHaveAttribute("href", "/signup");
-    await expect(page.getByRole("link", { name: "ADD MATCH DATA" })).toHaveAttribute("href", "/contact");
+    await expect(page.getByRole("link", { name: "SCORE YOUR NEXT MATCH" })).toHaveAttribute("href", "/signup");
+    await expect(page.getByRole("link", { name: "EXPLORE COMPETITIONS" })).toHaveAttribute("href", "/signup");
     await expect(page.getByRole("link", { name: "EXPLORE COACHING" })).toHaveAttribute("href", "/organisations/coaches");
     await expect(page.getByRole("link", { name: "PARTNER WITH CRIC HQ" })).toHaveAttribute("href", "/organisations");
   });
@@ -68,11 +69,19 @@ test.describe("Homepage CTA links", () => {
     await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
   });
 
-  test("Add Match Data navigates to Contact", async ({ page }) => {
+  test("Score Your Next Match navigates to signup", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: "ADD MATCH DATA" }).click();
+    await page.getByRole("link", { name: "SCORE YOUR NEXT MATCH" }).click();
 
-    await expect(page).toHaveURL(/\/contact$/);
-    await expect(page.getByRole("heading", { name: "Contact Us" })).toBeVisible();
+    await expect(page).toHaveURL(/\/signup$/);
+    await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
+  });
+
+  test("Explore Competitions navigates to signup", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: "EXPLORE COMPETITIONS" }).click();
+
+    await expect(page).toHaveURL(/\/signup$/);
+    await expect(page.getByRole("heading", { name: "Create your account" })).toBeVisible();
   });
 });
