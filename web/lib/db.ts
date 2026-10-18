@@ -84,6 +84,9 @@ export interface DbAcademy {
   access_expires_at?: string | null;
   payout_model?: string;
   squad_video_sharing_enabled?: boolean;
+  playhq_org_id?: string | null;
+  playhq_org_name?: string | null;
+  playhq_connected_at?: string | null;
 }
 
 export interface DbBooking {
@@ -283,6 +286,9 @@ export function dbToAcademy(r: DbAcademy): Academy {
     accessExpiresAt: r.access_expires_at ?? undefined,
     payoutModel: (r.payout_model as Academy["payoutModel"]) ?? "head_coach",
     squadVideoSharingEnabled: r.squad_video_sharing_enabled ?? false,
+    playhqOrgId: r.playhq_org_id ?? undefined,
+    playhqOrgName: r.playhq_org_name ?? undefined,
+    playhqConnectedAt: r.playhq_connected_at ?? undefined,
   };
 }
 
@@ -1950,6 +1956,7 @@ export interface DbMatch {
   scheduled_date: string; competition_id: string | null; fixture_id: string | null;
   scored_by_coach_id: string | null; created_by_user_id: string;
   result: string | null; created_at: string;
+  playhq_game_id?: string | null;
 }
 
 export function dbToMatch(r: DbMatch): Match {
@@ -1962,6 +1969,7 @@ export function dbToMatch(r: DbMatch): Match {
     competitionId: r.competition_id, fixtureId: r.fixture_id,
     scoredByCoachId: r.scored_by_coach_id, createdByUserId: r.created_by_user_id,
     result: r.result, createdAt: r.created_at,
+    playhqGameId: r.playhq_game_id ?? null,
   };
 }
 
@@ -1979,6 +1987,15 @@ export async function fetchMatches(filters?: { academyId?: string; competitionId
 export async function fetchMatch(id: string): Promise<Match | null> {
   const sb = createClient();
   const { data, error } = await sb.from("matches").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? dbToMatch(data as DbMatch) : null;
+}
+
+/** Idempotency check before a PlayHQ import — matches are select-authenticated for any signed-in
+ * user (see prod_live_scoring_schema.sql), so this is safe on the normal anon client. */
+export async function fetchMatchByPlayhqGameId(playhqGameId: string): Promise<Match | null> {
+  const sb = createClient();
+  const { data, error } = await sb.from("matches").select("*").eq("playhq_game_id", playhqGameId).maybeSingle();
   if (error) throw error;
   return data ? dbToMatch(data as DbMatch) : null;
 }

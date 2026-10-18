@@ -412,6 +412,12 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
             Edit Academy
           </Link>
           <Link
+            href={`/academies/${academy.id}/playhq`}
+            className="px-5 py-2.5 text-sm font-medium text-hp-paper/70 border border-white/15 hover:text-hp-paper hover:border-white/30 transition-colors"
+          >
+            PlayHQ
+          </Link>
+          <Link
             href={`/academies/${academy.id}/billing`}
             className="px-5 py-2.5 bg-hp-cg text-hp-paper text-sm font-bold hover:bg-hp-cg/90 transition-colors inline-flex items-center gap-1.5"
           >

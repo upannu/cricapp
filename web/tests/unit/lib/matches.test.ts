@@ -3,10 +3,13 @@ import {
   applyBall, initialScoringState, oversDecimal, computeMatchResult, determineWinner,
   extractInningsContribution, aggregateCareerStats, combineWithImported, deriveRateStats,
   newDeliveryId, matchStatusLabel, trueOversFromNotation, computeStandings,
+  importMatchFromPlayHQ,
   type ScoringState, type BallInput,
 } from "@/lib/matches";
 import type { Delivery, Innings, Match } from "@/lib/types";
 import type { DbImportedMatchStats } from "@/lib/db";
+import { createSupabaseMock } from "../../mocks/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const S = "striker-1";
 const NS = "non-striker-1";
@@ -436,6 +439,7 @@ function match(overrides: Partial<Match>): Match {
     oversPerSide: 20, status: "Completed", source: "live", tossWonBy: "home", tossDecision: "Bat",
     venue: "Oval", scheduledDate: "2026-01-01", competitionId: "comp1", fixtureId: null,
     scoredByCoachId: null, createdByUserId: "u1", result: null, createdAt: "2026-01-01T00:00:00Z",
+    playhqGameId: null,
     ...overrides,
   };
 }
@@ -541,5 +545,65 @@ describe("computeStandings", () => {
     // All out (7 of 8) at 6 overs should use the full 10-over allotment for its own rate: 60/10=6,
     // not 60/6=10 — confirmed indirectly via a sane (not inflated) NRR.
     expect(team.netRunRate).toBeCloseTo(6 - 40 / 8, 5);
+  });
+});
+
+describe("importMatchFromPlayHQ", () => {
+  test("writes no match_participants rows, and an imported match counts as exactly one match played", async () => {
+    const mock = createSupabaseMock({
+      matches: { data: null, error: null },
+      match_participants: { data: [], error: null },
+      innings: { data: [], error: null },
+      deliveries: { data: [], error: null },
+      imported_match_stats: {
+        data: [{
+          id: "ims_m_x_p1", match_id: "m_x", player_id: "p1", runs_scored: 42, balls_faced: 30,
+          not_out: true, wickets: 0, balls_bowled: 0, runs_conceded: 0, catches: 1, run_outs: 0, stumpings: 0,
+        }],
+        error: null,
+      },
+      player_career_stats: { data: null, error: null },
+    });
+
+    const result = await importMatchFromPlayHQ(mock as unknown as SupabaseClient, {
+      homeAcademyId: "ac1", format: "T20", oversPerSide: 20, venue: "Oval", scheduledDate: "2026-01-01",
+      createdByUserId: "u1", playhqGameId: "phq-game-1",
+      mapped: {
+        homeLabel: "Home XI", awayLabel: "Away XI", result: "Home XI won by 10 runs",
+        tossWonBy: "home", tossDecision: "Bat",
+        stats: [{
+          playerId: "p1", runsScored: 42, ballsFaced: 30, notOut: true, wickets: 0,
+          ballsBowled: 0, runsConceded: 0, catches: 1, runOuts: 0, stumpings: 0,
+        }],
+      },
+    });
+
+    expect(result.source).toBe("imported");
+    expect(result.playhqGameId).toBe("phq-game-1");
+    expect(mock.tables.matches.insert).toHaveBeenCalledTimes(1);
+    expect(mock.tables.imported_match_stats.upsert).toHaveBeenCalledTimes(1);
+    expect(mock.tables.match_participants.insert).not.toHaveBeenCalled();
+    // The player has no match_participants rows at all — if importMatchFromPlayHQ had written
+    // one (the mistake the design decision in the PlayHQ importer plan avoids), matchesPlayed
+    // would be 2 (1 from match_participants + 1 from imported_match_stats) instead of 1.
+    expect(mock.tables.player_career_stats.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ player_id: "p1", matches_played: 1 }),
+    );
+  });
+
+  test("imports a match with zero resolved players without writing any stats rows", async () => {
+    const mock = createSupabaseMock({
+      matches: { data: null, error: null },
+    });
+
+    const result = await importMatchFromPlayHQ(mock as unknown as SupabaseClient, {
+      homeAcademyId: "ac1", format: "T20", oversPerSide: 20, venue: "Oval", scheduledDate: "2026-01-01",
+      createdByUserId: "u1", playhqGameId: "phq-game-2",
+      mapped: { homeLabel: "Home XI", awayLabel: "Away XI", result: null, tossWonBy: null, tossDecision: null, stats: [] },
+    });
+
+    expect(result.source).toBe("imported");
+    expect(mock.tables.matches.insert).toHaveBeenCalledTimes(1);
+    expect(mock.tables.imported_match_stats?.upsert).toBeUndefined();
   });
 });

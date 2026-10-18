@@ -20,6 +20,7 @@ import type {
   Match, MatchParticipant, MatchFormat, MatchSide, Innings, Delivery,
   ExtraType, WicketType, Competition, Fixture,
 } from "@/lib/types";
+import type { MappedGameImport } from "@/lib/playhq";
 
 // ─── ID generation ──────────────────────────────────────────────────────────
 // Matches/competitions/fixtures are low-frequency inserts (Date.now() is fine, matching the rest
@@ -35,6 +36,7 @@ export function newFixtureId(): string { return `fx_${Date.now()}`; }
 export function newParticipantId(matchId: string, slot: number): string { return `mp_${matchId}_${slot}`; }
 export function newInningsId(matchId: string, inningsNumber: number): string { return `in_${matchId}_${inningsNumber}`; }
 export function newScorerId(matchId: string, userId: string): string { return `ms_${matchId}_${userId}`; }
+export function newImportedStatsId(matchId: string, playerId: string): string { return `ims_${matchId}_${playerId}`; }
 export function newDeliveryId(inningsId: string, sequence: number): string {
   return `dl_${inningsId}_${String(sequence).padStart(4, "0")}`;
 }
@@ -728,4 +730,58 @@ export async function recomputeCareerStatsForMatch(supabase: SupabaseClient, mat
   for (const playerId of playerIds) {
     await recomputePlayerCareerStats(supabase, playerId);
   }
+}
+
+export interface ImportPlayHQMatchInput {
+  homeAcademyId: string | null;
+  format: MatchFormat;
+  oversPerSide: number | null;
+  venue: string;
+  scheduledDate: string;
+  createdByUserId: string;
+  playhqGameId: string;
+  mapped: MappedGameImport;
+}
+
+/** Imports one completed PlayHQ game (already mapped via lib/playhq.ts's mapGameSummaryToImport)
+ * as an 'imported' Match + imported_match_stats rows, then recomputes career stats for every
+ * resolved player directly. Deliberately writes NO match_participants/innings/deliveries rows —
+ * imported_match_stats already carries player_id, so match_participants isn't needed to discover
+ * which players to recompute, and writing it would double-count matchesPlayed against
+ * combineWithImported's own +1-per-row tally (see the PlayHQ importer plan's design-decision
+ * note). One consequence: an imported match has no ball-by-ball scorecard, matching
+ * ImportedMatchStats's summary-only shape. Always takes a service-role client —
+ * imported_match_stats has no client-write RLS policy, same as player_career_stats. */
+export async function importMatchFromPlayHQ(supabase: SupabaseClient, input: ImportPlayHQMatchInput): Promise<Match> {
+  const matchId = newMatchId();
+  const dbMatch: DbMatch = {
+    id: matchId, home_label: input.mapped.homeLabel, away_label: input.mapped.awayLabel,
+    home_academy_id: input.homeAcademyId, format: input.format, overs_per_side: input.oversPerSide,
+    status: "Completed", source: "imported",
+    toss_won_by: input.mapped.tossWonBy, toss_decision: input.mapped.tossDecision,
+    venue: input.venue, scheduled_date: input.scheduledDate,
+    competition_id: null, fixture_id: null, scored_by_coach_id: null,
+    created_by_user_id: input.createdByUserId, result: input.mapped.result,
+    created_at: new Date().toISOString(), playhq_game_id: input.playhqGameId,
+  };
+  const { error: matchError } = await supabase.from("matches").insert(dbMatch);
+  if (matchError) throw matchError;
+
+  if (input.mapped.stats.length > 0) {
+    const statRows: DbImportedMatchStats[] = input.mapped.stats.map((s) => ({
+      id: newImportedStatsId(matchId, s.playerId), match_id: matchId, player_id: s.playerId,
+      runs_scored: s.runsScored, balls_faced: s.ballsFaced, not_out: s.notOut, wickets: s.wickets,
+      balls_bowled: s.ballsBowled, runs_conceded: s.runsConceded,
+      catches: s.catches, run_outs: s.runOuts, stumpings: s.stumpings,
+    }));
+    const { error: statsError } = await supabase
+      .from("imported_match_stats").upsert(statRows, { onConflict: "match_id,player_id" });
+    if (statsError) throw statsError;
+
+    for (const s of input.mapped.stats) {
+      await recomputePlayerCareerStats(supabase, s.playerId);
+    }
+  }
+
+  return dbToMatch(dbMatch);
 }
