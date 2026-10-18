@@ -79,7 +79,7 @@ export function SiteNav() {
             <a
               key={label}
               href={href}
-              className="px-3.5 py-2 font-mono text-[9px] tracking-[0.22em] text-hp-paper/85 hover:text-hp-paper uppercase transition-colors"
+              className="px-3.5 py-2 font-mono text-[12px] font-semibold tracking-[0.18em] text-hp-paper/90 hover:text-hp-paper uppercase transition-colors"
             >
               {label}
             </a>
@@ -92,7 +92,7 @@ export function SiteNav() {
           >
             <a
               href="/organisations"
-              className="px-3.5 py-2 font-mono text-[9px] tracking-[0.22em] text-hp-paper/85 hover:text-hp-paper uppercase transition-colors inline-flex items-center gap-1.5"
+              className="px-3.5 py-2 font-mono text-[12px] font-semibold tracking-[0.18em] text-hp-paper/90 hover:text-hp-paper uppercase transition-colors inline-flex items-center gap-1.5"
             >
               FOR ORGS
               <svg width="7" height="5" viewBox="0 0 7 5" fill="none" className={`transition-transform duration-150 ${orgsOpen ? 'rotate-180' : ''}`}>
@@ -120,7 +120,7 @@ export function SiteNav() {
             <a
               key={label}
               href={href}
-              className="px-3.5 py-2 font-mono text-[9px] tracking-[0.22em] text-hp-paper/85 hover:text-hp-paper uppercase transition-colors"
+              className="px-3.5 py-2 font-mono text-[12px] font-semibold tracking-[0.18em] text-hp-paper/90 hover:text-hp-paper uppercase transition-colors"
             >
               {label}
             </a>
@@ -168,7 +168,7 @@ export function SiteNav() {
             <a
               key={label}
               href={href}
-              className="block py-3 font-mono text-[9px] tracking-[0.22em] text-hp-paper/85 hover:text-hp-paper border-b border-white/4 uppercase transition-colors"
+              className="block py-3 font-mono text-[12px] font-semibold tracking-[0.18em] text-hp-paper/90 hover:text-hp-paper border-b border-white/4 uppercase transition-colors"
             >
               {label}
             </a>
@@ -178,7 +178,7 @@ export function SiteNav() {
             <button
               type="button"
               onClick={() => setMobileOrgsOpen(!mobileOrgsOpen)}
-              className="w-full flex items-center justify-between py-3 font-mono text-[9px] tracking-[0.22em] text-hp-paper/85 hover:text-hp-paper uppercase transition-colors"
+              className="w-full flex items-center justify-between py-3 font-mono text-[12px] font-semibold tracking-[0.18em] text-hp-paper/90 hover:text-hp-paper uppercase transition-colors"
             >
               FOR ORGS
               <svg width="7" height="5" viewBox="0 0 7 5" fill="none" className={`transition-transform duration-150 ${mobileOrgsOpen ? 'rotate-180' : ''}`}>
@@ -204,7 +204,7 @@ export function SiteNav() {
             <a
               key={label}
               href={href}
-              className="block py-3 font-mono text-[9px] tracking-[0.22em] text-hp-paper/85 hover:text-hp-paper border-b border-white/4 uppercase transition-colors"
+              className="block py-3 font-mono text-[12px] font-semibold tracking-[0.18em] text-hp-paper/90 hover:text-hp-paper border-b border-white/4 uppercase transition-colors"
             >
               {label}
             </a>

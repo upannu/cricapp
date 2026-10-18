@@ -164,7 +164,7 @@ function WhatIsCricHQ() {
     {
       num: '01',
       label: 'BRING',
-      desc: 'Bring your existing cricket history into CRIC HQ.',
+      desc: 'Score matches live, or bring in your existing cricket history.',
     },
     {
       num: '02',
@@ -308,7 +308,7 @@ function AhaMoment() {
   const steps = [
     {
       label: 'MATCH DATA',
-      title: 'A match gets imported.',
+      title: 'A match gets imported — or scored live, ball by ball.',
       content: (
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -781,10 +781,10 @@ function MatchHistory() {
   ]
 
   const stages = [
-    { l: 'BRING', d: 'Previous scorecards and match data.' },
+    { l: 'SCORE', d: 'Run the match ball-by-ball from your phone or laptop.' },
+    { l: 'BRING', d: 'Already got scorecards? Add past matches too.' },
     { l: 'CONNECT', d: 'Players, teams, competitions and seasons.' },
     { l: 'ANALYSE', d: 'Performance trends across matches.' },
-    { l: 'DEVELOP', d: 'Turn evidence into coaching and training goals.' },
   ]
 
   return (
@@ -818,7 +818,7 @@ function MatchHistory() {
               Your cricket history shouldn&apos;t disappear after the final ball.
             </p>
             <p className="font-mono text-[9px] tracking-[0.22em] text-hp-cg/65 uppercase mb-8">
-              Bring previous match data into CRIC HQ and turn individual scorecards into a connected performance history.
+              Score your next match ball-by-ball right in CRIC HQ, or bring in the matches you&apos;ve already played.
             </p>
 
             <div className="flex flex-col gap-0 mb-10 max-w-xs">
@@ -838,10 +838,10 @@ function MatchHistory() {
             </div>
 
             <a
-              href="/contact"
+              href="/signup"
               className="inline-flex items-center gap-2 bg-hp-cg text-hp-paper font-display font-black text-sm px-8 py-3.5 tracking-widest uppercase hover:bg-hp-cg/90 transition-colors"
             >
-              ADD MATCH DATA
+              SCORE YOUR NEXT MATCH
             </a>
           </div>
 
@@ -1600,7 +1600,7 @@ function CompetitionsSection() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/5">
           {[
             { l: 'Fixtures', d: 'Scheduling and management' },
-            { l: 'Match Data', d: 'Connected scorecards and match records' },
+            { l: 'Match Data', d: 'Ball-by-ball scoring, connected scorecards and match records' },
             { l: 'Ladders', d: 'Competition standings' },
             { l: 'Rankings', d: 'Player and team rankings' },
             { l: 'Results', d: 'Full match history' },
@@ -1613,6 +1613,15 @@ function CompetitionsSection() {
               <div className="font-mono text-[9px] tracking-wider text-hp-paper/52">{d}</div>
             </div>
           ))}
+        </div>
+
+        <div className="text-center mt-16">
+          <a
+            href="/signup"
+            className="inline-flex items-center gap-2 bg-hp-cg text-hp-paper font-display font-black text-sm px-10 py-4 tracking-widest uppercase hover:bg-hp-cg/90 transition-colors"
+          >
+            EXPLORE COMPETITIONS
+          </a>
         </div>
       </div>
     </section>
