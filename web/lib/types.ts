@@ -839,3 +839,190 @@ export interface MembershipPlanTemplate {
   effectiveFrom: string;
   createdAt: string;
 }
+
+// ─── Match / Live Scoring / Competitions ────────────────────────────────────
+// A Match has two sides, but a side is just labelled MatchParticipant rows, not Player records —
+// most opponents aren't CRIC HQ customers. Only a participant optionally linked to a real Player
+// (playerId set) feeds that player's PlayerCareerStats; an unlinked opponent still gets a complete,
+// named ball-by-ball scorecard, just no personal rollup. See lib/matches.ts for the business-logic
+// layer (scoring orchestration, stats recompute, ladders) built on top of this schema.
+
+export type MatchFormat = 'T20' | 'One Day' | 'Two-Day' | 'Limited Overs (Other)';
+export type MatchStatus = 'Setup' | 'Toss' | 'InProgress' | 'Innings Break' | 'Completed' | 'Abandoned';
+/** 'imported' matches (e.g. from PlayHQ) have no innings/deliveries — only a result and, when
+ * player-level data is available, ImportedMatchStats rows. See ImportedMatchStats below. */
+export type MatchSource = 'live' | 'imported';
+export type TossDecision = 'Bat' | 'Bowl';
+export type MatchSide = 'home' | 'away';
+
+export interface Match {
+  id: string;
+  homeLabel: string;
+  awayLabel: string;
+  /** Set if the home side is run through a CRIC HQ academy; null for a scratch/friendly match. */
+  homeAcademyId: string | null;
+  format: MatchFormat;
+  /** null for an unlimited-overs format (multi-day). */
+  oversPerSide: number | null;
+  status: MatchStatus;
+  source: MatchSource;
+  tossWonBy: MatchSide | null;
+  tossDecision: TossDecision | null;
+  venue: string;
+  scheduledDate: string;
+  /** null for a standalone friendly not attached to any competition. */
+  competitionId: string | null;
+  fixtureId: string | null;
+  scoredByCoachId: string | null;
+  createdByUserId: string;
+  /** Human-readable summary, e.g. "Home won by 24 runs" — computed once at completion, not derived live. */
+  result: string | null;
+  createdAt: string;
+}
+
+export interface MatchParticipant {
+  id: string;
+  matchId: string;
+  side: MatchSide;
+  /** Always present — every ball is always attributable to a name, linked Player or not. */
+  displayName: string;
+  /** Optional link to a real Player. Only set rows feed PlayerCareerStats. */
+  playerId: string | null;
+  battingOrder: number | null;
+  isCaptain: boolean;
+  isWicketkeeper: boolean;
+}
+
+/** A user delegated to score a specific match alongside/instead of its assigned coach — e.g. a
+ * parent volunteer. See callerCanScoreMatch in lib/server-auth.ts. */
+export interface MatchScorer {
+  id: string;
+  matchId: string;
+  userId: string;
+  addedByUserId: string;
+  addedAt: string;
+}
+
+export type InningsStatus = 'InProgress' | 'Completed' | 'Declared';
+
+export interface Innings {
+  id: string;
+  matchId: string;
+  inningsNumber: number;
+  battingSide: MatchSide;
+  bowlingSide: MatchSide;
+  status: InningsStatus;
+  /** Denormalized running totals, updated in the same batched write as deliveries rather than
+   * derived on every read — a cheap read for other viewers and the input to ladder/NRR math. */
+  totalRuns: number;
+  totalWickets: number;
+  totalOvers: number;
+  /** Set on the 2nd innings of a limited-overs chase. */
+  targetRuns: number | null;
+}
+
+export type ExtraType = 'Wide' | 'No Ball' | 'Bye' | 'Leg Bye' | 'Penalty';
+export type WicketType =
+  | 'Bowled' | 'Caught' | 'LBW' | 'Run Out' | 'Stumped' | 'Hit Wicket'
+  | 'Retired Out' | 'Obstructing the Field';
+
+export interface Delivery {
+  id: string;
+  inningsId: string;
+  /** 0-indexed. */
+  overNumber: number;
+  /** 1-6 for a legal delivery — a Wide/No Ball does not increment this. */
+  ballInOver: number;
+  strikerParticipantId: string;
+  nonStrikerParticipantId: string;
+  bowlerParticipantId: string;
+  runsBat: number;
+  runsExtra: number;
+  extraType: ExtraType | null;
+  wicketType: WicketType | null;
+  /** Usually the striker, but a run-out can dismiss the non-striker instead. */
+  dismissedParticipantId: string | null;
+  fielderParticipantId: string | null;
+  isFour: boolean;
+  isSix: boolean;
+  commentary: string | null;
+  recordedAt: string;
+}
+
+/** Materialized career rollup — one row per player, recomputed server-side (service-role only,
+ * never client-mutated) from both live-scored `deliveries` (via linked MatchParticipant rows) and
+ * `imported_match_stats`. See recomputePlayerCareerStats in lib/matches.ts. */
+export interface PlayerCareerStats {
+  playerId: string;
+  matchesPlayed: number;
+  inningsBatted: number;
+  runsScored: number;
+  ballsFaced: number;
+  notOuts: number;
+  fours: number;
+  sixes: number;
+  highestScore: number;
+  battingAverage: number | null;
+  strikeRate: number | null;
+  inningsBowled: number;
+  ballsBowled: number;
+  runsConceded: number;
+  wickets: number;
+  bestBowling: string | null;
+  bowlingAverage: number | null;
+  economyRate: number | null;
+  catches: number;
+  runOuts: number;
+  stumpings: number;
+  updatedAt: string;
+}
+
+/** One row per player per imported match (e.g. from PlayHQ) — summary-level only, since PlayHQ's
+ * public API exposes per-player batting/bowling/fielding totals but not ball-by-ball data. Feeds
+ * PlayerCareerStats alongside live-scored deliveries; the Passport should show which matches in a
+ * player's history were live-scored (full scorecard) vs. imported (summary only). */
+export interface ImportedMatchStats {
+  id: string;
+  matchId: string;
+  playerId: string;
+  runsScored: number;
+  ballsFaced: number;
+  notOut: boolean;
+  wickets: number;
+  ballsBowled: number;
+  runsConceded: number;
+  catches: number;
+  runOuts: number;
+  stumpings: number;
+}
+
+export type CompetitionStatus = 'Draft' | 'Active' | 'Completed';
+
+export interface Competition {
+  id: string;
+  name: string;
+  academyId: string | null;
+  format: MatchFormat;
+  season: string;
+  pointsForWin: number;
+  pointsForTie: number;
+  pointsForLoss: number;
+  pointsForNoResult: number;
+  status: CompetitionStatus;
+  createdAt: string;
+}
+
+export type FixtureStatus = 'Scheduled' | 'Played' | 'Postponed' | 'Cancelled';
+
+/** Deliberately separate from Match — a fixture can be scheduled, rescheduled or cancelled before
+ * any ball is bowled. Fixture.matchId links them once scoring starts, mirroring Booking/Session. */
+export interface Fixture {
+  id: string;
+  competitionId: string;
+  homeLabel: string;
+  awayLabel: string;
+  scheduledDate: string;
+  venue: string;
+  status: FixtureStatus;
+  matchId: string | null;
+}
