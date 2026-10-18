@@ -11,13 +11,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   insertMatch, insertMatchParticipants, updateMatch,
   insertInnings, updateInnings, insertDeliveries, deleteDelivery,
+  upsertCompetition, upsertFixture, updateFixture,
   dbToMatch, dbToMatchParticipant, dbToInnings, dbToDelivery,
   type DbMatch, type DbMatchParticipant, type DbInnings, type DbDelivery,
   type DbPlayerCareerStats, type DbImportedMatchStats,
 } from "@/lib/db";
 import type {
   Match, MatchParticipant, MatchFormat, MatchSide, Innings, Delivery,
-  ExtraType, WicketType,
+  ExtraType, WicketType, Competition, Fixture,
 } from "@/lib/types";
 
 // ─── ID generation ──────────────────────────────────────────────────────────
@@ -303,27 +304,190 @@ export function matchStatusLabel(status: string): string {
 
 // ─── Match result ────────────────────────────────────────────────────────────
 
+function runsForSide(innings: Innings[], side: MatchSide): number {
+  return innings.filter((i) => i.battingSide === side).reduce((sum, i) => sum + i.totalRuns, 0);
+}
+
+/** Who won, from each side's total runs across however many innings exist — 'tie' if level,
+ * null if there's no innings data at all (nothing bowled, or an abandonment before a result). */
+export function determineWinner(innings: Innings[]): MatchSide | "tie" | null {
+  if (innings.length === 0) return null;
+  const homeRuns = runsForSide(innings, "home");
+  const awayRuns = runsForSide(innings, "away");
+  if (homeRuns === awayRuns) return "tie";
+  return homeRuns > awayRuns ? "home" : "away";
+}
+
 /** Human-readable result summary, computed once at match completion — not derived live. The side
  * batting in the final innings, if they won, wins "by N wickets" (a successful chase); the side
  * that bowled last always wins "by N runs" — matches standard cricket result phrasing. */
 export function computeMatchResult(
   innings: Innings[], homeLabel: string, awayLabel: string, playersPerSide = 11,
 ): string {
-  const runsFor = (side: MatchSide) => innings.filter((i) => i.battingSide === side).reduce((sum, i) => sum + i.totalRuns, 0);
-  const homeRuns = runsFor("home");
-  const awayRuns = runsFor("away");
-  if (homeRuns === awayRuns) return "Match tied";
+  const winner = determineWinner(innings);
+  if (winner === null || winner === "tie") return "Match tied";
 
-  const winningSide: MatchSide = homeRuns > awayRuns ? "home" : "away";
-  const winnerLabel = winningSide === "home" ? homeLabel : awayLabel;
+  const winnerLabel = winner === "home" ? homeLabel : awayLabel;
   const lastInnings = innings[innings.length - 1];
 
-  if (lastInnings && lastInnings.battingSide === winningSide) {
+  if (lastInnings && lastInnings.battingSide === winner) {
     const wicketsRemaining = Math.max(0, playersPerSide - 1 - lastInnings.totalWickets);
     return `${winnerLabel} won by ${wicketsRemaining} wicket${wicketsRemaining === 1 ? "" : "s"}`;
   }
-  const margin = Math.abs(homeRuns - awayRuns);
+  const margin = Math.abs(runsForSide(innings, "home") - runsForSide(innings, "away"));
   return `${winnerLabel} won by ${margin} run${margin === 1 ? "" : "s"}`;
+}
+
+// ─── Competitions / fixtures / ladders ──────────────────────────────────────
+// Standings are always live-computed (fetch a competition's completed matches + their innings and
+// reduce), never materialized — a competition's match count is modest even for a busy academy's
+// full season, so there's no scale reason to pre-aggregate the way player_career_stats needs to.
+
+/** Converts cricket's "X.Y" overs notation (Y = balls 0-5, e.g. 14.3 = 14 overs + 3 balls) — the
+ * form Innings.totalOvers is stored in (see oversDecimal above) — into true decimal overs (14.5)
+ * for arithmetic like Net Run Rate. These are NOT the same number: naively using the stored
+ * notation value directly in a rate calculation silently understates it. */
+export function trueOversFromNotation(notationOvers: number): number {
+  const overNumber = Math.floor(notationOvers);
+  const ballInOver = Math.round((notationOvers - overNumber) * 10);
+  return overNumber + ballInOver / BALLS_PER_OVER;
+}
+
+/** The overs figure NRR actually uses for one innings — real cricket convention: a team bowled
+ * out before using its full allotment is credited with the FULL allotted overs (not the fewer
+ * overs it actually took), so getting bowled out cheaply doesn't inflate your own NRR. A team that
+ * simply ran out of overs (not all out) uses the overs it actually faced. */
+function effectiveOversForNrr(innings: Innings, oversAllotted: number | null, playersPerSide = 11): number {
+  const allOut = innings.totalWickets >= playersPerSide - 1;
+  if (allOut && oversAllotted !== null) return oversAllotted;
+  return trueOversFromNotation(innings.totalOvers);
+}
+
+export interface StandingsRow {
+  sideLabel: string;
+  played: number;
+  won: number;
+  lost: number;
+  tied: number;
+  noResult: number;
+  points: number;
+  netRunRate: number;
+}
+
+/** Fetch-then-reduce standings computation (Map-bucketing, same style as finance-summary's own
+ * route) over a competition's completed/abandoned matches. `playersPerSide` only affects the
+ * NRR all-out threshold, not points — pass it if a competition ever isn't 11-a-side. */
+export function computeStandings(
+  entries: { match: Match; innings: Innings[] }[],
+  competition: Pick<Competition, "pointsForWin" | "pointsForTie" | "pointsForLoss" | "pointsForNoResult">,
+  playersPerSide = 11,
+): StandingsRow[] {
+  interface Bucket {
+    played: number; won: number; lost: number; tied: number; noResult: number; points: number;
+    runsFor: number; oversFor: number; runsAgainst: number; oversAgainst: number;
+  }
+  const bySide = new Map<string, Bucket>();
+  function bucket(label: string): Bucket {
+    let b = bySide.get(label);
+    if (!b) { b = { played: 0, won: 0, lost: 0, tied: 0, noResult: 0, points: 0, runsFor: 0, oversFor: 0, runsAgainst: 0, oversAgainst: 0 }; bySide.set(label, b); }
+    return b;
+  }
+
+  for (const { match, innings } of entries) {
+    const home = bucket(match.homeLabel);
+    const away = bucket(match.awayLabel);
+    home.played += 1;
+    away.played += 1;
+
+    const homeInnings = innings.filter((i) => i.battingSide === "home");
+    const awayInnings = innings.filter((i) => i.battingSide === "away");
+    const homeRuns = homeInnings.reduce((s, i) => s + i.totalRuns, 0);
+    const awayRuns = awayInnings.reduce((s, i) => s + i.totalRuns, 0);
+    const homeOvers = homeInnings.reduce((s, i) => s + effectiveOversForNrr(i, match.oversPerSide, playersPerSide), 0);
+    const awayOvers = awayInnings.reduce((s, i) => s + effectiveOversForNrr(i, match.oversPerSide, playersPerSide), 0);
+
+    home.runsFor += homeRuns; home.oversFor += homeOvers;
+    home.runsAgainst += awayRuns; home.oversAgainst += awayOvers;
+    away.runsFor += awayRuns; away.oversFor += awayOvers;
+    away.runsAgainst += homeRuns; away.oversAgainst += homeOvers;
+
+    const winner = match.status === "Abandoned" ? null : determineWinner(innings);
+    if (winner === "tie") {
+      home.tied += 1; away.tied += 1;
+      home.points += competition.pointsForTie; away.points += competition.pointsForTie;
+    } else if (winner === "home" || winner === "away") {
+      const [winSide, loseSide] = winner === "home" ? [home, away] : [away, home];
+      winSide.won += 1; loseSide.lost += 1;
+      winSide.points += competition.pointsForWin; loseSide.points += competition.pointsForLoss;
+    } else {
+      home.noResult += 1; away.noResult += 1;
+      home.points += competition.pointsForNoResult; away.points += competition.pointsForNoResult;
+    }
+  }
+
+  const rows: StandingsRow[] = Array.from(bySide.entries()).map(([sideLabel, b]) => ({
+    sideLabel, played: b.played, won: b.won, lost: b.lost, tied: b.tied, noResult: b.noResult,
+    points: b.points,
+    netRunRate: b.oversFor > 0 && b.oversAgainst > 0 ? (b.runsFor / b.oversFor) - (b.runsAgainst / b.oversAgainst) : 0,
+  }));
+
+  rows.sort((a, b) => b.points - a.points || b.netRunRate - a.netRunRate);
+  return rows;
+}
+
+export interface CreateCompetitionInput {
+  name: string;
+  academyId: string | null;
+  format: MatchFormat;
+  season: string;
+  pointsForWin: number;
+  pointsForTie: number;
+  pointsForLoss: number;
+  pointsForNoResult: number;
+}
+
+export async function createCompetition(input: CreateCompetitionInput): Promise<Competition> {
+  const id = newCompetitionId();
+  const row = {
+    id, name: input.name, academy_id: input.academyId, format: input.format, season: input.season,
+    points_for_win: input.pointsForWin, points_for_tie: input.pointsForTie,
+    points_for_loss: input.pointsForLoss, points_for_no_result: input.pointsForNoResult,
+    status: "Active", created_at: new Date().toISOString(),
+  };
+  await upsertCompetition(row);
+  return {
+    id, name: input.name, academyId: input.academyId, format: input.format, season: input.season,
+    pointsForWin: input.pointsForWin, pointsForTie: input.pointsForTie,
+    pointsForLoss: input.pointsForLoss, pointsForNoResult: input.pointsForNoResult,
+    status: "Active", createdAt: row.created_at,
+  };
+}
+
+export interface CreateFixtureInput {
+  competitionId: string;
+  homeLabel: string;
+  awayLabel: string;
+  scheduledDate: string;
+  venue: string;
+}
+
+export async function createFixture(input: CreateFixtureInput): Promise<Fixture> {
+  const id = newFixtureId();
+  await upsertFixture({
+    id, competition_id: input.competitionId, home_label: input.homeLabel, away_label: input.awayLabel,
+    scheduled_date: input.scheduledDate, venue: input.venue, status: "Scheduled", match_id: null,
+  });
+  return {
+    id, competitionId: input.competitionId, homeLabel: input.homeLabel, awayLabel: input.awayLabel,
+    scheduledDate: input.scheduledDate, venue: input.venue, status: "Scheduled", matchId: null,
+  };
+}
+
+/** Links a fixture to the match that fulfils it, once scoring starts — called right after
+ * createMatch in the "Score this match" flow. Deliberately separate from createMatch itself since
+ * a standalone friendly match has no fixture to link at all. */
+export async function linkFixtureToMatch(fixtureId: string, matchId: string): Promise<void> {
+  await updateFixture(fixtureId, { match_id: matchId, status: "Played" });
 }
 
 // ─── Career-stats recompute (pure aggregation + service-role write) ────────
