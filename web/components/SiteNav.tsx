@@ -128,8 +128,8 @@ export function SiteNav() {
         </div>
 
         <div className="hidden lg:flex items-center gap-5">
-          <a href="/login" className="text-[13px] text-hp-paper/72 hover:text-hp-paper transition-colors">
-            Login
+          <a href="/login" className="px-3.5 py-2 font-mono text-[12px] font-semibold tracking-[0.18em] text-hp-paper/90 hover:text-hp-paper uppercase transition-colors">
+            LOGIN
           </a>
           <a
             href="/signup"
