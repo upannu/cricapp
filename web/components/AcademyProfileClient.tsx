@@ -10,6 +10,7 @@ import {
 } from "@/lib/db";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { CreditCardIcon, PowerIcon, PowerOffIcon } from "@/components/icons";
 import { getPlatformFeePercent, isValidEmail } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
@@ -382,6 +383,18 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
 
       {/* Header card + actions */}
       <div className="bg-hp-surface border border-white/8 p-6 mb-1 flex flex-wrap items-center justify-between gap-5">
+        <div className="flex items-start gap-5 min-w-0">
+          <ProfilePhotoUpload
+            entityType="academy"
+            entityId={academy.id}
+            photoUrl={academy.logoUrl}
+            fallback={academy.name[0] ?? "A"}
+            canEdit={user?.role === "platform_admin" || (user?.role === "academy_admin" && user.academyId === academy.id)}
+            onUploaded={(url) => {
+              setAcademy((prev) => prev ? { ...prev, logoUrl: url } : prev);
+              updateAcademyFields(academy.id, { logo_url: url }).catch(() => {});
+            }}
+          />
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
             <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">{academy.name}</h1>
@@ -402,6 +415,7 @@ export function AcademyProfileClient({ academyId }: { academyId: string }) {
             )}
             <span>{assignedPlayers.length} Players · {assignedCoaches.length} Coaches</span>
           </p>
+        </div>
         </div>
 
         <div className="flex items-center gap-2.5">

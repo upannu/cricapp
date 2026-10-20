@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@/lib/auth";
 import { fetchCoach, fetchCoaches, fetchAcademies, fetchPlayers, updateCoachFields, reassignCoachPlayers, updateAcademyFields } from "@/lib/db";
 import { InfoCard, InfoRow } from "@/components/InfoCard";
 import { RowActionsMenu } from "@/components/RowActionsMenu";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { PowerIcon, PowerOffIcon, EyeIcon, EyeOffIcon, MailIcon, RepeatIcon, TrashIcon } from "@/components/icons";
 import type { Academy, Coach, CertificationLevel, Player } from "@/lib/types";
 
@@ -24,6 +26,7 @@ const REMOVED_REASON = "Removed by staff via Coaches page";
 // pointing at the dedicated /coaches/[id]/edit page, so staff never has to bounce back to the list
 // to act on the coach they're already looking at.
 export function CoachProfileClient({ coachId }: { coachId: string }) {
+  const { user } = useAuth();
   const [coach, setCoach] = useState<Coach | null>(null);
   const [academies, setAcademies] = useState<Academy[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -80,6 +83,9 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
   const academy = coach.academyId ? academies.find((a) => a.id === coach.academyId) : undefined;
   const initials = coach.name.split(" ").map((n) => n[0] ?? "").join("");
   const playerCount = players.length;
+  const canEditPhoto = user?.role === "platform_admin"
+    || (user?.role === "coach" && user.coachId === coach.id)
+    || (user?.role === "academy_admin" && !!user.academyId && coach.academyId === user.academyId);
 
   async function handleSetupPayouts() {
     setPayoutLoading(true);
@@ -312,9 +318,17 @@ export function CoachProfileClient({ coachId }: { coachId: string }) {
       {/* Header card + actions */}
       <div className="bg-hp-surface border border-white/8 p-6 mb-1 flex flex-wrap items-center justify-between gap-5">
         <div className="flex items-start gap-5">
-          <div className="w-20 h-20 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-2xl flex-shrink-0">
-            {initials}
-          </div>
+          <ProfilePhotoUpload
+            entityType="coach"
+            entityId={coach.id}
+            photoUrl={coach.photoUrl}
+            fallback={initials}
+            canEdit={!!canEditPhoto}
+            onUploaded={(url) => {
+              setCoach({ ...coach, photoUrl: url });
+              updateCoachFields(coach.id, { photo_url: url }).catch(() => {});
+            }}
+          />
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
               <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">{coach.name}</h1>

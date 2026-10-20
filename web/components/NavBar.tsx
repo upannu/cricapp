@@ -53,6 +53,7 @@ const ADMIN_STRUCTURE: AdminSection[] = [
   { section: "Platform", items: [
     { label: "Approvals", href: "/admin/approvals" },
     { label: "Platform KPIs", href: "/admin/kpis" },
+    { label: "Roadmap", href: "/admin/roadmap" },
   ] },
   { section: "Content & Communications", items: [
     { label: "Content", href: "/admin/academy" },

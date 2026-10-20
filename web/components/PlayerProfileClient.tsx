@@ -9,6 +9,7 @@ import type { PlayerVideoTagEntry } from "@/lib/db";
 import { formatDate, formatTimestamp, getPlayerStatus, getCoachOrAcademyLabel } from "@/lib/utils";
 import { sessionsLimitForPlan } from "@/lib/plan-features";
 import { PlayerMessages } from "@/components/PlayerMessages";
+import { ProfilePhotoUpload } from "@/components/ProfilePhotoUpload";
 import { computeInjuryRiskTrend, computeRpeSummary, computeSCLoadSummary, type InjuryRiskTrend, type RpeSummary, type SCLoadSummary } from "@/lib/performance-trends";
 import { Sparkline } from "@/components/Sparkline";
 import { BadgeStrip } from "@/components/BadgeStrip";
@@ -124,6 +125,11 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
   const isIndependentCoach = user?.role === "coach" && !!user.coachId && !ownCoach?.academyId;
   const canAddPlayers = isIndependentCoach || (user?.role === "academy_admin" && !!user.academyId) || user?.role === "platform_admin";
 
+  const canEditPhoto = user?.role === "platform_admin"
+    || ((user?.role === "player" || user?.role === "parent") && user.playerId === player.id)
+    || (user?.role === "coach" && !!user.coachId && player.coachId === user.coachId)
+    || (user?.role === "academy_admin" && !!user.academyId && academies.some((a) => a.id === user.academyId && a.playerIds.includes(player.id)));
+
   async function handleConfirmReassign() {
     setReassigning(true);
     try {
@@ -221,9 +227,17 @@ export function PlayerProfileClient({ playerId }: { playerId: string }) {
           rather than overflowing, same as every other button/nav row in this app. */}
       <div className="bg-hp-surface border border-white/8 p-6 mb-4 flex flex-wrap items-center justify-between gap-5">
         <div className="flex items-start gap-5">
-          <div className="w-20 h-20 rounded-full bg-hp-cg flex items-center justify-center text-hp-paper font-bold text-2xl flex-shrink-0">
-            {initials}
-          </div>
+          <ProfilePhotoUpload
+            entityType="player"
+            entityId={player.id}
+            photoUrl={player.photoUrl}
+            fallback={initials}
+            canEdit={!!canEditPhoto}
+            onUploaded={(url) => {
+              setPlayer({ ...player, photoUrl: url });
+              updatePlayer(player.id, { photo_url: url }).catch(() => {});
+            }}
+          />
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
               <h1 className="font-display font-black uppercase text-2xl text-hp-paper tracking-wide">{player.name}</h1>
