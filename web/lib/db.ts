@@ -18,6 +18,7 @@ import type {
   Match, MatchFormat, MatchStatus, MatchSource, MatchSide, TossDecision,
   MatchParticipant, MatchScorer, Innings, InningsStatus, Delivery, ExtraType, WicketType,
   PlayerCareerStats, ImportedMatchStats, Competition, CompetitionStatus, Fixture, FixtureStatus,
+  RoadmapItem, RoadmapItemStatus,
 } from "@/lib/types";
 import { STAGE_ORDER, XP_PER_ARTICLE, STAGE_COMPLETE_BONUS_XP, ALL_ARTICLES_BONUS_XP, ACADEMY_TOTAL_ARTICLES, TIP_STREAK_BONUS_XP, TIP_STREAK_TARGET_DAYS, currentUnlockedStage } from "@/lib/academy-content";
 import { DEFAULT_CURRENCY, type Currency } from "@/lib/currency";
@@ -48,6 +49,7 @@ export interface DbPlayer {
   tip_streak_count?: number; tip_best_streak?: number; tip_last_viewed_date?: string | null;
   login_disabled?: boolean; disabled_at?: string | null; disabled_reason?: string | null;
   currency?: string;
+  photo_url?: string | null;
 }
 
 export interface DbCoach {
@@ -69,6 +71,7 @@ export interface DbCoach {
   login_disabled?: boolean;
   disabled_at?: string | null;
   disabled_reason?: string | null;
+  photo_url?: string | null;
 }
 
 export interface DbAcademy {
@@ -84,6 +87,10 @@ export interface DbAcademy {
   access_expires_at?: string | null;
   payout_model?: string;
   squad_video_sharing_enabled?: boolean;
+  playhq_org_id?: string | null;
+  playhq_org_name?: string | null;
+  playhq_connected_at?: string | null;
+  logo_url?: string | null;
 }
 
 export interface DbBooking {
@@ -207,6 +214,7 @@ export function dbToPlayer(r: DbPlayer): Player {
     loginDisabled: r.login_disabled ?? false,
     disabledAt: r.disabled_at ?? null,
     disabledReason: r.disabled_reason ?? null,
+    photoUrl: r.photo_url ?? undefined,
     currency: (r.currency as Currency | undefined) ?? DEFAULT_CURRENCY,
     subscription: {
       plan: r.sub_plan as PlanTier,
@@ -257,6 +265,7 @@ export function dbToCoach(r: DbCoach): Coach {
     loginDisabled: r.login_disabled ?? false,
     disabledAt: r.disabled_at ?? null,
     disabledReason: r.disabled_reason ?? null,
+    photoUrl: r.photo_url ?? undefined,
   };
 }
 
@@ -283,6 +292,10 @@ export function dbToAcademy(r: DbAcademy): Academy {
     accessExpiresAt: r.access_expires_at ?? undefined,
     payoutModel: (r.payout_model as Academy["payoutModel"]) ?? "head_coach",
     squadVideoSharingEnabled: r.squad_video_sharing_enabled ?? false,
+    playhqOrgId: r.playhq_org_id ?? undefined,
+    playhqOrgName: r.playhq_org_name ?? undefined,
+    playhqConnectedAt: r.playhq_connected_at ?? undefined,
+    logoUrl: r.logo_url ?? undefined,
   };
 }
 
@@ -1950,6 +1963,7 @@ export interface DbMatch {
   scheduled_date: string; competition_id: string | null; fixture_id: string | null;
   scored_by_coach_id: string | null; created_by_user_id: string;
   result: string | null; created_at: string;
+  playhq_game_id?: string | null;
 }
 
 export function dbToMatch(r: DbMatch): Match {
@@ -1962,6 +1976,7 @@ export function dbToMatch(r: DbMatch): Match {
     competitionId: r.competition_id, fixtureId: r.fixture_id,
     scoredByCoachId: r.scored_by_coach_id, createdByUserId: r.created_by_user_id,
     result: r.result, createdAt: r.created_at,
+    playhqGameId: r.playhq_game_id ?? null,
   };
 }
 
@@ -1979,6 +1994,15 @@ export async function fetchMatches(filters?: { academyId?: string; competitionId
 export async function fetchMatch(id: string): Promise<Match | null> {
   const sb = createClient();
   const { data, error } = await sb.from("matches").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? dbToMatch(data as DbMatch) : null;
+}
+
+/** Idempotency check before a PlayHQ import — matches are select-authenticated for any signed-in
+ * user (see prod_live_scoring_schema.sql), so this is safe on the normal anon client. */
+export async function fetchMatchByPlayhqGameId(playhqGameId: string): Promise<Match | null> {
+  const sb = createClient();
+  const { data, error } = await sb.from("matches").select("*").eq("playhq_game_id", playhqGameId).maybeSingle();
   if (error) throw error;
   return data ? dbToMatch(data as DbMatch) : null;
 }
@@ -2262,4 +2286,28 @@ export async function updateFixture(id: string, edits: Partial<DbFixture>): Prom
   const sb = createClient();
   const { error } = await sb.from("fixtures").update(edits).eq("id", id);
   if (error) throw error;
+}
+
+// ─── Platform roadmap (platform_admin-only internal feature tracker) ──────
+// Read-only here — writes go through app/api/admin/roadmap/route.ts (service-role), since this
+// is a platform-wide table with no owning row RLS can scope a client write to, same treatment as
+// the Plans catalog (see that route for the precedent).
+
+export interface DbRoadmapItem {
+  id: string; title: string; description: string; status: string;
+  created_at: string; updated_at: string;
+}
+
+export function dbToRoadmapItem(r: DbRoadmapItem): RoadmapItem {
+  return {
+    id: r.id, title: r.title, description: r.description,
+    status: r.status as RoadmapItemStatus, createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+}
+
+export async function fetchRoadmapItems(): Promise<RoadmapItem[]> {
+  const sb = createClient();
+  const { data, error } = await sb.from("platform_roadmap_items").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as DbRoadmapItem[]).map(dbToRoadmapItem);
 }

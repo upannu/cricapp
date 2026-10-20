@@ -191,6 +191,15 @@ export interface Academy {
    * frame; this is the academy-level consent step for that tradeoff, checked both client-side
    * (hides the feature entirely) and server-side (every upload/tag API route re-verifies it). */
   squadVideoSharingEnabled: boolean;
+  /** PlayHQ (lib/playhq.ts) connection, set via POST /api/playhq/connect — null/undefined means
+   * not connected. The platform's own PLAYHQ_API_KEY/PLAYHQ_TENANT cover every academy; this is
+   * only which PlayHQ organisation (club) to pull games from, mirroring how a coach's
+   * stripeConnectAccountId is just an id, not a secret. */
+  playhqOrgId?: string;
+  playhqOrgName?: string;
+  playhqConnectedAt?: string;
+  /** Uploaded via ProfilePhotoUpload (see lib/profile-photo-upload.ts) — absent until a logo has been set. */
+  logoUrl?: string;
 }
 
 /** A physical practice net belonging to an academy — e.g. "Net 1", "Turf Net". Used at booking
@@ -449,6 +458,8 @@ export interface Coach {
   loginDisabled: boolean;
   disabledAt: string | null;
   disabledReason: string | null;
+  /** Uploaded via ProfilePhotoUpload (see lib/profile-photo-upload.ts) — absent until a photo has been set. */
+  photoUrl?: string;
 }
 
 export type BookingStatus = 'Confirmed' | 'Pending' | 'Cancelled' | 'Completed';
@@ -557,6 +568,8 @@ export interface Player {
   loginDisabled: boolean;
   disabledAt: string | null;
   disabledReason: string | null;
+  /** Uploaded via ProfilePhotoUpload (see lib/profile-photo-upload.ts) — absent until a photo has been set. */
+  photoUrl?: string;
 }
 
 // ─── Coach workflow: action plans, video annotation, voice notes, assessments ──
@@ -878,6 +891,9 @@ export interface Match {
   /** Human-readable summary, e.g. "Home won by 24 runs" — computed once at completion, not derived live. */
   result: string | null;
   createdAt: string;
+  /** PlayHQ's own game id — set only when source is 'imported' via the PlayHQ importer
+   * (lib/playhq.ts), unique where non-null, used to make re-importing the same game a no-op. */
+  playhqGameId: string | null;
 }
 
 export interface MatchParticipant {
@@ -1025,4 +1041,17 @@ export interface Fixture {
   venue: string;
   status: FixtureStatus;
   matchId: string | null;
+}
+
+// ─── Platform roadmap (platform_admin-only internal feature tracker) ───────
+
+export type RoadmapItemStatus = 'Planned' | 'In Progress' | 'Completed';
+
+export interface RoadmapItem {
+  id: string;
+  title: string;
+  description: string;
+  status: RoadmapItemStatus;
+  createdAt: string;
+  updatedAt: string;
 }

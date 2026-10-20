@@ -56,6 +56,26 @@ export async function callerCanAccessPlayer(
 }
 
 /**
+ * Ownership check mirroring callerCanAccessPlayer's shape, for privileged routes acting on a
+ * specific coach — platform_admin always; a coach only on themselves; academy_admin only within
+ * their own academy's roster.
+ */
+export async function callerCanAccessCoach(
+  supabase: SupabaseClient,
+  caller: Caller,
+  targetCoachId: string,
+): Promise<boolean> {
+  if (caller.role === "platform_admin") return true;
+  if (caller.role === "coach") return caller.coachId === targetCoachId;
+  if (caller.role === "academy_admin") {
+    if (!caller.academyId) return false;
+    const { data } = await supabase.from("coaches").select("academy_id").eq("id", targetCoachId).maybeSingle();
+    return data?.academy_id === caller.academyId;
+  }
+  return false;
+}
+
+/**
  * Ownership check for privileged routes acting on a group (Squad Training) session — mirrors
  * callerCanAccessPlayer's role structure: platform_admin always; academy_admin only within their
  * own academy; coach only their own group. Used to gate the squad-video upload/tag routes, which
