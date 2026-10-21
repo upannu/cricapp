@@ -231,7 +231,12 @@ export function PortalLogSessionClient() {
 
         <div className="bg-hp-surface p-6">
           <p className="text-xs font-semibold uppercase tracking-wider text-hp-paper/45 mb-1">Camera Angles (optional)</p>
-          <p className="text-xs text-hp-paper/45 mb-4">Only needed if you want an AI biomechanics report — skip this for a Warm-up / Conditioning or Fitness Assessment session. Side-on gives the most accurate analysis when you do add one.</p>
+          <p className="text-xs text-hp-paper/45 mb-4">
+            Only needed if you want an AI biomechanics report — skip this for a Warm-up / Conditioning or Fitness Assessment session. Side-on gives the most accurate analysis when you do add one.{" "}
+            <a href="/video-guide" target="_blank" rel="noopener noreferrer" className="text-pace-green hover:underline">
+              How to film for best results →
+            </a>
+          </p>
           <div className="space-y-3">
             {CAMERA_ANGLES.map((cam) => {
               const angleState = angles[cam.id];
