@@ -9,6 +9,15 @@ import type { NextConfig } from "next";
 const NO_CACHE_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password"];
 
 const nextConfig: NextConfig = {
+  // Next.js sizes its "Collecting page data" build worker pool off os.cpus().length - 1 by
+  // default. Hostinger's build container reports the HOST's full CPU count (64) rather than its
+  // actual resource allotment, so the default spawned 63 workers and hit "OS can't spawn worker
+  // thread: Resource temporarily unavailable" (errno 11) partway through the build — a container
+  // resource-limit issue, not a code issue (every PR builds cleanly in GitHub Actions' own CI).
+  // Capping it low keeps the build well under whatever the container can actually provide.
+  experimental: {
+    cpus: 2,
+  },
   async headers() {
     return NO_CACHE_PATHS.map((source) => ({
       source,
