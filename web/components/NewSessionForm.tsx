@@ -355,7 +355,10 @@ export function NewSessionForm({
           <p className="text-xs text-hp-paper/45 mb-5">
             Target: {MIN_FPS}+ fps · {MIN_LONG_EDGE_PX}×{MIN_SHORT_EDGE_PX} (1080p) · MP4 · all 3 angles recommended for AI analysis.
             Lower-quality clips (e.g. shared via WhatsApp) still upload — you&apos;ll just see a quality warning.
-            Every clip is normalized to H.264 MP4 in your browser before upload.
+            Every clip is normalized to H.264 MP4 in your browser before upload.{" "}
+            <a href="/video-guide" target="_blank" rel="noopener noreferrer" className="text-pace-green hover:underline">
+              How to film for best results →
+            </a>
           </p>
 
           <div className="space-y-3">

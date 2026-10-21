@@ -86,7 +86,11 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/organisations") ||
     pathname.startsWith("/programs") ||
     pathname.startsWith("/platform") ||
-    pathname.startsWith("/performance-intelligence");
+    pathname.startsWith("/performance-intelligence") ||
+    // Filming/upload guide for the AI report pipeline — needs to stay reachable signed out so it
+    // can be shared with a parent before they film, and stays visible to a signed-in coach/player
+    // too (linked from NewSessionForm/PortalLogSessionClient).
+    pathname.startsWith("/video-guide");
 
   if (!user && !isPublicPage && !isAlwaysPublicPage && !isAuthApi) {
     return NextResponse.redirect(new URL("/login", request.url));
